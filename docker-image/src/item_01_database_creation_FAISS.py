@@ -2,10 +2,10 @@
 import os
 
 # Get the current script's directory
-current_dir = os.path.dirname(os.path.abspath(__file__))
+# current_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Navigate two levels up
-working_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
+# working_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
 
 #%%
 from dotenv import load_dotenv, find_dotenv
@@ -15,14 +15,14 @@ load_dotenv(find_dotenv()) # search for .env file in directory, then load enviro
 #%%
 
 from langchain_community.vectorstores import FAISS  # Import FAISS vectorstore
-from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.llms import OpenAI
 from langchain.chains import RetrievalQA
 from langchain_community.document_loaders import TextLoader, PyPDFLoader, DirectoryLoader
 
 # pdf_folder = os.path.join(working_dir, "data", "nine_pdfs")
-pdf_folder = os.path.join(working_dir, "data", "learning_pdfs") # define directory containing pdfs
+pdf_folder = "/app/data/learning_pdfs"  # based on mounting in docker container - may change later
 
 loader = DirectoryLoader(pdf_folder, glob="**/*.pdf", loader_cls=PyPDFLoader)
 documents = loader.load() # scan pdf_folder, recursively load all pdfs, extract text using PyPDFLoader
@@ -47,5 +47,6 @@ vectordb = FAISS.from_documents(documents=texts, embedding=embedding)
 #%%
 
 # Save the FAISS vectorstore to disk (optional, you can serialize it for later use)
-faiss_save_path = os.path.join(working_dir, "faiss_index")
+# faiss_save_path = os.path.join(working_dir, "faiss_index")
+faiss_save_path = "/app/faiss_index/" # based on mounting in docker container - may change later
 vectordb.save_local(faiss_save_path)
