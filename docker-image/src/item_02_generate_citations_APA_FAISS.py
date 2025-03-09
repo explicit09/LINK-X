@@ -11,8 +11,8 @@ working_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
 from dotenv import load_dotenv, find_dotenv
 import pandas as pd
 import openai
-from langchain.vectorstores import FAISS
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import OpenAIEmbeddings
 
 # Load environment variables
 load_dotenv(find_dotenv())

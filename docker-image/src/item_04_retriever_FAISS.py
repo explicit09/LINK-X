@@ -18,8 +18,8 @@ import warnings
 warnings.filterwarnings("ignore", message=".*LangChainDeprecationWarning.*")
 
 
-from langchain.vectorstores import FAISS
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_openai import ChatOpenAI
 from langchain.chains import RetrievalQA
 from langchain_core.globals import set_verbose, set_debug
