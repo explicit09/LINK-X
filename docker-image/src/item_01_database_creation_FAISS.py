@@ -10,28 +10,28 @@ working_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
 #%%
 from dotenv import load_dotenv, find_dotenv
 
-load_dotenv(find_dotenv())
+load_dotenv(find_dotenv()) # search for .env file in directory, then load environment variables
 
 #%%
 
-from langchain.vectorstores import FAISS  # Import FAISS vectorstore
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS  # Import FAISS vectorstore
+from langchain_community.embeddings import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.llms import OpenAI
+from langchain_community.llms import OpenAI
 from langchain.chains import RetrievalQA
-from langchain.document_loaders import TextLoader, PyPDFLoader
-from langchain.document_loaders import DirectoryLoader
+from langchain_community.document_loaders import TextLoader, PyPDFLoader, DirectoryLoader
 
-pdf_folder = os.path.join(working_dir, "data", "nine_pdfs")
+# pdf_folder = os.path.join(working_dir, "data", "nine_pdfs")
+pdf_folder = os.path.join(working_dir, "data", "learning_pdfs") # define directory containing pdfs
 
 loader = DirectoryLoader(pdf_folder, glob="**/*.pdf", loader_cls=PyPDFLoader)
-documents = loader.load()
+documents = loader.load() # scan pdf_folder, recursively load all pdfs, extract text using PyPDFLoader
 
 #%%
 
 # Splitting the text into chunks
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-texts = text_splitter.split_documents(documents)
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200) # Divide into 1000 char chunks w/ 200 char overlap to retain context across chunks
+texts = text_splitter.split_documents(documents) # contains the document chunks
 
 len(texts)
 
@@ -39,7 +39,7 @@ len(texts)
 # Create the DB using FAISS
 
 # Use OpenAI embeddings
-embedding = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
+embedding = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY")) # convert text into OpenAI vector embeddings
 
 # Create FAISS vector store from documents
 vectordb = FAISS.from_documents(documents=texts, embedding=embedding)
