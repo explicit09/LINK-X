@@ -1,52 +1,45 @@
 #%%
 import os
-
-# Get the current script's directory
-# current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Navigate two levels up
-# working_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
-
-#%%
+import sys
 from dotenv import load_dotenv, find_dotenv
-
-load_dotenv(find_dotenv()) # search for .env file in directory, then load environment variables
-
-#%%
-
 from langchain_community.vectorstores import FAISS  # Import FAISS vectorstore
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.llms import OpenAI
-from langchain.chains import RetrievalQA
-from langchain_community.document_loaders import TextLoader, PyPDFLoader, DirectoryLoader
+from langchain_community.document_loaders import PyPDFLoader
 
-# pdf_folder = os.path.join(working_dir, "data", "nine_pdfs")
-pdf_folder = "/app/data/learning_pdfs"  # based on mounting in docker container - may change later
+#%% Load environment variables from .env file
+load_dotenv(find_dotenv())
 
-loader = DirectoryLoader(pdf_folder, glob="**/*.pdf", loader_cls=PyPDFLoader)
-documents = loader.load() # scan pdf_folder, recursively load all pdfs, extract text using PyPDFLoader
+#%% Check for correct arguments
+if len(sys.argv) != 2:
+    print("Usage: python script_name.py <path_to_pdf>")
+    sys.exit(1)
 
-#%%
+pdf_path = sys.argv[1]
 
-# Splitting the text into chunks
+# Validate existence of PDF file path
+if not os.path.isfile(pdf_path):
+    print(f"The provided path is not a valid file: {pdf_path}")
+    sys.exit(1)
+
+#%% PDF Loading and Text Extraction
+loader = PyPDFLoader(pdf_path)
+documents = loader.load() # load the pdf and extract text using PyPDFLoader
+
+#%% Splitting the text into chunks
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200) # Divide into 1000 char chunks w/ 200 char overlap to retain context across chunks
 texts = text_splitter.split_documents(documents) # contains the document chunks
+print(f"Number of text chunks: {len(texts)}")
 
-len(texts)
-
-#%%
-# Create the DB using FAISS
-
-# Use OpenAI embeddings
+#%% FAISS Vector Store Creation
 embedding = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY")) # convert text into OpenAI vector embeddings
-
-# Create FAISS vector store from documents
 vectordb = FAISS.from_documents(documents=texts, embedding=embedding)
 
 #%%
 
-# Save the FAISS vectorstore to disk (optional, you can serialize it for later use)
-# faiss_save_path = os.path.join(working_dir, "faiss_index")
-faiss_save_path = "/app/faiss_index/" # based on mounting in docker container - may change later
-vectordb.save_local(faiss_save_path)
+pdf_name = os.path.splitext(os.path.basename(pdf_path))[0]
+output_dir = os.path.join("faiss_generated", pdf_name, "faiss_index")
+
+os.makedirs(output_dir, exist_ok=True)
+
+vectordb.save_local(output_dir)
