@@ -24,3 +24,5 @@ docker build -t dev7 docker-image || { echo "Docker build failed"; exit 1; }
 echo "Step 2: Running Backend..."
 cd docker-image/src || { echo "Failed to navigate to docker-image/src"; exit 1; }
 docker run --env-file .env -p 8080:8080 dev7 || { echo "Docker run failed"; exit 1; }
+
+# docker run -v ../../data:/app/data -v ~/Computer\ Science/cs4020/LINK-X/docker-image/src:/app/src --env-file .env link-x-backend /bin/bash
