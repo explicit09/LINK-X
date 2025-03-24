@@ -12,7 +12,7 @@ load_dotenv(find_dotenv())
 
 #%% Check for correct arguments
 if len(sys.argv) != 2:
-    print("Usage: python script_name.py <path_to_pdf>")
+    print("Usage: python item_01_database_creation_FAISS.py <path_to_pdf>")
     sys.exit(1)
 
 pdf_path = sys.argv[1]
