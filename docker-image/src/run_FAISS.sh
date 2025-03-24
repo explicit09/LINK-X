@@ -10,6 +10,10 @@ fi
 
 # Assign input argument to variable
 PDF_PATH=$1
+# Remove file path and extension
+PDF_NAME=$(basename "$PDF_PATH" .pdf)
+# Set working directory location for specific pdf
+WORKING_DIR="faiss_generated/${PDF_NAME}/"
 
 # Verify PDF exists
 if [ ! -f $PDF_PATH ]; then
@@ -23,6 +27,9 @@ if [ ! -r $PDF_PATH ]; then
 fi
 
 echo "Running item_01_database_creation_FAISS.py with provided pdf"
-python3 item_01_database_creation_FAISS.py "$PDF_PATH"
+# TODO: Change item_01 so that it provides the WORKING_DIR back to the script
+# Don't want the path hardcoded in two places if I can help it
+python item_01_database_creation_FAISS.py "$PDF_PATH"
 
-echo "Running item_02_generate_citations_APA_FAISS.py
+echo "Running item_02_generate_citations_APA_FAISS.py"
+python item_02_generate_citations_APA_FAISS.py "$WORKING_DIR"
