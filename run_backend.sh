@@ -16,13 +16,7 @@ if $REMOVE_OLD; then
     echo "Step 0: Removing existing containers using image \"dev7\""
     docker ps -aq --filter "ancestor=dev7" | xargs -r docker rm -f
 fi
-# Step 1: Build Backend
-echo "Step 1: Building Backend..."
-docker build -t dev7 docker-image || { echo "Docker build failed"; exit 1; }
 
-# Step 2: Run Backend
-echo "Step 2: Running Backend..."
-cd docker-image/src || { echo "Failed to navigate to docker-image/src"; exit 1; }
 
 # -d flag to run in detatched mode
 # use "docker exec -it <container_id_or_name> /bin/bash" 
