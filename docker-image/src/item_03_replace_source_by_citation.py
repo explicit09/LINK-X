@@ -2,27 +2,40 @@
 import os
 
 # Get the current script's directory
-current_dir = os.path.dirname(os.path.abspath(__file__))
+# current_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Navigate two levels up
-working_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
+# working_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
 
 #%%
-
+import os
+import sys
 from dotenv import load_dotenv, find_dotenv
 import pandas as pd
 from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 
 # Load environment variables
 load_dotenv(find_dotenv())
+
+#%% Check for correct arguments
+if len(sys.argv) != 2:
+    print("Usage: python item_02_generate_citations_FAISS.py <path_to_working_directory>")
+    sys.exit(1)
+
+working_dir = sys.argv[1]
+faiss_index_path = os.path.join(working_dir, "faiss_index")
+
+# Validate existence of PDF file path
+if not os.path.isdir(faiss_index_path):
+    print(f"The provided path is not a valid file: {faiss_index_path}")
+    sys.exit(1)
 
 # Initialize OpenAI embeddings
 embedding = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Load the FAISS index
-faiss_save_path = os.path.join(working_dir, "faiss_index")
-vectordb = FAISS.load_local(faiss_save_path, embedding, allow_dangerous_deserialization=True)
+vectordb = FAISS.load_local(faiss_index_path, embedding, allow_dangerous_deserialization=True)
 
 # Load the CSV file with sources and references
 csv_filename = os.path.join(working_dir, "additional_files", "citations.csv")
@@ -48,7 +61,7 @@ for key in all_keys:
     )
 
 # Save the modified vectordb to local
-vectordb.save_local(faiss_save_path)
+vectordb.save_local(faiss_index_path)
 
 print(f"Sources in the FAISS database have been replaced with their corresponding references.")
 
