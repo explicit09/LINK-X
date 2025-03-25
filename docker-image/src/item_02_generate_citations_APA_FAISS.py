@@ -12,7 +12,7 @@ load_dotenv(find_dotenv())
 
 #%% Check for correct arguments
 if len(sys.argv) != 2:
-    print("Usage: python item_02_generate_citations_FAISS.py <path_to_working_directorys>")
+    print("Usage: python item_02_generate_citations_FAISS.py <path_to_working_directory>")
     sys.exit(1)
 
 working_dir = sys.argv[1]
