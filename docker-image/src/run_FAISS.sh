@@ -26,10 +26,16 @@ if [ ! -r $PDF_PATH ]; then
     exit 1
 fi
 
-echo "Running item_01_database_creation_FAISS.py with provided pdf"
+echo -e "\nRunning item_01_database_creation_FAISS.py with provided pdf"
 # TODO: Change item_01 so that it provides the WORKING_DIR back to the script
 # Don't want the path hardcoded in two places if I can help it
 python item_01_database_creation_FAISS.py "$PDF_PATH"
 
-echo "Running item_02_generate_citations_APA_FAISS.py"
+echo -e "\nRunning item_02_generate_citations_APA_FAISS.py"
 python item_02_generate_citations_APA_FAISS.py "$WORKING_DIR"
+
+echo -e "\nRunning item_03_replace_source_by_citation.py"
+python item_03_replace_source_by_citation.py "$WORKING_DIR"
+
+echo -e "\nRunning item_04_retriever_FAISS.py"
+python item_04_retriever_FAISS.py "$WORKING_DIR"

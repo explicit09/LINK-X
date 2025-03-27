@@ -1,13 +1,3 @@
-#%%
-import os
-
-# Get the current script's directory
-# current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Navigate two levels up
-# working_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
-
-#%%
 import os
 import sys
 from dotenv import load_dotenv, find_dotenv
@@ -18,7 +8,7 @@ from langchain_openai import OpenAIEmbeddings
 # Load environment variables
 load_dotenv(find_dotenv())
 
-#%% Check for correct arguments
+# Check for correct arguments
 if len(sys.argv) != 2:
     print("Usage: python item_02_generate_citations_FAISS.py <path_to_working_directory>")
     sys.exit(1)
@@ -26,7 +16,7 @@ if len(sys.argv) != 2:
 working_dir = sys.argv[1]
 faiss_index_path = os.path.join(working_dir, "faiss_index")
 
-# Validate existence of PDF file path
+# Validate existence of faiss index directory
 if not os.path.isdir(faiss_index_path):
     print(f"The provided path is not a valid file: {faiss_index_path}")
     sys.exit(1)
@@ -39,6 +29,9 @@ vectordb = FAISS.load_local(faiss_index_path, embedding, allow_dangerous_deseria
 
 # Load the CSV file with sources and references
 csv_filename = os.path.join(working_dir, "additional_files", "citations.csv")
+if not os.path.isfile(csv_filename):
+    print(f"Error: Citations CSV file not found at: {csv_filename}")
+    sys.exit(1)
 citations_df = pd.read_csv(csv_filename)
 
 # Create a dictionary for quick lookup
@@ -66,7 +59,7 @@ vectordb.save_local(faiss_index_path)
 print(f"Sources in the FAISS database have been replaced with their corresponding references.")
 
 # Optionally, verify a few entries
-print("\nVerifying a few entries:")
-for i in range(min(5, len(all_keys))):
-    print(f"Document {i + 1} source:", vectordb.docstore.__dict__['_dict'][all_keys[i]].metadata["source"])
-# %%
+# This should show chunks with the same citation when using a single PDF
+# print("\nVerifying a few entries:")
+# for i in range(min(5, len(all_keys))):
+#     print(f"Document {i + 1} source:", vectordb.docstore.__dict__['_dict'][all_keys[i]].metadata["source"])
