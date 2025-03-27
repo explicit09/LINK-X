@@ -1,4 +1,3 @@
-#%%
 import os
 import sys
 from dotenv import load_dotenv, find_dotenv
@@ -7,10 +6,10 @@ from langchain_openai import OpenAIEmbeddings
 import pandas as pd
 import openai
 
-#%% Load environment variables from .env file
+# Load environment variables from .env file
 load_dotenv(find_dotenv())
 
-#%% Check for correct arguments
+# Check for correct arguments
 if len(sys.argv) != 2:
     print("Usage: python item_02_generate_citations_FAISS.py <path_to_working_directory>")
     sys.exit(1)
@@ -23,7 +22,7 @@ if not os.path.isdir(faiss_index_path):
     print(f"The provided path is not a valid file: {faiss_index_path}")
     sys.exit(1)
 
-#%% Initialize OpenAI embeddings
+# Initialize OpenAI embeddings
 embedding = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
 
 # Load the FAISS index
@@ -70,7 +69,6 @@ for source in unique_sources:
 # Create a new DataFrame with Source and Reference columns
 citations_df = pd.DataFrame(list(reference_dict.items()), columns=['Source', 'Reference'])
 
-#%%
 # Save the DataFrame to a CSV file
 output_dir = os.path.join(working_dir, "additional_files")
 
