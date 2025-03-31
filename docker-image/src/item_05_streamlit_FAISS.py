@@ -76,8 +76,8 @@ def main():
         """, unsafe_allow_html=True)
 
     # Title and subtitle
-    st.markdown('<h1 class="title">Coral AI</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle">NLP-based tool to answer Coral-related questions</p>', unsafe_allow_html=True)
+    st.markdown('<h1 class="title">Link-X AI</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">Tool to test queries using FAISS and RAG</p>', unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns([1,2,1])
     with col2:
@@ -103,7 +103,7 @@ def main():
 
         # Text input using session state
         user_query = st.text_input("", 
-                                   placeholder="Ask a question about Coral...", 
+                                   placeholder="Ask a question about the PDF...", 
                                    key="user_query",
                                    on_change=handle_submit,
                                    label_visibility="collapsed")

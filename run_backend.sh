@@ -28,4 +28,4 @@ cd docker-image/src || { echo "Failed to navigate to docker-image/src"; exit 1; 
 # # -d flag to run in detatched mode
 # # use "docker exec -it <container_id_or_name> /bin/bash" 
 # # to start an interactive shell not attached to the main process
-docker run -d --env-file .env -p 8080:8080 dev7 || { echo "Docker run failed"; exit 1; }
+docker run -d --env-file .env -p 8080:8080 -p 8501:8501 dev7 || { echo "Docker run failed"; exit 1; }
