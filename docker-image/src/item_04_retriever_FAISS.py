@@ -14,17 +14,17 @@ import warnings
 load_dotenv(find_dotenv())
 
 # Check for correct arguments
-if len(sys.argv) != 2:
-    print("Usage: python item_02_generate_citations_FAISS.py <path_to_working_directory>")
-    sys.exit(1)
+# if len(sys.argv) != 2:
+#     print("Usage: python item_02_generate_citations_FAISS.py <path_to_working_directory>")
+#     sys.exit(1)
 
-working_dir = sys.argv[1]
-faiss_index_path = os.path.join(working_dir, "faiss_index")
+# working_dir = sys.argv[1]
+# faiss_index_path = os.path.join(working_dir, "faiss_index")
 
 # Validate existence of working directory
-if not os.path.isdir(working_dir):
-    print(f"The provided path is not a valid file: {working_dir}")
-    sys.exit(1)
+# if not os.path.isdir(working_dir):
+#     print(f"The provided path is not a valid file: {working_dir}")
+#     sys.exit(1)
 
 warnings.filterwarnings("ignore", message=".*LangChainDeprecationWarning.*")
 
@@ -73,10 +73,10 @@ def get_similar_chunks(raw_llm_response):
     
     return similar_chunks
 
-# def raw_LLM_response(query, faiss_index_path= os.path.join(working_dir, "faiss_index")):
-def raw_LLM_response(query):
+def raw_LLM_response(query, working_dir):
     embedding = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
-    
+    faiss_index_path = os.path.join(working_dir, "faiss_index")
+
     # Load the FAISS index
     vectordb = FAISS.load_local(faiss_index_path, embedding, allow_dangerous_deserialization=True)
 
@@ -92,13 +92,13 @@ def raw_LLM_response(query):
         return_source_documents=True
     )
 
-    llm_response = qa_chain(query)
+    llm_response = qa_chain.invoke(query)
 
     return llm_response
 
-# def answer_to_QA(query, faiss_index_path= os.path.join(working_dir, "faiss_index")):
-def answer_to_QA(query):
-    llm_response = raw_LLM_response(query)
+def answer_to_QA(query, working_dir):
+
+    llm_response = raw_LLM_response(query, working_dir)
     answer_txt = process_llm_response_with_sources(llm_response)
 
     return answer_txt
@@ -106,7 +106,7 @@ def answer_to_QA(query):
 
 if __name__ == "__main__":
     # query = "How parastites are damaging the corals?"
-    query = "Split the given content up into 10 individual models and output including clearly defined chapters"
+    query = "Split the given content up into 10 individual modules to make a full educational course"
     
     # llm_response = raw_LLM_response(query)
 
