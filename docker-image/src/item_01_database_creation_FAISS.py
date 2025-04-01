@@ -10,11 +10,13 @@ from langchain_community.document_loaders import PyPDFLoader
 load_dotenv(find_dotenv())
 
 # Check for correct arguments
-if len(sys.argv) != 2:
-    print("Usage: python item_01_database_creation_FAISS.py <path_to_pdf>")
+if len(sys.argv) != 3:
+    print("Usage: python item_01_database_creation_FAISS.py <path_to_pdf> <pdf_hash>")
     sys.exit(1)
 
 pdf_path = sys.argv[1]
+
+pdf_hash = sys.argv[2]
 
 # Validate existence of PDF file path
 if not os.path.isfile(pdf_path):
@@ -34,8 +36,9 @@ print(f"Number of text chunks: {len(texts)}")
 embedding = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY")) # convert text into OpenAI vector embeddings
 vectordb = FAISS.from_documents(documents=texts, embedding=embedding)
 
-pdf_name = os.path.splitext(os.path.basename(pdf_path))[0]
-output_dir = os.path.join("faiss_generated", pdf_name, "faiss_index")
+# pdf_name = os.path.splitext(os.path.basename(pdf_path))[0]
+# output_dir = os.path.join("faiss_generated", pdf_name, "faiss_index")
+output_dir = os.path.join("faiss_generated", pdf_hash, "faiss_index")
 
 os.makedirs(output_dir, exist_ok=True)
 
