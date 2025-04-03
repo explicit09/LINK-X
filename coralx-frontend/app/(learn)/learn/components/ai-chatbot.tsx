@@ -11,19 +11,19 @@ import Image from "next/image"
 
 export default function AIChatbot() {
   const router = useRouter();
-  const { messages, input, handleInputChange, handleSubmit } = useChat()
-  const [isMinimized, setIsMinimized] = useState(false)
+  const { messages, input, handleInputChange, handleSubmit } = useChat();
+  const [isMinimized, setIsMinimized] = useState(false);
 
   return (
-    <div className="bg-gray-900 text-gray-100 flex flex-col">
+    <div className="fixed bottom-4 right-4 bg-gray-900 text-gray-100 flex flex-col shadow-lg rounded-lg">
       <div className="bg-gray-800 p-4 flex justify-center items-center">
-      <Button
-              size="sm"
-              className="bg-blue-600 hover:bg-blue-700 text-white flex items-center"
-              onClick={() => router.push("/chat")} // Navigate to /chat
-            >
-              Chat <ChevronRight className="ml-2 h-4 w-4" />
-            </Button>
+        <Button
+          size="sm"
+          className="bg-blue-600 hover:bg-blue-700 text-white flex items-center"
+          onClick={() => router.push("/chat")} // Navigate to /chat
+        >
+          Chat <ChevronRight className="ml-2 h-4 w-4" />
+        </Button>
       </div>
       <div className={`flex flex-col transition-all duration-300 ease-in-out ${isMinimized ? "w-20" : "w-96"}`}>
         <div className="bg-gray-800 py-2 px-4 font-semibold flex justify-between items-center border-t border-gray-700">
@@ -34,7 +34,7 @@ export default function AIChatbot() {
         </div>
         {!isMinimized && (
           <>
-            <div className="flex-grow overflow-auto p-4 space-y-4">
+            <div className="flex-grow overflow-auto p-4 space-y-4 max-h-60">
               {messages.map((m, index) => (
                 <div key={index} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-3/4 p-3 rounded-lg ${m.role === "user" ? "bg-blue-600" : "bg-gray-700"}`}>
@@ -61,6 +61,5 @@ export default function AIChatbot() {
         )}
       </div>
     </div>
-  )
+  );
 }
-
