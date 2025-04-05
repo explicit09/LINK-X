@@ -55,7 +55,7 @@ pnpm install
 ```bash
 cd <project root directory>
 
-bash run_frontend
+bash run_frontend.sh
 ```
 
 The frontend should now be running on [localhost:3000](http://localhost:3000/).
@@ -65,25 +65,29 @@ The frontend should now be running on [localhost:3000](http://localhost:3000/).
 ```bash
 cd <project root directory>
 
-bash run_backend
+bash run_backend.sh
 ```
 
 ### To run backend (for testing FAISS):
 ```bash
 cd <project root directory>
 
-bash run_backend -d  # Run docker in detached mode
+bash run_backend.sh -d  # Run docker in detached mode
 docker exec -it <container_id_or_name> /bin/bash # Open an interactive shell (separate from main process)
 ```
 ## FAISS database generation & RAG
 
 You will need to run the docker container in detatched mode and open a new interactive shell (shown above)
 
-### 1. Generate FAISS database from desired PDF
+From the shell, enter the src folder:
+
 ```bash
 cd src
+```
 
-bash run_faiss learning_pdfs/<name_of_pdf>
+### 1. Generate FAISS database from desired PDF
+```bash
+bash run_faiss.sh learning_pdfs/<name_of_pdf>
 docker exec -it <container_id_or_name> /bin/bash # Open an interactive shell (separate from main process)
 ```
 - Creates an md5 hash to be used as the PDF's unique ID
@@ -99,15 +103,21 @@ docker exec -it <container_id_or_name> /bin/bash # Open an interactive shell (se
   - Updates vector storage with proper citations
 
 ### 2. FAISS index retrieval and RAG
+> Note: Step 1. should be complete for the desired pdf before Step 2.
 ```bash
 # WIP
 ```
 
-### 3. Web Interface for testing RAG
+### 3. Launch the Web Interface for testing RAG
+> Note: Step 1. should be complete for the desired pdf before Step 3.
 ```bash
-# WIP
+bash run_streamlit_ui.sh faiss_generated/<pdf_id>
 ```
-- The web interface should now be running on [localhost:8501](http://localhost:8501/).
+- The streamlit web interface should now be running on [localhost:8501](http://localhost:8501/).
+- From here, you can:
+  - Ask questions about the supplied content
+  - Receive AI-generated answers
+  - View source citations for all responses
 
 # PYTHON/RAG NOTES: Coral Research Question-Answering System
 
@@ -236,42 +246,6 @@ project/
    ```
    OPENAI_API_KEY=your_api_key_here
    ```
-
-## Usage
-
-### 1. Database Creation
-```bash
-python scripts/FAISS_scripts/item_01_database_creation_FAISS.py
-```
-This script:
-- Loads PDF documents from the specified directory
-- Splits text into manageable chunks
-- Creates FAISS vector embeddings using OpenAI
-- Saves the vector database locally
-
-### 2. Generate APA Citations
-```bash
-python scripts/FAISS_scripts/item_02_generate_citations_APA_FAISS.py
-```
-This script:
-- Processes the vector database
-- Generates APA citations using GPT-4
-- Saves citations to a CSV file
-
-### 3. Update Source References
-```bash
-python scripts/FAISS_scripts/item_03_replace_source_by_citation.py
-```
-This script replaces source file paths with proper APA citations in the vector database.
-
-### 4. Launch the Web Interface
-```bash
-streamlit run scripts/FAISS_scripts/item_05_streamlit_FAISS.py
-```
-This launches the Streamlit interface where you can:
-- Ask questions about coral research
-- Receive AI-generated answers
-- View source citations for all responses
 
 ## Acknowledgments
 
