@@ -75,15 +75,15 @@ const LandingHeader = () => {
         </nav>
 
         <div className="hidden md:flex items-center space-x-4">
-        <Link 
-            href="/settings" 
-            className="text-gray-300 hover:text-blue-400 transition-colors mr-2"
-            aria-label="Settings"
-          >
-            <Settings size={20} />
-          </Link>
           {isLoggedIn ? (
             <>
+            <Link 
+               href="/settings" 
+               className="text-gray-300 hover:text-blue-400 transition-colors mr-2"
+               aria-label="Settings"
+               >
+               <Settings size={20} />
+              </Link>
               <Button
                 variant="ghost"
                 className="text-sm font-medium text-gray-300 hover:text-blue-400"
