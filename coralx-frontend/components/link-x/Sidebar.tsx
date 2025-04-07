@@ -269,17 +269,19 @@ const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
             {/* Settings */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size={collapsed ? "icon" : "default"}
-                  className={cn(
-                    "w-full bg-sidebar-accent hover:bg-sidebar-accent/70 border-sidebar-border/50 text-sidebar-foreground/70 hover:text-sidebar-foreground",
-                    collapsed ? "justify-center" : "justify-start"
-                  )}
-                >
-                  <Settings className="h-5 w-5 flex-shrink-0" />
-                  {!collapsed && <span className="ml-2 text-sm">Settings</span>}
-                </Button>
+              <Link href="/settings" passHref>
+      <Button
+        variant="outline"
+        size={collapsed ? "icon" : "default"}
+        className={cn(
+          "w-full bg-sidebar-accent hover:bg-sidebar-accent/70 border-sidebar-border/50 text-sidebar-foreground/70 hover:text-sidebar-foreground",
+          collapsed ? "justify-center" : "justify-start"
+        )}
+      >
+        <Settings className="h-5 w-5 flex-shrink-0" />
+        {!collapsed && <span className="ml-2 text-sm">Settings</span>}
+      </Button>
+    </Link>
               </TooltipTrigger>
               {collapsed && (
                 <TooltipContent

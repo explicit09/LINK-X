@@ -26,9 +26,9 @@
     --blue-shadow: 210 100% 10%;             /* ~shadow-blue-900/10 */
     }
 
-  .light {
-    --background: 0 0% 100%; /* white */
-    --foreground: 0 0% 0%; /* black */
+  /*.light {
+    --background: 0 0% 100%; 
+    --foreground: 0 0% 0%; 
     --card: 0 0% 96%;
     --card-foreground: 0 0% 0%;
     --muted: 0 0% 90%;
@@ -43,7 +43,7 @@
     --blue-accent: 210 100% 60%;
     --blue-accent-hover: 210 100% 50%;
     --blue-shadow: 210 100% 90%;
-  }
+  } */
 
   * {
     @apply border-border;

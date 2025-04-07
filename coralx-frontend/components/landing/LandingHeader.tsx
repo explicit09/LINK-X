@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Settings } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
@@ -77,6 +77,13 @@ const LandingHeader = () => {
         <div className="hidden md:flex items-center space-x-4">
           {isLoggedIn ? (
             <>
+            <Link 
+               href="/settings" 
+               className="text-gray-300 hover:text-blue-400 transition-colors mr-2"
+               aria-label="Settings"
+               >
+               <Settings size={20} />
+              </Link>
               <Button
                 variant="ghost"
                 className="text-sm font-medium text-gray-300 hover:text-blue-400"
