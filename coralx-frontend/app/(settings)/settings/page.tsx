@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,105 +16,185 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckedState } from "@radix-ui/react-checkbox";
-import { ArrowLeft, Bell, Shield, Globe, Moon, Sun, UserCircle } from 'lucide-react';
+import { ArrowLeft, Bell, Shield, Moon, UserCircle } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
 
+interface OnboardingData {
+  name: string;
+  job: string;
+  traits: string;
+  learningStyle: string;
+  depth: string;
+  topics: string;
+  interests: string;
+  schedule: string;
+  quizzes: boolean;
+}
 
+interface AccountData {
+  email: string;
+  password: string;
+}
+
+interface OnboardingResponse {
+  name: string;
+  answers: string[];
+  quizzes: boolean;
+}
+
+interface AccountResponse {
+  email: string;
+}
 
 const Settings = () => {
-const router = useRouter();
-const [formData, setFormData] = useState({
-  name: "",
-  job: "",
-  traits: "",
-  learningStyle: "",
-  depth: "",
-  topics: "",
-  interests: "",
-  schedule: "",
-  quizzes: false,
-});
-const handleChange = (value: string, name: string) => {
-  setFormData((prev) => ({
-    ...prev,
-    [name]: value,
-  }));
-};
-const handleCheckboxChange = (checked: CheckedState, name: string) => {
-  setFormData((prev) => ({
-    ...prev,
-    [name]: checked === true,
-  }));
-};
-useEffect(() => {
-  const fetchData = async () => {
+  const router = useRouter();
+
+  const [formData, setFormData] = useState<OnboardingData>({
+    name: "",
+    job: "",
+    traits: "",
+    learningStyle: "",
+    depth: "",
+    topics: "",
+    interests: "",
+    schedule: "",
+    quizzes: false,
+  });
+
+  const [accountData, setAccountData] = useState<AccountData>({
+    email: "",
+    password: "",
+  });
+
+  const [passwordError, setPasswordError] = useState<string>("");
+
+  const handleChange = (value: string, name: string): void => {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleCheckboxChange = (checked: CheckedState, name: string): void => {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: checked === true,
+    }));
+  };
+
+  useEffect(() => {
+    const fetchOnboarding = async () => {
+      try {
+        const res = await fetch("http://localhost:8080/onboarding", {
+          method: "GET",
+          credentials: "include",
+        });
+        const data: OnboardingResponse = await res.json();
+        setFormData({
+          name: data.name,
+          job: data.answers[0] || "",
+          traits: data.answers[1] || "",
+          learningStyle: data.answers[2] || "",
+          depth: data.answers[3] || "",
+          topics: data.answers[4] || "",
+          interests: data.answers[5] || "",
+          schedule: data.answers[6] || "",
+          quizzes: data.quizzes,
+        });
+      } catch (err) {
+        console.error("❌ Failed to load onboarding data:", err);
+      }
+    };
+    fetchOnboarding();
+  }, []);
+
+  useEffect(() => {
+    const fetchAccount = async () => {
+      try {
+        const res = await fetch("http://localhost:8080/user", {
+          method: "GET",
+          credentials: "include",
+        });
+        const data: AccountResponse = await res.json();
+        setAccountData({
+          email: data.email,
+          password: "",
+        });
+      } catch (err) {
+        console.error("❌ Failed to load account data:", err);
+      }
+    };
+    fetchAccount();
+  }, []);
+
+  const handleUpdateOnboarding = async (): Promise<void> => {
+    const payload = {
+      name: formData.name,
+      answers: [
+        formData.job,
+        formData.traits,
+        formData.learningStyle,
+        formData.depth,
+        formData.topics,
+        formData.interests,
+        formData.schedule,
+      ],
+      quizzes: formData.quizzes,
+    };
+    console.log("🔄 Updating onboarding data:", payload);
     try {
-      const res = await fetch("http://localhost:8080/onboarding", {
-        method: "GET",
+      const response = await fetch("http://localhost:8080/onboarding", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
+        body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      setFormData({
-        name: data.name,
-        job: data.answers[0],
-        traits: data.answers[1],
-        learningStyle: data.answers[2],
-        depth: data.answers[3],
-        topics: data.answers[4],
-        interests: data.answers[5],
-        schedule: data.answers[6],
-        quizzes: data.quizzes,
-      });
-    } catch (err) {
-      console.error("❌ Failed to load user data:", err);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ Failed to update onboarding data:", errorText);
+        return;
+      }
+      console.log("✅ Onboarding data updated successfully!");
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("❌ Error while updating onboarding data:", error);
     }
   };
 
-  fetchData();
-}, []);
-
-const handleUpdate = async () => {
-  const payload = {
-    name: formData.name,
-    answers: [
-      formData.job,
-      formData.traits,
-      formData.learningStyle,
-      formData.depth,
-      formData.topics,
-      formData.interests,
-      formData.schedule,
-    ],
-    quizzes: formData.quizzes,
-  };
-
-  console.log("🔄 Updating onboarding data:", payload);
-
-  try {
-    const response = await fetch("http://localhost:8080/onboarding", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("❌ Failed to update onboarding data:", errorText);
+  const handleAccountUpdate = async (): Promise<void> => {
+    // Validate password length before updating
+    if (accountData.password && accountData.password.length < 6) {
+      setPasswordError("Password must be at least 6 characters long.");
       return;
     }
+    setPasswordError("");
+    const payload = {
+      email: accountData.email,
+      password: accountData.password,
+    };
+    console.log("🔄 Updating account data:", payload);
+    try {
+      const response = await fetch("http://localhost:8080/user", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ Failed to update account data:", errorText);
+        return;
+      }
+      console.log("✅ Account data updated successfully!");
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("❌ Error while updating account data:", error);
+    }
+  };
 
-    console.log("✅ Onboarding data updated successfully!");
-    router.push("/dashboard");
-  } catch (error) {
-    console.error("❌ Error while updating onboarding data:", error);
-  }
-};
-  const [darkMode, setDarkMode] = useState(true);
-  const [notifications, setNotifications] = useState(true);
-  const [emailAlerts, setEmailAlerts] = useState(true);
-  const [privacy, setPrivacy] = useState(true);
+  const [notifications, setNotifications] = useState<boolean>(true);
+  const [privacy, setPrivacy] = useState<boolean>(true);
 
   return (
     <div className="flex flex-col bg-black text-white min-h-screen w-full pt-24 pb-12 px-4 md:px-6">
@@ -126,7 +206,6 @@ const handleUpdate = async () => {
           </Link>
           <h1 className="text-3xl font-bold">Settings</h1>
         </div>
-        
         <Tabs defaultValue="account" className="w-full">
           <TabsList className="grid grid-cols-4 mb-8">
             <TabsTrigger value="account" className="flex items-center justify-center gap-2">
@@ -142,7 +221,6 @@ const handleUpdate = async () => {
               <Shield size={18} /> Privacy
             </TabsTrigger>
           </TabsList>
-          
           <TabsContent value="account">
             <Card>
               <CardHeader>
@@ -152,176 +230,143 @@ const handleUpdate = async () => {
               <CardContent className="space-y-4">
                 <div className="space-y-1">
                   <Label htmlFor="email">Email</Label>
-                  <input
+                  <Input
                     id="email"
                     placeholder="Enter your email"
-                    defaultValue="user@example.com"
+                    value={accountData.email}
+                    onChange={(e) =>
+                      setAccountData((prev) => ({ ...prev, email: e.target.value }))
+                    }
                     className="w-full bg-muted rounded-md p-2 text-foreground"
                   />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="password">Password</Label>
-                 <input
-                  id="password"
-                  type="password"
-                  placeholder="Change your password"
-                  defaultValue=""
-                  className="w-full bg-muted rounded-md p-2 text-foreground"
-                    />
-                </div>
-                {/* <div className="space-y-1">
-                  <Label htmlFor="name">Display Name</Label>
-                  <input
-                    id="name"
-                    placeholder="Enter your name"
-                    defaultValue="John Doe"
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Change your password"
+                    value={accountData.password}
+                    onChange={(e) =>
+                      setAccountData((prev) => ({ ...prev, password: e.target.value }))
+                    }
                     className="w-full bg-muted rounded-md p-2 text-foreground"
                   />
-                </div> */}
-                
+                  {passwordError && (
+                    <p className="text-red-500 text-sm mt-1">{passwordError}</p>
+                  )}
+                </div>
               </CardContent>
               <CardFooter>
-                <Button>Save Changes</Button>
+                <Button onClick={handleAccountUpdate}>Save Changes</Button>
               </CardFooter>
             </Card>
           </TabsContent>
-
-
           <TabsContent value="onboarding">
             <Card>
               <CardHeader>
-                <CardTitle>
-                  Edit Onboarding
-                </CardTitle>
-                <CardDescription>
-                  Customize how the Link-X AI responds to your questions.
-                </CardDescription>
+                <CardTitle>Edit Onboarding</CardTitle>
+                <CardDescription>Customize how the Link-X AI responds to your questions.</CardDescription>
               </CardHeader>
               <CardContent>
-                 <h1 className="text-xl font-semibold mb-4 text-blue-400">
-                            Personalized Learning Setup
-                          </h1>
-                
-                          <label>
-                            What should Link-X call you?
-                          </label>
-                          <Input
-                            
-                            type="text"
-                            name="name"
-                            onChange={(e) => handleChange(e.target.value, "name")}
-                          />
-                
-                          <label >What do you do?</label>
-                          <Input
-                            
-                            type="text"
-                            name="job"
-                            placeholder="e.g., Student, Engineer"
-                            onChange={(e) => handleChange(e.target.value, "job")}
-                          />
-                
-                          <label >
-                            What traits should Link-X have?
-                          </label>
-                          <Input
-                            
-                            type="textarea"
-                            name="traits"
-                            placeholder="e.g., witty, encouraging"
-                            onChange={(e) => handleChange(e.target.value, "traits")}
-                          />
-                
-                          <label >
-                            Preferred Learning Style
-                          </label>
-                          <Select onValueChange={(value) => handleChange(value, "learningStyle")}>
-                            <SelectTrigger >
-                              <SelectValue placeholder="Select a learning style" />
-                            </SelectTrigger>
-                            <SelectContent className="z-50 bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg text-gray-100">
-                              <SelectItem value="visual" className="hover:bg-gray-200 cursor-pointer">
-                                Visual
-                              </SelectItem>
-                              <SelectItem value="auditory" className="hover:bg-gray-200 cursor-pointer">
-                                Auditory
-                              </SelectItem>
-                              <SelectItem value="games" className="hover:bg-gray-200 cursor-pointer">
-                                Games
-                              </SelectItem>
-                              <SelectItem value="text-based" className="hover:bg-gray-200 cursor-pointer">
-                                Text-Based
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                
-                          <label >
-                            Depth of Explanation
-                          </label>
-                          <Select onValueChange={(value) => handleChange(value, "depth")}>
-                            <SelectTrigger >
-                              <SelectValue placeholder="Select depth" />
-                            </SelectTrigger>
-                            <SelectContent className="z-50 bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg text-gray-100">
-                              <SelectItem value="concise">Concise Summaries</SelectItem>
-                              <SelectItem value="detailed">In-depth Explanations</SelectItem>
-                            </SelectContent>
-                          </Select>
-                
-                          <label >Topics of Interest</label>
-                          <Input
-
-                            type="text"
-                            name="topics"
-                            placeholder="e.g., Investing, Finance"
-                            onChange={(e) => handleChange(e.target.value, "topics")}
-                          />
-                
-                          <label >
-                            Interests, Values, or Preferences for Personalization
-                          </label>
-                          <Input
-                           
-                            type="text"
-                            name="interests"
-                            placeholder="e.g., Basketball, Video Games"
-                            onChange={(e) => handleChange(e.target.value, "interests")}
-                          />
-                
-                          <label >
-                            Preferred Study Schedule
-                          </label>
-                          <Select onValueChange={(value) => handleChange(value, "schedule")}>
-                            <SelectTrigger >
-                              <SelectValue placeholder="Select schedule" />
-                            </SelectTrigger>
-                            <SelectContent className="z-50 bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg text-gray-100">
-                              <SelectItem value="daily">Daily</SelectItem>
-                              <SelectItem value="weekly">Weekly</SelectItem>
-                              <SelectItem value="flexible">Flexible</SelectItem>
-                            </SelectContent>
-                          </Select>
-                
-                          <div className="flex items-center mt-4">
-                            <Checkbox
-                              checked={formData.quizzes}
-                              onCheckedChange={(checked) => handleCheckboxChange(checked, "quizzes")}
-                            />
-                            <label htmlFor="quizzes" className="ml-2">
-                              Include quizzes for progress tracking
-                            </label>
-                          </div>
-                
-                          <Button
-                          className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white"
-                          onClick={handleUpdate} // replace this with `handleSubmit` if it's onboarding
-                          >
-                            Update Preferences
-                          </Button>
+                <h1 className="text-xl font-semibold mb-4 text-blue-400">
+                  Personalized Learning Setup
+                </h1>
+                <Label htmlFor="onboardingName">What should Link-X call you?</Label>
+                <Input
+                  id="onboardingName"
+                  type="text"
+                  name="name"
+                  defaultValue={formData.name}
+                  onChange={(e) => handleChange(e.target.value, "name")}
+                />
+                <Label htmlFor="job">What do you do?</Label>
+                <Input
+                  id="job"
+                  type="text"
+                  name="job"
+                  placeholder="e.g., Student, Engineer"
+                  defaultValue={formData.job}
+                  onChange={(e) => handleChange(e.target.value, "job")}
+                />
+                <Label htmlFor="traits">What traits should Link-X have?</Label>
+                <Input
+                  id="traits"
+                  type="text"
+                  name="traits"
+                  placeholder="e.g., witty, encouraging"
+                  defaultValue={formData.traits}
+                  onChange={(e) => handleChange(e.target.value, "traits")}
+                />
+                <Label>Preferred Learning Style</Label>
+                <Select onValueChange={(value: string) => handleChange(value, "learningStyle")}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a learning style" />
+                  </SelectTrigger>
+                  <SelectContent className="z-50 bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg text-gray-100">
+                    <SelectItem value="visual">Visual</SelectItem>
+                    <SelectItem value="auditory">Auditory</SelectItem>
+                    <SelectItem value="games">Games</SelectItem>
+                    <SelectItem value="text-based">Text-Based</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Label>Depth of Explanation</Label>
+                <Select onValueChange={(value: string) => handleChange(value, "depth")}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select depth" />
+                  </SelectTrigger>
+                  <SelectContent className="z-50 bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg text-gray-100">
+                    <SelectItem value="concise">Concise Summaries</SelectItem>
+                    <SelectItem value="detailed">In-depth Explanations</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Label htmlFor="topics">Topics of Interest</Label>
+                <Input
+                  id="topics"
+                  type="text"
+                  name="topics"
+                  placeholder="e.g., Investing, Finance"
+                  defaultValue={formData.topics}
+                  onChange={(e) => handleChange(e.target.value, "topics")}
+                />
+                <Label htmlFor="interests">Interests, Values, or Preferences for Personalization</Label>
+                <Input
+                  id="interests"
+                  type="text"
+                  name="interests"
+                  placeholder="e.g., Basketball, Video Games"
+                  defaultValue={formData.interests}
+                  onChange={(e) => handleChange(e.target.value, "interests")}
+                />
+                <Label>Preferred Study Schedule</Label>
+                <Select onValueChange={(value: string) => handleChange(value, "schedule")}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select schedule" />
+                  </SelectTrigger>
+                  <SelectContent className="z-50 bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg text-gray-100">
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="flexible">Flexible</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center mt-4">
+                  <Checkbox
+                    checked={formData.quizzes}
+                    onCheckedChange={(checked: CheckedState) => handleCheckboxChange(checked, "quizzes")}
+                  />
+                  <Label htmlFor="quizzes" className="ml-2">
+                    Include quizzes for progress tracking
+                  </Label>
+                </div>
+                <Button
+                  className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={handleUpdateOnboarding}
+                >
+                  Update Preferences
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
-          
           <TabsContent value="notifications">
             <Card>
               <CardHeader>
@@ -334,19 +379,18 @@ const handleUpdate = async () => {
                     <p className="font-medium">Push Notifications</p>
                     <p className="text-sm text-muted-foreground">Receive notifications on your device.</p>
                   </div>
-                  <Switch checked={notifications} onCheckedChange={setNotifications} />
+                  <Switch checked={notifications} onCheckedChange={(checked: boolean) => setNotifications(checked)} />
                 </div>
                 <div className="flex items-center justify-between py-2">
                   <div>
                     <p className="font-medium">Email Alerts</p>
                     <p className="text-sm text-muted-foreground">Receive updates via email.</p>
                   </div>
-                  <Switch checked={emailAlerts} onCheckedChange={setEmailAlerts} />
+                  <Switch checked={true} onCheckedChange={() => {}} />
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
-          
           <TabsContent value="privacy">
             <Card>
               <CardHeader>
@@ -359,7 +403,7 @@ const handleUpdate = async () => {
                     <p className="font-medium">Profile Visibility</p>
                     <p className="text-sm text-muted-foreground">Control who can see your profile information.</p>
                   </div>
-                  <Switch checked={privacy} onCheckedChange={setPrivacy} />
+                  <Switch checked={privacy} onCheckedChange={(checked: boolean) => setPrivacy(checked)} />
                 </div>
                 <div className="space-y-1">
                   <Label>Data Usage</Label>

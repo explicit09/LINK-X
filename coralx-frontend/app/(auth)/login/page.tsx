@@ -17,9 +17,7 @@ export default function Page() {
 
   const [email, setEmail] = useState("");
   const [isSuccessful, setIsSuccessful] = useState(false);
-  const [state, setState] = useState<
-    "idle" | "in_progress" | "success" | "failed" | "invalid_data"
-  >("idle");
+  const [state, setState] = useState<"idle" | "in_progress" | "success" | "failed" | "invalid_data">("idle");
 
   useEffect(() => {
     if (state === "failed") {
@@ -43,17 +41,28 @@ export default function Page() {
         formData.get("email") as string,
         formData.get("password") as string
       );
-
       const token = await userCredential.user.getIdToken();
 
+      const sessionRes = await fetch("http://localhost:8080/sessionLogin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ idToken: token }),
+      });
+
+      if (!sessionRes.ok) {
+        const errorText = await sessionRes.text();
+        console.error("Session login error:", errorText);
+        setState("failed");
+        toast.error("Session login failed");
+        return;
+      }
+
       localStorage.setItem("token", token);
-
       setState("success");
-
       router.push("/dashboard");
     } catch (error: any) {
       console.error("Firebase Auth Error:", error.message);
-
       if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password") {
         setState("failed");
         toast.error("Invalid email or password!");
