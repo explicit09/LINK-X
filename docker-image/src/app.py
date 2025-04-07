@@ -15,9 +15,9 @@ from alembic import command
 from alembic.config import Config
 
 from src.db.queries import (
-    delete_market_item_by_id, delete_news_by_id, get_all_news, get_market_item_by_id, get_news_by_id, get_recent_market_prices, 
+    delete_market_item_by_id, delete_news_by_id, delete_onboarding_by_user_id, delete_user_by_firebase_uid, get_all_news, get_market_item_by_id, get_news_by_id, get_onboarding, get_recent_market_prices, 
     get_user_by_email, create_user, save_chat, delete_chat_by_id, get_chats_by_user_id,
-    get_chat_by_id, save_market_item, save_messages, get_messages_by_chat_id, save_news_item, vote_message,
+    get_chat_by_id, save_market_item, save_messages, get_messages_by_chat_id, save_news_item, update_onboarding_by_user_id, update_user_by_firebase_uid, vote_message,
     get_votes_by_chat_id, save_document, get_documents_by_id, get_document_by_id,
     delete_documents_by_id_after_timestamp, save_suggestions, get_suggestions_by_document_id,
     get_message_by_id, delete_messages_by_chat_id_after_timestamp, update_chat_visibility_by_id, 
@@ -26,29 +26,23 @@ from src.db.queries import (
 
 load_dotenv()
 
-# Initialize Flask
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
 
-# Initialize Firebase Admin
 cred = credentials.Certificate("firebaseKey.json")
 firebase_admin.initialize_app(cred)
 
-# SQLAlchemy configuration
 POSTGRES_URL = os.getenv("POSTGRES_URL")
 if not POSTGRES_URL:
     raise ValueError("POSTGRES_URL is not defined in the environment")
 
-# Create engine, session, and tables
 engine = create_engine(POSTGRES_URL)
 Session = sessionmaker(bind=engine, expire_on_commit=False)
 Base.metadata.create_all(engine)
 
-# FAISS and metadata paths
 INDEX_PATH = "/app/"
 PICKLE_PATH = "/app/"
 
-# Attempt to load FAISS index
 try:
     faiss_index = faiss.read_index("/app/index.faiss")
     print("FAISS index successfully loaded from /app/index.faiss")
@@ -56,7 +50,6 @@ except Exception as e:
     print(f"Error loading FAISS index: {e}")
     faiss_index = None
 
-# Attempt to load metadata
 try:
     with open("/app/index.pkl", "rb") as f:
         metadata = pickle.load(f)
@@ -64,7 +57,6 @@ try:
 except Exception as e:
     print(f"Error loading metadata: {e}")
     metadata = None
-
 
 # Firebase Token Verification
 def verify_session_cookie():
@@ -78,8 +70,6 @@ def verify_session_cookie():
     except Exception as e:
         return jsonify({"error": str(e)}), 401
 
-
-# Unprotected Routes
 @app.route('/')
 def home():
     """Serve the main UI."""
@@ -87,7 +77,7 @@ def home():
 
 @app.route('/citations', methods=['GET'])
 def citations():
-    """Example unprotected route that returns citation data (if you want it public)."""
+
     try:
         citation_data = []
         if metadata:
@@ -102,11 +92,6 @@ def citations():
 
 @app.route('/migrate', methods=['POST'])
 def migrate():
-    """Run Alembic migrations (optionally protected if needed)."""
-    # If you want to protect migrations, uncomment the following:
-    # user = verify_session_cookie()
-    # if isinstance(user, dict) and "error" in user:
-    #     return user
 
     try:
         alembic_cfg = Config("alembic.ini")
@@ -119,9 +104,6 @@ def migrate():
         return jsonify({"message": "Migrations completed successfully!"}), 200
     except Exception as e:
         return jsonify({"error": f"Error running migrations: {str(e)}"}), 500
-
-
-# Protected Routes
 
 @app.route('/onboarding', methods=['POST'])
 def create_onboarding_route():
@@ -218,7 +200,7 @@ def session_login():
     
 @app.route('/chats', methods=['GET'])
 def get_chats():
-    """Retrieve chats for the authenticated user."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -232,7 +214,7 @@ def get_chats():
 
 @app.route('/chat', methods=['POST'])
 def save_chat_route():
-    """Save a new chat."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -257,7 +239,7 @@ def delete_chat_param_missing():
 
 @app.route('/chat/<chat_id>', methods=['GET'])
 def get_chat_by_id_route(chat_id):
-    """Get a single chat by ID."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -286,7 +268,7 @@ def get_chat_by_id_route(chat_id):
 
 @app.route('/chat/<chat_id>', methods=['DELETE'])
 def delete_chat_by_id_route(chat_id):
-    """Delete a chat by its ID."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -299,7 +281,7 @@ def delete_chat_by_id_route(chat_id):
 
 @app.route('/messages/<chat_id>', methods=['GET'])
 def get_messages_by_chat(chat_id):
-    """Retrieve messages for a specific chat."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -312,7 +294,7 @@ def get_messages_by_chat(chat_id):
 
 @app.route('/message', methods=['POST'])
 def save_message():
-    """Save messages for a chat."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -331,7 +313,7 @@ def save_message():
 
 @app.route('/message/vote', methods=['POST'])
 def vote_on_message():
-    """Vote on a message in a chat."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -352,7 +334,7 @@ def vote_on_message():
 
 @app.route('/vote/<chat_id>', methods=['GET'])
 def get_votes_for_chat(chat_id):
-    """Get votes for a particular chat."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -365,7 +347,7 @@ def get_votes_for_chat(chat_id):
 
 @app.route('/documents', methods=['GET'])
 def get_documents_route():
-    """Get documents belonging to authenticated user."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -387,7 +369,7 @@ def get_documents_route():
 
 @app.route('/documents', methods=['POST'])
 def save_document_route():
-    """Save a document for the authenticated user."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -418,7 +400,7 @@ def save_document_route():
 
 @app.route('/documents', methods=['PATCH'])
 def delete_documents_by_timestamp():
-    """Delete documents after a certain timestamp for the authenticated user."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -458,7 +440,7 @@ def delete_documents_by_timestamp():
 
 @app.route('/document/<document_id>', methods=['GET'])
 def get_document_by_id_endpoint(document_id):
-    """Retrieve a single document by its ID."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -477,7 +459,7 @@ def get_document_by_id_endpoint(document_id):
 
 @app.route('/suggestions', methods=['GET'])
 def get_suggestions_route():
-    """Fetch suggestions for a specific document ID."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -500,7 +482,7 @@ def get_suggestions_route():
 
 @app.route('/suggestions', methods=['POST'])
 def save_suggestions_endpoint():
-    """Save suggestions for a specific document."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -535,7 +517,7 @@ def save_suggestions_endpoint():
 
 @app.route('/delete-trailing-messages', methods=['POST'])
 def delete_trailing_messages():
-    """Delete messages after a given timestamp in a chat."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -555,7 +537,7 @@ def delete_trailing_messages():
 
 @app.route('/update-chat-visibility', methods=['POST'])
 def update_chat_visibility():
-    """Update the visibility status of a chat."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -573,7 +555,7 @@ def update_chat_visibility():
 
 @app.route('/save-model-id', methods=['POST'])
 def save_model_id():
-    """Save the selected AI model ID. Optionally protect this route."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -588,7 +570,7 @@ def save_model_id():
 
 @app.route('/generate-title', methods=['POST'])
 def generate_title_from_message():
-    """Generate a short title from the user's first message."""
+
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -802,6 +784,152 @@ def remove_news_item(news_id):
         return jsonify({"message": "News article deleted"}), 200
     except Exception as e:
         db_session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/user', methods=['GET'])
+def get_user():
+
+    user_claims = verify_session_cookie()
+    if isinstance(user_claims, dict) and "error" in user_claims:
+        return user_claims
+
+    firebase_uid = user_claims["uid"]
+    db_session = Session()
+    try:
+        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
+        if not postgres_user:
+            return jsonify({"error": "User not found"}), 404
+
+        user_data = {
+            "id": str(postgres_user.id),
+            "email": postgres_user.email,
+            "firebase_uid": postgres_user.firebase_uid
+        }
+        return jsonify(user_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/user', methods=['PATCH'])
+def update_user():
+
+    user_claims = verify_session_cookie()
+    if isinstance(user_claims, dict) and "error" in user_claims:
+        return user_claims
+
+    firebase_uid = user_claims["uid"]
+    data = request.get_json()
+    db_session = Session()
+    try:
+        updated_user = update_user_by_firebase_uid(db_session, firebase_uid, data)
+        user_data = {
+            "id": str(updated_user.id),
+            "email": updated_user.email,
+            "firebase_uid": updated_user.firebase_uid
+        }
+        return jsonify(user_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/user', methods=['DELETE'])
+def delete_user():
+
+    user_claims = verify_session_cookie()
+    if isinstance(user_claims, dict) and "error" in user_claims:
+        return user_claims
+
+    firebase_uid = user_claims["uid"]
+    db_session = Session()
+    try:
+        delete_user_by_firebase_uid(db_session, firebase_uid)
+        return jsonify({"message": "User deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/onboarding', methods=['GET'])
+def get_onboarding_route():
+
+    user_claims = verify_session_cookie()
+    if isinstance(user_claims, dict) and "error" in user_claims:
+        return user_claims
+
+    firebase_uid = user_claims["uid"]
+    db_session = Session()
+    try:
+        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
+        if not postgres_user:
+            return jsonify({"error": "User not found"}), 404
+
+        onboarding = get_onboarding(db_session, postgres_user.id)
+        if not onboarding:
+            return jsonify({"error": "Onboarding record not found"}), 404
+
+        onboarding_data = {
+            "id": str(onboarding.id),
+            "name": onboarding.name,
+            "answers": onboarding.answers,
+            "quizzes": onboarding.quizzes,
+            "createdAt": onboarding.createdAt.isoformat()
+        }
+        return jsonify(onboarding_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/onboarding', methods=['PATCH'])
+def update_onboarding():
+
+    user_claims = verify_session_cookie()
+    if isinstance(user_claims, dict) and "error" in user_claims:
+        return user_claims
+
+    firebase_uid = user_claims["uid"]
+    data = request.get_json()
+    db_session = Session()
+    try:
+        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
+        if not postgres_user:
+            return jsonify({"error": "User not found"}), 404
+
+        updated_onboarding = update_onboarding_by_user_id(db_session, postgres_user.id, data)
+        onboarding_data = {
+            "id": str(updated_onboarding.id),
+            "name": updated_onboarding.name,
+            "answers": updated_onboarding.answers,
+            "quizzes": updated_onboarding.quizzes,
+            "createdAt": updated_onboarding.createdAt.isoformat()
+        }
+        return jsonify(onboarding_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/onboarding', methods=['DELETE'])
+def delete_onboarding():
+
+    user_claims = verify_session_cookie()
+    if isinstance(user_claims, dict) and "error" in user_claims:
+        return user_claims
+
+    firebase_uid = user_claims["uid"]
+    db_session = Session()
+    try:
+        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
+        if not postgres_user:
+            return jsonify({"error": "User not found"}), 404
+
+        delete_onboarding_by_user_id(db_session, postgres_user.id)
+        return jsonify({"message": "Onboarding record deleted successfully"}), 200
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         db_session.close()
