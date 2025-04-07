@@ -815,7 +815,6 @@ def get_user():
 
 @app.route('/user', methods=['PATCH'])
 def update_user():
-
     user_claims = verify_session_cookie()
     if isinstance(user_claims, dict) and "error" in user_claims:
         return user_claims
@@ -824,6 +823,14 @@ def update_user():
     data = request.get_json()
     db_session = Session()
     try:
+        if "email" in data or "password" in data:
+            update_args = {}
+            if "email" in data:
+                update_args["email"] = data["email"]
+            if "password" in data:
+                update_args["password"] = data["password"]
+            auth.update_user(firebase_uid, **update_args)
+
         updated_user = update_user_by_firebase_uid(db_session, firebase_uid, data)
         user_data = {
             "id": str(updated_user.id),
@@ -832,6 +839,7 @@ def update_user():
         }
         return jsonify(user_data), 200
     except Exception as e:
+        db_session.rollback()
         return jsonify({"error": str(e)}), 500
     finally:
         db_session.close()
