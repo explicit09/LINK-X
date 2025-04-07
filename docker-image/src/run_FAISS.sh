@@ -43,5 +43,5 @@ python item_03_replace_source_by_citation.py "$WORKING_DIR"
 # echo -e "\nRunning item_04_retriever_FAISS.py"
 # python item_04_retriever_FAISS.py "$WORKING_DIR"
 
-echo -e "\nRunning item_05_streamlit_FAISS.py"
-WORKING_DIR="$WORKING_DIR" streamlit run item_05_streamlit_FAISS.py
+# echo -e "\nRunning item_05_streamlit_FAISS.py"
+# WORKING_DIR="$WORKING_DIR" streamlit run item_05_streamlit_FAISS.py
