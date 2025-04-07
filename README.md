@@ -222,7 +222,7 @@ project/
 
 ## Prerequisites
 
-- Python 3.x
+- Python 3.10.11
 - OpenAI API key
 - Required Python packages:
   ```
