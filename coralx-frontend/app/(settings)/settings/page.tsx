@@ -169,7 +169,7 @@ const handleUpdate = async () => {
                   className="w-full bg-muted rounded-md p-2 text-foreground"
                     />
                 </div>
-                <div className="space-y-1">
+                {/* <div className="space-y-1">
                   <Label htmlFor="name">Display Name</Label>
                   <input
                     id="name"
@@ -177,7 +177,7 @@ const handleUpdate = async () => {
                     defaultValue="John Doe"
                     className="w-full bg-muted rounded-md p-2 text-foreground"
                   />
-                </div>
+                </div> */}
                 
               </CardContent>
               <CardFooter>
@@ -185,6 +185,8 @@ const handleUpdate = async () => {
               </CardFooter>
             </Card>
           </TabsContent>
+
+
           <TabsContent value="onboarding">
             <Card>
               <CardHeader>
@@ -316,10 +318,6 @@ const handleUpdate = async () => {
                           >
                             Update Preferences
                           </Button>
-
-              {/* <Link href="/onboarding" passHref>
-              <Button>Edit Onboarding</Button>
-              </Link> */}
               </CardContent>
             </Card>
           </TabsContent>
