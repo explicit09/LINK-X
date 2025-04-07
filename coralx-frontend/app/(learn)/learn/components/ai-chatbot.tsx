@@ -1,18 +1,48 @@
 "use client";
 
-import { useState } from "react"
-import { useChat } from "ai/react"
-import { Send, Minimize2, Maximize2, ChevronRight } from "lucide-react"
-
+import { useState } from "react";
+import { Send, Minimize2, Maximize2, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
-
 import { Button } from "@/components/ui/button";
-import Image from "next/image"
 
 export default function AIChatbot() {
   const router = useRouter();
-  const { messages, input, handleInputChange, handleSubmit } = useChat();
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+  const [input, setInput] = useState("");
   const [isMinimized, setIsMinimized] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+  
+    if (!input.trim()) return;
+  
+    try {
+      const response = await fetch("http://localhost:8080/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ message: input }),
+      });
+  
+      const data = await response.json();
+  
+      if (data.error) {
+        console.error("Chatbot error:", data.error);
+        return;
+      }
+  
+      if (data.response) {
+        setMessages((prev) => [...prev, { role: "user", content: input }, { role: "assistant", content: data.response }]);
+      }
+  
+      setInput("");
+    } catch (err) {
+      console.error("Failed to send message:", err);
+    }
+  };
+  
 
   return (
     <div className="fixed bottom-4 right-4 bg-gray-900 text-gray-100 flex flex-col shadow-lg rounded-lg">
@@ -20,7 +50,7 @@ export default function AIChatbot() {
         <Button
           size="sm"
           className="bg-blue-600 hover:bg-blue-700 text-white flex items-center"
-          onClick={() => router.push("/chat")} // Navigate to /chat
+          onClick={() => router.push("/chat")}
         >
           Chat <ChevronRight className="ml-2 h-4 w-4" />
         </Button>
@@ -47,7 +77,7 @@ export default function AIChatbot() {
               <input
                 className="flex-grow bg-gray-800 text-gray-100 rounded-l-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={input}
-                onChange={handleInputChange}
+                onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask a question..."
               />
               <button

@@ -1,6 +1,8 @@
 from datetime import date
 import os
 import firebase_admin
+import openai
+from openai import OpenAI
 from firebase_admin import auth, credentials
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
@@ -39,6 +41,8 @@ if not POSTGRES_URL:
 engine = create_engine(POSTGRES_URL)
 Session = sessionmaker(bind=engine, expire_on_commit=False)
 Base.metadata.create_all(engine)
+
+openai.api_key = "your-openai-api-key"
 
 INDEX_PATH = "/app/"
 PICKLE_PATH = "/app/"
@@ -104,6 +108,39 @@ def migrate():
         return jsonify({"message": "Migrations completed successfully!"}), 200
     except Exception as e:
         return jsonify({"error": f"Error running migrations: {str(e)}"}), 500
+    
+
+#CP
+@app.route('/chat', methods=['POST'])
+def chat():
+    user_claims = verify_session_cookie()
+    if isinstance(user_claims, dict) and "error" in user_claims:
+        return user_claims
+
+    data = request.get_json()
+    user_message = data.get("message")
+    
+    if not user_message:
+        return jsonify({"error": "Message is required"}), 400
+
+    try:
+        client = OpenAI()
+
+        response = client.chat.completions.create(
+            model="gpt-4o",  # or gpt-3.5-turbo
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": user_message}
+            ]
+        )
+
+        reply_text = response.choices[0].message.content
+
+        return jsonify({"response": reply_text})
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
 
 @app.route('/onboarding', methods=['POST'])
 def create_onboarding_route():
