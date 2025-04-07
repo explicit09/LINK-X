@@ -202,41 +202,41 @@ const handleUpdate = async () => {
                             Personalized Learning Setup
                           </h1>
                 
-                          <label className="block mt-4 mb-2 text-gray-400">
+                          <label>
                             What should Link-X call you?
                           </label>
                           <Input
-                            className="bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg"
+                            
                             type="text"
                             name="name"
                             onChange={(e) => handleChange(e.target.value, "name")}
                           />
                 
-                          <label className="block mt-4 mb-2 text-gray-400">What do you do?</label>
+                          <label >What do you do?</label>
                           <Input
-                            className="bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg"
+                            
                             type="text"
                             name="job"
                             placeholder="e.g., Student, Engineer"
                             onChange={(e) => handleChange(e.target.value, "job")}
                           />
                 
-                          <label className="block mt-4 mb-2 text-gray-400">
+                          <label >
                             What traits should Link-X have?
                           </label>
                           <Input
-                            className="bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg"
+                            
                             type="textarea"
                             name="traits"
                             placeholder="e.g., witty, encouraging"
                             onChange={(e) => handleChange(e.target.value, "traits")}
                           />
                 
-                          <label className="block mb-2 text-gray-400">
+                          <label >
                             Preferred Learning Style
                           </label>
                           <Select onValueChange={(value) => handleChange(value, "learningStyle")}>
-                            <SelectTrigger className="bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg">
+                            <SelectTrigger >
                               <SelectValue placeholder="Select a learning style" />
                             </SelectTrigger>
                             <SelectContent className="z-50 bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg text-gray-100">
@@ -255,11 +255,11 @@ const handleUpdate = async () => {
                             </SelectContent>
                           </Select>
                 
-                          <label className="block mt-4 mb-2 text-gray-400">
+                          <label >
                             Depth of Explanation
                           </label>
                           <Select onValueChange={(value) => handleChange(value, "depth")}>
-                            <SelectTrigger className="bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg">
+                            <SelectTrigger >
                               <SelectValue placeholder="Select depth" />
                             </SelectTrigger>
                             <SelectContent className="z-50 bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg text-gray-100">
@@ -268,31 +268,31 @@ const handleUpdate = async () => {
                             </SelectContent>
                           </Select>
                 
-                          <label className="block mt-4 mb-2 text-gray-400">Topics of Interest</label>
+                          <label >Topics of Interest</label>
                           <Input
-                            className="bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg"
+
                             type="text"
                             name="topics"
                             placeholder="e.g., Investing, Finance"
                             onChange={(e) => handleChange(e.target.value, "topics")}
                           />
                 
-                          <label className="block mt-4 mb-2 text-gray-400">
+                          <label >
                             Interests, Values, or Preferences for Personalization
                           </label>
                           <Input
-                            className="bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg"
+                           
                             type="text"
                             name="interests"
                             placeholder="e.g., Basketball, Video Games"
                             onChange={(e) => handleChange(e.target.value, "interests")}
                           />
                 
-                          <label className="block mt-4 mb-2 text-gray-400">
+                          <label >
                             Preferred Study Schedule
                           </label>
                           <Select onValueChange={(value) => handleChange(value, "schedule")}>
-                            <SelectTrigger className="bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg">
+                            <SelectTrigger >
                               <SelectValue placeholder="Select schedule" />
                             </SelectTrigger>
                             <SelectContent className="z-50 bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg text-gray-100">
