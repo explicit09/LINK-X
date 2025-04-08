@@ -95,11 +95,11 @@ docker exec -it <container_id_or_name> /bin/bash # Open an interactive shell (se
   - Loads specified PDF document
   - Splits text into manageable chunks
   - Creates FAISS vector embeddings using OpenAI
-  - Saves vector database to `/app/src/faiss_generated/<pdf_id>/faiss_index`
+  - Saves files `index.faiss` and `index.pkl` to `/app/src/faiss_generated/<pdf_id>/faiss_index/` within the container
   
 - `item_02_generate_citations_APA_FAISS.py` && `item_03_replace_source_by_citation.py`
   - Generates APA citations using LLM: GPT-4o-mini
-  - Saves citations to `/app/src/faiss_generated/<pdf_id>/additional_files/citations.csv`
+  - Saves citations to `/app/src/faiss_generated/<pdf_id>/additional_files/citations.csv` within the container
   - Updates vector storage with proper citations
 
 ### 2. FAISS index retrieval and RAG
