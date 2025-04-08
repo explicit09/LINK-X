@@ -24,10 +24,14 @@ export default function Home() {
             isCollapsed ? "ml-16" : "ml-64"
           )}
         >
-          <main className="flex-grow overflow-y-auto p-6">
+          <main className="flex-grow overflow-y-auto p-6 pr-96">
             <LessonContent />
           </main>
-          <AIChatbot />
+
+          {/* Fix the chatbot on the right */}
+          <div className="fixed top-0 right-0 h-screen z-40">
+            <AIChatbot />
+          </div>
         </div>
       </div>
     </div>

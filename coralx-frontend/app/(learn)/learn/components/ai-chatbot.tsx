@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Send, ChevronRight } from "lucide-react";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 
 export default function AIChatbot() {
   const [isMinimized, setIsMinimized] = useState(false);
@@ -9,47 +10,111 @@ export default function AIChatbot() {
   const [messages, setMessages] = useState<{ role: string; content: string }[]>(
     []
   );
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const auth = getAuth();
+  const user = auth.currentUser;
+  const firebaseUid = user?.uid; // will be undefined if not logged in
+  const userScopedKey = firebaseUid ? `chatId_${firebaseUid}` : null;
+
+
+
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isLoading, isMinimized]);
+
+  useEffect(() => {
+    const auth = getAuth();
+  
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) return;
+  
+      const firebaseUid = user.uid;
+      const localStorageKey = `chatId_${firebaseUid}`;
+      const savedChatId = localStorage.getItem(localStorageKey);
+  
+      if (savedChatId) {
+        setChatId(savedChatId);
+  
+        fetch(`http://localhost:8080/messages/${savedChatId}`, {
+          method: "GET",
+          credentials: "include",
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.error) {
+              localStorage.removeItem(localStorageKey);
+              setChatId(null);
+              setMessages([]);
+            } else {
+              const formattedMessages = data.map((msg: any) => ({
+                role: msg.role,
+                content: msg.content,
+              }));
+              setMessages(formattedMessages);
+            }
+          })
+          .catch((err) => console.error("Error fetching messages:", err));
+      }
+    });
+  
+    return () => unsubscribe();
+  }, []);
+  
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
-
-    setMessages((prev) => [...prev, { role: "user", content: input }]);
-    setIsLoading(true); // Show loading
-
+  
+    const newUserMessage = { role: "user", content: input };
+    const updatedConversation = [...messages, newUserMessage];
+    setMessages(updatedConversation);
+    setIsLoading(true);
+  
     try {
-      const response = await fetch("http://localhost:8080/chat", {
+      const response = await fetch("http://localhost:8080/ai-chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({
+          id: chatId, // May be null on first run
+          userMessage: input,
+          messages: messages, // Only prior history, not including the new message yet
+        }),
       });
-
+  
       const data = await response.json();
-
+  
       if (data.error) {
-        console.error("Chatbot error:", data.error);
+        console.error("AI chat error:", data.error);
         return;
       }
-
-      if (data.response) {
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: data.response },
-        ]);
+  
+      const assistantMessage = { role: "assistant", content: data.assistant };
+  
+      // 🔄 Update state with assistant reply
+      setMessages((prev) => [...prev, assistantMessage]);
+  
+      // 🔄 Set chatId if it was just created
+      if (data.chatId && !chatId && firebaseUid) {
+        setChatId(data.chatId);
+        localStorage.setItem(`chatId_${firebaseUid}`, data.chatId);
       }
-
+      
       setInput("");
     } catch (err) {
-      console.error("Failed to send message:", err);
+      console.error("Failed to call /ai-chat:", err);
     } finally {
-      setIsLoading(false); // Hide loading
+      setIsLoading(false);
     }
   };
+  
 
   return (
     <div className="flex flex-col h-full text-foreground bg-background border-l border-border shadow-lg">
@@ -106,6 +171,8 @@ export default function AIChatbot() {
                   </div>
                 </div>
               )}
+
+              <div ref={messagesEndRef} />
             </div>
 
             <form

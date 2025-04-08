@@ -1,8 +1,6 @@
-from datetime import date
+from datetime import date, datetime
 import os
 import firebase_admin
-import openai
-from openai import OpenAI
 from firebase_admin import auth, credentials
 from flask import Flask, render_template, jsonify, request
 from flask_cors import CORS
@@ -15,11 +13,13 @@ from sqlalchemy.orm import sessionmaker
 from src.db.schema import Base, Suggestion, User, Document, Chat, Message, Vote, Onboarding
 from alembic import command
 from alembic.config import Config
+import uuid
+from openai import OpenAI
 
 from src.db.queries import (
-    delete_market_item_by_id, delete_news_by_id, delete_onboarding_by_user_id, delete_user_by_firebase_uid, get_all_news, get_market_item_by_id, get_news_by_id, get_onboarding, get_recent_market_prices, 
+    delete_market_item_by_id, delete_news_by_id, get_all_news, get_market_item_by_id, get_news_by_id, get_recent_market_prices, 
     get_user_by_email, create_user, save_chat, delete_chat_by_id, get_chats_by_user_id,
-    get_chat_by_id, save_market_item, save_messages, get_messages_by_chat_id, save_news_item, update_onboarding_by_user_id, update_user_by_firebase_uid, vote_message,
+    get_chat_by_id, save_market_item, save_messages, get_messages_by_chat_id, save_news_item, vote_message,
     get_votes_by_chat_id, save_document, get_documents_by_id, get_document_by_id,
     delete_documents_by_id_after_timestamp, save_suggestions, get_suggestions_by_document_id,
     get_message_by_id, delete_messages_by_chat_id_after_timestamp, update_chat_visibility_by_id, 
@@ -28,25 +28,29 @@ from src.db.queries import (
 
 load_dotenv()
 
+# Initialize Flask
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
 
+# Initialize Firebase Admin
 cred = credentials.Certificate("firebaseKey.json")
 firebase_admin.initialize_app(cred)
 
+# SQLAlchemy configuration
 POSTGRES_URL = os.getenv("POSTGRES_URL")
 if not POSTGRES_URL:
     raise ValueError("POSTGRES_URL is not defined in the environment")
 
+# Create engine, session, and tables
 engine = create_engine(POSTGRES_URL)
 Session = sessionmaker(bind=engine, expire_on_commit=False)
 Base.metadata.create_all(engine)
 
-openai.api_key = "your-openai-api-key"
-
+# FAISS and metadata paths
 INDEX_PATH = "/app/"
 PICKLE_PATH = "/app/"
 
+# Attempt to load FAISS index
 try:
     faiss_index = faiss.read_index("/app/index.faiss")
     print("FAISS index successfully loaded from /app/index.faiss")
@@ -54,6 +58,7 @@ except Exception as e:
     print(f"Error loading FAISS index: {e}")
     faiss_index = None
 
+# Attempt to load metadata
 try:
     with open("/app/index.pkl", "rb") as f:
         metadata = pickle.load(f)
@@ -62,18 +67,28 @@ except Exception as e:
     print(f"Error loading metadata: {e}")
     metadata = None
 
-# Firebase Token Verification
-def verify_session_cookie():
+
+# This one returns plain data — safe to use in backend logic like chat
+def get_user_from_session():
     session_cookie = request.cookies.get('session')
     if not session_cookie:
-        return jsonify({"error": "Unauthorized - Missing session cookie"}), 401
+        return {"error": "Unauthorized - Missing session cookie"}
 
     try:
-        decoded_claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
-        return decoded_claims
+        return auth.verify_session_cookie(session_cookie, check_revoked=True)
     except Exception as e:
-        return jsonify({"error": str(e)}), 401
+        return {"error": str(e)}
 
+# This one is for routes your teammates use — returns Flask-style response
+def verify_session_cookie():
+    user = get_user_from_session()
+    if "error" in user:
+        return jsonify(user), 401
+    return user
+
+
+
+# Unprotected Routes
 @app.route('/')
 def home():
     """Serve the main UI."""
@@ -81,7 +96,7 @@ def home():
 
 @app.route('/citations', methods=['GET'])
 def citations():
-
+    """Example unprotected route that returns citation data (if you want it public)."""
     try:
         citation_data = []
         if metadata:
@@ -96,6 +111,11 @@ def citations():
 
 @app.route('/migrate', methods=['POST'])
 def migrate():
+    """Run Alembic migrations (optionally protected if needed)."""
+    # If you want to protect migrations, uncomment the following:
+    # user = verify_session_cookie()
+    # if isinstance(user, dict) and "error" in user:
+    #     return user
 
     try:
         alembic_cfg = Config("alembic.ini")
@@ -108,39 +128,9 @@ def migrate():
         return jsonify({"message": "Migrations completed successfully!"}), 200
     except Exception as e:
         return jsonify({"error": f"Error running migrations: {str(e)}"}), 500
-    
 
-#CP
-@app.route('/chat/ask', methods=['POST'])
-def chat():
-    user_claims = verify_session_cookie()
-    if isinstance(user_claims, dict) and "error" in user_claims:
-        return user_claims
 
-    data = request.get_json()
-    user_message = data.get("message")
-    
-    if not user_message:
-        return jsonify({"error": "Message is required"}), 400
-
-    try:
-        client = OpenAI()
-
-        response = client.chat.completions.create(
-            model="gpt-4o",  # or gpt-3.5-turbo
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": user_message}
-            ]
-        )
-
-        reply_text = response.choices[0].message.content
-
-        return jsonify({"response": reply_text})
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    
+# Protected Routes
 
 @app.route('/onboarding', methods=['POST'])
 def create_onboarding_route():
@@ -237,7 +227,7 @@ def session_login():
     
 @app.route('/chats', methods=['GET'])
 def get_chats():
-
+    """Retrieve chats for the authenticated user."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -251,7 +241,7 @@ def get_chats():
 
 @app.route('/chat', methods=['POST'])
 def save_chat_route():
-
+    """Save a new chat."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -276,7 +266,7 @@ def delete_chat_param_missing():
 
 @app.route('/chat/<chat_id>', methods=['GET'])
 def get_chat_by_id_route(chat_id):
-
+    """Get a single chat by ID."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -305,7 +295,7 @@ def get_chat_by_id_route(chat_id):
 
 @app.route('/chat/<chat_id>', methods=['DELETE'])
 def delete_chat_by_id_route(chat_id):
-
+    """Delete a chat by its ID."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -318,20 +308,52 @@ def delete_chat_by_id_route(chat_id):
 
 @app.route('/messages/<chat_id>', methods=['GET'])
 def get_messages_by_chat(chat_id):
+    """Retrieve messages for a specific chat."""
+    user_claims = verify_session_cookie()
+    if isinstance(user_claims, dict) and "error" in user_claims:
+        return user_claims
 
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
+    db_session = Session()
     try:
-        messages = get_messages_by_chat_id(db=Session(), chat_id=chat_id)
-        return jsonify(messages), 200
+        # 🔍 Step 1: Look up Postgres user using Firebase UID
+        postgres_user = get_user_by_firebase_uid(db_session, user_claims["uid"])
+        if not postgres_user:
+            return jsonify({"error": "User not found"}), 404
+
+        # ✅ Step 2: Get chat and compare using internal UUID
+        chat = db_session.query(Chat).filter(Chat.id == chat_id).first()
+        if not chat:
+            return jsonify({"error": "Chat not found"}), 404
+
+        if str(chat.userId) != str(postgres_user.id):
+            print(f"Unauthorized: Chat.userId = {chat.userId}, Requesting user = {postgres_user.id}")
+            return jsonify({"error": "Unauthorized"}), 401
+
+        # ✅ Step 3: Return messages
+        messages = get_messages_by_chat_id(db=db_session, chat_id=chat_id)
+        if not messages:
+            return jsonify([]), 200
+
+        return jsonify([
+            {
+                "role": msg.role,
+                "content": msg.content,
+                "createdAt": msg.createdAt.isoformat()
+            }
+            for msg in messages
+        ]), 200
+
     except Exception as e:
+        print(f"Error in get_messages_by_chat: {str(e)}")
         return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+
 
 @app.route('/message', methods=['POST'])
 def save_message():
-
+    """Save messages for a chat."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -350,7 +372,7 @@ def save_message():
 
 @app.route('/message/vote', methods=['POST'])
 def vote_on_message():
-
+    """Vote on a message in a chat."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -371,7 +393,7 @@ def vote_on_message():
 
 @app.route('/vote/<chat_id>', methods=['GET'])
 def get_votes_for_chat(chat_id):
-
+    """Get votes for a particular chat."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -384,7 +406,7 @@ def get_votes_for_chat(chat_id):
 
 @app.route('/documents', methods=['GET'])
 def get_documents_route():
-
+    """Get documents belonging to authenticated user."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -406,7 +428,7 @@ def get_documents_route():
 
 @app.route('/documents', methods=['POST'])
 def save_document_route():
-
+    """Save a document for the authenticated user."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -437,7 +459,7 @@ def save_document_route():
 
 @app.route('/documents', methods=['PATCH'])
 def delete_documents_by_timestamp():
-
+    """Delete documents after a certain timestamp for the authenticated user."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -477,7 +499,7 @@ def delete_documents_by_timestamp():
 
 @app.route('/document/<document_id>', methods=['GET'])
 def get_document_by_id_endpoint(document_id):
-
+    """Retrieve a single document by its ID."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -496,7 +518,7 @@ def get_document_by_id_endpoint(document_id):
 
 @app.route('/suggestions', methods=['GET'])
 def get_suggestions_route():
-
+    """Fetch suggestions for a specific document ID."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -519,7 +541,7 @@ def get_suggestions_route():
 
 @app.route('/suggestions', methods=['POST'])
 def save_suggestions_endpoint():
-
+    """Save suggestions for a specific document."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -554,7 +576,7 @@ def save_suggestions_endpoint():
 
 @app.route('/delete-trailing-messages', methods=['POST'])
 def delete_trailing_messages():
-
+    """Delete messages after a given timestamp in a chat."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -574,7 +596,7 @@ def delete_trailing_messages():
 
 @app.route('/update-chat-visibility', methods=['POST'])
 def update_chat_visibility():
-
+    """Update the visibility status of a chat."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -592,7 +614,7 @@ def update_chat_visibility():
 
 @app.route('/save-model-id', methods=['POST'])
 def save_model_id():
-
+    """Save the selected AI model ID. Optionally protect this route."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -607,7 +629,7 @@ def save_model_id():
 
 @app.route('/generate-title', methods=['POST'])
 def generate_title_from_message():
-
+    """Generate a short title from the user's first message."""
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -620,6 +642,81 @@ def generate_title_from_message():
 
     title = message[:80]
     return jsonify({"title": title}), 200
+
+
+@app.route('/ai-chat', methods=['POST']) 
+def ai_chat():
+    try:
+        # ✅ Session validation (unchanged)
+        user = get_user_from_session()
+        if "error" in user:
+            return jsonify(user), 401
+
+        # 🔄 CHANGED: cleaned up variable names
+        data = request.get_json()
+        print("Received data:", data)
+
+        chat_id = data.get("id")
+        user_message = data.get("userMessage")
+        conversation = data.get("messages", [])  # ✅ Expect full conversation history now
+
+        if not user_message:
+            return jsonify({"error": "User message is required"}), 400
+
+        db_session = Session()
+
+        # ✅ Chat retrieval or creation
+        chat = get_chat_by_id(db_session, chat_id) if chat_id else None
+        if not chat:
+            postgres_user = get_user_by_firebase_uid(db_session, user["uid"])
+            if not postgres_user:
+                return jsonify({"error": "User not found in database"}), 404
+
+            chat = save_chat(db_session, user_id=postgres_user.id, title="New Chat")  # 🔄 CHANGED: added fallback title
+            chat_id = str(chat.id)
+
+        # ✅ Save user message
+        user_msg = Message(
+            id=str(uuid.uuid4()),
+            chatId=chat_id,
+            role="user",
+            content=user_message,
+            createdAt=datetime.utcnow()
+        )
+        save_messages(db_session, messages=[user_msg])
+
+        # ✅ Build prompt for OpenAI
+        conversation_payload = conversation.copy()  # 🔄 CHANGED: now includes full history from frontend
+        conversation_payload.append({"role": "user", "content": user_message})
+
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=conversation_payload
+        )
+        assistant_content = response.choices[0].message.content
+        print("OpenAI responded with:", assistant_content)
+
+        # ✅ Save assistant message
+        assistant_msg = Message(
+            id=str(uuid.uuid4()),
+            chatId=chat_id,
+            role="assistant",
+            content=assistant_content,
+            createdAt=datetime.utcnow()
+        )
+        save_messages(db_session, messages=[assistant_msg])
+
+        # 🔄 CHANGED: Return both assistant reply and chatId (chatId may be newly created)
+        return jsonify({
+            "assistant": assistant_content,
+            "chatId": chat_id
+        }), 200
+
+    except Exception as e:
+        print("Error in /ai-chat:", str(e))
+        return jsonify({"error": "Server error: " + str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
@@ -821,160 +918,6 @@ def remove_news_item(news_id):
         return jsonify({"message": "News article deleted"}), 200
     except Exception as e:
         db_session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/user', methods=['GET'])
-def get_user():
-
-    user_claims = verify_session_cookie()
-    if isinstance(user_claims, dict) and "error" in user_claims:
-        return user_claims
-
-    firebase_uid = user_claims["uid"]
-    db_session = Session()
-    try:
-        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
-        if not postgres_user:
-            return jsonify({"error": "User not found"}), 404
-
-        user_data = {
-            "id": str(postgres_user.id),
-            "email": postgres_user.email,
-            "firebase_uid": postgres_user.firebase_uid
-        }
-        return jsonify(user_data), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/user', methods=['PATCH'])
-def update_user():
-    user_claims = verify_session_cookie()
-    if isinstance(user_claims, dict) and "error" in user_claims:
-        return user_claims
-
-    firebase_uid = user_claims["uid"]
-    data = request.get_json()
-    db_session = Session()
-    try:
-        if "email" in data or "password" in data:
-            update_args = {}
-            if "email" in data:
-                update_args["email"] = data["email"]
-            if "password" in data:
-                update_args["password"] = data["password"]
-            auth.update_user(firebase_uid, **update_args)
-
-        updated_user = update_user_by_firebase_uid(db_session, firebase_uid, data)
-        user_data = {
-            "id": str(updated_user.id),
-            "email": updated_user.email,
-            "firebase_uid": updated_user.firebase_uid
-        }
-        return jsonify(user_data), 200
-    except Exception as e:
-        db_session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/user', methods=['DELETE'])
-def delete_user():
-
-    user_claims = verify_session_cookie()
-    if isinstance(user_claims, dict) and "error" in user_claims:
-        return user_claims
-
-    firebase_uid = user_claims["uid"]
-    db_session = Session()
-    try:
-        delete_user_by_firebase_uid(db_session, firebase_uid)
-        return jsonify({"message": "User deleted successfully"}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/onboarding', methods=['GET'])
-def get_onboarding_route():
-
-    user_claims = verify_session_cookie()
-    if isinstance(user_claims, dict) and "error" in user_claims:
-        return user_claims
-
-    firebase_uid = user_claims["uid"]
-    db_session = Session()
-    try:
-        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
-        if not postgres_user:
-            return jsonify({"error": "User not found"}), 404
-
-        onboarding = get_onboarding(db_session, postgres_user.id)
-        if not onboarding:
-            return jsonify({"error": "Onboarding record not found"}), 404
-
-        onboarding_data = {
-            "id": str(onboarding.id),
-            "name": onboarding.name,
-            "answers": onboarding.answers,
-            "quizzes": onboarding.quizzes,
-            "createdAt": onboarding.createdAt.isoformat()
-        }
-        return jsonify(onboarding_data), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/onboarding', methods=['PATCH'])
-def update_onboarding():
-
-    user_claims = verify_session_cookie()
-    if isinstance(user_claims, dict) and "error" in user_claims:
-        return user_claims
-
-    firebase_uid = user_claims["uid"]
-    data = request.get_json()
-    db_session = Session()
-    try:
-        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
-        if not postgres_user:
-            return jsonify({"error": "User not found"}), 404
-
-        updated_onboarding = update_onboarding_by_user_id(db_session, postgres_user.id, data)
-        onboarding_data = {
-            "id": str(updated_onboarding.id),
-            "name": updated_onboarding.name,
-            "answers": updated_onboarding.answers,
-            "quizzes": updated_onboarding.quizzes,
-            "createdAt": updated_onboarding.createdAt.isoformat()
-        }
-        return jsonify(onboarding_data), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/onboarding', methods=['DELETE'])
-def delete_onboarding():
-
-    user_claims = verify_session_cookie()
-    if isinstance(user_claims, dict) and "error" in user_claims:
-        return user_claims
-
-    firebase_uid = user_claims["uid"]
-    db_session = Session()
-    try:
-        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
-        if not postgres_user:
-            return jsonify({"error": "User not found"}), 404
-
-        delete_onboarding_by_user_id(db_session, postgres_user.id)
-        return jsonify({"message": "Onboarding record deleted successfully"}), 200
-    except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         db_session.close()
