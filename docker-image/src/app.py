@@ -40,23 +40,23 @@ engine = create_engine(POSTGRES_URL)
 Session = sessionmaker(bind=engine, expire_on_commit=False)
 Base.metadata.create_all(engine)
 
-INDEX_PATH = "/app/"
-PICKLE_PATH = "/app/"
+# INDEX_PATH = "/app/"
+# PICKLE_PATH = "/app/"
 
-try:
-    faiss_index = faiss.read_index("/app/index.faiss")
-    print("FAISS index successfully loaded from /app/index.faiss")
-except Exception as e:
-    print(f"Error loading FAISS index: {e}")
-    faiss_index = None
+# try:
+#     faiss_index = faiss.read_index("/app/index.faiss")
+#     print("FAISS index successfully loaded from /app/index.faiss")
+# except Exception as e:
+#     print(f"Error loading FAISS index: {e}")
+#     faiss_index = None
 
-try:
-    with open("/app/index.pkl", "rb") as f:
-        metadata = pickle.load(f)
-    print("Metadata successfully loaded from /app/index.pkl")
-except Exception as e:
-    print(f"Error loading metadata: {e}")
-    metadata = None
+# try:
+#     with open("/app/index.pkl", "rb") as f:
+#         metadata = pickle.load(f)
+#     print("Metadata successfully loaded from /app/index.pkl")
+# except Exception as e:
+#     print(f"Error loading metadata: {e}")
+#     metadata = None
 
 # Firebase Token Verification
 def verify_session_cookie():
@@ -75,20 +75,20 @@ def home():
     """Serve the main UI."""
     return render_template('index.html')
 
-@app.route('/citations', methods=['GET'])
-def citations():
+# @app.route('/citations', methods=['GET'])
+# def citations():
 
-    try:
-        citation_data = []
-        if metadata:
-            for idx, doc in enumerate(metadata.values()):
-                citation_data.append({
-                    "source": doc.metadata.get("source", "Unknown"),
-                    "citation": f"Mock APA Citation for Document {idx + 1}"
-                })
-        return jsonify({"citations": citation_data})
-    except Exception as e:
-        return jsonify({"error": f"Error generating citations: {e}"}), 500
+#     try:
+#         citation_data = []
+#         if metadata:
+#             for idx, doc in enumerate(metadata.values()):
+#                 citation_data.append({
+#                     "source": doc.metadata.get("source", "Unknown"),
+#                     "citation": f"Mock APA Citation for Document {idx + 1}"
+#                 })
+#         return jsonify({"citations": citation_data})
+#     except Exception as e:
+#         return jsonify({"error": f"Error generating citations: {e}"}), 500
 
 @app.route('/migrate', methods=['POST'])
 def migrate():

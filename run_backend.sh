@@ -37,7 +37,7 @@ pwd
 # port 8501 currently used for the streamlit webui
 # binds data/learning_pdfs folder to container
 # TODO: move all of the FAISS scripts to LINK-X/scripts/FAISS_scripts and the bind to the container
-docker run $RUN_MODE --env-file .env -v "$(pwd)/../../data/learning_pdfs:/app/src/learning_pdfs" -p 8080:8080 -p 8501:8501 dev7 || { echo "Docker run failed"; exit 1; }
+docker run $RUN_MODE --env-file .env -v "$(pwd)/../../data/learning_pdfs:/app/src/learning_pdfs" -v "$(pwd)/../../data/faiss_generated:/app/src/faiss_generated" -p 8080:8080 -p 8501:8501 dev7 || { echo "Docker run failed"; exit 1; }
 
 # While in detatched mode,
 # use "docker exec -it <container_id_or_name> /bin/bash" 
