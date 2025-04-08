@@ -6,16 +6,21 @@ import { Send, ChevronRight } from "lucide-react";
 export default function AIChatbot() {
   const [isMinimized, setIsMinimized] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>(
+    []
+  );
   const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!input.trim()) return;
 
+    setMessages((prev) => [...prev, { role: "user", content: input }]);
+    setIsLoading(true); // Show loading
+
     try {
-      const response = await fetch("http://localhost:8080/chat", {
+      const response = await fetch("http://localhost:8080/chat/ask", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -34,7 +39,6 @@ export default function AIChatbot() {
       if (data.response) {
         setMessages((prev) => [
           ...prev,
-          { role: "user", content: input },
           { role: "assistant", content: data.response },
         ]);
       }
@@ -42,6 +46,8 @@ export default function AIChatbot() {
       setInput("");
     } catch (err) {
       console.error("Failed to send message:", err);
+    } finally {
+      setIsLoading(false); // Hide loading
     }
   };
 
@@ -74,7 +80,9 @@ export default function AIChatbot() {
               {messages.map((m, index) => (
                 <div
                   key={index}
-                  className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                  className={`flex ${
+                    m.role === "user" ? "justify-end" : "justify-start"
+                  }`}
                 >
                   <div
                     className={`max-w-[75%] p-3 rounded-lg text-sm leading-relaxed ${
@@ -87,6 +95,17 @@ export default function AIChatbot() {
                   </div>
                 </div>
               ))}
+
+              {/* Typing bubble */}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="flex space-x-1 bg-muted text-muted-foreground p-3 rounded-lg text-sm leading-relaxed animate-pulse">
+                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.3s]" />
+                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]" />
+                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
+                  </div>
+                </div>
+              )}
             </div>
 
             <form

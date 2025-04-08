@@ -111,7 +111,7 @@ def migrate():
     
 
 #CP
-@app.route('/chat', methods=['POST'])
+@app.route('/chat/ask', methods=['POST'])
 def chat():
     user_claims = verify_session_cookie()
     if isinstance(user_claims, dict) and "error" in user_claims:
