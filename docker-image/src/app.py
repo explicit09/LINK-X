@@ -45,23 +45,23 @@ Base.metadata.create_all(engine)
 
 openai.api_key = "your-openai-api-key"
 
-INDEX_PATH = "/app/"
-PICKLE_PATH = "/app/"
+# INDEX_PATH = "/app/"
+# PICKLE_PATH = "/app/"
 
-try:
-    faiss_index = faiss.read_index("/app/index.faiss")
-    print("FAISS index successfully loaded from /app/index.faiss")
-except Exception as e:
-    print(f"Error loading FAISS index: {e}")
-    faiss_index = None
+# try:
+#     faiss_index = faiss.read_index("/app/index.faiss")
+#     print("FAISS index successfully loaded from /app/index.faiss")
+# except Exception as e:
+#     print(f"Error loading FAISS index: {e}")
+#     faiss_index = None
 
-try:
-    with open("/app/index.pkl", "rb") as f:
-        metadata = pickle.load(f)
-    print("Metadata successfully loaded from /app/index.pkl")
-except Exception as e:
-    print(f"Error loading metadata: {e}")
-    metadata = None
+# try:
+#     with open("/app/index.pkl", "rb") as f:
+#         metadata = pickle.load(f)
+#     print("Metadata successfully loaded from /app/index.pkl")
+# except Exception as e:
+#     print(f"Error loading metadata: {e}")
+#     metadata = None
 
 # Firebase Token Verification
 def verify_session_cookie():
