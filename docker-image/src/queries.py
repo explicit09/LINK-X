@@ -44,7 +44,27 @@ def generate_module_content():
     # Generate the content for the specified module using data provided & broader internet
     return 0
 
-def valid_query(query):
+def valid_query(user_query, working_dir):
     # TODO
     # Take a query given by a user and verify it is related to the course content
+    query = (
+    f"""
+    You are an AI assistant with access to a knowledge base derived from provided content on a specific subject.  You have been provided the following query:
+
+        "{user_query}"
+
+    Your task is to:
+    
+    1. If the query is relevant to information within the knowledge base, respond with a consise answer.  
+
+    2. If the query is not relevant to information within the knowledge base, reply with:
+
+        "Query is not relevant to the Course. Please try again."
+
+    Your output should only provide one of these two outcomes based on the relevance of the query to the course content.
+    """
+    )
+    response = answer_to_QA(query, working_dir)
+    print(response)
+
     return 0
