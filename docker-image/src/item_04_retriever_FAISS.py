@@ -8,6 +8,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_openai import ChatOpenAI
 from langchain.chains import RetrievalQA
 from langchain_core.globals import set_verbose, set_debug
+from langchain.schema import BaseRetriever, Document
 import warnings
 
 # Load environment variables
@@ -18,6 +19,12 @@ warnings.filterwarnings("ignore", message=".*LangChainDeprecationWarning.*")
 # Disable verbose and debug logging
 set_verbose(False)
 set_debug(False)
+
+# Dummy retriever that always returns an empty list.
+class EmptyRetriever(BaseRetriever):
+    def _get_relevant_documents(self, query):
+        # Return an empty list of Documents
+        return []
 
 def process_llm_response_with_sources(llm_response):
     result = llm_response['result'].strip().lower()
@@ -62,40 +69,42 @@ def get_similar_chunks(raw_llm_response):
 
 def raw_LLM_response(query, faiss_index_path, closed):
     embedding = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
-
-    # Load the FAISS index
-    vectordb = FAISS.load_local(faiss_index_path, embedding, allow_dangerous_deserialization=True)
-
-    retriever = vectordb.as_retriever()
-
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
-    # Create the chain to answer questions
     if(closed):
-        # closed qa chain
-        qa_chain = RetrievalQA.from_chain_type(
-            llm,
-            chain_type="stuff",
-            retriever=retriever,
-            return_source_documents=True
+        # --- CLOSED: FAISS + RAG path ---
+        vectordb = FAISS.load_local(
+            faiss_index_path, embedding, allow_dangerous_deserialization=True
         )
+        retriever = vectordb.as_retriever()  
     else:
-        # open qa chain
-        qa_chain = RetrievalQA.from_chain_type(
-            # llm,
-            # chain_type="stuff",
-            # retriever=retriever,
-            # return_source_documents=True
-        )
+        # --- OPEN: plain LLM path ---
+        retriever = EmptyRetriever()
+    
+    qa_chain = RetrievalQA.from_chain_type(
+        llm,
+        chain_type="stuff",
+        retriever=retriever,
+        return_source_documents=True
+    )
 
     llm_response = qa_chain.invoke(query)
 
     return llm_response
 
 def answer_to_QA(query, faiss_index_path):
-    closed = true
+    # If no FAISS index provided, use an open qa chain
+    if faiss_index_path is None:
+        closed = False
+    else:
+        closed = True
+
     llm_response = raw_LLM_response(query, faiss_index_path, closed)
-    answer_txt = process_llm_response_with_sources(llm_response)
+    
+    # Response without citations
+    answer_txt = process_llm_response(llm_response)
+    # Response with citations (could add a flag if there are cases where we want the sources listed
+    # answer_txt = process_llm_response_with_sources(llm_response)
 
     return answer_txt
 
