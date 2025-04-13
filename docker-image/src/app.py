@@ -46,8 +46,6 @@ engine = create_engine(POSTGRES_URL)
 Session = sessionmaker(bind=engine, expire_on_commit=False)
 Base.metadata.create_all(engine)
 
-openai.api_key = "your-openai-api-key"
-
 # INDEX_PATH = "/app/"
 # PICKLE_PATH = "/app/"
 
