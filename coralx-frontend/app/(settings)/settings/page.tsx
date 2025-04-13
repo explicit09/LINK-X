@@ -19,6 +19,8 @@ import { CheckedState } from "@radix-ui/react-checkbox";
 import { ArrowLeft, Bell, Shield, Moon, UserCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Header from "@/components/link-x/Header";
+import Footer from "@/components/Footer";
 
 interface OnboardingData {
   name: string;
@@ -198,11 +200,13 @@ const Settings = () => {
 
   return (
     <div className="flex flex-col bg-black text-white min-h-screen w-full pt-24 pb-12 px-4 md:px-6">
-      <div className="max-w-[900px] mx-auto w-full">
+      <Header isLoggedIn={true}  />
+      <div className="max-w-[900px] mx-auto w-full mb-12">
+
         <div className="mb-8 flex items-center">
-          <Link href="/" className="flex items-center text-gray-300 hover:text-blue-400 mr-4">
+          <Link href="/dashboard" className="flex items-center text-gray-300 hover:text-blue-400 mr-4">
             <ArrowLeft size={20} className="mr-2" />
-            Back to Home
+            Dashboard
           </Link>
           <h1 className="text-3xl font-bold">Settings</h1>
         </div>
@@ -299,7 +303,8 @@ const Settings = () => {
                   onChange={(e) => handleChange(e.target.value, "traits")}
                 />
                 <Label>Preferred Learning Style</Label>
-                <Select onValueChange={(value: string) => handleChange(value, "learningStyle")}>
+                <Select  value={formData.learningStyle}
+                 onValueChange={(value: string) => handleChange(value, "learningStyle")}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a learning style" />
                   </SelectTrigger>
@@ -311,7 +316,8 @@ const Settings = () => {
                   </SelectContent>
                 </Select>
                 <Label>Depth of Explanation</Label>
-                <Select onValueChange={(value: string) => handleChange(value, "depth")}>
+                <Select value={formData.depth}
+                onValueChange={(value: string) => handleChange(value, "depth")}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select depth" />
                   </SelectTrigger>
@@ -339,7 +345,8 @@ const Settings = () => {
                   onChange={(e) => handleChange(e.target.value, "interests")}
                 />
                 <Label>Preferred Study Schedule</Label>
-                <Select onValueChange={(value: string) => handleChange(value, "schedule")}>
+                <Select value={formData.schedule}
+                onValueChange={(value: string) => handleChange(value, "schedule")}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select schedule" />
                   </SelectTrigger>
@@ -417,6 +424,7 @@ const Settings = () => {
           </TabsContent>
         </Tabs>
       </div>
+      <Footer/>
     </div>
   );
 };
