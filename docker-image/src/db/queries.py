@@ -1,6 +1,6 @@
 from sqlalchemy import select, and_, desc, asc
 from sqlalchemy.orm import Session
-from src.db.schema import User, Chat, Message, Vote, Document, Suggestion, Onboarding, News, Market
+from src.db.schema import User, Chat, Message, Vote, Document, Suggestion, Onboarding, News, Market, File
 from werkzeug.security import generate_password_hash, check_password_hash
 from typing import List, Optional
 from datetime import date
@@ -395,3 +395,51 @@ def delete_onboarding_by_user_id(db: Session, user_id: str):
     except Exception as e:
         db.rollback()
         raise e
+    
+def save_file(db: Session, filename: str, file_type: str, file_size: int, file_data: bytes, user_id: Optional[str] = None):
+
+    try:
+        new_file = File(
+            filename=filename,
+            fileType=file_type,
+            fileSize=file_size,
+            fileData=file_data,
+            userId=user_id
+        )
+        db.add(new_file)
+        db.commit()
+        db.refresh(new_file)
+        return new_file
+    except Exception as e:
+        print(f"Error saving file: {e}")
+        db.rollback()
+        raise
+
+def get_file_by_id(db: Session, file_id: str):
+
+    try:
+        return db.execute(select(File).filter_by(id=file_id)).scalars().first()
+    except Exception as e:
+        print(f"Error retrieving file: {e}")
+        raise
+
+def get_files_by_user_id(db: Session, user_id: str):
+
+    try:
+        return db.execute(select(File).filter_by(userId=user_id).order_by(desc(File.createdAt))).scalars().all()
+    except Exception as e:
+        print(f"Error retrieving files for user: {e}")
+        raise
+
+def delete_file_by_id(db: Session, file_id: str):
+
+    try:
+        file_record = db.query(File).filter(File.id == file_id).first()
+        if file_record:
+            db.delete(file_record)
+            db.commit()
+        return file_record
+    except Exception as e:
+        print(f"Error deleting file: {e}")
+        db.rollback()
+        raise

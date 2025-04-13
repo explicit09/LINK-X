@@ -78,6 +78,16 @@ CREATE TABLE IF NOT EXISTS "News" (
     "link" varchar(120) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS "File" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+    "filename" varchar NOT NULL,
+    "fileType" varchar NOT NULL,
+    "fileSize" integer NOT NULL,
+    "fileData" bytea NOT NULL,
+    "createdAt" timestamp NOT NULL DEFAULT now(),
+    "userId" uuid
+);
+
 DO $$ BEGIN
  ALTER TABLE "Chat" 
  ADD CONSTRAINT "Chat_userId_User_id_fk" 
@@ -138,6 +148,14 @@ DO $$ BEGIN
  ALTER TABLE "Vote" 
  ADD CONSTRAINT "Vote_messageId_Message_id_fk" 
  FOREIGN KEY ("messageId") REFERENCES "public"."Message"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+ ALTER TABLE "File" 
+ ADD CONSTRAINT "File_userId_User_id_fk"
+ FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;

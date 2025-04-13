@@ -2,7 +2,7 @@ from datetime import date, datetime
 import os
 import firebase_admin
 from firebase_admin import auth, credentials
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, Response, render_template, jsonify, request
 from flask_cors import CORS
 import faiss
 import pickle
@@ -17,9 +17,9 @@ import uuid
 from openai import OpenAI
 
 from src.db.queries import (
-    delete_market_item_by_id, delete_news_by_id, get_all_news, get_market_item_by_id, get_news_by_id, get_recent_market_prices, 
+    delete_file_by_id, delete_market_item_by_id, delete_news_by_id, get_all_news, get_file_by_id, get_files_by_user_id, get_market_item_by_id, get_news_by_id, get_recent_market_prices, 
     get_user_by_email, create_user, save_chat, delete_chat_by_id, get_chats_by_user_id,
-    get_chat_by_id, save_market_item, save_messages, get_messages_by_chat_id, save_news_item, vote_message,
+    get_chat_by_id, save_file, save_market_item, save_messages, get_messages_by_chat_id, save_news_item, vote_message,
     get_votes_by_chat_id, save_document, get_documents_by_id, get_document_by_id,
     delete_documents_by_id_after_timestamp, save_suggestions, get_suggestions_by_document_id,
     get_message_by_id, delete_messages_by_chat_id_after_timestamp, update_chat_visibility_by_id, 
@@ -918,6 +918,148 @@ def remove_news_item(news_id):
         return jsonify({"message": "News article deleted"}), 200
     except Exception as e:
         db_session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/files', methods=['POST'])
+def upload_file():
+    user = verify_session_cookie()
+    if isinstance(user, dict) and "error" in user:
+        return user
+
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part in the request"}), 400
+
+    file_obj = request.files['file']
+    if file_obj.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+
+    file_data = file_obj.read()
+    filename = file_obj.filename
+    file_type = file_obj.content_type
+    file_size = len(file_data)
+
+    db_session = Session()
+    try:
+        new_file = save_file(
+            db=db_session,
+            filename=filename,
+            file_type=file_type,
+            file_size=file_size,
+            file_data=file_data,
+            user_id=user['uid']
+        )
+        return jsonify({
+            "id": str(new_file.id),
+            "filename": new_file.filename,
+            "fileType": new_file.fileType,
+            "fileSize": new_file.fileSize,
+            "createdAt": new_file.createdAt.isoformat()
+        }), 201
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/files', methods=['GET'])
+def get_files_route():
+    user = verify_session_cookie()
+    if isinstance(user, dict) and "error" in user:
+        return user
+
+    db_session = Session()
+    try:
+        files = get_files_by_user_id(db_session, user_id=user["uid"])
+        result = [
+            {
+                "id": str(f.id),
+                "filename": f.filename,
+                "fileType": f.fileType,
+                "fileSize": f.fileSize,
+                "createdAt": f.createdAt.isoformat()
+            }
+            for f in files
+        ]
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/files/<file_id>', methods=['GET'])
+def get_file_route(file_id):
+    user = verify_session_cookie()
+    if isinstance(user, dict) and "error" in user:
+        return user
+
+    db_session = Session()
+    try:
+        file_record = get_file_by_id(db_session, file_id)
+        if not file_record:
+            return jsonify({"error": "File not found"}), 404
+        if str(file_record.userId) != user["uid"]:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        return jsonify({
+            "id": str(file_record.id),
+            "filename": file_record.filename,
+            "fileType": file_record.fileType,
+            "fileSize": file_record.fileSize,
+            "createdAt": file_record.createdAt.isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/files/<file_id>', methods=['DELETE'])
+def delete_file_route(file_id):
+    user = verify_session_cookie()
+    if isinstance(user, dict) and "error" in user:
+        return user
+
+    db_session = Session()
+    try:
+        file_record = get_file_by_id(db_session, file_id)
+        if not file_record:
+            return jsonify({"error": "File not found"}), 404
+
+        if str(file_record.userId) != user["uid"]:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        delete_file_by_id(db_session, file_id)
+        return jsonify({"message": "File deleted successfully"}), 200
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/files/<file_id>/content', methods=['GET'])
+def display_file_content(file_id):
+    user = verify_session_cookie()
+    if isinstance(user, dict) and "error" in user:
+        return user
+
+    db_session = Session()
+    try:
+        file_record = get_file_by_id(db_session, file_id)
+        if not file_record:
+            return jsonify({"error": "File not found"}), 404
+
+        if str(file_record.userId) != user["uid"]:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        return Response(
+            file_record.fileData,
+            mimetype=file_record.fileType,
+            headers={
+                "Content-Disposition": f"inline; filename={file_record.filename}"
+            }
+        )
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
         db_session.close()
