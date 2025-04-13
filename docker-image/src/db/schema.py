@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, String, Integer, DateTime, ForeignKey, Boolean, Enum, Text, Numeric, Date
+from sqlalchemy import create_engine, Column, String, Integer, DateTime, ForeignKey, Boolean, Enum, Text, Numeric, Date, LargeBinary
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
@@ -20,6 +20,7 @@ class User(Base):
     documents = relationship("Document", back_populates="user")
     suggestions = relationship("Suggestion", back_populates="user")
     onboarding = relationship("Onboarding", back_populates="user", uselist=False)
+    files = relationship("File", back_populates="user")
 
 # Chat model
 class Chat(Base):
@@ -122,3 +123,19 @@ class News(Base):
     title = Column(String(64), nullable=False)
     subject = Column(String(64), nullable=False)
     link = Column(String(120), nullable=False)
+
+# File Model
+class File(Base):
+    __tablename__ = 'File'
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    filename = Column(String, nullable=False)
+    fileType = Column(String, nullable=False)         # e.g. "image/jpeg" or "image/png"
+    fileSize = Column(Integer, nullable=False)          # size in bytes
+    fileData = Column(LargeBinary, nullable=False)      # stores the blob binary data
+    createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    # relationships
+    userId = Column(UUID(as_uuid=True), ForeignKey('User.id'), nullable=True)
+    user = relationship("User", back_populates="files")
+
