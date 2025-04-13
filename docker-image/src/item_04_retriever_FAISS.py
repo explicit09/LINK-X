@@ -60,7 +60,7 @@ def get_similar_chunks(raw_llm_response):
     
     return similar_chunks
 
-def raw_LLM_response(query, faiss_index_path):
+def raw_LLM_response(query, faiss_index_path, closed):
     embedding = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
 
     # Load the FAISS index
@@ -71,20 +71,30 @@ def raw_LLM_response(query, faiss_index_path):
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
     # Create the chain to answer questions
-    qa_chain = RetrievalQA.from_chain_type(
-        llm,
-        chain_type="stuff",
-        retriever=retriever,
-        return_source_documents=True
-    )
+    if(closed):
+        # closed qa chain
+        qa_chain = RetrievalQA.from_chain_type(
+            llm,
+            chain_type="stuff",
+            retriever=retriever,
+            return_source_documents=True
+        )
+    else:
+        # open qa chain
+        qa_chain = RetrievalQA.from_chain_type(
+            # llm,
+            # chain_type="stuff",
+            # retriever=retriever,
+            # return_source_documents=True
+        )
 
     llm_response = qa_chain.invoke(query)
 
     return llm_response
 
 def answer_to_QA(query, faiss_index_path):
-
-    llm_response = raw_LLM_response(query, faiss_index_path)
+    closed = true
+    llm_response = raw_LLM_response(query, faiss_index_path, closed)
     answer_txt = process_llm_response_with_sources(llm_response)
 
     return answer_txt
