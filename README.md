@@ -55,7 +55,7 @@ pnpm install
 ```bash
 cd <project root directory>
 
-docker-compose up --build
+bash run_frontend.sh
 ```
 
 The frontend should now be running on [localhost:3000](http://localhost:3000/).
@@ -65,16 +65,16 @@ The frontend should now be running on [localhost:3000](http://localhost:3000/).
 ```bash
 cd <project root directory>
 
-bash run_backend.sh
+docker-compose up --build
 ```
 
-### To run open new shell in backend container (for testing FAISS):
+### To open new interactive shell in backend container (for testing FAISS):
 ```bash
 docker exec -it backend /bin/bash
 ```
-## FAISS database generation & RAG
+## FAISS database generation & RAG testing
 
-You will need to run the docker container in detatched mode and open a new interactive shell (shown above)
+You will need to run the docker container in and open a new interactive shell (shown above)
 
 From the shell, enter the src folder:
 
