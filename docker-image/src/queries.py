@@ -34,7 +34,7 @@ def generate_course_outline_RAG(working_dir):
     try:
         parsed_json = json.loads(response)
     except ValueError as e:
-        print("Invalid JSON returned from AI response.")
+        print("Invalid JSON returned from AI response:", parsed_json)
         print("Error:", e)
         return None
 
@@ -77,7 +77,7 @@ def generate_course_outline(topic, expertise):
     try:
         parsed_json = json.loads(response)
     except ValueError as e:
-        print("Invalid JSON returned from AI response.")
+        print("Invalid JSON returned from AI response:", parsed_json)
         print("Error:", e)
         return None
 
