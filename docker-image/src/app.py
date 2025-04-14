@@ -19,7 +19,7 @@ from openai import OpenAI
 from src.queries import (generate_course_outline, generate_course_outline_RAG, generate_module_content)
 
 from src.db.queries import (
-    create_file, delete_course_by_id, delete_market_item_by_id, delete_news_by_id, delete_onboarding_by_user_id, delete_user_by_firebase_uid, get_all_news, 
+    create_course, create_file, delete_course_by_id, delete_market_item_by_id, delete_news_by_id, delete_onboarding_by_user_id, delete_user_by_firebase_uid, get_all_news, 
     get_course_by_id, get_courses_by_user_id, get_file_by_id, get_market_item_by_id, get_news_by_id, get_onboarding, 
     get_recent_market_prices, create_user, save_chat, delete_chat_by_id, get_chats_by_user_id,
     get_chat_by_id, save_market_item, save_messages, get_messages_by_chat_id, save_news_item, update_course, update_file, update_onboarding_by_user_id, update_user_by_firebase_uid, vote_message,
@@ -800,65 +800,61 @@ def learn_from_question():
         if "error" in user:
             return jsonify(user), 401
 
-        # Parse JSON data
+        # Get form data (or JSON)
         data = request.form or request.get_json()
         question = data.get("question")
-
         if not question:
             return jsonify({"error": "Missing question"}), 400
 
-        # 🧠 Send prompt to ChatGPT
+        # Use OpenAI to extract topic and expertise
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are an education assistant. Extract a topic and the user's level of expertise from the question. Reply ONLY with a JSON object containing 'topic' and 'expertise' (one of: beginner, intermediate, advanced)."},
+                {
+                    "role": "system",
+                    "content": (
+                        "You are an education assistant. Extract a topic and the user's level of expertise from the question. "
+                        "Reply ONLY with a JSON object containing 'topic' and 'expertise' (one of: beginner, intermediate, advanced)."
+                    )
+                },
                 {"role": "user", "content": question}
             ]
         )
-
-        # 👀 Extract JSON from response
-        content = response.choices[0].message.content
-        print("GPT response:", content)
-
         import json
-        parsed = json.loads(content)
+        parsed = json.loads(response.choices[0].message.content)
         topic = parsed.get("topic")
         expertise = parsed.get("expertise")
-
         if not topic or not expertise:
             return jsonify({"error": "Invalid GPT response"}), 400
 
+        # Generate course outline using the provided topic and expertise
         outline = generate_course_outline(topic, expertise)
 
-        print(outline)
-        # ✅ Save to database
-        # db_session = Session()
-        # postgres_user = get_user_by_firebase_uid(db_session, user["uid"])
-        # if not postgres_user:
-        #     return jsonify({"error": "User not found"}), 404
+        # Retrieve Postgres user record
+        db_session = Session()
+        postgres_user = get_user_by_firebase_uid(db_session, user["uid"])
+        if not postgres_user:
+            return jsonify({"error": "User not found"}), 404
 
-        # new_course = Course(
-        #     id=str(uuid.uuid4()),
-        #     user_id=postgres_user.id,
-        #     title=topic,
-        #     expertise=expertise,
-        #     created_at=datetime.utcnow()
-        # )
-        # db_session.add(new_course)
-        # db_session.commit()
+        # Create the new course record
+        new_course = create_course(
+            db=db_session,
+            user_id=str(postgres_user.id),
+            topic=topic,
+            expertise=expertise,
+            content=outline,  # Course outline (JSON)
+            pkl=None,
+            index=None,
+            file_id=None
+        )
+        db_session.close()
 
-        # return jsonify({
-        #     "message": "Course created",
-        #     "course": {
-        #         "id": new_course.id,
-        #         "title": new_course.title,
-        #         "expertise": new_course.expertise
-        #     }
-        # }), 200
+        # Return the new course ID to the client
+        return jsonify({"message": "Course created successfully", "courseId": str(new_course.id)}), 200
 
     except Exception as e:
-        print("Error in /learn:", str(e))
+        print("Error in /create-course:", str(e))
         return jsonify({"error": str(e)}), 500
 
 
