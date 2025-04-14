@@ -20,6 +20,7 @@ class User(Base):
     documents = relationship("Document", back_populates="user")
     suggestions = relationship("Suggestion", back_populates="user")
     onboarding = relationship("Onboarding", back_populates="user", uselist=False)
+    courses = relationship("Course", back_populates="user")
 
 # Chat model
 class Chat(Base):
