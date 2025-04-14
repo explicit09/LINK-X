@@ -1020,33 +1020,6 @@ def get_courses_route():
     finally:
         db_session.close()
 
-@app.route('/courses/<course_id>', methods=['PATCH'])
-def update_course_route(course_id):
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    data = request.get_json()
-    new_file_id = data.get('fileId')
-    if not new_file_id:
-        return jsonify({"error": "fileId is required for update"}), 400
-
-    db_session = Session()
-    try:
-        course = update_course_file(db=db_session, course_id=course_id, file_id=new_file_id)
-        return jsonify({
-            "id": str(course.id),
-            "topic": course.topic,
-            "expertise": course.expertise,
-            "content": course.content,
-            "createdAt": course.createdAt.isoformat(),
-            "fileId": str(course.fileId)
-        }), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
 @app.route('/courses/<course_id>', methods=['DELETE'])
 def delete_course_route(course_id):
     user = verify_session_cookie()

@@ -439,20 +439,6 @@ def get_courses_by_user_id(db: Session, user_id: str) -> List[Course]:
         print(f"Error retrieving courses by user: {e}")
         raise
 
-def update_course_file(db: Session, course_id: str, file_id: str) -> Course:
-    try:
-        course = get_course_by_id(db, course_id)
-        if not course:
-            raise Exception("Course not found")
-        course.fileId = file_id
-        db.commit()
-        db.refresh(course)
-        return course
-    except Exception as e:
-        db.rollback()
-        print(f"Error updating course file reference: {e}")
-        raise
-
 def delete_course_by_id(db: Session, course_id: str):
     try:
         course = db.query(Course).filter(Course.id == course_id).first()
