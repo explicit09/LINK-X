@@ -17,9 +17,10 @@ import uuid
 from openai import OpenAI
 
 from src.db.queries import (
-    delete_file_by_id, delete_market_item_by_id, delete_news_by_id, get_all_news, get_file_by_id, get_files_by_user_id, get_market_item_by_id, get_news_by_id, get_recent_market_prices, 
-    get_user_by_email, create_user, save_chat, delete_chat_by_id, get_chats_by_user_id,
-    get_chat_by_id, save_file, save_market_item, save_messages, get_messages_by_chat_id, save_news_item, vote_message,
+    create_course, create_file, delete_course_by_id, delete_file_by_id, delete_market_item_by_id, delete_news_by_id, delete_onboarding_by_user_id, get_all_news, 
+    get_course_by_id, get_courses_by_user_id, get_file_by_id, get_files_by_user_id, get_market_item_by_id, get_news_by_id, get_onboarding, 
+    get_recent_market_prices, create_user, save_chat, delete_chat_by_id, get_chats_by_user_id,
+    get_chat_by_id, save_market_item, save_messages, get_messages_by_chat_id, save_news_item, update_course, update_course_file, update_file, update_onboarding_by_user_id, vote_message,
     get_votes_by_chat_id, save_document, get_documents_by_id, get_document_by_id,
     delete_documents_by_id_after_timestamp, save_suggestions, get_suggestions_by_document_id,
     get_message_by_id, delete_messages_by_chat_id_after_timestamp, update_chat_visibility_by_id, 
@@ -132,40 +133,86 @@ def migrate():
 
 # Protected Routes
 
-@app.route('/onboarding', methods=['POST'])
-def create_onboarding_route():
+@app.route('/onboarding', methods=['GET'])
+def get_onboarding_route():
+
     user_claims = verify_session_cookie()
     if isinstance(user_claims, dict) and "error" in user_claims:
         return user_claims
 
     firebase_uid = user_claims["uid"]
-
     db_session = Session()
-    postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
-    if not postgres_user:
-        return jsonify({"error": "User not found in database"}), 404
-
-    data = request.get_json()
-    required_fields = ["name", "answers", "quizzes"]
-    if not all(field in data for field in required_fields):
-        return jsonify({"error": "Missing required fields"}), 400
-
     try:
-        new_onboarding = create_onboarding(
-            db=db_session,
-            user_id=postgres_user.id,
-            name=data["name"],
-            answers=data["answers"],
-            quizzes=data["quizzes"]
-        )
-        return jsonify({
-            "message": "Onboarding record created",
-            "id": str(new_onboarding.id)
-        }), 201
+        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
+        if not postgres_user:
+            return jsonify({"error": "User not found"}), 404
+
+        onboarding = get_onboarding(db_session, postgres_user.id)
+        if not onboarding:
+            return jsonify({"error": "Onboarding record not found"}), 404
+
+        onboarding_data = {
+            "id": str(onboarding.id),
+            "name": onboarding.name,
+            "answers": onboarding.answers,
+            "quizzes": onboarding.quizzes,
+            "createdAt": onboarding.createdAt.isoformat()
+        }
+        return jsonify(onboarding_data), 200
     except Exception as e:
-        print("Error creating onboarding record:", e)
-        db_session.rollback()
         return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/onboarding', methods=['PATCH'])
+def update_onboarding():
+
+    user_claims = verify_session_cookie()
+    if isinstance(user_claims, dict) and "error" in user_claims:
+        return user_claims
+
+    firebase_uid = user_claims["uid"]
+    data = request.get_json()
+    db_session = Session()
+    try:
+        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
+        if not postgres_user:
+            return jsonify({"error": "User not found"}), 404
+
+        updated_onboarding = update_onboarding_by_user_id(db_session, postgres_user.id, data)
+        onboarding_data = {
+            "id": str(updated_onboarding.id),
+            "name": updated_onboarding.name,
+            "answers": updated_onboarding.answers,
+            "quizzes": updated_onboarding.quizzes,
+            "createdAt": updated_onboarding.createdAt.isoformat()
+        }
+        return jsonify(onboarding_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/onboarding', methods=['DELETE'])
+def delete_onboarding():
+
+    user_claims = verify_session_cookie()
+    if isinstance(user_claims, dict) and "error" in user_claims:
+        return user_claims
+
+    firebase_uid = user_claims["uid"]
+    db_session = Session()
+    try:
+        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
+        if not postgres_user:
+            return jsonify({"error": "User not found"}), 404
+
+        delete_onboarding_by_user_id(db_session, postgres_user.id)
+        return jsonify({"message": "Onboarding record deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
 
 @app.route('/createUser', methods=['POST'])
 def create_user_route():
@@ -922,8 +969,107 @@ def remove_news_item(news_id):
     finally:
         db_session.close()
 
+@app.route('/courses/<course_id>', methods=['GET'])
+def get_course_route(course_id):
+    user = verify_session_cookie()
+    if isinstance(user, dict) and "error" in user:
+        return user
+
+    db_session = Session()
+    try:
+        course = get_course_by_id(db=db_session, course_id=course_id)
+        if not course:
+            return jsonify({"error": "Course not found"}), 404
+
+        if str(course.userId) != user["uid"]:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        return jsonify({
+            "id": str(course.id),
+            "topic": course.topic,
+            "expertise": course.expertise,
+            "content": course.content,
+            "createdAt": course.createdAt.isoformat(),
+            "fileId": str(course.fileId) if course.fileId else None
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/courses', methods=['GET'])
+def get_courses_route():
+    user = verify_session_cookie()
+    if isinstance(user, dict) and "error" in user:
+        return user
+
+    db_session = Session()
+    try:
+        courses = get_courses_by_user_id(db=db_session, user_id=user["uid"])
+        result = [{
+            "id": str(c.id),
+            "topic": c.topic,
+            "expertise": c.expertise,
+            "content": c.content,
+            "createdAt": c.createdAt.isoformat(),
+            "fileId": str(c.fileId) if c.fileId else None
+        } for c in courses]
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/courses/<course_id>', methods=['PATCH'])
+def update_course_route(course_id):
+    user = verify_session_cookie()
+    if isinstance(user, dict) and "error" in user:
+        return user
+
+    data = request.get_json()
+    new_file_id = data.get('fileId')
+    if not new_file_id:
+        return jsonify({"error": "fileId is required for update"}), 400
+
+    db_session = Session()
+    try:
+        course = update_course_file(db=db_session, course_id=course_id, file_id=new_file_id)
+        return jsonify({
+            "id": str(course.id),
+            "topic": course.topic,
+            "expertise": course.expertise,
+            "content": course.content,
+            "createdAt": course.createdAt.isoformat(),
+            "fileId": str(course.fileId)
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/courses/<course_id>', methods=['DELETE'])
+def delete_course_route(course_id):
+    user = verify_session_cookie()
+    if isinstance(user, dict) and "error" in user:
+        return user
+
+    db_session = Session()
+    try:
+        course = get_course_by_id(db=db_session, course_id=course_id)
+        if not course:
+            return jsonify({"error": "Course not found"}), 404
+        if str(course.userId) != user["uid"]:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        delete_course_by_id(db=db_session, course_id=course_id)
+        return jsonify({"message": "Course deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
 @app.route('/files', methods=['POST'])
-def upload_file():
+def upload_file_route():
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
@@ -942,13 +1088,12 @@ def upload_file():
 
     db_session = Session()
     try:
-        new_file = save_file(
+        new_file = create_file(
             db=db_session,
             filename=filename,
             file_type=file_type,
             file_size=file_size,
-            file_data=file_data,
-            user_id=user['uid']
+            file_data=file_data
         )
         return jsonify({
             "id": str(new_file.id),
@@ -957,32 +1102,6 @@ def upload_file():
             "fileSize": new_file.fileSize,
             "createdAt": new_file.createdAt.isoformat()
         }), 201
-    except Exception as e:
-        db_session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/files', methods=['GET'])
-def get_files_route():
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    db_session = Session()
-    try:
-        files = get_files_by_user_id(db_session, user_id=user["uid"])
-        result = [
-            {
-                "id": str(f.id),
-                "filename": f.filename,
-                "fileType": f.fileType,
-                "fileSize": f.fileSize,
-                "createdAt": f.createdAt.isoformat()
-            }
-            for f in files
-        ]
-        return jsonify(result), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
@@ -996,11 +1115,9 @@ def get_file_route(file_id):
 
     db_session = Session()
     try:
-        file_record = get_file_by_id(db_session, file_id)
+        file_record = get_file_by_id(db=db_session, file_id=file_id)
         if not file_record:
             return jsonify({"error": "File not found"}), 404
-        if str(file_record.userId) != user["uid"]:
-            return jsonify({"error": "Unauthorized"}), 401
 
         return jsonify({
             "id": str(file_record.id),
@@ -1022,14 +1139,12 @@ def delete_file_route(file_id):
 
     db_session = Session()
     try:
-        file_record = get_file_by_id(db_session, file_id)
+        file_record = get_file_by_id(db=db_session, file_id=file_id)
         if not file_record:
             return jsonify({"error": "File not found"}), 404
 
-        if str(file_record.userId) != user["uid"]:
-            return jsonify({"error": "Unauthorized"}), 401
-
-        delete_file_by_id(db_session, file_id)
+        db_session.delete(file_record)
+        db_session.commit()
         return jsonify({"message": "File deleted successfully"}), 200
     except Exception as e:
         db_session.rollback()
@@ -1038,27 +1153,88 @@ def delete_file_route(file_id):
         db_session.close()
 
 @app.route('/files/<file_id>/content', methods=['GET'])
-def display_file_content(file_id):
+def serve_file_content(file_id):
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
 
     db_session = Session()
     try:
-        file_record = get_file_by_id(db_session, file_id)
+        file_record = get_file_by_id(db=db_session, file_id=file_id)
         if not file_record:
             return jsonify({"error": "File not found"}), 404
-
-        if str(file_record.userId) != user["uid"]:
-            return jsonify({"error": "Unauthorized"}), 401
 
         return Response(
             file_record.fileData,
             mimetype=file_record.fileType,
-            headers={
-                "Content-Disposition": f"inline; filename={file_record.filename}"
-            }
+            headers={"Content-Disposition": f"inline; filename={file_record.filename}"}
         )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/courses/<course_id>', methods=['PATCH'])
+def update_course_route(course_id):
+    user = verify_session_cookie()
+    if isinstance(user, dict) and "error" in user:
+        return user
+
+    update_fields = request.get_json()
+    if not update_fields:
+        return jsonify({"error": "Request JSON payload is required"}), 400
+
+    db_session = Session()
+    try:
+        # Optionally, you can check ownership here:
+        course = get_course_by_id(db=db_session, course_id=course_id)
+        if not course:
+            return jsonify({"error": "Course not found"}), 404
+        if str(course.userId) != user["uid"]:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        updated_course = update_course(db=db_session, course_id=course_id, update_data=update_fields)
+        return jsonify({
+            "id": str(updated_course.id),
+            "topic": updated_course.topic,
+            "expertise": updated_course.expertise,
+            "content": updated_course.content,
+            "createdAt": updated_course.createdAt.isoformat(),
+            "fileId": str(updated_course.fileId) if updated_course.fileId else None
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/files/<file_id>', methods=['PATCH'])
+def update_file_route(file_id):
+    user = verify_session_cookie()
+    if isinstance(user, dict) and "error" in user:
+        return user
+
+    update_fields = request.get_json()
+    if not update_fields:
+        return jsonify({"error": "Request JSON payload is required"}), 400
+
+    db_session = Session()
+    try:
+        file_record = get_file_by_id(db=db_session, file_id=file_id)
+        if not file_record:
+            return jsonify({"error": "File not found"}), 404
+
+        # Optionally, if your file is indirectly owned (for example via a Course), check that ownership:
+        # For instance, if each File is attached to a Course and you require that check,
+        # you can join the Course and compare its userId with user["uid"] here.
+
+        updated_file = update_file(db=db_session, file_id=file_id, update_data=update_fields)
+        return jsonify({
+            "id": str(updated_file.id),
+            "filename": updated_file.filename,
+            "fileType": updated_file.fileType,
+            "fileSize": updated_file.fileSize,
+            "createdAt": updated_file.createdAt.isoformat()
+        }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
