@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./docker-image
+    image: dev7
+    container_name: backend
+    env_file:
+      - ./docker-image/src/.env
+    volumes:
+      - ./data/learning_pdfs:/app/src/learning_pdfs
+      - ./data/faiss_generated:/app/src/faiss_generated
+    ports:
+      - "8080:8080"
+      - "8501:8501"

@@ -133,7 +133,7 @@ class File(Base):
     fileData = Column(LargeBinary, nullable=False)
     createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
 
-    # One-to-one relationship to Course (if attached)
+    # relationships
     course = relationship("Course", back_populates="file", uselist=False)
 
 class Course(Base):
@@ -151,3 +151,4 @@ class Course(Base):
     # relationships
     user = relationship("User", back_populates="courses")
     file = relationship("File", back_populates="course", uselist=False)
+

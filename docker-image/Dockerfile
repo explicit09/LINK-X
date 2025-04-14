@@ -17,10 +17,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/.env ./  
 COPY src/firebaseKey.json ./
 
-# Copy FAISS index and metadata
-COPY src/index.faiss /app/index.faiss
-COPY src/index.pkl /app/index.pkl
-
 # Copy the application source code
 COPY src $APP_HOME/src
 
