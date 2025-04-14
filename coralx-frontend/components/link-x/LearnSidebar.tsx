@@ -146,56 +146,34 @@ const Sidebar = ({
   useEffect(() => {
     setMounted(true);
     if (isMobile) setCollapsed(true);
-
+  
     async function fetchChapters() {
       try {
-        // Dummy JSON structure (mimics expected API response)
-        const dummyData = {
-          chapters: [
-            {
-              chapterTitle: "Fundamentals",
-              metadata: [
-                "Introduction to Cryptocurrency",
-                "Blockchain Technology",
-                "Types of Cryptocurrencies",
-              ],
-            },
-            {
-              chapterTitle: "Practical Knowledge",
-              metadata: [
-                "Crypto Wallets and Security",
-                "Buying and Selling Crypto",
-                "Crypto Mining",
-              ],
-            },
-            {
-              chapterTitle: "Advanced Topics",
-              metadata: [
-                "DeFi and Smart Contracts",
-                "Crypto Regulations",
-                "Crypto Investment Strategies",
-                "Future of Cryptocurrency",
-              ],
-            },
-            {
-              chapterTitle: "Assessment",
-              metadata: ["Skills Check"],
-            },
-          ],
-        };
-
-        // Simulate delay to mimic fetch
-        await new Promise((res) => setTimeout(res, 500));
-
-        console.log("Loaded dummy chapters:", dummyData);
-        setChapters(dummyData.chapters);
+        const res = await fetch(`http://localhost:8080/courses/${courseId}`, {
+          method: "GET",
+          credentials: "include",
+        });
+  
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+  
+        const data = await res.json();
+  
+        if (data?.content?.chapters) {
+          setChapters(data.content.chapters);
+          console.log("Loaded chapters from DB:", data.content.chapters);
+        } else {
+          console.warn("No chapters found in course content");
+        }
       } catch (err) {
-        console.error("Failed to load chapters:", err);
+        console.error("Failed to load course from DB:", err);
       }
     }
-
-    fetchChapters();
-  }, []);
+  
+    if (courseId) fetchChapters();
+  }, [isMobile, courseId]);
+  
 
   const toggleSidebar = () => {
     const newValue = !collapsed;
