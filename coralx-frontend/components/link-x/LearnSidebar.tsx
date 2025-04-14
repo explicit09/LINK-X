@@ -7,9 +7,21 @@ import { cn } from "@/lib/utils";
 import { signOut } from "firebase/auth";
 import { auth } from "@/firebaseconfig";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Bell, Settings, LogOut, User } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Bell,
+  Settings,
+  LogOut,
+  User,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const Avatar = () => (
@@ -18,44 +30,227 @@ const Avatar = () => (
   </div>
 );
 
-const modules = [
-  { name: "Introduction to Cryptocurrency" },
-  { name: "Blockchain Technology" },
-  { name: "Types of Cryptocurrencies" },
-  { name: "Crypto Wallets and Security" },
-  { name: "Buying and Selling Crypto" },
-  { name: "Crypto Mining" },
-  { name: "DeFi and Smart Contracts" },
-  { name: "Crypto Regulations" },
-  { name: "Crypto Investment Strategies" },
-  { name: "Future of Cryptocurrency" },
-  { name: "Future of Cryptocurrency" },
-  { name: "Future of Cryptocurrency" },
-  { name: "Future of Cryptocurrency" },
-  { name: "Future of Cryptocurrency" },
-  { name: "Future of Cryptocurrency" }
-];
+interface Chapter {
+  chapterTitle: string;
+  metadata: string[];
+}
+
+interface OnboardingData {
+  name: string;
+  job: string;
+  traits: string;
+  learningStyle: string;
+  depth: string;
+  topics: string;
+  interests: string;
+  schedule: string;
+  quizzes: boolean;
+}
+
+interface OnboardingResponse {
+  name: string;
+  answers: string[];
+  quizzes: boolean;
+}
 
 interface SidebarProps {
   className?: string;
+  onLessonSelect?: (title: string, response: string) => void;
+  onLoadingStart?: () => void;
   onCollapseChange?: (value: boolean) => void;
+  courseId: string;
 }
 
-const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
+const Sidebar = ({
+  className,
+  onLessonSelect,
+  onLoadingStart,
+  onCollapseChange,
+  courseId
+}: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>(
+    []
+  );
   const isMobile = useIsMobile();
   const router = useRouter();
+
+  const fetchOnboarding = async (): Promise<OnboardingData | null> => {
+    try {
+      const res = await fetch("http://localhost:8080/onboarding", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      const data: OnboardingResponse = await res.json();
+
+      if (res.status !== 200) {
+        console.error("Failed to fetch onboarding:", data);
+        return null;
+      }
+
+      const [job, traits, learningStyle, depth, topics, interests, schedule] =
+        data.answers;
+
+      const onboarding: OnboardingData = {
+        name: data.name,
+        job,
+        traits,
+        learningStyle,
+        depth,
+        topics,
+        interests,
+        schedule,
+        quizzes: data.quizzes,
+      };
+
+      return onboarding;
+    } catch (err) {
+      console.error("Error loading onboarding data:", err);
+      return null;
+    }
+  };
+
+  // const userProfile = {
+  //   role: "Student",
+  //   traits: "friendly and curious",
+  //   learningStyle: "visual",
+  //   depth: "beginner",
+  //   interests: "finance, gaming",
+  //   personalization: "basketball, coding",
+  //   schedule: "evenings"
+  // };
+
+  // const userName = "Alex Johnson";
+  // const expertise = "beginner";
+
+  // useEffect(() => {
+  //   setMounted(true);
+  //   if (isMobile) setCollapsed(true);
+
+  //   async function fetchChapters() {
+  //         try {
+  //           const res = await fetch("/api/chapters") // update as needed
+  //           const data = await res.json()
+  //           setChapters(data.chapters || [])
+  //         } catch (err) {
+  //           console.error("Failed to load chapters:", err)
+  //         }
+  //       }
+
+  //       fetchChapters()
+  // }, [isMobile]);
 
   useEffect(() => {
     setMounted(true);
     if (isMobile) setCollapsed(true);
-  }, [isMobile]);
+
+    async function fetchChapters() {
+      try {
+        // Dummy JSON structure (mimics expected API response)
+        const dummyData = {
+          chapters: [
+            {
+              chapterTitle: "Fundamentals",
+              metadata: [
+                "Introduction to Cryptocurrency",
+                "Blockchain Technology",
+                "Types of Cryptocurrencies",
+              ],
+            },
+            {
+              chapterTitle: "Practical Knowledge",
+              metadata: [
+                "Crypto Wallets and Security",
+                "Buying and Selling Crypto",
+                "Crypto Mining",
+              ],
+            },
+            {
+              chapterTitle: "Advanced Topics",
+              metadata: [
+                "DeFi and Smart Contracts",
+                "Crypto Regulations",
+                "Crypto Investment Strategies",
+                "Future of Cryptocurrency",
+              ],
+            },
+            {
+              chapterTitle: "Assessment",
+              metadata: ["Skills Check"],
+            },
+          ],
+        };
+
+        // Simulate delay to mimic fetch
+        await new Promise((res) => setTimeout(res, 500));
+
+        console.log("Loaded dummy chapters:", dummyData);
+        setChapters(dummyData.chapters);
+      } catch (err) {
+        console.error("Failed to load chapters:", err);
+      }
+    }
+
+    fetchChapters();
+  }, []);
 
   const toggleSidebar = () => {
     const newValue = !collapsed;
     setCollapsed(newValue);
     onCollapseChange?.(newValue);
+  };
+
+  const handleChatClick = async (message: string) => {
+    if (!message.trim()) return;
+    onLoadingStart?.();
+
+    const onboarding = await fetchOnboarding();
+    if (!onboarding) return;
+
+    const userProfile = {
+      role: onboarding.job,
+      traits: onboarding.traits,
+      learningStyle: onboarding.learningStyle,
+      depth: onboarding.depth,
+      interests: onboarding.topics,
+      personalization: onboarding.interests,
+      schedule: onboarding.schedule,
+    };
+
+    const payload = {
+      message,
+      name: onboarding.name,
+      expertise: "advanced",
+      userProfile,
+    };
+
+    try {
+      const response = await fetch("http://localhost:8080/chatwithpersona", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      console.log("AI response:", data);
+
+      if (data.response) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "user", content: message },
+          { role: "assistant", content: data.response },
+        ]);
+        onLessonSelect?.(message, data.response);
+      }
+    } catch (err) {
+      console.error("Chat request failed:", err);
+    }
   };
 
   if (!mounted) return null;
@@ -93,14 +288,20 @@ const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
             </Link>
           )}
 
-          <div className={cn("absolute right-3", collapsed && "static mx-auto")}>
+          <div
+            className={cn("absolute right-3", collapsed && "static mx-auto")}
+          >
             <Button
               variant="outline"
               size="icon"
               onClick={toggleSidebar}
               className="rounded-full h-8 w-8 min-w-[2rem] bg-sidebar-accent border-sidebar-border/50 hover:bg-sidebar-primary/20 hover:text-sidebar-primary"
             >
-              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+              {collapsed ? (
+                <ChevronRight className="h-4 w-4" />
+              ) : (
+                <ChevronLeft className="h-4 w-4" />
+              )}
             </Button>
           </div>
         </div>
@@ -108,44 +309,47 @@ const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
         {/* Module List */}
         <div className="flex-1 overflow-y-auto py-4 px-2 hide-scrollbar">
           <nav className="space-y-2">
-            {modules.map((module, idx) => (
-              <div
-                key={idx}
-                className={cn(
-                  "transition-all duration-200 ease-in-out px-3 py-2 rounded-md cursor-pointer",
-                  "hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                  collapsed ? "flex justify-center" : "text-lg font-medium text-sidebar-foreground/80"
+            {chapters.map((chapter, chapterIdx) => (
+              <div key={chapterIdx}>
+                {!collapsed && (
+                  <div className="text-blue-foreground font-bold text-sidebar-foreground mb-3 ml-2 tracking-wide uppercase">
+                    {chapter.chapterTitle}
+                  </div>
                 )}
-              >
-                {collapsed ? (
-                  <div className="w-2 h-2 rounded-full bg-sidebar-foreground/50" />
-                ) : (
-                  <span className="whitespace-nowrap overflow-hidden text-ellipsis">
-                    {module.name}
-                  </span>
-                )}
+                {chapter.metadata.map((item, itemIdx) => (
+                  <div
+                    key={itemIdx}
+                    className={cn(
+                      "transition-all duration-200 ease-in-out px-4 py-2 rounded-md cursor-pointer",
+                      "hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                      collapsed
+                        ? "flex justify-center"
+                        : "text-[15px] font-medium text-sidebar-foreground/70"
+                    )}
+                    onClick={() => handleChatClick(item)}
+                  >
+                    {collapsed ? (
+                      <div className="w-2 h-2 rounded-full bg-sidebar-foreground/50" />
+                    ) : (
+                      <span className="whitespace-nowrap overflow-hidden text-ellipsis">
+                        {item}
+                      </span>
+                    )}
+                  </div>
+                ))}
               </div>
             ))}
           </nav>
         </div>
 
         {/* Footer */}
-        <div className="px-2 py-2 border-t border-sidebar-border/30 space-y-2">
-          <div
-            className={cn(
-              "mt-3 pt-3 border-t border-sidebar-border/30",
-              collapsed ? "justify-center" : "justify-between",
-              "flex items-center"
-            )}
+        <div className="px-4 py-4 border-t border-sidebar-border/30">
+          <Button
+            onClick={() => router.push("/dashboard")}
+            className="w-full text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-200"
           >
-            <Avatar />
-            {!collapsed && (
-              <div className="ml-3 overflow-hidden">
-                <p className="text-sm font-medium text-sidebar-foreground truncate">Alex Johnson</p>
-                <p className="text-xs text-sidebar-foreground/60 truncate">Pro Member</p>
-              </div>
-            )}
-          </div>
+            Exit to Dashboard
+          </Button>
         </div>
       </aside>
 
