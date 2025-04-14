@@ -17,10 +17,10 @@ import uuid
 from openai import OpenAI
 
 from src.db.queries import (
-    create_file, delete_course_by_id, delete_market_item_by_id, delete_news_by_id, delete_onboarding_by_user_id, get_all_news, 
+    create_file, delete_course_by_id, delete_market_item_by_id, delete_news_by_id, delete_onboarding_by_user_id, delete_user_by_firebase_uid, get_all_news, 
     get_course_by_id, get_courses_by_user_id, get_file_by_id, get_market_item_by_id, get_news_by_id, get_onboarding, 
     get_recent_market_prices, create_user, save_chat, delete_chat_by_id, get_chats_by_user_id,
-    get_chat_by_id, save_market_item, save_messages, get_messages_by_chat_id, save_news_item, update_course, update_file, update_onboarding_by_user_id, vote_message,
+    get_chat_by_id, save_market_item, save_messages, get_messages_by_chat_id, save_news_item, update_course, update_file, update_onboarding_by_user_id, update_user_by_firebase_uid, vote_message,
     get_votes_by_chat_id, save_document, get_documents_by_id, get_document_by_id,
     delete_documents_by_id_after_timestamp, save_suggestions, get_suggestions_by_document_id,
     get_message_by_id, delete_messages_by_chat_id_after_timestamp, update_chat_visibility_by_id, 
@@ -1234,6 +1234,79 @@ def update_file_route(file_id):
             "fileSize": updated_file.fileSize,
             "createdAt": updated_file.createdAt.isoformat()
         }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/user', methods=['GET'])
+def get_user():
+
+    user_claims = verify_session_cookie()
+    if isinstance(user_claims, dict) and "error" in user_claims:
+        return user_claims
+
+    firebase_uid = user_claims["uid"]
+    db_session = Session()
+    try:
+        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
+        if not postgres_user:
+            return jsonify({"error": "User not found"}), 404
+
+        user_data = {
+            "id": str(postgres_user.id),
+            "email": postgres_user.email,
+            "firebase_uid": postgres_user.firebase_uid
+        }
+        return jsonify(user_data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/user', methods=['PATCH'])
+def update_user():
+    user_claims = verify_session_cookie()
+    if isinstance(user_claims, dict) and "error" in user_claims:
+        return user_claims
+
+    firebase_uid = user_claims["uid"]
+    data = request.get_json()
+    db_session = Session()
+    try:
+        if "email" in data or "password" in data:
+            update_args = {}
+            if "email" in data:
+                update_args["email"] = data["email"]
+            if "password" in data:
+                update_args["password"] = data["password"]
+            auth.update_user(firebase_uid, **update_args)
+
+        updated_user = update_user_by_firebase_uid(db_session, firebase_uid, data)
+        user_data = {
+            "id": str(updated_user.id),
+            "email": updated_user.email,
+            "firebase_uid": updated_user.firebase_uid
+        }
+        return jsonify(user_data), 200
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+@app.route('/user', methods=['DELETE'])
+def delete_user():
+
+    user_claims = verify_session_cookie()
+    if isinstance(user_claims, dict) and "error" in user_claims:
+        return user_claims
+
+    firebase_uid = user_claims["uid"]
+    db_session = Session()
+    try:
+        delete_user_by_firebase_uid(db_session, firebase_uid)
+        return jsonify({"message": "User deleted successfully"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     finally:
