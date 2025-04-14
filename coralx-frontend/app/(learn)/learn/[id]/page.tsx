@@ -1,17 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import Sidebar from "@/components/link-x/LearnSidebar";
 import LessonContent from "../components/lesson-content";
 import AIChatbot from "../components/ai-chatbot";
 
-export default function LearnPage({ params }: { params: { id: string } }) {
+export default function LearnPage() {
+  const params = useParams();
+  const [courseId, setCourseId] = useState<string | null>(null);
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [lessonTitle, setLessonTitle] = useState<string | null>(null);
   const [aiContent, setAiContent] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Safely set courseId once available
+  useEffect(() => {
+    if (params?.id && typeof params.id === "string") {
+      setCourseId(params.id);
+    }
+  }, [params]);
 
   const handleLessonSelect = (title: string, content: string) => {
     setLessonTitle(title);
@@ -19,11 +29,13 @@ export default function LearnPage({ params }: { params: { id: string } }) {
     setAiContent(content);
   };
 
+  if (!courseId) return null; // or show <Loading />
+
   return (
     <div className="h-screen flex flex-col bg-background">
       <div className="flex flex-1 overflow-hidden bg-background">
         <Sidebar
-          courseId={params.id}
+          courseId={courseId}
           onCollapseChange={setIsCollapsed}
           onLessonSelect={handleLessonSelect}
           onLoadingStart={() => {
