@@ -10,17 +10,17 @@ import numpy as np
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from src.db.schema import Base, Suggestion, User, Document, Chat, Message, Vote, Onboarding
+from src.db.schema import Base, Suggestion, Chat, Message
 from alembic import command
 from alembic.config import Config
 import uuid
 from openai import OpenAI
 
 from src.db.queries import (
-    create_course, create_file, delete_course_by_id, delete_file_by_id, delete_market_item_by_id, delete_news_by_id, delete_onboarding_by_user_id, get_all_news, 
-    get_course_by_id, get_courses_by_user_id, get_file_by_id, get_files_by_user_id, get_market_item_by_id, get_news_by_id, get_onboarding, 
+    create_file, delete_course_by_id, delete_market_item_by_id, delete_news_by_id, delete_onboarding_by_user_id, get_all_news, 
+    get_course_by_id, get_courses_by_user_id, get_file_by_id, get_market_item_by_id, get_news_by_id, get_onboarding, 
     get_recent_market_prices, create_user, save_chat, delete_chat_by_id, get_chats_by_user_id,
-    get_chat_by_id, save_market_item, save_messages, get_messages_by_chat_id, save_news_item, update_course, update_course_file, update_file, update_onboarding_by_user_id, vote_message,
+    get_chat_by_id, save_market_item, save_messages, get_messages_by_chat_id, save_news_item, update_course, update_file, update_onboarding_by_user_id, vote_message,
     get_votes_by_chat_id, save_document, get_documents_by_id, get_document_by_id,
     delete_documents_by_id_after_timestamp, save_suggestions, get_suggestions_by_document_id,
     get_message_by_id, delete_messages_by_chat_id_after_timestamp, update_chat_visibility_by_id, 
@@ -112,11 +112,6 @@ def citations():
 
 @app.route('/migrate', methods=['POST'])
 def migrate():
-    """Run Alembic migrations (optionally protected if needed)."""
-    # If you want to protect migrations, uncomment the following:
-    # user = verify_session_cookie()
-    # if isinstance(user, dict) and "error" in user:
-    #     return user
 
     try:
         alembic_cfg = Config("alembic.ini")
@@ -132,6 +127,41 @@ def migrate():
 
 
 # Protected Routes
+
+@app.route('/onboarding', methods=['POST'])
+def create_onboarding_route():
+    user_claims = verify_session_cookie()
+    if isinstance(user_claims, dict) and "error" in user_claims:
+        return user_claims
+
+    firebase_uid = user_claims["uid"]
+
+    db_session = Session()
+    postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
+    if not postgres_user:
+        return jsonify({"error": "User not found in database"}), 404
+
+    data = request.get_json()
+    required_fields = ["name", "answers", "quizzes"]
+    if not all(field in data for field in required_fields):
+        return jsonify({"error": "Missing required fields"}), 400
+
+    try:
+        new_onboarding = create_onboarding(
+            db=db_session,
+            user_id=postgres_user.id,
+            name=data["name"],
+            answers=data["answers"],
+            quizzes=data["quizzes"]
+        )
+        return jsonify({
+            "message": "Onboarding record created",
+            "id": str(new_onboarding.id)
+        }), 201
+    except Exception as e:
+        print("Error creating onboarding record:", e)
+        db_session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/onboarding', methods=['GET'])
 def get_onboarding_route():
@@ -1159,7 +1189,7 @@ def update_course_route(course_id):
 
     db_session = Session()
     try:
-        # Optionally, you can check ownership here:
+
         course = get_course_by_id(db=db_session, course_id=course_id)
         if not course:
             return jsonify({"error": "Course not found"}), 404
@@ -1195,10 +1225,6 @@ def update_file_route(file_id):
         file_record = get_file_by_id(db=db_session, file_id=file_id)
         if not file_record:
             return jsonify({"error": "File not found"}), 404
-
-        # Optionally, if your file is indirectly owned (for example via a Course), check that ownership:
-        # For instance, if each File is attached to a Course and you require that check,
-        # you can join the Course and compare its userId with user["uid"] here.
 
         updated_file = update_file(db=db_session, file_id=file_id, update_data=update_fields)
         return jsonify({
