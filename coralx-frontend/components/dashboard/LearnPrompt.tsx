@@ -38,7 +38,7 @@ const LearnPrompt = () => {
   
       // Redirect with new courseId in the query parameter
       if (data.courseId) {
-        router.push(`/learn?courseId=${data.courseId}`);
+        router.push(`/learn/${data.courseId}`);
       } else {
         router.push("/learn");
       }

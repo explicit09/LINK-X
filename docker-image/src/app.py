@@ -316,26 +316,104 @@ def get_chats():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/chat', methods=['POST'])
-def save_chat_route():
-    """Save a new chat."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-    user_id = user["uid"]
+def chat():
+     user_claims = verify_session_cookie()
+     if isinstance(user_claims, dict) and "error" in user_claims:
+         return user_claims
+ 
+     data = request.get_json()
+     user_message = data.get("message")
+     
+     if not user_message:
+         return jsonify({"error": "Message is required"}), 400
+ 
+     try:
+         client = OpenAI()
+ 
+         response = client.chat.completions.create(
+             model="gpt-4o",  # or gpt-3.5-turbo
+             messages=[
+                 {"role": "system", "content": "You are a helpful assistant."},
+                 {"role": "user", "content": user_message}
+             ]
+         )
+ 
+         reply_text = response.choices[0].message.content
+ 
+         return jsonify({"response": reply_text})
+     
+     except Exception as e:
+         return jsonify({"error": str(e)}), 500
+     
 
-    data = request.json
-    chat_id = data.get('id')
-    title = data.get('title')
+@app.route('/chatwithpersona', methods=['POST'])
+def chat_with_persona():
+     user_claims = verify_session_cookie()
+     if isinstance(user_claims, dict) and "error" in user_claims:
+         return user_claims
+ 
+     data = request.get_json()
+     name = data.get("name")
+     user_message = data.get("message")
+     profile = data.get("userProfile", {})
+     raw_expertise = data.get("expertise")
 
-    if not chat_id or not user_id or not title:
-        return jsonify({"error": "Chat ID, user ID, and title are required"}), 400
+     expertise_map = {
+    "beginner": "They prefer simple, clear explanations suitable for someone new to the topic.",
+    "intermediate": "They have some prior experience and prefer moderate technical depth.",
+    "advanced": "They want in-depth explanations with technical language.",
+    }
+     
+     expertise = str(raw_expertise).lower() if raw_expertise else "beginner"
+     expertise_summary = expertise_map.get(expertise, expertise_map["beginner"]) 
+    
 
-    try:
-        chat = save_chat(db=Session(), user_id=user_id, title=title)
-        return jsonify(chat), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+     persona = []
 
+     if name:
+        persona.append(f'The user’s name is **{name}**')
+
+    
+     if profile.get("role"):
+            persona.append(f'they are a **{profile["role"]}**')
+     if profile.get("traits"):
+            persona.append(f'they like their assistant to be **{profile["traits"]}**')
+     if profile.get("learningStyle"):
+            persona.append(f'their preferred learning style is **{profile["learningStyle"]}**')
+     if profile.get("depth"):
+            persona.append(f'they prefer **{profile["depth"]}-level** explanations')
+     if profile.get("interests"):
+            persona.append(f'they’re interested in **{profile["interests"]}**')
+     if profile.get("personalization"):
+            persona.append(f'they enjoy **{profile["personalization"]}**')
+     if profile.get("schedule"):
+            persona.append(f'they study best **{profile["schedule"]}**')
+
+     full_persona = ". ".join(persona)
+     
+     if not user_message:
+         return jsonify({"error": "Message is required"}), 400
+ 
+     try:
+         client = OpenAI()
+ 
+         response = client.chat.completions.create(
+             model="gpt-4o",  # or gpt-3.5-turbo
+             messages=[
+                { "role": "system", "content": "You are a helpful and friendly AI tutor." },
+                { "role": "user", "content": f"{full_persona}. {expertise_summary}" },
+                { "role": "user", "content": f"Now explain this topic: {user_message}" }
+            ]
+         )
+ 
+         reply_text = response.choices[0].message.content
+ 
+         return jsonify({"response": reply_text})
+     
+     except Exception as e:
+         return jsonify({"error": str(e)}), 500
+     
+     
 @app.route('/chats', methods=['DELETE'])
 def delete_chat_param_missing():
     return jsonify({"error": "chat_id is required in the URL"}), 400
