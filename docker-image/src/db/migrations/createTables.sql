@@ -84,14 +84,26 @@ CREATE TABLE IF NOT EXISTS "File" (
     "fileType" varchar NOT NULL,
     "fileSize" integer NOT NULL,
     "fileData" bytea NOT NULL,
+    "createdAt" timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS "Course" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+    "topic" varchar(64),
+    "expertise" varchar(64),
     "createdAt" timestamp NOT NULL DEFAULT now(),
-    "userId" uuid
+    "pkl" bytea,
+    "index" bytea,
+    "content" jsonb,
+    "userId" uuid NOT NULL,
+    "fileId" uuid
 );
 
 DO $$ BEGIN
  ALTER TABLE "Chat" 
  ADD CONSTRAINT "Chat_userId_User_id_fk" 
- FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ FOREIGN KEY ("userId") REFERENCES "public"."User"("id")
+ ON DELETE NO ACTION ON UPDATE NO ACTION;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -99,7 +111,8 @@ END $$;
 DO $$ BEGIN
  ALTER TABLE "Document" 
  ADD CONSTRAINT "Document_userId_User_id_fk" 
- FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ FOREIGN KEY ("userId") REFERENCES "public"."User"("id")
+ ON DELETE NO ACTION ON UPDATE NO ACTION;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -107,7 +120,8 @@ END $$;
 DO $$ BEGIN
  ALTER TABLE "Message" 
  ADD CONSTRAINT "Message_chatId_Chat_id_fk" 
- FOREIGN KEY ("chatId") REFERENCES "public"."Chat"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ FOREIGN KEY ("chatId") REFERENCES "public"."Chat"("id")
+ ON DELETE NO ACTION ON UPDATE NO ACTION;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -115,7 +129,8 @@ END $$;
 DO $$ BEGIN
  ALTER TABLE "Onboarding" 
  ADD CONSTRAINT "Onboarding_userId_User_id_fk" 
- FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ FOREIGN KEY ("userId") REFERENCES "public"."User"("id")
+ ON DELETE CASCADE ON UPDATE NO ACTION;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -123,7 +138,8 @@ END $$;
 DO $$ BEGIN
  ALTER TABLE "Suggestion" 
  ADD CONSTRAINT "Suggestion_userId_User_id_fk" 
- FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ FOREIGN KEY ("userId") REFERENCES "public"."User"("id")
+ ON DELETE NO ACTION ON UPDATE NO ACTION;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -131,7 +147,8 @@ END $$;
 DO $$ BEGIN
  ALTER TABLE "Suggestion" 
  ADD CONSTRAINT "Suggestion_documentId_documentCreatedAt_Document_id_createdAt_fk" 
- FOREIGN KEY ("documentId", "documentCreatedAt") REFERENCES "public"."Document"("id","createdAt") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ FOREIGN KEY ("documentId", "documentCreatedAt") REFERENCES "public"."Document"("id", "createdAt")
+ ON DELETE NO ACTION ON UPDATE NO ACTION;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -139,7 +156,8 @@ END $$;
 DO $$ BEGIN
  ALTER TABLE "Vote" 
  ADD CONSTRAINT "Vote_chatId_Chat_id_fk" 
- FOREIGN KEY ("chatId") REFERENCES "public"."Chat"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ FOREIGN KEY ("chatId") REFERENCES "public"."Chat"("id")
+ ON DELETE NO ACTION ON UPDATE NO ACTION;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
@@ -147,15 +165,26 @@ END $$;
 DO $$ BEGIN
  ALTER TABLE "Vote" 
  ADD CONSTRAINT "Vote_messageId_Message_id_fk" 
- FOREIGN KEY ("messageId") REFERENCES "public"."Message"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+ FOREIGN KEY ("messageId") REFERENCES "public"."Message"("id")
+ ON DELETE NO ACTION ON UPDATE NO ACTION;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;
 
 DO $$ BEGIN
- ALTER TABLE "File" 
- ADD CONSTRAINT "File_userId_User_id_fk"
- FOREIGN KEY ("userId") REFERENCES "public"."User"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    ALTER TABLE "Course"
+      ADD CONSTRAINT "Course_userId_User_id_fk" 
+      FOREIGN KEY ("userId") REFERENCES "User"("id")
+      ON DELETE NO ACTION ON UPDATE NO ACTION;
 EXCEPTION
- WHEN duplicate_object THEN null;
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE "Course"
+      ADD CONSTRAINT "Course_fileId_File_id_fk" 
+      FOREIGN KEY ("fileId") REFERENCES "File"("id")
+      ON DELETE NO ACTION ON UPDATE NO ACTION;
+EXCEPTION
+    WHEN duplicate_object THEN null;
 END $$;
