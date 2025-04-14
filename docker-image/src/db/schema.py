@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, String, Integer, DateTime, ForeignKey, Boolean, Enum, Text, Numeric, Date
+from sqlalchemy import create_engine, Column, String, Integer, DateTime, ForeignKey, Boolean, Enum, Text, Numeric, Date, LargeBinary
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
@@ -20,6 +20,7 @@ class User(Base):
     documents = relationship("Document", back_populates="user")
     suggestions = relationship("Suggestion", back_populates="user")
     onboarding = relationship("Onboarding", back_populates="user", uselist=False)
+    courses = relationship("Course", back_populates="user")
 
 # Chat model
 class Chat(Base):
@@ -123,15 +124,31 @@ class News(Base):
     subject = Column(String(64), nullable=False)
     link = Column(String(120), nullable=False)
 
-# Course model
-class Course(Base):
-    __tablename__ = 'courses'
+class File(Base):
+    __tablename__ = 'File'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    filename = Column(String, nullable=False)
+    fileType = Column(String, nullable=False)
+    fileSize = Column(Integer, nullable=False)
+    fileData = Column(LargeBinary, nullable=False)
+    createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    course_name = Column(Text, nullable=False)
-    course_description = Column(Text)
-    author = Column(Text)
-    pdf = Column(Text)
-    expertise = Column(Text)
-    est_time = Column(Text)
-    user = Column(String(120))
+    # relationships
+    course = relationship("Course", back_populates="file", uselist=False)
+
+class Course(Base):
+    __tablename__ = 'Course'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    topic = Column(String(64))
+    expertise = Column(String(64))
+    createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
+    pkl = Column(LargeBinary)      # to store model pickled data, if any
+    index = Column(LargeBinary)    # to store associated index data, if any
+    content = Column(JSONB)        # detailed course content as JSON
+    userId = Column(UUID(as_uuid=True), ForeignKey('User.id'), nullable=False)
+    fileId = Column(UUID(as_uuid=True), ForeignKey('File.id'), nullable=True)  # optional file reference
+
+    # relationships
+    user = relationship("User", back_populates="courses")
+    file = relationship("File", back_populates="course", uselist=False)
+
