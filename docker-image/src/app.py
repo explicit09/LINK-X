@@ -1070,11 +1070,18 @@ def get_course_route(course_id):
 
     db_session = Session()
     try:
+        # Retrieve the course record
         course = get_course_by_id(db=db_session, course_id=course_id)
         if not course:
             return jsonify({"error": "Course not found"}), 404
 
-        if str(course.userId) != user["uid"]:
+        # Retrieve the Postgres user record using Firebase UID
+        postgres_user = get_user_by_firebase_uid(db_session, user["uid"])
+        if not postgres_user:
+            return jsonify({"error": "User not found"}), 404
+
+        # Compare course.userId with the Postgres user’s ID
+        if str(course.userId) != str(postgres_user.id):
             return jsonify({"error": "Unauthorized"}), 401
 
         return jsonify({
