@@ -1,5 +1,6 @@
 "use client";
 
+
 interface LessonContentProps {
   title: string | null;
   content: string | null;
