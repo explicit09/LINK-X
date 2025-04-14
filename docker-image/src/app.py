@@ -46,26 +46,23 @@ engine = create_engine(POSTGRES_URL)
 Session = sessionmaker(bind=engine, expire_on_commit=False)
 Base.metadata.create_all(engine)
 
-# FAISS and metadata paths
-INDEX_PATH = "/app/"
-PICKLE_PATH = "/app/"
+# INDEX_PATH = "/app/"
+# PICKLE_PATH = "/app/"
 
-# Attempt to load FAISS index
-try:
-    faiss_index = faiss.read_index("/app/index.faiss")
-    print("FAISS index successfully loaded from /app/index.faiss")
-except Exception as e:
-    print(f"Error loading FAISS index: {e}")
-    faiss_index = None
+# try:
+#     faiss_index = faiss.read_index("/app/index.faiss")
+#     print("FAISS index successfully loaded from /app/index.faiss")
+# except Exception as e:
+#     print(f"Error loading FAISS index: {e}")
+#     faiss_index = None
 
-# Attempt to load metadata
-try:
-    with open("/app/index.pkl", "rb") as f:
-        metadata = pickle.load(f)
-    print("Metadata successfully loaded from /app/index.pkl")
-except Exception as e:
-    print(f"Error loading metadata: {e}")
-    metadata = None
+# try:
+#     with open("/app/index.pkl", "rb") as f:
+#         metadata = pickle.load(f)
+#     print("Metadata successfully loaded from /app/index.pkl")
+# except Exception as e:
+#     print(f"Error loading metadata: {e}")
+#     metadata = None
 
 
 # This one returns plain data — safe to use in backend logic like chat
