@@ -16,6 +16,8 @@ from alembic.config import Config
 import uuid
 from openai import OpenAI
 
+from src.queries import (generate_course_outline, generate_course_outline_RAG, generate_module_content)
+
 from src.db.queries import (
     create_file, delete_course_by_id, delete_market_item_by_id, delete_news_by_id, delete_onboarding_by_user_id, delete_user_by_firebase_uid, get_all_news, 
     get_course_by_id, get_courses_by_user_id, get_file_by_id, get_market_item_by_id, get_news_by_id, get_onboarding, 
@@ -827,30 +829,33 @@ def learn_from_question():
         if not topic or not expertise:
             return jsonify({"error": "Invalid GPT response"}), 400
 
+        outline = generate_course_outline(topic, expertise)
+
+        print(outline)
         # ✅ Save to database
-        db_session = Session()
-        postgres_user = get_user_by_firebase_uid(db_session, user["uid"])
-        if not postgres_user:
-            return jsonify({"error": "User not found"}), 404
+        # db_session = Session()
+        # postgres_user = get_user_by_firebase_uid(db_session, user["uid"])
+        # if not postgres_user:
+        #     return jsonify({"error": "User not found"}), 404
 
-        new_course = Course(
-            id=str(uuid.uuid4()),
-            user_id=postgres_user.id,
-            title=topic,
-            expertise=expertise,
-            created_at=datetime.utcnow()
-        )
-        db_session.add(new_course)
-        db_session.commit()
+        # new_course = Course(
+        #     id=str(uuid.uuid4()),
+        #     user_id=postgres_user.id,
+        #     title=topic,
+        #     expertise=expertise,
+        #     created_at=datetime.utcnow()
+        # )
+        # db_session.add(new_course)
+        # db_session.commit()
 
-        return jsonify({
-            "message": "Course created",
-            "course": {
-                "id": new_course.id,
-                "title": new_course.title,
-                "expertise": new_course.expertise
-            }
-        }), 200
+        # return jsonify({
+        #     "message": "Course created",
+        #     "course": {
+        #         "id": new_course.id,
+        #         "title": new_course.title,
+        #         "expertise": new_course.expertise
+        #     }
+        # }), 200
 
     except Exception as e:
         print("Error in /learn:", str(e))
