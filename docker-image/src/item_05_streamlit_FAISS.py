@@ -7,9 +7,11 @@ import streamlit as st
 from item_04_retriever_FAISS import answer_to_QA
 
 working_dir = os.getenv("WORKING_DIR")
-# Validate existence of working directory
-if not os.path.isdir(working_dir):
-    print(f"The provided path is not a valid directory: {working_dir}")
+faiss_index_path = os.path.join(working_dir, "faiss_index")
+
+# Validate existence of faiss index directory
+if not os.path.isdir(faiss_index_path):
+    print(f"The provided path is not a valid directory: {faiss_index_path}")
     sys.exit(1)
 
 def main():
@@ -96,7 +98,7 @@ def main():
             if st.session_state.user_query:
                 try:
                     with st.spinner("Thinking..."):
-                        response = answer_to_QA(st.session_state.user_query, working_dir)
+                        response = answer_to_QA(st.session_state.user_query, faiss_index_path)
                     st.session_state.answer = response
                 except Exception as e:
                     st.error(f"An error occurred: {str(e)}")
@@ -123,7 +125,7 @@ def main():
         if submit_button and user_query:
             try:
                 with st.spinner("Thinking..."):
-                    response = answer_to_QA(user_query, working_dir)
+                    response = answer_to_QA(user_query, faiss_index_path)
                 
                 # Store the answer in session state
                 st.session_state.answer = response
