@@ -41,11 +41,15 @@ def generate_course_outline_RAG(working_dir):
     # return response
     return parsed_json
 
-def generate_course_outline(user_query):
+def generate_course_outline(topic, expertise):
     # “I’m a sophomore in finance and I want to learn about investing”
     query = ( 
     f"""
-    You are an AI assistant generating an educational course.  You have been provided with a user's learning goals: "{user_query}".  Your task is to retrieve all relevant content and summarize it into exactly 10 chapters. For each chapter:
+    You are an AI assistant generating an educational course.
+    
+    The user has provided you with the topic: {topic}, and their experise on the subject: {expertise}
+    
+    Your task is to retrieve all content relevant to the topic based on their expertise and summarize it into exactly 10 chapters. For each chapter:
 
     1. Provide a concise title (3–7 words).
     2. Include an array of relevant metadata or key points. Each array should have 3–6 bullet items covering the main ideas, important highlights, and any important details from the content.
