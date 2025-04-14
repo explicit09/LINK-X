@@ -30,6 +30,7 @@ const LearnPrompt = () => {
       const res = await fetch("http://localhost:8080/create-course", {
         method: "POST",
         body: formData,
+        credentials: "include",
       });
   
       const data = await res.json();

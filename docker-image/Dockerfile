@@ -16,6 +16,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy environment files, Firebase credentials, and code
 COPY src/.env ./  
 COPY src/firebaseKey.json ./
+COPY src/queries.py ./
+
+COPY src/item_04_retriever_FAISS.py ./
 
 # Copy the application source code
 COPY src $APP_HOME/src
