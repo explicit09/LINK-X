@@ -55,10 +55,10 @@ const Cta = () => {
 
           <div className="relative text-center">
             <h2 className="reveal text-3xl md:text-4xl font-bold text-white mb-4">
-              Ready to transform your financial education?
+              Ready to transform your student's education?
             </h2>
             <p className="reveal text-lg text-blue-100 mb-8 max-w-2xl mx-auto">
-              Join thousands of learners who are already mastering finance with personalized AI learning.
+              Join hundreds of institutions who are already teaching their students with personalized AI learning.
             </p>
 
             <div className="reveal flex flex-col sm:flex-row gap-4 justify-center">

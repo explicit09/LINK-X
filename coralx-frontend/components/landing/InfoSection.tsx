@@ -35,10 +35,10 @@ const InfoSection = () => {
   }, []);
 
   const benefits = [
-    "Personalized syllabus from any financial e-book",
+    "Personalized syllabus from any Canvas documents",
     "Interactive quizzes that adapt to your knowledge",
     "Progress tracking with detailed analytics",
-    "Downloadable certificates upon completion",
+    "Learn-X will not give out homework answers, just answer questions",
   ];
 
   return (
@@ -50,10 +50,10 @@ const InfoSection = () => {
               How It Works
             </h5>
             <h2 className="reveal text-3xl md:text-4xl font-bold text-white mb-6">
-              Your Personal Financial Learning Journey
+              Your Student's Personal Learning Journey
             </h2>
             <p className="reveal text-lg text-gray-300 mb-6">
-              Link-X uses AI to transform financial e-books into personalized learning experiences that adapt to your unique learning style, pace, and goals.
+              Learn-X uses AI to transform Canvas materials into personalized learning experiences that adapt to your student's unique learning style, pace, and goals.
             </p>
             
             <div className="reveal space-y-4 mb-8">
