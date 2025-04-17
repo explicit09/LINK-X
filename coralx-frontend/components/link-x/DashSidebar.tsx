@@ -31,6 +31,24 @@ import {
 } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 
+interface OnboardingData {
+  name: string;
+  job: string;
+  traits: string;
+  learningStyle: string;
+  depth: string;
+  topics: string;
+  interests: string;
+  schedule: string;
+  quizzes: boolean;
+}
+
+interface OnboardingResponse {
+  name: string;
+  answers: string[];
+  quizzes: boolean;
+}
+
 // Avatar placeholder - replace with actual avatar component as needed
 const Avatar = () => (
   <div className="h-10 w-10 rounded-full bg-sidebar-primary/20 border border-sidebar-primary/30 flex items-center justify-center overflow-hidden">
@@ -49,6 +67,43 @@ const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const router = useRouter(); //router
+  const [formData, setFormData] = useState<OnboardingData>({
+      name: "",
+      job: "",
+      traits: "",
+      learningStyle: "",
+      depth: "",
+      topics: "",
+      interests: "",
+      schedule: "",
+      quizzes: false,
+    });
+
+    useEffect(() => {
+        const fetchOnboarding = async () => {
+          try {
+            const res = await fetch("http://localhost:8080/onboarding", {
+              method: "GET",
+              credentials: "include",
+            });
+            const data: OnboardingResponse = await res.json();
+            setFormData({
+              name: data.name,
+              job: data.answers[0] || "",
+              traits: data.answers[1] || "",
+              learningStyle: data.answers[2] || "",
+              depth: data.answers[3] || "",
+              topics: data.answers[4] || "",
+              interests: data.answers[5] || "",
+              schedule: data.answers[6] || "",
+              quizzes: data.quizzes,
+            });
+          } catch (err) {
+            console.error("❌ Failed to load onboarding data:", err);
+          }
+        };
+        fetchOnboarding();
+      }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -334,8 +389,8 @@ const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
 
             {!collapsed && (
               <div className="ml-3 overflow-hidden">
-                <p className="text-sm font-medium text-sidebar-foreground truncate">
-                  Alex Johnson
+                <p className="text-sm font-medium text-sidebar-foreground truncate" >
+                  {formData.name}
                 </p>
                 <p className="text-xs text-sidebar-foreground/60 truncate">
                   Pro Member
