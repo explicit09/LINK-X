@@ -1,6 +1,6 @@
 from sqlalchemy import select, and_, desc, asc
 from sqlalchemy.orm import Session
-from src.db.schema import User, Chat, Message, Vote, Document, Suggestion, Onboarding, News, Market
+from src.db.schema import Course, User, Chat, Message, Vote, Document, Suggestion, Onboarding, News, Market, File
 from werkzeug.security import generate_password_hash, check_password_hash
 from typing import List, Optional
 from datetime import date
@@ -395,3 +395,157 @@ def delete_onboarding_by_user_id(db: Session, user_id: str):
     except Exception as e:
         db.rollback()
         raise e
+
+def create_course(
+    db: Session,
+    user_id: str,
+    topic: str,
+    expertise: str,
+    content: dict,
+    pkl: bytes = None,
+    index: bytes = None,
+    file_id: Optional[str] = None
+) -> Course:
+    try:
+        new_course = Course(
+            userId=user_id,
+            topic=topic,
+            expertise=expertise,
+            content=content,
+            pkl=pkl,
+            index=index,
+            fileId=file_id
+        )
+        db.add(new_course)
+        db.commit()
+        db.refresh(new_course)
+        return new_course
+    except Exception as e:
+        db.rollback()
+        print(f"Error creating course: {e}")
+        raise
+
+def get_course_by_id(db: Session, course_id: str) -> Optional[Course]:
+    try:
+        return db.execute(select(Course).filter_by(id=course_id)).scalars().first()
+    except Exception as e:
+        print(f"Error retrieving course by ID: {e}")
+        raise
+
+def get_courses_by_user_id(db: Session, user_id: str) -> List[Course]:
+    try:
+        return db.execute(select(Course).filter_by(userId=user_id).order_by(desc(Course.createdAt))).scalars().all()
+    except Exception as e:
+        print(f"Error retrieving courses by user: {e}")
+        raise
+
+def delete_course_by_id(db: Session, course_id: str):
+    try:
+        course = db.query(Course).filter(Course.id == course_id).first()
+        if course:
+            db.delete(course)
+            db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting course: {e}")
+        raise
+
+def create_file(
+    db: Session,
+    filename: str,
+    file_type: str,
+    file_size: int,
+    file_data: bytes
+) -> File:
+    try:
+        new_file = File(
+            filename=filename,
+            fileType=file_type,
+            fileSize=file_size,
+            fileData=file_data
+        )
+        db.add(new_file)
+        db.commit()
+        db.refresh(new_file)
+        return new_file
+    except Exception as e:
+        db.rollback()
+        print(f"Error creating file: {e}")
+        raise
+
+def get_file_by_id(db: Session, file_id: str) -> Optional[File]:
+    try:
+        return db.execute(select(File).filter_by(id=file_id)).scalars().first()
+    except Exception as e:
+        print(f"Error retrieving file by ID: {e}")
+        raise
+
+def delete_file_by_id(db: Session, file_id: str):
+    try:
+        file_record = db.query(File).filter(File.id == file_id).first()
+        if file_record:
+            db.delete(file_record)
+            db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"Error deleting file: {e}")
+        raise
+
+def get_files_by_user_id(db: Session, user_id: str) -> List[File]:
+    try:
+        stmt = select(File).join(Course, File.id == Course.fileId).filter(Course.userId == user_id)
+        return db.execute(stmt).scalars().all()
+    except Exception as e:
+        print(f"Error retrieving files by user: {e}")
+        raise
+
+def update_course(db: Session, course_id: str, update_data: dict) -> Course:
+    """
+    Update an existing course with provided fields.
+    Allowed keys: 'topic', 'expertise', 'content', 'fileId'
+    """
+    try:
+        course = get_course_by_id(db, course_id)
+        if not course:
+            raise Exception("Course not found")
+        if "topic" in update_data:
+            course.topic = update_data["topic"]
+        if "expertise" in update_data:
+            course.expertise = update_data["expertise"]
+        if "content" in update_data:
+            course.content = update_data["content"]
+        if "fileId" in update_data:
+            course.fileId = update_data["fileId"]
+        db.commit()
+        db.refresh(course)
+        return course
+    except Exception as e:
+        db.rollback()
+        print(f"Error updating course: {e}")
+        raise
+
+def update_file(db: Session, file_id: str, update_data: dict) -> File:
+    """
+    Update an existing file with provided fields.
+    Allowed keys: 'filename', 'fileType', 'fileData', and 'fileSize'
+    (Typically, if updating the file data, you might re-calculate fileSize on the fly.)
+    """
+    try:
+        file_record = get_file_by_id(db, file_id)
+        if not file_record:
+            raise Exception("File not found")
+        if "filename" in update_data:
+            file_record.filename = update_data["filename"]
+        if "fileType" in update_data:
+            file_record.fileType = update_data["fileType"]
+        if "fileData" in update_data:
+            file_record.fileData = update_data["fileData"]
+        if "fileSize" in update_data:
+            file_record.fileSize = update_data["fileSize"]
+        db.commit()
+        db.refresh(file_record)
+        return file_record
+    except Exception as e:
+        db.rollback()
+        print(f"Error updating file: {e}")
+        raise

@@ -8,29 +8,23 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_openai import ChatOpenAI
 from langchain.chains import RetrievalQA
 from langchain_core.globals import set_verbose, set_debug
+from langchain.schema import BaseRetriever, Document
 import warnings
 
 # Load environment variables
 load_dotenv(find_dotenv())
-
-# Check for correct arguments
-# if len(sys.argv) != 2:
-#     print("Usage: python item_02_generate_citations_FAISS.py <path_to_working_directory>")
-#     sys.exit(1)
-
-# working_dir = sys.argv[1]
-# faiss_index_path = os.path.join(working_dir, "faiss_index")
-
-# Validate existence of working directory
-# if not os.path.isdir(working_dir):
-#     print(f"The provided path is not a valid file: {working_dir}")
-#     sys.exit(1)
 
 warnings.filterwarnings("ignore", message=".*LangChainDeprecationWarning.*")
 
 # Disable verbose and debug logging
 set_verbose(False)
 set_debug(False)
+
+# Dummy retriever that always returns an empty list.
+class EmptyRetriever(BaseRetriever):
+    def _get_relevant_documents(self, query):
+        # Return an empty list of Documents
+        return []
 
 def process_llm_response_with_sources(llm_response):
     result = llm_response['result'].strip().lower()
@@ -73,18 +67,20 @@ def get_similar_chunks(raw_llm_response):
     
     return similar_chunks
 
-def raw_LLM_response(query, working_dir):
+def raw_LLM_response(query, faiss_index_path, closed):
     embedding = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
-    faiss_index_path = os.path.join(working_dir, "faiss_index")
-
-    # Load the FAISS index
-    vectordb = FAISS.load_local(faiss_index_path, embedding, allow_dangerous_deserialization=True)
-
-    retriever = vectordb.as_retriever()
-
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
-    # Create the chain to answer questions
+    if(closed):
+        # --- CLOSED: FAISS + RAG path ---
+        vectordb = FAISS.load_local(
+            faiss_index_path, embedding, allow_dangerous_deserialization=True
+        )
+        retriever = vectordb.as_retriever()  
+    else:
+        # --- OPEN: plain LLM path ---
+        retriever = EmptyRetriever()
+    
     qa_chain = RetrievalQA.from_chain_type(
         llm,
         chain_type="stuff",
@@ -96,10 +92,19 @@ def raw_LLM_response(query, working_dir):
 
     return llm_response
 
-def answer_to_QA(query, working_dir):
+def answer_to_QA(query, faiss_index_path):
+    # If no FAISS index provided, use an open qa chain
+    if faiss_index_path is None:
+        closed = False
+    else:
+        closed = True
 
-    llm_response = raw_LLM_response(query, working_dir)
-    answer_txt = process_llm_response_with_sources(llm_response)
+    llm_response = raw_LLM_response(query, faiss_index_path, closed)
+    
+    # Response without citations
+    answer_txt = process_llm_response(llm_response)
+    # Response with citations (could add a flag if there are cases where we want the sources listed
+    # answer_txt = process_llm_response_with_sources(llm_response)
 
     return answer_txt
 
