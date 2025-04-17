@@ -9,11 +9,11 @@ const Footer = () => {
           <div className="col-span-2">
             <Link href="/landing" className="inline-block mb-4">
               <span className="text-2xl font-bold text-gradient">
-                LINK-X
+                LEARN-X
               </span>
             </Link>
             <p className="text-gray-400 mb-4 max-w-xs">
-              Transforming financial education with AI-powered personalized learning experiences.
+              Transforming education with AI-powered personalized learning experiences.
             </p>
             <div className="flex space-x-4">
               <Link href="#" className="text-gray-400 hover:text-blue-400 transition-colors">
@@ -79,11 +79,11 @@ const Footer = () => {
         
         <div className="pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center">
           <p className="text-gray-500 text-sm">
-            &copy; {new Date().getFullYear()} Link-X Learning, Inc. All rights reserved.
+            &copy; {new Date().getFullYear()} Learn-X Learning, Inc. All rights reserved.
           </p>
           <div className="mt-4 md:mt-0">
             <p className="text-gray-500 text-sm">
-              Empowering financial education through AI
+              Empowering education through AI
             </p>
           </div>
         </div>

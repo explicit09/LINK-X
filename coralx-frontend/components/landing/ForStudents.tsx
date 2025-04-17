@@ -37,22 +37,22 @@ const StudentBenefits = () => {
   const benefits = [
     {
       title: "Learn from Experts",
-      description: "Collaborate with Masters students and professionals with experience in tech, entrepreneurship, and business.",
+      description: "Collaborate with TAs and professors to further improve your learning.",
       icon: GraduationCap
     },
     {
       title: "Team Collaboration",
-      description: "Develop teamwork skills by working with peers on real-world financial challenges and projects.",
+      description: "Develop teamwork skills by working with peers on real-world challenges and projects.",
       icon: Users
     },
     {
-      title: "Technical Skills",
-      description: "Master AI APIs, prompt engineering, RAG techniques, and cloud computing for financial applications.",
+      title: "Test Practice",
+      description: "Create practice work to better prepare for upcoming quizzes and tests.",
       icon: Code
     },
     {
-      title: "Business Acumen",
-      description: "Build practical skills in financial analysis, modeling, and data visualization for career advancement.",
+      title: "Lecture Help",
+      description: "Your professor explained a complicated topic in a way you didn't understand. No problem! Reworded and reworked lessons will help you further your education.",
       icon: BarChart
     }
   ];

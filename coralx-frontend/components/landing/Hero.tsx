@@ -60,7 +60,7 @@ const Hero = () => {
       <div className="container px-6 mx-auto max-w-6xl">
         <div className="text-center">
           <div className="inline-block reveal mb-4 px-3 py-1 bg-blue-900/30 rounded-full text-sm font-medium text-blue-300 border border-blue-800">
-            Financial Learning Platform
+            AI Learning Platform
           </div>
           
           <h1 className="reveal text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 text-balance">
@@ -70,7 +70,7 @@ const Hero = () => {
           </h1>
           
           <p className="reveal text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-8">
-            Traditional learning doesn't work for everyone. Our AI-powered platform personalizes financial education to match your unique learning style.
+            Traditional learning doesn't work for everyone. Our AI-powered platform personalizes education to match your student's unique learning style.
           </p>
           
           <div className="reveal flex flex-col sm:flex-row gap-4 justify-center mt-10">
@@ -126,15 +126,15 @@ const Hero = () => {
               <BookOpen className="h-6 w-6 text-blue-400" />
             </div>
             <h3 className="text-xl font-semibold mb-2 text-white">Personalized Learning</h3>
-            <p className="text-gray-400">AI adapts to your unique learning style for maximum engagement</p>
+            <p className="text-gray-400">AI adapts to your student's unique learning style for maximum engagement</p>
           </div>
           
           <div className="glass-effect p-6 rounded-xl">
             <div className="rounded-full w-12 h-12 flex items-center justify-center bg-blue-900/50 mb-4">
               <Award className="h-6 w-6 text-blue-400" />
             </div>
-            <h3 className="text-xl font-semibold mb-2 text-white">Certification</h3>
-            <p className="text-gray-400">Earn recognized certificates to showcase your financial expertise</p>
+            <h3 className="text-xl font-semibold mb-2 text-white">Integration with Canvas</h3>
+            <p className="text-gray-400">Add your course info to Canvas and Learn-X can take it and use it to personalize learning for your students</p>
           </div>
           
           <div className="glass-effect p-6 rounded-xl">

@@ -11,22 +11,22 @@ const features = [
   },
   {
     name: 'Interactive E-Books',
-    description: 'Upload or choose from our library of financial e-books that transform into interactive learning modules.',
+    description: 'Upload or link your Canvas modules that transform into interactive learning modules.',
     icon: BookOpen,
   },
   {
     name: 'Adaptive Assessments',
-    description: 'Quizzes and assessments that adjust to your progress, focusing on areas where you need more practice.',
+    description: "Quizzes and assessments that adjust to your student's progress, focusing on areas where you need more practice.",
     icon: Zap,
   },
   {
-    name: 'Certification',
-    description: 'Earn certificates that verify your financial knowledge and skills to share with employers.',
+    name: 'No Cheating Allowed',
+    description: 'Our AI prompting does not allow for students to recieve answers for their assignments, just helpful insights.',
     icon: Award,
   },
   {
     name: 'Progress Analytics',
-    description: 'Detailed insights into your learning journey with metrics to track your improvement over time.',
+    description: "Detailed insights into your student's learning journey with metrics to track their improvement over time.",
     icon: BarChart,
   },
   {
@@ -75,10 +75,10 @@ const Features = () => {
             Features
           </h5>
           <h2 className="reveal text-3xl md:text-4xl font-bold text-white mb-4">
-            Revolutionize Your Financial Learning
+            Revolutionize Your Student's Learning
           </h2>
           <p className="reveal max-w-2xl mx-auto text-gray-300">
-            Our comprehensive suite of tools is designed to transform how you learn about finance, making complex concepts accessible and engaging.
+            Our comprehensive suite of tools is designed to transform how your students learn, making complex concepts accessible and engaging.
           </p>
         </div>
 
