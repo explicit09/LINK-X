@@ -10,7 +10,7 @@ const features = [
     icon: Cpu,
   },
   {
-    name: 'Interactive E-Books',
+    name: 'Interactive Course Materials',
     description: 'Upload or link your Canvas modules that transform into interactive learning modules.',
     icon: BookOpen,
   },
@@ -21,7 +21,7 @@ const features = [
   },
   {
     name: 'No Cheating Allowed',
-    description: 'Our AI prompting does not allow for students to recieve answers for their assignments, just helpful insights.',
+    description: 'Our AI prompting does not allow for students to receive answers for their assignments, just helpful insights.',
     icon: Award,
   },
   {
@@ -68,16 +68,16 @@ const Features = () => {
   }, []);
 
   return (
-    <div id="features" ref={sectionRef} className="section bg-black/50">
+    <div id="features" ref={sectionRef} className="section bg-white/60">
       <div className="section-inner">
         <div className="text-center mb-16">
-          <h5 className="reveal text-blue-400 text-sm font-semibold tracking-wide uppercase mb-3">
+          <h5 className="reveal text-blue-600 text-sm font-semibold tracking-wide uppercase mb-3">
             Features
           </h5>
-          <h2 className="reveal text-3xl md:text-4xl font-bold text-white mb-4">
+          <h2 className="reveal text-3xl md:text-4xl font-bold text-gray-900 mb-4">
             Revolutionize Your Student's Learning
           </h2>
-          <p className="reveal max-w-2xl mx-auto text-gray-300">
+          <p className="reveal max-w-2xl mx-auto text-gray-700">
             Our comprehensive suite of tools is designed to transform how your students learn, making complex concepts accessible and engaging.
           </p>
         </div>
@@ -86,15 +86,15 @@ const Features = () => {
           {features.map((feature, index) => (
             <div
               key={feature.name}
-              className="reveal glass-effect rounded-xl p-6 transition-all duration-300 hover:border-blue-700"
+              className="reveal bg-white border border-blue-100 rounded-xl p-6 shadow-sm transition-all duration-300 hover:border-blue-600"
             >
-              <div className="inline-flex items-center justify-center p-3 bg-blue-900/30 rounded-lg text-blue-400 mb-4">
+              <div className="inline-flex items-center justify-center p-3 bg-blue-100 rounded-lg text-blue-600 mb-4">
                 <feature.icon className="h-6 w-6" />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
                 {feature.name}
               </h3>
-              <p className="text-gray-400">
+              <p className="text-gray-600">
                 {feature.description}
               </p>
             </div>

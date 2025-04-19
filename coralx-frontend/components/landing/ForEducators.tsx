@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from 'react';
-import { GraduationCap, Users, Code, BarChart } from 'lucide-react';
+import { GraduationCap, Users, Code, BarChart, BookOpen, Award } from 'lucide-react';
 
-const StudentBenefits = () => {
+const EducatorBenefits = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,39 +36,39 @@ const StudentBenefits = () => {
 
   const benefits = [
     {
-      title: "Learn from Experts",
-      description: "Collaborate with TAs and professors to further improve your learning.",
-      icon: GraduationCap
+      title: "Compatibility",
+      description: "Works with Canvas. With just a short few steps, your class materials on Canvas can be uploaded to the Learn-X AI.",
+      icon: BookOpen
     },
     {
-      title: "Team Collaboration",
-      description: "Develop teamwork skills by working with peers on real-world challenges and projects.",
+      title: "Anti-Cheating",
+      description: "The Learn-X AI engine prevents students from getting answers to homework and quiz questions.",
+      icon: Award
+    },
+    {
+      title: "Personalization",
+      description: "Your students can get a more personalized lesson.",
       icon: Users
     },
     {
-      title: "Test Practice",
-      description: "Create practice work to better prepare for upcoming quizzes and tests.",
-      icon: Code
-    },
-    {
-      title: "Lecture Help",
-      description: "Your professor explained a complicated topic in a way you didn't understand. No problem! Reworded and reworked lessons will help you further your education.",
+      title: "Analytics",
+      description: "Learn what questions and concepts students are struggling with.",
       icon: BarChart
     }
   ];
 
   return (
-    <div id="for-students" ref={sectionRef} className="section bg-white">
+    <div id="for-educators" ref={sectionRef} className="section bg-white">
       <div className="section-inner">
         <div className="text-center mb-16">
           <h5 className="reveal text-blue-600 text-sm font-semibold tracking-wide uppercase mb-3">
-            For Students
+            For Educators
           </h5>
           <h2 className="reveal text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Skills You'll Develop
+            Help Your Students Learn Their Own Way
           </h2>
           <p className="reveal max-w-2xl mx-auto text-gray-600">
-            Learn-X doesn't just teach class concepts — it equips you with practical skills for the modern world.
+            Learn-X doesn't just teach your students class concepts — it equips them with practical skills for the modern world.
           </p>
         </div>
 
@@ -93,4 +93,4 @@ const StudentBenefits = () => {
   );
 };
 
-export default StudentBenefits;
+export default EducatorBenefits;
