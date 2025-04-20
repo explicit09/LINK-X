@@ -16,7 +16,7 @@ from alembic.config import Config
 import uuid
 from openai import OpenAI
 
-from src.queries import (generate_course_outline, generate_course_outline_RAG, generate_module_content)
+from src.prompts import (generate_course_outline, generate_course_outline_RAG, generate_module_content)
 
 from src.db.queries import (
     create_course, create_file, delete_course_by_id, delete_market_item_by_id, delete_news_by_id, delete_onboarding_by_user_id, delete_user_by_firebase_uid, get_all_news, 
