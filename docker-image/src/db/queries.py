@@ -1,551 +1,353 @@
-from sqlalchemy import select, and_, desc, asc
+from sqlalchemy import select, asc, desc
 from sqlalchemy.orm import Session
-from src.db.schema import Course, User, Chat, Message, Vote, Document, Suggestion, Onboarding, News, Market, File
-from werkzeug.security import generate_password_hash, check_password_hash
-from typing import List, Optional
-from datetime import date
+from src.db.schema import (
+    Professor, Student, Onboarding, Course, AccessCode,
+    Enrollment, File, PersonalizedFile, Chat, Message, Report
+)
+from werkzeug.security import generate_password_hash
+from datetime import datetime
 import uuid
 
-def get_user_by_email(db: Session, email: str):
-    try:
-        result = db.execute(select(User).filter_by(email=email)).scalars().first()
-        return result
-    except Exception as e:
-        print(f"Error retrieving user: {e}")
-        raise
+# --- Professor CRUD ---
+def get_professor_by_id(db: Session, professor_id: str):
+    return db.execute(select(Professor).filter_by(id=professor_id)).scalars().first()
 
-def create_user(db: Session, email: str, password: str, firebase_uid: str):
-    try:
-        hashed_password = generate_password_hash(password)
-        new_user = User(email=email, password=hashed_password, firebase_uid=firebase_uid)
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        return new_user
-    except Exception as e:
-        print(f"Error creating user: {e}")
-        raise
+def get_professor_by_firebase_uid(db: Session, firebase_uid: str):
+    return db.execute(select(Professor).filter_by(firebase_uid=firebase_uid)).scalars().first()
 
-def save_chat(db: Session, user_id: str, title: str):
+def get_all_professors(db: Session):
+    return db.execute(select(Professor)).scalars().all()
 
-    try:
-        new_chat = Chat(userId=user_id, title=title)
-        db.add(new_chat)
-        db.commit()
-        return new_chat
-    except Exception as e:
-        print(f"Error saving chat: {e}")
-        raise
+def create_professor(db: Session, email: str, password: str, firebase_uid: str):
+    prof = Professor(
+        email=email,
+        password=generate_password_hash(password),
+        firebase_uid=firebase_uid
+    )
+    db.add(prof); db.commit(); db.refresh(prof)
+    return prof
 
-def delete_chat_by_id(db: Session, chat_id: str):
+def update_professor(db: Session, professor_id: str, **kwargs):
+    prof = get_professor_by_id(db, professor_id)
+    if not prof: return None
+    if 'email' in kwargs: prof.email = kwargs['email']
+    if 'password' in kwargs: prof.password = generate_password_hash(kwargs['password'])
+    db.commit(); db.refresh(prof)
+    return prof
 
-    try:
-        db.query(Vote).filter(Vote.chat_id == chat_id).delete()
-        db.query(Message).filter(Message.chat_id == chat_id).delete()
-        db.query(Chat).filter(Chat.id == chat_id).delete()
-        db.commit()
-    except Exception as e:
-        print(f"Error deleting chat: {e}")
-        raise
+def delete_professor(db: Session, professor_id: str):
+    prof = get_professor_by_id(db, professor_id)
+    if prof: db.delete(prof); db.commit()
 
-def get_chats_by_user_id(db: Session, user_id: str):
+# --- Student CRUD ---
+def get_student_by_id(db: Session, student_id: str):
+    return db.execute(select(Student).filter_by(id=student_id)).scalars().first()
 
-    try:
-        return db.execute(select(Chat).filter_by(userId=user_id).order_by(desc(Chat.createdAt))).scalars().all()
-    except Exception as e:
-        print(f"Error retrieving chats by user: {e}")
-        raise
+def get_student_by_firebase_uid(db: Session, firebase_uid: str):
+    return db.execute(select(Student).filter_by(firebase_uid=firebase_uid)).scalars().first()
 
+def create_student(db: Session, email: str, password: str, firebase_uid: str):
+    student = Student(
+        email=email,
+        password=generate_password_hash(password),
+        firebase_uid=firebase_uid
+    )
+    db.add(student); db.commit(); db.refresh(student)
+    return student
+
+def update_student(db: Session, student_id: str, **kwargs):
+    s = get_student_by_id(db, student_id)
+    if not s: return None
+    if 'email' in kwargs: s.email = kwargs['email']
+    if 'password' in kwargs: s.password = generate_password_hash(kwargs['password'])
+    db.commit(); db.refresh(s)
+    return s
+
+def delete_student(db: Session, student_id: str):
+    s = get_student_by_id(db, student_id)
+    if s: db.delete(s); db.commit()
+
+# --- Onboarding CRUD ---
+def get_onboarding_by_id(db: Session, onboarding_id: str):
+    return db.execute(select(Onboarding).filter_by(id=onboarding_id)).scalars().first()
+
+def get_onboarding_by_student(db: Session, student_id: str):
+    return db.execute(select(Onboarding).filter_by(student_id=student_id)).scalars().first()
+
+def create_onboarding(db: Session, student_id: str, name: str, answers: dict, quizzes: bool=False):
+    ob = Onboarding(
+        student_id=student_id,
+        name=name,
+        answers=answers,
+        quizzes=quizzes
+    )
+    db.add(ob); db.commit(); db.refresh(ob)
+    return ob
+
+def update_onboarding(db: Session, onboarding_id: str, **kwargs):
+    ob = get_onboarding_by_id(db, onboarding_id)
+    if not ob: return None
+    if 'name' in kwargs: ob.name = kwargs['name']
+    if 'answers' in kwargs: ob.answers = kwargs['answers']
+    if 'quizzes' in kwargs: ob.quizzes = kwargs['quizzes']
+    db.commit(); db.refresh(ob)
+    return ob
+
+def delete_onboarding(db: Session, onboarding_id: str):
+    ob = get_onboarding_by_id(db, onboarding_id)
+    if ob: db.delete(ob); db.commit()
+
+# --- Course CRUD ---
+
+
+def get_courses_by_student_id(db: Session, student_id: str):
+    stmt = (
+        select(Course)
+        .join(Enrollment, Enrollment.course_id==Course.id)
+        .filter(Enrollment.student_id==student_id)
+        .order_by(desc(Course.created_at))
+    )
+    return db.execute(stmt).scalars().all()
+
+def get_course_by_id(db: Session, course_id: str):
+    return db.execute(select(Course).filter_by(id=course_id)).scalars().first()
+
+def get_courses_by_professor_id(db: Session, professor_id: str):
+    return db.execute(
+        select(Course)
+        .filter_by(professor_id=professor_id)
+        .order_by(desc(Course.created_at))
+    ).scalars().all()
+
+def create_course(db: Session, title: str, description: str, professor_id: str, index_pkl: bytes=None):
+    c = Course(
+        title=title,
+        description=description,
+        professor_id=professor_id,
+        index_pkl=index_pkl
+    )
+    db.add(c); db.commit(); db.refresh(c)
+    return c
+
+def update_course(db: Session, course_id: str, **kwargs):
+    c = get_course_by_id(db, course_id)
+    if not c: return None
+    if 'title' in kwargs: c.title = kwargs['title']
+    if 'description' in kwargs: c.description = kwargs['description']
+    if 'index_pkl' in kwargs: c.index_pkl = kwargs['index_pkl']
+    db.commit(); db.refresh(c)
+    return c
+
+def delete_course(db: Session, course_id: str):
+    c = get_course_by_id(db, course_id)
+    if c: db.delete(c); db.commit()
+
+# --- AccessCode CRUD ---
+def get_access_code_by_id(db: Session, access_code_id: str):
+    return db.execute(select(AccessCode).filter_by(id=access_code_id)).scalars().first()
+
+def get_access_code_by_course(db: Session, course_id: str):
+    return db.execute(select(AccessCode).filter_by(course_id=course_id)).scalars().first()
+
+def get_access_code_by_code(db: Session, code: str):
+    return db.execute(select(AccessCode).filter_by(code=code)).scalars().first()
+
+def create_access_code(db: Session, course_id: str, code: str):
+    ac = AccessCode(course_id=course_id, code=code)
+    db.add(ac); db.commit(); db.refresh(ac)
+    return ac
+
+def update_access_code(db: Session, access_code_id: str, **kwargs):
+    ac = get_access_code_by_id(db, access_code_id)
+    if not ac: return None
+    if 'code' in kwargs: ac.code = kwargs['code']
+    db.commit(); db.refresh(ac)
+    return ac
+
+def delete_access_code(db: Session, access_code_id: str):
+    ac = get_access_code_by_id(db, access_code_id)
+    if ac: db.delete(ac); db.commit()
+
+# --- Enrollment CRUD ---
+def get_enrollment(db: Session, student_id: str, course_id: str):
+    return db.execute(
+        select(Enrollment)
+        .filter_by(student_id=student_id, course_id=course_id)
+    ).scalars().first()
+
+def get_enrollments_by_student(db: Session, student_id: str):
+    return db.execute(
+        select(Enrollment).filter_by(student_id=student_id)
+    ).scalars().all()
+
+def get_enrollments_by_course(db: Session, course_id: str):
+    return db.execute(
+        select(Enrollment).filter_by(course_id=course_id)
+    ).scalars().all()
+
+def create_enrollment(db: Session, student_id: str, course_id: str):
+    enr = Enrollment(student_id=student_id, course_id=course_id)
+    db.add(enr); db.commit(); return enr
+
+def delete_enrollment(db: Session, student_id: str, course_id: str):
+    enr = get_enrollment(db, student_id, course_id)
+    if enr: db.delete(enr); db.commit()
+
+def get_students_by_course(db: Session, course_id: str):
+    stmt = (
+        select(Student, Onboarding)
+        .join(Enrollment, Enrollment.student_id == Student.id)
+        .join(Onboarding, Onboarding.student_id == Student.id)
+        .filter(Enrollment.course_id == course_id)
+        .order_by(asc(Onboarding.name))
+    )
+    return db.execute(stmt).all()
+
+# --- File CRUD ---
+def get_file_by_id(db: Session, file_id: str):
+    return db.execute(select(File).filter_by(id=file_id)).scalars().first()
+
+def get_files_by_course(db: Session, course_id: str):
+    return db.execute(
+        select(File)
+        .filter_by(course_id=course_id)
+        .order_by(desc(File.created_at))
+    ).scalars().all()
+
+def create_file(db: Session, filename: str, file_type: str, file_size: int,
+                file_data: bytes, course_id: str):
+    f = File(
+        filename=filename,
+        file_type=file_type,
+        file_size=file_size,
+        file_data=file_data,
+        course_id=course_id
+    )
+    db.add(f); db.commit(); db.refresh(f)
+    return f
+
+def update_file(db: Session, file_id: str, **kwargs):
+    f = get_file_by_id(db, file_id)
+    if not f: return None
+    for k in ('filename','file_type','file_size','file_data'):
+        if k in kwargs:
+            setattr(f, k, kwargs[k])
+    db.commit(); db.refresh(f)
+    return f
+
+def delete_file(db: Session, file_id: str):
+    f = get_file_by_id(db, file_id)
+    if f: db.delete(f); db.commit()
+
+# --- PersonalizedFile CRUD ---
+def get_personalized_file_by_id(db: Session, pf_id: str):
+    return db.execute(select(PersonalizedFile).filter_by(id=pf_id)).scalars().first()
+
+def get_personalized_files_by_student(db: Session, student_id: str):
+    return db.execute(
+        select(PersonalizedFile)
+        .filter_by(student_id=student_id)
+        .order_by(desc(PersonalizedFile.created_at))
+    ).scalars().all()
+
+def create_personalized_file(db: Session, student_id: str, original_file_id: str, content: dict):
+    pf = PersonalizedFile(
+        student_id=student_id,
+        original_file_id=original_file_id,
+        content=content
+    )
+    db.add(pf); db.commit(); db.refresh(pf)
+    return pf
+
+def update_personalized_file(db: Session, pf_id: str, **kwargs):
+    pf = get_personalized_file_by_id(db, pf_id)
+    if not pf: return None
+    if 'content' in kwargs: pf.content = kwargs['content']
+    db.commit(); db.refresh(pf)
+    return pf
+
+def delete_personalized_file(db: Session, pf_id: str):
+    pf = get_personalized_file_by_id(db, pf_id)
+    if pf: db.delete(pf); db.commit()
+
+# --- Chat CRUD ---
 def get_chat_by_id(db: Session, chat_id: str):
+    return db.execute(select(Chat).filter_by(id=chat_id)).scalars().first()
 
-    try:
-        return db.execute(select(Chat).filter_by(id=chat_id)).scalars().first()
-    except Exception as e:
-        print(f"Error retrieving chat: {e}")
-        raise
+def get_chats_by_student(db: Session, student_id: str):
+    return db.execute(
+        select(Chat)
+        .filter_by(student_id=student_id)
+        .order_by(desc(Chat.created_at))
+    ).scalars().all()
 
-def save_messages(db: Session, messages: list):
+def create_chat(db: Session, student_id: str, file_id: str, title: str):
+    c = Chat(student_id=student_id, file_id=file_id, title=title)
+    db.add(c); db.commit(); db.refresh(c)
+    return c
 
-    try:
-        db.add_all(messages)
-        db.commit()
-    except Exception as e:
-        print(f"Error saving messages: {e}")
-        raise
+def update_chat(db: Session, chat_id: str, **kwargs):
+    c = get_chat_by_id(db, chat_id)
+    if not c: return None
+    if 'title' in kwargs: c.title = kwargs['title']
+    db.commit(); db.refresh(c)
+    return c
 
-def get_messages_by_chat_id(db: Session, chat_id: str):
+def delete_chat(db: Session, chat_id: str):
+    c = get_chat_by_id(db, chat_id)
+    if c: db.delete(c); db.commit()
 
-    try:
-        return db.execute(select(Message).filter_by(chatId=chat_id).order_by(asc(Message.createdAt))).scalars().all()
-    except Exception as e:
-        print(f"Error retrieving messages by chat ID: {e}")
-        raise
-
-def vote_message(db: Session, chat_id: str, message_id: str, vote_type: str):
-
-    try:
-        existing_vote = db.execute(select(Vote).filter_by(messageId=message_id)).scalars().first()
-
-        if existing_vote:
-            existing_vote.is_upvoted = vote_type == 'up'
-            db.commit()
-        else:
-            new_vote = Vote(chatId=chat_id, messageId=message_id, isUpvoted=(vote_type == 'up'))
-            db.add(new_vote)
-            db.commit()
-    except Exception as e:
-        print(f"Error voting on message: {e}")
-        raise
-
-def get_votes_by_chat_id(db: Session, chat_id: str):
-
-    try:
-        return db.execute(select(Vote).filter_by(chatId=chat_id)).scalars().all()
-    except Exception as e:
-        print(f"Error retrieving votes by chat ID: {e}")
-        raise
-
-def save_document(db: Session, user_id: str, title: str, kind: str, content: str):
-
-    try:
-        new_document = Document(userId=user_id, title=title, kind=kind, content=content)
-        db.add(new_document)
-        db.commit()
-        return new_document
-    except Exception as e:
-        print(f"Error saving document: {e}")
-        raise
-
-def get_documents_by_id(db: Session, document_id: str):
-
-    try:
-        return db.execute(select(Document).filter_by(id=document_id).order_by(asc(Document.createdAt))).scalars().all()
-    except Exception as e:
-        print(f"Error retrieving documents by ID: {e}")
-        raise
-
-def get_document_by_id(db: Session, document_id: str):
-
-    try:
-        return db.execute(select(Document).filter_by(id=document_id).order_by(desc(Document.createdAt))).scalars().first()
-    except Exception as e:
-        print(f"Error retrieving document: {e}")
-        raise
-
-def delete_documents_by_id_after_timestamp(db: Session, document_id: str, timestamp: str):
-
-    try:
-        db.query(Suggestion).filter(and_(Suggestion.documentId == document_id, Suggestion.createdAt > timestamp)).delete()
-        db.query(Document).filter(and_(Document.id == document_id, Document.createdAt > timestamp)).delete()
-        db.commit()
-    except Exception as e:
-        print(f"Error deleting documents: {e}")
-        raise
-
-def save_suggestions(db: Session, suggestions: list):
-
-    try:
-        db.add_all(suggestions)
-        db.commit()
-    except Exception as e:
-        print(f"Error saving suggestions: {e}")
-        raise
-
-def get_suggestions_by_document_id(db: Session, document_id: str):
-
-    try:
-        return db.execute(select(Suggestion).filter_by(documentId=document_id)).scalars().all()
-    except Exception as e:
-        print(f"Error retrieving suggestions by document ID: {e}")
-        raise
-
+# --- Message CRUD ---
 def get_message_by_id(db: Session, message_id: str):
+    return db.execute(select(Message).filter_by(id=message_id)).scalars().first()
 
-    try:
-        return db.execute(select(Message).filter_by(id=message_id)).scalars().first()
-    except Exception as e:
-        print(f"Error retrieving message: {e}")
-        raise
+def get_messages_by_chat(db: Session, chat_id: str):
+    return db.execute(
+        select(Message)
+        .filter_by(chat_id=chat_id)
+        .order_by(asc(Message.created_at))
+    ).scalars().all()
 
-def delete_messages_by_chat_id_after_timestamp(db: Session, chat_id: str, timestamp: str):
+def create_message(db: Session, chat_id: str, role: str, content: str):
+    m = Message(chat_id=chat_id, role=role, content=content)
+    db.add(m); db.commit(); db.refresh(m)
+    return m
 
-    try:
-        db.query(Message).filter(and_(Message.chatId == chat_id, Message.createdAt >= timestamp)).delete()
-        db.commit()
-    except Exception as e:
-        print(f"Error deleting messages: {e}")
-        raise
+def update_message(db: Session, message_id: str, **kwargs):
+    m = get_message_by_id(db, message_id)
+    if not m: return None
+    if 'role' in kwargs: m.role = kwargs['role']
+    if 'content' in kwargs: m.content = kwargs['content']
+    db.commit(); db.refresh(m)
+    return m
 
-def update_chat_visibility_by_id(db: Session, chat_id: str, visibility: str):
+def delete_message(db: Session, message_id: str):
+    m = get_message_by_id(db, message_id)
+    if m: db.delete(m); db.commit()
 
-    try:
-        chat = db.execute(select(Chat).filter_by(id=chat_id)).scalars().first()
-        if chat:
-            chat.visibility = visibility
-            db.commit()
-            return chat
-        else:
-            print(f"Chat with ID {chat_id} not found.")
-            raise Exception("Chat not found")
-    except Exception as e:
-        print(f"Error updating chat visibility: {e}")
-        raise
+# --- Report CRUD ---
+def get_report_by_id(db: Session, report_id: str):
+    return db.execute(select(Report).filter_by(id=report_id)).scalars().first()
 
-def create_onboarding(
-    db: Session,
-    user_id: str,
-    name: str,
-    answers: List[Optional[str]],
-    quizzes: bool = False
-) -> Onboarding:
+def get_reports_by_course(db: Session, course_id: str):
+    return db.execute(
+        select(Report)
+        .filter_by(course_id=course_id)
+        .order_by(desc(Report.created_at))
+    ).scalars().all()
 
-    try:
-        onboarding_record = Onboarding(
-            userId=user_id,
-            name=name,
-            answers=answers,
-            quizzes=quizzes,
-        )
-        db.add(onboarding_record)
-        db.commit()
-        db.refresh(onboarding_record)
-        return onboarding_record
-    except Exception as e:
-        print("Error creating onboarding record:", e)
-        db.rollback()
-        raise e
-    
-def get_onboarding(db: Session, user_id: str) -> Optional[Onboarding]:
+def create_report(db: Session, course_id: str, file_id: str, summary: dict):
+    r = Report(course_id=course_id, file_id=file_id, summary=summary)
+    db.add(r); db.commit(); db.refresh(r)
+    return r
 
-    try:
-        return db.execute(
-            select(Onboarding).filter_by(userId=user_id)
-        ).scalars().first()
-    except Exception as e:
-        print("Error retrieving onboarding record:", e)
-        raise e
-    
-def save_market_item(db: Session, snp500: float, date_value: date) -> Market:
+def update_report(db: Session, report_id: str, **kwargs):
+    r = get_report_by_id(db, report_id)
+    if not r: return None
+    if 'summary' in kwargs: r.summary = kwargs['summary']
+    db.commit(); db.refresh(r)
+    return r
 
-    try:
-        new_market = Market(
-            id=uuid.uuid4(),
-            snp500=snp500,
-            date=date_value
-        )
-        db.add(new_market)
-        db.commit()
-        db.refresh(new_market)
-        return new_market
-    except Exception as e:
-        db.rollback()
-        print("Error saving market item:", e)
-        raise
-
-def get_recent_market_prices(db: Session, limit_count: int = 30):
-
-    try:
-        stmt = (
-            select(Market)
-            .order_by(asc(Market.date))
-            .limit(limit_count)
-        )
-        return db.execute(stmt).scalars().all()
-    except Exception as e:
-        print("Error retrieving recent market prices:", e)
-        raise
-
-def get_market_item_by_id(db: Session, market_id: str) -> Market:
-
-    try:
-        stmt = select(Market).where(Market.id == market_id)
-        return db.execute(stmt).scalars().first()
-    except Exception as e:
-        print("Error retrieving market item by ID:", e)
-        raise
-
-def delete_market_item_by_id(db: Session, market_id: str):
-
-    try:
-        target = db.query(Market).filter(Market.id == market_id).first()
-        if target:
-            db.delete(target)
-            db.commit()
-    except Exception as e:
-        db.rollback()
-        print("Error deleting market item:", e)
-        raise
-
-def save_news_item(db: Session, title: str, subject: str, link: str) -> News:
-
-    try:
-        new_news = News(
-            id=uuid.uuid4(),
-            title=title,
-            subject=subject,
-            link=link
-        )
-        db.add(new_news)
-        db.commit()
-        db.refresh(new_news)
-        return new_news
-    except Exception as e:
-        db.rollback()
-        print("Error saving news item:", e)
-        raise
-
-def get_all_news(db: Session):
-
-    try:
-        stmt = select(News)
-        return db.execute(stmt).scalars().all()
-    except Exception as e:
-        print("Error retrieving all news:", e)
-        raise
-
-def get_news_by_id(db: Session, news_id: str) -> News:
-
-    try:
-        stmt = select(News).where(News.id == news_id)
-        return db.execute(stmt).scalars().first()
-    except Exception as e:
-        print("Error retrieving news by ID:", e)
-        raise
-
-def delete_news_by_id(db: Session, news_id: str):
-
-    try:
-        target = db.query(News).filter(News.id == news_id).first()
-        if target:
-            db.delete(target)
-            db.commit()
-    except Exception as e:
-        db.rollback()
-        print("Error deleting news item:", e)
-        raise
-
-def get_user_by_firebase_uid(db: Session, firebase_uid: str):
-    try:
-        result = db.execute(select(User).filter_by(firebase_uid=firebase_uid)).first()
-        return result[0] if result is not None else None
-    except Exception as e:
-        print("Error retrieving user by firebase_uid:", e)
-        raise
-
-def update_user_by_firebase_uid(db: Session, firebase_uid: str, update_data: dict):
-
-    try:
-        user = get_user_by_firebase_uid(db, firebase_uid)
-        if not user:
-            raise Exception("User not found")
-        if "email" in update_data:
-            user.email = update_data["email"]
-        if "password" in update_data:
-            user.password = generate_password_hash(update_data["password"])
-        db.commit()
-        db.refresh(user)
-        return user
-    except Exception as e:
-        db.rollback()
-        raise e
-
-def delete_user_by_firebase_uid(db: Session, firebase_uid: str):
-
-    try:
-        user = get_user_by_firebase_uid(db, firebase_uid)
-        if not user:
-            raise Exception("User not found")
-        db.delete(user)
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        raise e
-
-def update_onboarding_by_user_id(db: Session, user_id: str, update_data: dict):
-
-    try:
-        onboarding = db.execute(
-            select(Onboarding).filter_by(userId=user_id)
-        ).scalars().first()
-        if not onboarding:
-            raise Exception("Onboarding record not found")
-        if "name" in update_data:
-            onboarding.name = update_data["name"]
-        if "answers" in update_data:
-            onboarding.answers = update_data["answers"]
-        if "quizzes" in update_data:
-            onboarding.quizzes = update_data["quizzes"]
-        db.commit()
-        db.refresh(onboarding)
-        return onboarding
-    except Exception as e:
-        db.rollback()
-        raise e
-
-def delete_onboarding_by_user_id(db: Session, user_id: str):
-
-    try:
-        onboarding = db.execute(
-            select(Onboarding).filter_by(userId=user_id)
-        ).scalars().first()
-        if not onboarding:
-            raise Exception("Onboarding record not found")
-        db.delete(onboarding)
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        raise e
-
-def create_course(
-    db: Session,
-    user_id: str,
-    topic: str,
-    expertise: str,
-    content: dict,
-    pkl: bytes = None,
-    index: bytes = None,
-    file_id: Optional[str] = None
-) -> Course:
-    try:
-        new_course = Course(
-            userId=user_id,
-            topic=topic,
-            expertise=expertise,
-            content=content,
-            pkl=pkl,
-            index=index,
-            fileId=file_id
-        )
-        db.add(new_course)
-        db.commit()
-        db.refresh(new_course)
-        return new_course
-    except Exception as e:
-        db.rollback()
-        print(f"Error creating course: {e}")
-        raise
-
-def get_course_by_id(db: Session, course_id: str) -> Optional[Course]:
-    try:
-        return db.execute(select(Course).filter_by(id=course_id)).scalars().first()
-    except Exception as e:
-        print(f"Error retrieving course by ID: {e}")
-        raise
-
-def get_courses_by_user_id(db: Session, user_id: str) -> List[Course]:
-    try:
-        return db.execute(select(Course).filter_by(userId=user_id).order_by(desc(Course.createdAt))).scalars().all()
-    except Exception as e:
-        print(f"Error retrieving courses by user: {e}")
-        raise
-
-def delete_course_by_id(db: Session, course_id: str):
-    try:
-        course = db.query(Course).filter(Course.id == course_id).first()
-        if course:
-            db.delete(course)
-            db.commit()
-    except Exception as e:
-        db.rollback()
-        print(f"Error deleting course: {e}")
-        raise
-
-def create_file(
-    db: Session,
-    filename: str,
-    file_type: str,
-    file_size: int,
-    file_data: bytes
-) -> File:
-    try:
-        new_file = File(
-            filename=filename,
-            fileType=file_type,
-            fileSize=file_size,
-            fileData=file_data
-        )
-        db.add(new_file)
-        db.commit()
-        db.refresh(new_file)
-        return new_file
-    except Exception as e:
-        db.rollback()
-        print(f"Error creating file: {e}")
-        raise
-
-def get_file_by_id(db: Session, file_id: str) -> Optional[File]:
-    try:
-        return db.execute(select(File).filter_by(id=file_id)).scalars().first()
-    except Exception as e:
-        print(f"Error retrieving file by ID: {e}")
-        raise
-
-def delete_file_by_id(db: Session, file_id: str):
-    try:
-        file_record = db.query(File).filter(File.id == file_id).first()
-        if file_record:
-            db.delete(file_record)
-            db.commit()
-    except Exception as e:
-        db.rollback()
-        print(f"Error deleting file: {e}")
-        raise
-
-def get_files_by_user_id(db: Session, user_id: str) -> List[File]:
-    try:
-        stmt = select(File).join(Course, File.id == Course.fileId).filter(Course.userId == user_id)
-        return db.execute(stmt).scalars().all()
-    except Exception as e:
-        print(f"Error retrieving files by user: {e}")
-        raise
-
-def update_course(db: Session, course_id: str, update_data: dict) -> Course:
-    """
-    Update an existing course with provided fields.
-    Allowed keys: 'topic', 'expertise', 'content', 'fileId'
-    """
-    try:
-        course = get_course_by_id(db, course_id)
-        if not course:
-            raise Exception("Course not found")
-        if "topic" in update_data:
-            course.topic = update_data["topic"]
-        if "expertise" in update_data:
-            course.expertise = update_data["expertise"]
-        if "content" in update_data:
-            course.content = update_data["content"]
-        if "fileId" in update_data:
-            course.fileId = update_data["fileId"]
-        db.commit()
-        db.refresh(course)
-        return course
-    except Exception as e:
-        db.rollback()
-        print(f"Error updating course: {e}")
-        raise
-
-def update_file(db: Session, file_id: str, update_data: dict) -> File:
-    """
-    Update an existing file with provided fields.
-    Allowed keys: 'filename', 'fileType', 'fileData', and 'fileSize'
-    (Typically, if updating the file data, you might re-calculate fileSize on the fly.)
-    """
-    try:
-        file_record = get_file_by_id(db, file_id)
-        if not file_record:
-            raise Exception("File not found")
-        if "filename" in update_data:
-            file_record.filename = update_data["filename"]
-        if "fileType" in update_data:
-            file_record.fileType = update_data["fileType"]
-        if "fileData" in update_data:
-            file_record.fileData = update_data["fileData"]
-        if "fileSize" in update_data:
-            file_record.fileSize = update_data["fileSize"]
-        db.commit()
-        db.refresh(file_record)
-        return file_record
-    except Exception as e:
-        db.rollback()
-        print(f"Error updating file: {e}")
-        raise
+def delete_report(db: Session, report_id: str):
+    r = get_report_by_id(db, report_id)
+    if r: db.delete(r); db.commit()
