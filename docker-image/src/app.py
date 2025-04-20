@@ -16,6 +16,7 @@ from alembic.config import Config
 import uuid
 from openai import OpenAI
 import json
+import hashlib
 
 from src.prompts import (prompt1_create_course, prompt2_generate_course_outline, prompt2_generate_course_outline_RAG, prompt3_generate_module_content, prompt4_valid_query)
 
@@ -29,6 +30,9 @@ from src.db.queries import (
     get_message_by_id, delete_messages_by_chat_id_after_timestamp, update_chat_visibility_by_id, 
     create_onboarding, get_user_by_firebase_uid
 )
+
+from src.item_01_database_creation_FAISS import create_database
+from src.item_02_generate_citations_APA_FAISS import generate_citations
 
 load_dotenv()
 
@@ -960,24 +964,7 @@ def learn_from_question():
 
         topic_expertise = prompt1_create_course(question)
 
-        # Use OpenAI to extract topic and expertise
-        # client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        # response = client.chat.completions.create(
-        #     model="gpt-3.5-turbo",
-        #     messages=[
-        #         {
-        #             "role": "system",
-        #             "content": (
-        #                 "You are an education assistant. Extract a topic and the user's level of expertise from the question. "
-        #                 "Reply ONLY with a JSON object containing 'topic' and 'expertise' (one of: beginner, intermediate, advanced)."
-        #             )
-        #         },
-        #         {"role": "user", "content": question}
-        #     ]
-        # )
-        # import json
-
-        # Verify JSON is valid
+        # Verify Topic & Expertise JSON is valid
         try:
             topic_expertise_parsed = json.loads(topic_expertise.choices[0].message.content)
         except (ValueError, AttributeError, IndexError) as e:
@@ -988,10 +975,39 @@ def learn_from_question():
 
         if not topic or not expertise:
             return jsonify({"error": "Invalid GPT response"}), 400
+        
+        pdf_file = request.files.get("file")
+        
+        if pdf_file:
+            # TODO integrate BLOB storage so PDFs aren't stored locally
 
+            # Read PDF content into bytes
+            file_bytes = pdf_file.read()
+
+            # Generate MD5 hash of the content
+            pdf_id = hashlib.md5(file_bytes).hexdigest()
+
+            # Store the PDF file locally (For testing ONLY)
+            upload_dir = os.path.join(os.path.dirname(__file__), "faiss_generated", pdf_id)
+            os.makedirs(upload_dir, exist_ok=True)
+
+            filename = f"{pdf_id}.pdf"
+            file_path = os.path.join(upload_dir, filename)
+
+            if not os.path.exists(file_path):
+                with open(file_path, "wb") as f:
+                    f.write(file_bytes)
+
+            # FAISS database creation
+            create_database(upload_dir, pdf_id)
+            generate_citations(upload_dir)
+            # outline = prompt2_generate_course_outline_RAG(index_path, expertise)
+        else:
+            pdf_id = None
         # Generate course outline using the provided topic and expertise
         outline = prompt2_generate_course_outline(topic, expertise)
-        # Verify JSON is valid
+
+        # Verify Course Outline JSON is valid
         try:
             outline_parsed = json.loads(outline.choices[0].message.content)
         except (ValueError, AttributeError, IndexError) as e:
@@ -1012,7 +1028,7 @@ def learn_from_question():
             content=outline_parsed,  # Course outline (JSON)
             pkl=None,
             index=None,
-            file_id=None
+            file_id=pdf_id
         )
         db_session.close()
         import time
