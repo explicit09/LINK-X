@@ -1,6 +1,4 @@
 import os
-import sys
-import json
 from openai import OpenAI
 from dotenv import load_dotenv, find_dotenv
 from item_04_retriever_FAISS import answer_to_QA
@@ -9,7 +7,27 @@ load_dotenv(find_dotenv())
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def generate_course_outline_RAG(working_dir, expertise):
+def prompt1_create_course(user_query):
+    system_query = (
+    """
+    You are an education assistant. Extract a topic and the user's level of expertise from the question.
+
+    Reply ONLY with a **valid JSON object** containing 'topic' and 'expertise' (one of: beginner, intermediate, advanced).
+    """
+    )
+
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": system_query},
+            {"role": "user", "content": user_query}
+        ],
+        temperature=0
+    )
+
+    return response
+
+def prompt2_generate_course_outline_RAG(working_dir, expertise):
     query = ( 
     f"""
     You are an AI assistant with access to provided content on a subject. 
@@ -21,7 +39,7 @@ def generate_course_outline_RAG(working_dir, expertise):
     1. Provide a concise title (3–7 words).
     2. Include an array of relevant metadata or key points. Each array should have 3–6 bullet items covering the main ideas, important highlights, and any important details from the content.
 
-    Return the results as valid JSON, with the following structure:
+    Return the results as **valid JSON**, with the following structure:
 
     {{
     "chapters": [
@@ -41,21 +59,21 @@ def generate_course_outline_RAG(working_dir, expertise):
 
     response = answer_to_QA(query, working_dir)
 
-    try:
-        parsed_json = json.loads(response.choices[0].message.content)
-    except (ValueError, AttributeError, IndexError) as e:
-        print("Invalid JSON returned from AI response:")
-        print("Error:", e)
-        print("Raw response:", response)
-        return None
+    # try:
+    #     parsed_json = json.loads(response.choices[0].message.content)
+    # except (ValueError, AttributeError, IndexError) as e:
+    #     print("Invalid JSON returned from AI response:")
+    #     print("Error:", e)
+    #     print("Raw response:", response)
+    #     return None
 
     # return response
-    return parsed_json
+    return response
 
-def generate_course_outline(topic, expertise):
+def prompt2_generate_course_outline(topic, expertise):
     # “I’m a sophomore in finance and I want to learn about investing”
     system_query = ( 
-    f"""
+    """
     You are an AI assistant generating an educational course outline.
     
     The user will provide you with a topic and their level of experise on the subject.
@@ -68,19 +86,19 @@ def generate_course_outline(topic, expertise):
 
     Return the results as **valid JSON**, with the following structure:
 
-    {{
+    {
     "chapters": [
-        {{
+        {
             "chapterTitle": "string",
             "metadata": [
                 "string",
                 "string",
                 ...
             ]
-        }},
+        },
         ...
     ]
-    }}
+    }
     """
     )
 
@@ -95,17 +113,17 @@ def generate_course_outline(topic, expertise):
         temperature=0
     )
 
-    try:
-        parsed_json = json.loads(response.choices[0].message.content)
-    except (ValueError, AttributeError, IndexError) as e:
-        print("Invalid JSON returned from AI response:")
-        print("Error:", e)
-        print("Raw response:", response)
-        return None
+    # try:
+    #     parsed_json = json.loads(response.choices[0].message.content)
+    # except (ValueError, AttributeError, IndexError) as e:
+    #     print("Invalid JSON returned from AI response:")
+    #     print("Error:", e)
+    #     print("Raw response:", response)
+    #     return None
 
-    return parsed_json
+    return response
 
-def generate_module_content():
+def prompt3_generate_module_content():
     # TODO
     # Take faiss index, specific module json from outline (chapterTitle & metadata), persona
     # Generate the content for the specified module using data provided & broader internet

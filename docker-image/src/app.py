@@ -15,8 +15,9 @@ from alembic import command
 from alembic.config import Config
 import uuid
 from openai import OpenAI
+import json
 
-from src.prompts import (generate_course_outline, generate_course_outline_RAG, generate_module_content)
+from src.prompts import (prompt1_create_course, prompt2_generate_course_outline, prompt2_generate_course_outline_RAG, prompt3_generate_module_content)
 
 from src.db.queries import (
     create_course, create_file, delete_course_by_id, delete_market_item_by_id, delete_news_by_id, delete_onboarding_by_user_id, delete_user_by_firebase_uid, get_all_news, 
@@ -884,30 +885,44 @@ def learn_from_question():
         if not question:
             return jsonify({"error": "Missing question"}), 400
 
+        topic_expertise = prompt1_create_course(question)
+
         # Use OpenAI to extract topic and expertise
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an education assistant. Extract a topic and the user's level of expertise from the question. "
-                        "Reply ONLY with a JSON object containing 'topic' and 'expertise' (one of: beginner, intermediate, advanced)."
-                    )
-                },
-                {"role": "user", "content": question}
-            ]
-        )
-        import json
-        parsed = json.loads(response.choices[0].message.content)
-        topic = parsed.get("topic")
-        expertise = parsed.get("expertise")
+        # client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        # response = client.chat.completions.create(
+        #     model="gpt-3.5-turbo",
+        #     messages=[
+        #         {
+        #             "role": "system",
+        #             "content": (
+        #                 "You are an education assistant. Extract a topic and the user's level of expertise from the question. "
+        #                 "Reply ONLY with a JSON object containing 'topic' and 'expertise' (one of: beginner, intermediate, advanced)."
+        #             )
+        #         },
+        #         {"role": "user", "content": question}
+        #     ]
+        # )
+        # import json
+
+        # Verify JSON is valid
+        try:
+            topic_expertise_parsed = json.loads(topic_expertise.choices[0].message.content)
+        except (ValueError, AttributeError, IndexError) as e:
+            return jsonify({"error": "Invalid JSON returned from AI response", "details": str(e)}), 400
+        
+        topic = topic_expertise_parsed.get("topic")
+        expertise = topic_expertise_parsed.get("expertise")
+
         if not topic or not expertise:
             return jsonify({"error": "Invalid GPT response"}), 400
 
         # Generate course outline using the provided topic and expertise
-        outline = generate_course_outline(topic, expertise)
+        outline = prompt2_generate_course_outline(topic, expertise)
+        # Verify JSON is valid
+        try:
+            outline_parsed = json.loads(outline.choices[0].message.content)
+        except (ValueError, AttributeError, IndexError) as e:
+            return jsonify({"error": "Invalid JSON returned from AI response", "details": str(e)}), 400
 
         # Retrieve Postgres user record
         db_session = Session()
@@ -921,7 +936,7 @@ def learn_from_question():
             user_id=str(postgres_user.id),
             topic=topic,
             expertise=expertise,
-            content=outline,  # Course outline (JSON)
+            content=outline_parsed,  # Course outline (JSON)
             pkl=None,
             index=None,
             file_id=None
