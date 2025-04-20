@@ -17,7 +17,7 @@ import uuid
 from openai import OpenAI
 import json
 
-from src.prompts import (prompt1_create_course, prompt2_generate_course_outline, prompt2_generate_course_outline_RAG, prompt3_generate_module_content)
+from src.prompts import (prompt1_create_course, prompt2_generate_course_outline, prompt2_generate_course_outline_RAG, prompt3_generate_module_content, prompt4_valid_query)
 
 from src.db.queries import (
     create_course, create_file, delete_course_by_id, delete_market_item_by_id, delete_news_by_id, delete_onboarding_by_user_id, delete_user_by_firebase_uid, get_all_news, 

@@ -12,7 +12,14 @@ def prompt1_create_course(user_query):
     """
     You are an education assistant. Extract a topic and the user's level of expertise from the question.
 
-    Reply ONLY with a **valid JSON object** containing 'topic' and 'expertise' (one of: beginner, intermediate, advanced).
+    Give ONLY with the 'topic' and 'expertise' (one of: beginner, intermediate, advanced).
+
+    Return ONLY the **raw valid JSON string** with the following structure:
+
+    {
+        "topic": "string",
+        "expertise": "string"
+    }
     """
     )
 
@@ -39,7 +46,7 @@ def prompt2_generate_course_outline_RAG(working_dir, expertise):
     1. Provide a concise title (3–7 words).
     2. Include an array of relevant metadata or key points. Each array should have 3–6 bullet items covering the main ideas, important highlights, and any important details from the content.
 
-    Return the results as **valid JSON**, with the following structure:
+    Return ONLY the **raw valid JSON string** with the following structure:
 
     {{
     "chapters": [
@@ -84,7 +91,7 @@ def prompt2_generate_course_outline(topic, expertise):
     1. Provide a **concise title** (3–7 words).
     2. Include an **array of 3-6 metadata points** (key points, main ideas, important highlights, or details relevant to the chapter).
 
-    Return the results as **valid JSON**, with the following structure:
+    Return ONLY the **raw valid JSON string** with the following structure:
 
     {
     "chapters": [
