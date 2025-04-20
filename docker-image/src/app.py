@@ -1,1461 +1,652 @@
-from datetime import date, datetime
+from datetime import datetime
 import os
+import uuid
+import tempfile
+from flask import Flask, jsonify, request, Response, render_template
+from flask_cors import CORS
 import firebase_admin
 from firebase_admin import auth, credentials
-from flask import Flask, Response, render_template, jsonify, request
-from flask_cors import CORS
-import faiss
-import pickle
-import numpy as np
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from src.db.schema import Base, Suggestion, Chat, Message
-from alembic import command
-from alembic.config import Config
-import uuid
-from openai import OpenAI
+from dotenv import load_dotenv
 
-from src.queries import (generate_course_outline, generate_course_outline_RAG, generate_module_content)
-
+from src.queries import generate_course_outline_RAG
+from src.db.schema import Base
 from src.db.queries import (
-    create_course, create_file, delete_course_by_id, delete_market_item_by_id, delete_news_by_id, delete_onboarding_by_user_id, delete_user_by_firebase_uid, get_all_news, 
-    get_course_by_id, get_courses_by_user_id, get_file_by_id, get_market_item_by_id, get_news_by_id, get_onboarding, 
-    get_recent_market_prices, create_user, save_chat, delete_chat_by_id, get_chats_by_user_id,
-    get_chat_by_id, save_market_item, save_messages, get_messages_by_chat_id, save_news_item, update_course, update_file, update_onboarding_by_user_id, update_user_by_firebase_uid, vote_message,
-    get_votes_by_chat_id, save_document, get_documents_by_id, get_document_by_id,
-    delete_documents_by_id_after_timestamp, save_suggestions, get_suggestions_by_document_id,
-    get_message_by_id, delete_messages_by_chat_id_after_timestamp, update_chat_visibility_by_id, 
-    create_onboarding, get_user_by_firebase_uid
+    # Professor / Student
+    get_professor_by_id, get_student_by_id,
+    create_professor, create_student, update_professor, update_student,
+    # Onboarding
+    get_onboarding_by_student, create_onboarding, update_onboarding,
+    # Course
+    get_course_by_id, get_courses_by_professor_id, get_courses_by_student_id,
+    create_course, update_course, delete_course,
+    # AccessCode / Enrollment
+    get_access_code_by_code, create_access_code,
+    get_enrollment, create_enrollment, delete_enrollment, 
+    get_enrollments_by_student, get_enrollments_by_course,
+    # File
+    get_file_by_id, get_files_by_course, create_file, update_file, delete_file,
+    # PersonalizedFile
+    get_personalized_file_by_id, get_personalized_files_by_student,
+    create_personalized_file, update_personalized_file, delete_personalized_file,
+    # Chat / Message
+    get_chat_by_id, get_chats_by_student, create_chat, update_chat, delete_chat,
+    get_message_by_id, get_messages_by_chat, create_message, update_message, delete_message,
+    # Report
+    get_report_by_id, get_reports_by_course, create_report, update_report, delete_report,
+    # New helper
+    get_students_by_course
 )
 
 load_dotenv()
 
-# Initialize Flask
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
 
-# Initialize Firebase Admin
+# Firebase init
 cred = credentials.Certificate("firebaseKey.json")
 firebase_admin.initialize_app(cred)
 
-# SQLAlchemy configuration
+# DB setup
 POSTGRES_URL = os.getenv("POSTGRES_URL")
 if not POSTGRES_URL:
-    raise ValueError("POSTGRES_URL is not defined in the environment")
-
-# Create engine, session, and tables
+    raise ValueError("POSTGRES_URL not set")
 engine = create_engine(POSTGRES_URL)
 Session = sessionmaker(bind=engine, expire_on_commit=False)
 Base.metadata.create_all(engine)
 
-# INDEX_PATH = "/app/"
-# PICKLE_PATH = "/app/"
 
-# try:
-#     faiss_index = faiss.read_index("/app/index.faiss")
-#     print("FAISS index successfully loaded from /app/index.faiss")
-# except Exception as e:
-#     print(f"Error loading FAISS index: {e}")
-#     faiss_index = None
-
-# try:
-#     with open("/app/index.pkl", "rb") as f:
-#         metadata = pickle.load(f)
-#     print("Metadata successfully loaded from /app/index.pkl")
-# except Exception as e:
-#     print(f"Error loading metadata: {e}")
-#     metadata = None
-
-
-# This one returns plain data — safe to use in backend logic like chat
-def get_user_from_session():
-    session_cookie = request.cookies.get('session')
-    if not session_cookie:
-        return {"error": "Unauthorized - Missing session cookie"}
-
+# --- Authentication helpers ---
+def get_user_session():
+    token = request.cookies.get('session')
+    if not token:
+        return {"error": "Missing session cookie"}
     try:
-        return auth.verify_session_cookie(session_cookie, check_revoked=True)
+        return auth.verify_session_cookie(token, check_revoked=True)
     except Exception as e:
         return {"error": str(e)}
 
-# This one is for routes your teammates use — returns Flask-style response
-def verify_session_cookie():
-    user = get_user_from_session()
-    if "error" in user:
-        return jsonify(user), 401
-    return user
+def verify_professor():
+    user = get_user_session()
+    if 'error' in user:
+        return None, (jsonify(user), 401)
+    db = Session()
+    prof = get_professor_by_id(db, user['uid'])
+    db.close()
+    if not prof:
+        return None, (jsonify({'error':'Forbidden'}), 403)
+    return prof, None
 
+def verify_student():
+    user = get_user_session()
+    if 'error' in user:
+        return None, (jsonify(user), 401)
+    db = Session()
+    student = get_student_by_id(db, user['uid'])
+    db.close()
+    if not student:
+        return None, (jsonify({'error':'Forbidden'}), 403)
+    return student, None
 
-
-# Unprotected Routes
-@app.route('/')
-def home():
-    """Serve the main UI."""
-    return render_template('index.html')
-
-@app.route('/citations', methods=['GET'])
-def citations():
-    """Example unprotected route that returns citation data (if you want it public)."""
-    try:
-        citation_data = []
-        if metadata:
-            for idx, doc in enumerate(metadata.values()):
-                citation_data.append({
-                    "source": doc.metadata.get("source", "Unknown"),
-                    "citation": f"Mock APA Citation for Document {idx + 1}"
-                })
-        return jsonify({"citations": citation_data})
-    except Exception as e:
-        return jsonify({"error": f"Error generating citations: {e}"}), 500
-
-@app.route('/migrate', methods=['POST'])
-def migrate():
-
-    try:
-        alembic_cfg = Config("alembic.ini")
-        alembic_cfg.set_main_option("sqlalchemy.url", POSTGRES_URL)
-
-        print("⏳ Running migrations...")
-        command.upgrade(alembic_cfg, "head")
-        print("✅ Migrations completed.")
-
-        return jsonify({"message": "Migrations completed successfully!"}), 200
-    except Exception as e:
-        return jsonify({"error": f"Error running migrations: {str(e)}"}), 500
-
-
-# Protected Routes
-
-@app.route('/onboarding', methods=['POST'])
-def create_onboarding_route():
-    user_claims = verify_session_cookie()
-    if isinstance(user_claims, dict) and "error" in user_claims:
-        return user_claims
-
-    firebase_uid = user_claims["uid"]
-
-    db_session = Session()
-    postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
-    if not postgres_user:
-        return jsonify({"error": "User not found in database"}), 404
-
-    data = request.get_json()
-    required_fields = ["name", "answers", "quizzes"]
-    if not all(field in data for field in required_fields):
-        return jsonify({"error": "Missing required fields"}), 400
-
-    try:
-        new_onboarding = create_onboarding(
-            db=db_session,
-            user_id=postgres_user.id,
-            name=data["name"],
-            answers=data["answers"],
-            quizzes=data["quizzes"]
-        )
-        return jsonify({
-            "message": "Onboarding record created",
-            "id": str(new_onboarding.id)
-        }), 201
-    except Exception as e:
-        print("Error creating onboarding record:", e)
-        db_session.rollback()
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/onboarding', methods=['GET'])
-def get_onboarding_route():
-
-    user_claims = verify_session_cookie()
-    if isinstance(user_claims, dict) and "error" in user_claims:
-        return user_claims
-
-    firebase_uid = user_claims["uid"]
-    db_session = Session()
-    try:
-        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
-        if not postgres_user:
-            return jsonify({"error": "User not found"}), 404
-
-        onboarding = get_onboarding(db_session, postgres_user.id)
-        if not onboarding:
-            return jsonify({"error": "Onboarding record not found"}), 404
-
-        onboarding_data = {
-            "id": str(onboarding.id),
-            "name": onboarding.name,
-            "answers": onboarding.answers,
-            "quizzes": onboarding.quizzes,
-            "createdAt": onboarding.createdAt.isoformat()
-        }
-        return jsonify(onboarding_data), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/onboarding', methods=['PATCH'])
-def update_onboarding():
-
-    user_claims = verify_session_cookie()
-    if isinstance(user_claims, dict) and "error" in user_claims:
-        return user_claims
-
-    firebase_uid = user_claims["uid"]
-    data = request.get_json()
-    db_session = Session()
-    try:
-        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
-        if not postgres_user:
-            return jsonify({"error": "User not found"}), 404
-
-        updated_onboarding = update_onboarding_by_user_id(db_session, postgres_user.id, data)
-        onboarding_data = {
-            "id": str(updated_onboarding.id),
-            "name": updated_onboarding.name,
-            "answers": updated_onboarding.answers,
-            "quizzes": updated_onboarding.quizzes,
-            "createdAt": updated_onboarding.createdAt.isoformat()
-        }
-        return jsonify(onboarding_data), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/onboarding', methods=['DELETE'])
-def delete_onboarding():
-
-    user_claims = verify_session_cookie()
-    if isinstance(user_claims, dict) and "error" in user_claims:
-        return user_claims
-
-    firebase_uid = user_claims["uid"]
-    db_session = Session()
-    try:
-        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
-        if not postgres_user:
-            return jsonify({"error": "User not found"}), 404
-
-        delete_onboarding_by_user_id(db_session, postgres_user.id)
-        return jsonify({"message": "Onboarding record deleted successfully"}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/createUser', methods=['POST'])
-def create_user_route():
-    data = request.get_json()
-    
-    id_token = data.get("idToken")
-    if not id_token:
-        return jsonify({"error": "Missing ID token"}), 400
-
-    try:
-        decoded_claims = auth.verify_id_token(id_token)
-        firebase_uid = decoded_claims["uid"]
-    except Exception as e:
-        return jsonify({"error": "Invalid ID token: " + str(e)}), 401
-
-    email = data.get("email")
-    password = data.get("password")
-    if not email or not password:
-        return jsonify({"error": "Email and password are required"}), 400
-
-    db_session = Session()
-    try:
-        new_user = create_user(db_session, email, password, firebase_uid=firebase_uid)
-        return jsonify({"id": str(new_user.id), "email": new_user.email}), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/sessionLogout', methods=['POST'])
-def session_logout():
-
-    response = jsonify({'message': 'Logged out'})
-    response.set_cookie('session', '', max_age=0)
-    return response
-
+# --- Session login/logout ---
 @app.route('/sessionLogin', methods=['POST'])
 def session_login():
     data = request.get_json()
     id_token = data.get('idToken')
     if not id_token:
-        return jsonify({'error': 'Missing ID token'}), 400
-
+        return jsonify({'error':'Missing idToken'}),400
     try:
-        expires_in = 60 * 60 * 24 * 5
-        session_cookie = auth.create_session_cookie(id_token, expires_in=expires_in)
-        response = jsonify({'message': 'Session cookie set'})
-        response.set_cookie(
-            'session',
-            session_cookie,
-            max_age=expires_in, 
-            httponly=True,
-            secure=False,
-            samesite='Strict'
-        )
-        return response
+        expires = 60*60*24*5
+        session_cookie = auth.create_session_cookie(id_token, expires_in=expires)
+        resp = jsonify({'message':'Session set'})
+        resp.set_cookie('session', session_cookie, max_age=expires, httponly=True, samesite='Strict')
+        return resp
     except Exception as e:
-        return jsonify({'error': str(e)}), 401
-    
-@app.route('/chats', methods=['GET'])
-def get_chats():
-    """Retrieve chats for the authenticated user."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
+        return jsonify({'error':str(e)}),401
 
-    user_id = user["uid"]
-    try:
-        chats = get_chats_by_user_id(db=Session(), user_id=user_id)
-        return jsonify(chats), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+@app.route('/sessionLogout', methods=['POST'])
+def session_logout():
+    resp = jsonify({'message':'Logged out'})
+    resp.set_cookie('session','',max_age=0)
+    return resp
 
-@app.route('/chat', methods=['POST'])
-def chat():
-     user_claims = verify_session_cookie()
-     if isinstance(user_claims, dict) and "error" in user_claims:
-         return user_claims
- 
-     data = request.get_json()
-     user_message = data.get("message")
-     
-     if not user_message:
-         return jsonify({"error": "Message is required"}), 400
- 
-     try:
-         client = OpenAI()
- 
-         response = client.chat.completions.create(
-             model="gpt-4o",  # or gpt-3.5-turbo
-             messages=[
-                 {"role": "system", "content": "You are a helpful assistant."},
-                 {"role": "user", "content": user_message}
-             ]
-         )
- 
-         reply_text = response.choices[0].message.content
- 
-         return jsonify({"response": reply_text})
-     
-     except Exception as e:
-         return jsonify({"error": str(e)}), 500
-     
-
-@app.route('/chatwithpersona', methods=['POST'])
-def chat_with_persona():
-     user_claims = verify_session_cookie()
-     if isinstance(user_claims, dict) and "error" in user_claims:
-         return user_claims
- 
-     data = request.get_json()
-     name = data.get("name")
-     user_message = data.get("message")
-     profile = data.get("userProfile", {})
-     raw_expertise = data.get("expertise")
-
-     expertise_map = {
-    "beginner": "They prefer simple, clear explanations suitable for someone new to the topic.",
-    "intermediate": "They have some prior experience and prefer moderate technical depth.",
-    "advanced": "They want in-depth explanations with technical language.",
-    }
-     
-     expertise = str(raw_expertise).lower() if raw_expertise else "beginner"
-     expertise_summary = expertise_map.get(expertise, expertise_map["beginner"]) 
-    
-
-     persona = []
-
-     if name:
-        persona.append(f'The user’s name is **{name}**')
-
-    
-     if profile.get("role"):
-            persona.append(f'they are a **{profile["role"]}**')
-     if profile.get("traits"):
-            persona.append(f'they like their assistant to be **{profile["traits"]}**')
-     if profile.get("learningStyle"):
-            persona.append(f'their preferred learning style is **{profile["learningStyle"]}**')
-     if profile.get("depth"):
-            persona.append(f'they prefer **{profile["depth"]}-level** explanations')
-     if profile.get("interests"):
-            persona.append(f'they’re interested in **{profile["interests"]}**')
-     if profile.get("personalization"):
-            persona.append(f'they enjoy **{profile["personalization"]}**')
-     if profile.get("schedule"):
-            persona.append(f'they study best **{profile["schedule"]}**')
-
-     full_persona = ". ".join(persona)
-     
-     if not user_message:
-         return jsonify({"error": "Message is required"}), 400
- 
-     try:
-         client = OpenAI()
- 
-         response = client.chat.completions.create(
-             model="gpt-4o",  # or gpt-3.5-turbo
-             messages=[
-                { "role": "system", "content": "You are a helpful and friendly AI tutor." },
-                { "role": "user", "content": f"{full_persona}. {expertise_summary}" },
-                { "role": "user", "content": f"Now explain this topic: {user_message}" }
-            ]
-         )
- 
-         reply_text = response.choices[0].message.content
- 
-         return jsonify({"response": reply_text})
-     
-     except Exception as e:
-         return jsonify({"error": str(e)}), 500
-     
-     
-@app.route('/chats', methods=['DELETE'])
-def delete_chat_param_missing():
-    return jsonify({"error": "chat_id is required in the URL"}), 400
-
-@app.route('/chat/<chat_id>', methods=['GET'])
-def get_chat_by_id_route(chat_id):
-    """Get a single chat by ID."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    db_session = Session()
-    try:
-        chat = db_session.query(Chat).filter(Chat.id == chat_id).first()
-        if not chat:
-            return jsonify({"error": "Chat not found"}), 404
-
-        if str(chat.userId) != user["uid"]:
-            return jsonify({"error": "Unauthorized"}), 401
-
-        chat_data = {
-            "id": str(chat.id),
-            "createdAt": chat.createdAt.isoformat(),
-            "title": chat.title,
-            "userId": str(chat.userId),
-            "visibility": chat.visibility
-        }
-        return jsonify(chat_data), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/chat/<chat_id>', methods=['DELETE'])
-def delete_chat_by_id_route(chat_id):
-    """Delete a chat by its ID."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    try:
-        delete_chat_by_id(db=Session(), chat_id=chat_id)
-        return jsonify({"message": "Chat and its associated messages deleted successfully"}), 200
-    except Exception as e:
-        return jsonify({"error": f"Error deleting chat: {str(e)}"}), 500
-
-@app.route('/messages/<chat_id>', methods=['GET'])
-def get_messages_by_chat(chat_id):
-    """Retrieve messages for a specific chat."""
-    user_claims = verify_session_cookie()
-    if isinstance(user_claims, dict) and "error" in user_claims:
-        return user_claims
-
-    db_session = Session()
-    try:
-        # 🔍 Step 1: Look up Postgres user using Firebase UID
-        postgres_user = get_user_by_firebase_uid(db_session, user_claims["uid"])
-        if not postgres_user:
-            return jsonify({"error": "User not found"}), 404
-
-        # ✅ Step 2: Get chat and compare using internal UUID
-        chat = db_session.query(Chat).filter(Chat.id == chat_id).first()
-        if not chat:
-            return jsonify({"error": "Chat not found"}), 404
-
-        if str(chat.userId) != str(postgres_user.id):
-            print(f"Unauthorized: Chat.userId = {chat.userId}, Requesting user = {postgres_user.id}")
-            return jsonify({"error": "Unauthorized"}), 401
-
-        # ✅ Step 3: Return messages
-        messages = get_messages_by_chat_id(db=db_session, chat_id=chat_id)
-        if not messages:
-            return jsonify([]), 200
-
-        return jsonify([
-            {
-                "role": msg.role,
-                "content": msg.content,
-                "createdAt": msg.createdAt.isoformat()
-            }
-            for msg in messages
-        ]), 200
-
-    except Exception as e:
-        print(f"Error in get_messages_by_chat: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-
-
-@app.route('/message', methods=['POST'])
-def save_message():
-    """Save messages for a chat."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    data = request.json
-    messages = data.get('messages')
-
-    if not messages:
-        return jsonify({"error": "Messages are required"}), 400
-
-    try:
-        saved = save_messages(db=Session(), messages=messages)
-        return jsonify(saved), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/message/vote', methods=['POST'])
-def vote_on_message():
-    """Vote on a message in a chat."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    data = request.json
-    chat_id = data.get('chatId')
-    message_id = data.get('messageId')
-    vote_type = data.get('type')
-
-    if not chat_id or not message_id or not vote_type:
-        return jsonify({"error": "Chat ID, message ID, and vote type are required"}), 400
-
-    try:
-        vote = vote_message(db=Session(), chat_id=chat_id, message_id=message_id, vote_type=vote_type)
-        return jsonify(vote), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/vote/<chat_id>', methods=['GET'])
-def get_votes_for_chat(chat_id):
-    """Get votes for a particular chat."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    try:
-        votes = get_votes_by_chat_id(db=Session(), chat_id=chat_id)
-        return jsonify(votes), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/documents', methods=['GET'])
-def get_documents_route():
-    """Get documents belonging to authenticated user."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    user_id = user["uid"]
-    document_id = request.args.get('id')
-
-    if not document_id:
-        return jsonify({'error': 'Missing id'}), 400
-
-    documents = get_documents_by_id(db=Session(), id=document_id)
-    if not documents:
-        return jsonify({'error': 'Document not found'}), 404
-
-    if documents[0]['userId'] != user_id:
-        return jsonify({'error': 'Unauthorized'}), 401
-
-    return jsonify(documents), 200
-
-@app.route('/documents', methods=['POST'])
-def save_document_route():
-    """Save a document for the authenticated user."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    user_id = user["uid"]
-    document_id = request.args.get('id')
-    if not document_id:
-        return jsonify({'error': 'Missing id'}), 400
-
+# --- Professor registration & profile ---
+@app.route('/register/professor', methods=['POST'])
+def register_professor():
     data = request.get_json()
-    content = data.get('content')
-    title = data.get('title')
-    kind = data.get('kind')
+    id_token = data.get('idToken')
+    if not id_token:
+        return jsonify({"error":"Missing ID token"}),400
+    try:
+        decoded = auth.verify_id_token(id_token)
+        firebase_uid = decoded["uid"]
+    except Exception as e:
+        return jsonify({"error":f"Invalid ID token: {e}"}),401
+    email = data.get("email"); password = data.get("password")
+    if not email or not password:
+        return jsonify({"error":"Email and password required"}),400
+    db = Session()
+    try:
+        prof = create_professor(db, email, password, firebase_uid)
+        return jsonify({"id":str(prof.id), "email":prof.email}),201
+    except Exception as e:
+        db.rollback(); return jsonify({"error":str(e)}),500
+    finally:
+        db.close()
 
-    if not content or not title or not kind:
-        return jsonify({'error': 'Content, title, and kind are required'}), 400
-
-    document = save_document(
-        db=Session(),
-        id=document_id,
-        content=content,
-        title=title,
-        kind=kind,
-        user_id=user_id
-    )
-
-    return jsonify(document), 200
-
-@app.route('/documents', methods=['PATCH'])
-def delete_documents_by_timestamp():
-    """Delete documents after a certain timestamp for the authenticated user."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    user_id = user["uid"]
-    document_id = request.args.get('id')
-    if not document_id:
-        return jsonify({'error': 'Missing id'}), 400
-
+@app.route('/professor/profile', methods=['PATCH'])
+def update_professor_profile():
+    prof, err = verify_professor()
+    if err: return err
     data = request.get_json()
-    timestamp_str = data.get('timestamp')
+    updated = update_professor(Session(), professor_id=str(prof.id), **data)
+    if not updated: return jsonify({'error':'Not found'}),404
+    return jsonify({'id':str(updated.id),'email':updated.email}),200
 
-    if not timestamp_str:
-        return jsonify({'error': 'Timestamp is required'}), 400
-
-    from datetime import datetime
-    try:
-        timestamp = datetime.fromisoformat(timestamp_str)
-    except ValueError:
-        return jsonify({'error': 'Invalid timestamp format'}), 400
-
-    documents = get_documents_by_id(db=Session(), id=document_id)
-
-    if not documents:
-        return jsonify({'error': 'Document not found'}), 404
-
-    if documents[0]['userId'] != user_id:
-        return jsonify({'error': 'Unauthorized'}), 401
-
-    delete_documents_by_id_after_timestamp(
-        db=Session(),
-        id=document_id,
-        timestamp=timestamp
-    )
-
-    return jsonify({'message': 'Documents deleted successfully'}), 200
-
-@app.route('/document/<document_id>', methods=['GET'])
-def get_document_by_id_endpoint(document_id):
-    """Retrieve a single document by its ID."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    try:
-        doc = get_document_by_id(db=Session(), document_id=document_id)
-        if not doc:
-            return jsonify({"error": "Document not found"}), 404
-
-        if doc['userId'] != user["uid"]:
-            return jsonify({'error': 'Unauthorized'}), 401
-
-        return jsonify(doc), 200
-    except Exception as e:
-        return jsonify({"error": f"Error retrieving document: {str(e)}"}), 500
-
-@app.route('/suggestions', methods=['GET'])
-def get_suggestions_route():
-    """Fetch suggestions for a specific document ID."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    document_id = request.args.get('documentId')
-    if not document_id:
-        return jsonify({"error": "Document ID is required"}), 400
-
-    try:
-        suggestions = get_suggestions_by_document_id(document_id)
-        if not suggestions:
-            return jsonify([]), 200
-
-        if suggestions[0]["userId"] != user["uid"]:
-            return jsonify({"error": "Unauthorized"}), 401
-
-        return jsonify(suggestions), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/suggestions', methods=['POST'])
-def save_suggestions_endpoint():
-    """Save suggestions for a specific document."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
+# --- Student registration & profile ---
+@app.route('/register/student', methods=['POST'])
+def register_student():
     data = request.get_json()
-    document_id = data.get('documentId')
-    original_text = data.get('originalText')
-    suggested_text = data.get('suggestedText')
-    description = data.get('description')
-    user_id = user["uid"]
-
-    if not document_id or not original_text or not suggested_text:
-        return jsonify({"error": "documentId, originalText, and suggestedText are required"}), 400
-
+    id_token = data.get('idToken')
+    if not id_token:
+        return jsonify({"error":"Missing ID token"}),400
     try:
-        from datetime import datetime
-        suggestions = [
-            Suggestion(
-                documentId=document_id,
-                originalText=original_text,
-                suggestedText=suggested_text,
-                description=description,
-                userId=user_id,
-                documentCreatedAt=datetime.utcnow()
-            )
-        ]
-        db_session = Session()
-        save_suggestions(db_session, suggestions)
-        return jsonify({"message": "Suggestions saved successfully"}), 201
+        decoded = auth.verify_id_token(id_token)
+        firebase_uid = decoded["uid"]
     except Exception as e:
-        return jsonify({"error": f"Error saving suggestions: {str(e)}"}), 500
+        return jsonify({"error":f"Invalid ID token: {e}"}),401
+    email = data.get("email"); password = data.get("password")
+    if not email or not password:
+        return jsonify({"error":"Email and password required"}),400
+    db = Session()
+    try:
+        student = create_student(db, email, password, firebase_uid)
+        return jsonify({"id":str(student.id),"email":student.email}),201
+    except Exception as e:
+        db.rollback(); return jsonify({"error":str(e)}),500
+    finally:
+        db.close()
 
-@app.route('/delete-trailing-messages', methods=['POST'])
-def delete_trailing_messages():
-    """Delete messages after a given timestamp in a chat."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
+@app.route('/student/profile', methods=['PATCH'])
+def update_student_profile():
+    student, err = verify_student()
+    if err: return err
     data = request.get_json()
-    message_id = data.get('id')
+    updated = update_student(Session(), student_id=str(student.id), **data)
+    if not updated: return jsonify({'error':'Not found'}),404
+    return jsonify({'id':str(updated.id),'email':updated.email}),200
 
-    if not message_id:
-        return jsonify({"error": "Message ID is required"}), 400
-
-    msg = get_message_by_id(id=message_id)
-    if not msg:
-        return jsonify({"error": "Message not found"}), 404
-
-    delete_messages_by_chat_id_after_timestamp(chatId=msg.chatId, timestamp=msg.createdAt)
-    return jsonify({"message": "Trailing messages deleted"}), 200
-
-@app.route('/update-chat-visibility', methods=['POST'])
-def update_chat_visibility():
-    """Update the visibility status of a chat."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
+# --- Onboarding (student-only) ---
+@app.route('/onboarding', methods=['POST'])
+def create_onboarding_route():
+    student, err = verify_student()
+    if err: return err
     data = request.get_json()
-    chat_id = data.get('chatId')
-    visibility = data.get('visibility')
+    ob = create_onboarding(Session(),
+                           student_id=str(student.id),
+                           name=data['name'],
+                           answers=data['answers'],
+                           quizzes=data.get('quizzes',False))
+    return jsonify({'id':str(ob.id)}),201
 
-    if not chat_id or not visibility:
-        return jsonify({"error": "Chat ID and visibility are required"}), 400
+@app.route('/onboarding', methods=['GET'])
+def get_onboarding_route():
+    student, err = verify_student()
+    if err: return err
+    ob = get_onboarding_by_student(Session(), student_id=str(student.id))
+    if not ob: return jsonify({'error':'Not found'}),404
+    return jsonify({
+        'id':str(ob.id),
+        'name':ob.name,
+        'answers':ob.answers,
+        'quizzes':ob.quizzes,
+        'created_at':ob.created_at.isoformat()
+    }),200
 
-    update_chat_visibility_by_id(db=Session(), chat_id=chat_id, visibility=visibility)
-
-    return jsonify({"message": "Chat visibility updated successfully"}), 200
-
-@app.route('/save-model-id', methods=['POST'])
-def save_model_id():
-    """Save the selected AI model ID. Optionally protect this route."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
+@app.route('/onboarding', methods=['PATCH'])
+def update_onboarding_route():
+    student, err = verify_student()
+    if err: return err
+    ob = get_onboarding_by_student(Session(), student_id=str(student.id))
+    if not ob: return jsonify({'error':'Not found'}),404
     data = request.get_json()
-    model_id = data.get('model')
+    updated = update_onboarding(Session(), onboarding_id=str(ob.id), **data)
+    return jsonify({'id':str(updated.id)}),200
 
-    if not model_id:
-        return jsonify({"error": "Model ID is required"}), 400
+@app.route('/onboarding', methods=['DELETE'])
+def delete_onboarding_route():
+    student, err = verify_student()
+    if err: return err
+    ob = get_onboarding_by_student(Session(), student_id=str(student.id))
+    if ob:
+        # reuse delete_onboarding
+        from src.db.queries import delete_onboarding
+        delete_onboarding(Session(), onboarding_id=str(ob.id))
+    return jsonify({'message':'Deleted'}),200
 
-    return jsonify({"message": f"Model ID {model_id} saved successfully"}), 200
 
-@app.route('/generate-title', methods=['POST'])
-def generate_title_from_message():
-    """Generate a short title from the user's first message."""
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
+# --- Course Endpoints ---
 
+# Prof creates a course + access code
+@app.route('/courses', methods=['POST'])
+def create_course_route():
+    prof, err = verify_professor()
+    if err: return err
     data = request.get_json()
-    message = data.get('message')
+    c = create_course(Session(),
+                      title=data['title'],
+                      description=data.get('description',''),
+                      professor_id=str(prof.id))
+    code = uuid.uuid4().hex[:8]
+    create_access_code(Session(), course_id=str(c.id), code=code)
+    return jsonify({'id':str(c.id),'accessCode':code}),201
 
-    if not message:
-        return jsonify({"error": "Message is required"}), 400
-
-    title = message[:80]
-    return jsonify({"title": title}), 200
-
-
-@app.route('/ai-chat', methods=['POST']) 
-def ai_chat():
-    try:
-        # ✅ Session validation (unchanged)
-        user = get_user_from_session()
-        if "error" in user:
-            return jsonify(user), 401
-
-        # 🔄 CHANGED: cleaned up variable names
-        data = request.get_json()
-        print("Received data:", data)
-
-        chat_id = data.get("id")
-        user_message = data.get("userMessage")
-        conversation = data.get("messages", [])  # ✅ Expect full conversation history now
-
-        if not user_message:
-            return jsonify({"error": "User message is required"}), 400
-
-        db_session = Session()
-
-        # ✅ Chat retrieval or creation
-        chat = get_chat_by_id(db_session, chat_id) if chat_id else None
-        if not chat:
-            postgres_user = get_user_by_firebase_uid(db_session, user["uid"])
-            if not postgres_user:
-                return jsonify({"error": "User not found in database"}), 404
-
-            chat = save_chat(db_session, user_id=postgres_user.id, title="New Chat")  # 🔄 CHANGED: added fallback title
-            chat_id = str(chat.id)
-
-        # ✅ Save user message
-        user_msg = Message(
-            id=str(uuid.uuid4()),
-            chatId=chat_id,
-            role="user",
-            content=user_message,
-            createdAt=datetime.utcnow()
-        )
-        save_messages(db_session, messages=[user_msg])
-
-        # ✅ Build prompt for OpenAI
-        conversation_payload = conversation.copy()  # 🔄 CHANGED: now includes full history from frontend
-        conversation_payload.append({"role": "user", "content": user_message})
-
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=conversation_payload
-        )
-        assistant_content = response.choices[0].message.content
-        print("OpenAI responded with:", assistant_content)
-
-        # ✅ Save assistant message
-        assistant_msg = Message(
-            id=str(uuid.uuid4()),
-            chatId=chat_id,
-            role="assistant",
-            content=assistant_content,
-            createdAt=datetime.utcnow()
-        )
-        save_messages(db_session, messages=[assistant_msg])
-
-        # 🔄 CHANGED: Return both assistant reply and chatId (chatId may be newly created)
-        return jsonify({
-            "assistant": assistant_content,
-            "chatId": chat_id
-        }), 200
-
-    except Exception as e:
-        print("Error in /ai-chat:", str(e))
-        return jsonify({"error": "Server error: " + str(e)}), 500
-
-@app.route('/create-course', methods=['POST'])
-def learn_from_question():
-    try:
-        user = get_user_from_session()
-        if "error" in user:
-            return jsonify(user), 401
-
-        # Get form data (or JSON)
-        data = request.form or request.get_json()
-        question = data.get("question")
-        if not question:
-            return jsonify({"error": "Missing question"}), 400
-
-        # Use OpenAI to extract topic and expertise
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an education assistant. Extract a topic and the user's level of expertise from the question. "
-                        "Reply ONLY with a JSON object containing 'topic' and 'expertise' (one of: beginner, intermediate, advanced)."
-                    )
-                },
-                {"role": "user", "content": question}
-            ]
-        )
-        import json
-        parsed = json.loads(response.choices[0].message.content)
-        topic = parsed.get("topic")
-        expertise = parsed.get("expertise")
-        if not topic or not expertise:
-            return jsonify({"error": "Invalid GPT response"}), 400
-
-        # Generate course outline using the provided topic and expertise
-        outline = generate_course_outline(topic, expertise)
-
-        # Retrieve Postgres user record
-        db_session = Session()
-        postgres_user = get_user_by_firebase_uid(db_session, user["uid"])
-        if not postgres_user:
-            return jsonify({"error": "User not found"}), 404
-
-        # Create the new course record
-        new_course = create_course(
-            db=db_session,
-            user_id=str(postgres_user.id),
-            topic=topic,
-            expertise=expertise,
-            content=outline,  # Course outline (JSON)
-            pkl=None,
-            index=None,
-            file_id=None
-        )
-        db_session.close()
-
-        # Return the new course ID to the client
-        return jsonify({"message": "Course created successfully", "courseId": str(new_course.id)}), 200
-
-    except Exception as e:
-        print("Error in /create-course:", str(e))
-        return jsonify({"error": str(e)}), 500
-
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8080)
-
-@app.route('/market', methods=['POST'])
-def create_market_item():
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    data = request.get_json()
-    snp500 = data.get("snp500")
-    date_str = data.get("date")
-
-    if snp500 is None or not date_str:
-        return jsonify({"error": "snp500 and date are required"}), 400
-
-    try:
-        market_date = date.fromisoformat(date_str)
-    except ValueError:
-        return jsonify({"error": "Invalid date format (use YYYY-MM-DD)"}), 400
-
-    db_session = Session()
-    try:
-        new_item = save_market_item(
-            db=db_session,
-            snp500=snp500,
-            date_value=market_date
-        )
-        return jsonify({
-            "id": str(new_item.id),
-            "snp500": float(new_item.snp500),
-            "date": new_item.date.isoformat()
-        }), 201
-    except Exception as e:
-        db_session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-
-@app.route('/market/recent', methods=['GET'])
-def get_recent_market_data():
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    limit_count = request.args.get("limit", default=30, type=int)
-
-    db_session = Session()
-    try:
-        results = get_recent_market_prices(db_session, limit_count=limit_count)
-        return jsonify([
-            {
-                "price": float(item.snp500),
-                "date": item.date.isoformat()
-            }
-            for item in results
-        ]), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-
-@app.route('/market/<market_id>', methods=['GET'])
-def get_single_market_item(market_id):
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    db_session = Session()
-    try:
-        item = get_market_item_by_id(db_session, market_id)
-        if not item:
-            return jsonify({"error": "Market item not found"}), 404
-
-        return jsonify({
-            "id": str(item[0].id) if isinstance(item, list) else str(item.id),
-            "snp500": float(item[0].snp500) if isinstance(item, list) else float(item.snp500),
-            "date": (item[0].date.isoformat()
-                     if isinstance(item, list)
-                     else item.date.isoformat())
-        }), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-
-@app.route('/market/<market_id>', methods=['DELETE'])
-def remove_market_item(market_id):
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    db_session = Session()
-    try:
-        delete_market_item_by_id(db_session, market_id)
-        return jsonify({"message": "Market item deleted"}), 200
-    except Exception as e:
-        db_session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/news', methods=['POST'])
-def create_news_item():
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    data = request.get_json()
-    title = data.get("title")
-    subject = data.get("subject")
-    link = data.get("link")
-
-    if not title or not subject or not link:
-        return jsonify({"error": "title, subject, and link are required"}), 400
-
-    db_session = Session()
-    try:
-        new_article = save_news_item(
-            db=db_session,
-            title=title,
-            subject=subject,
-            link=link
-        )
-        return jsonify({
-            "id": str(new_article.id),
-            "title": new_article.title,
-            "subject": new_article.subject,
-            "link": new_article.link
-        }), 201
-    except Exception as e:
-        db_session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-
-@app.route('/news', methods=['GET'])
-def get_all_news_items():
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    db_session = Session()
-    try:
-        articles = get_all_news(db_session)
-        return jsonify([
-            {
-                "id": str(a.id),
-                "title": a.title,
-                "subject": a.subject,
-                "link": a.link
-            }
-            for a in articles
-        ]), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-
-@app.route('/news/<news_id>', methods=['GET'])
-def get_news_item_by_id(news_id):
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    db_session = Session()
-    try:
-        article = get_news_by_id(db_session, news_id)
-        if not article:
-            return jsonify({"error": "News article not found"}), 404
-        item = article[0] if isinstance(article, list) else article
-        return jsonify({
-            "id": str(item.id),
-            "title": item.title,
-            "subject": item.subject,
-            "link": item.link
-        }), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-
-@app.route('/news/<news_id>', methods=['DELETE'])
-def remove_news_item(news_id):
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    db_session = Session()
-    try:
-        delete_news_by_id(db_session, news_id)
-        return jsonify({"message": "News article deleted"}), 200
-    except Exception as e:
-        db_session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/courses/<course_id>', methods=['GET'])
-def get_course_route(course_id):
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    db_session = Session()
-    try:
-        # Retrieve the course record
-        course = get_course_by_id(db=db_session, course_id=course_id)
-        if not course:
-            return jsonify({"error": "Course not found"}), 404
-
-        # Retrieve the Postgres user record using Firebase UID
-        postgres_user = get_user_by_firebase_uid(db_session, user["uid"])
-        if not postgres_user:
-            return jsonify({"error": "User not found"}), 404
-
-        # Compare course.userId with the Postgres user’s ID
-        if str(course.userId) != str(postgres_user.id):
-            return jsonify({"error": "Unauthorized"}), 401
-
-        return jsonify({
-            "id": str(course.id),
-            "topic": course.topic,
-            "expertise": course.expertise,
-            "content": course.content,
-            "createdAt": course.createdAt.isoformat(),
-            "fileId": str(course.fileId) if course.fileId else None
-        }), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
+# Prof lists their courses
 @app.route('/courses', methods=['GET'])
-def get_courses_route():
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
+def list_courses_professor():
+    prof, err = verify_professor()
+    if err: return err
+    cs = get_courses_by_professor_id(Session(), professor_id=str(prof.id))
+    return jsonify([{'id':str(c.id),'title':c.title} for c in cs]),200
 
-    db_session = Session()
-    try:
-        courses = get_courses_by_user_id(db=db_session, user_id=user["uid"])
-        result = [{
-            "id": str(c.id),
-            "topic": c.topic,
-            "expertise": c.expertise,
-            "content": c.content,
-            "createdAt": c.createdAt.isoformat(),
-            "fileId": str(c.fileId) if c.fileId else None
-        } for c in courses]
-        return jsonify(result), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
+# Student lists enrolled courses
+@app.route('/courses/enrolled', methods=['GET'])
+def list_courses_student():
+    student, err = verify_student()
+    if err: return err
+    cs = get_courses_by_student_id(Session(), student_id=str(student.id))
+    return jsonify([{'id':str(c.id),'title':c.title} for c in cs]),200
 
-@app.route('/courses/<course_id>', methods=['DELETE'])
-def delete_course_route(course_id):
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
+# Prof views & updates & deletes a course
+@app.route('/courses/<course_id>', methods=['GET','PATCH','DELETE'])
+def manage_course_route(course_id):
+    prof, err = verify_professor()
+    if err: return err
+    c = get_course_by_id(Session(), course_id=course_id)
+    if not c or str(c.professor_id)!=str(prof.id):
+        return jsonify({'error':'Not found or unauthorized'}),404
 
-    db_session = Session()
-    try:
-        course = get_course_by_id(db=db_session, course_id=course_id)
-        if not course:
-            return jsonify({"error": "Course not found"}), 404
-        if str(course.userId) != user["uid"]:
-            return jsonify({"error": "Unauthorized"}), 401
+    if request.method=='GET':
+        return jsonify({
+            'id':str(c.id),'title':c.title,
+            'description':c.description,
+            'created_at':c.created_at.isoformat()
+        }),200
 
-        delete_course_by_id(db=db_session, course_id=course_id)
-        return jsonify({"message": "Course deleted successfully"}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
+    if request.method=='PATCH':
+        data = request.get_json()
+        updated = update_course(Session(), course_id=course_id, **data)
+        return jsonify({'id':str(updated.id)}),200
+
+    # DELETE
+    delete_course(Session(), course_id=course_id)
+    return jsonify({'message':'Deleted'}),200
+
+# --- Enrollment / AccessCode ---
+
+@app.route('/enroll', methods=['POST'])
+def enroll_route():
+    student, err = verify_student()
+    if err: return err
+    code = request.get_json().get('accessCode')
+    ac = get_access_code_by_code(Session(), code=code)
+    if not ac:
+        return jsonify({'error':'Invalid code'}),400
+    if get_enrollment(Session(), student_id=str(student.id), course_id=str(ac.course_id)):
+        return jsonify({'message':'Already enrolled'}),200
+    create_enrollment(Session(), student_id=str(student.id), course_id=str(ac.course_id))
+    return jsonify({'message':'Enrolled'}),200
+
+@app.route('/courses/<course_id>/students', methods=['GET'])
+def list_students_in_course(course_id):
+    prof, err = verify_professor()
+    if err: return err
+    c = get_course_by_id(Session(), course_id=course_id)
+    if not c or str(c.professor_id)!=str(prof.id):
+        return jsonify({'error':'Forbidden'}),403
+    sts = get_students_by_course(Session(), course_id=course_id)
+    return jsonify(sts),200
+
+@app.route('/courses/<course_id>/students/<student_id>', methods=['DELETE'])
+def remove_student_route(course_id, student_id):
+    prof, err = verify_professor()
+    if err: return err
+    c = get_course_by_id(Session(), course_id=course_id)
+    if not c or str(c.professor_id)!=str(prof.id):
+        return jsonify({'error':'Forbidden'}),403
+    delete_enrollment(Session(), student_id=student_id, course_id=course_id)
+    return jsonify({'message':'Removed'}),200
+
+@app.route('/courses/<course_id>/files', methods=['GET'])
+def list_course_files(course_id):
+    student, err = verify_student()
+    if err:
+        return err
+
+    db = Session()
+    enrollment = get_enrollment(db, student_id=str(student.id), course_id=course_id)
+    if not enrollment:
+        db.close()
+        return jsonify({'error': 'Forbidden'}), 403
+    files = get_files_by_course(db, course_id=course_id)
+    db.close()
+
+    return jsonify([
+        {
+            'id':        str(f.id),
+            'filename':  f.filename,
+            'createdAt': f.created_at.isoformat()
+        }
+        for f in files
+    ]), 200
+
+# --- File CRUD ---
 
 @app.route('/files', methods=['POST'])
-def upload_file_route():
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
+def upload_file():
+    prof, err = verify_professor()
+    if err: return err
+    course_id = request.args.get('course_id')
+    fobj = request.files.get('file')
+    if not fobj or not course_id:
+        return jsonify({'error':'Missing file or course_id'}),400
+    data = fobj.read()
+    f = create_file(Session(),
+                    filename=fobj.filename,
+                    file_type=fobj.content_type,
+                    file_size=len(data),
+                    file_data=data,
+                    course_id=course_id)
+    # TODO: rebuild FAISS index and call update_course(..., index_pkl=...)
+    return jsonify({'id':str(f.id)}),201
 
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part in the request"}), 400
+@app.route('/files/<file_id>', methods=['GET','PATCH','DELETE'])
+def manage_file(file_id):
+    db = Session()
+    f = get_file_by_id(db, file_id)
+    if not f:
+        db.close(); return jsonify({'error':'Not found'}),404
 
-    file_obj = request.files['file']
-    if file_obj.filename == '':
-        return jsonify({"error": "No selected file"}), 400
+    # determine caller
+    user = get_user_session()
+    prof = get_professor_by_id(db, user.get('uid'))
+    enrolled = get_enrollment(db, student_id=user.get('uid'), course_id=str(f.course_id))
+    if request.method=='GET':
+        # prof of own course OR enrolled student
+        if not (prof and str(prof.id)==str(f.course.professor_id)) and not enrolled:
+            db.close(); return jsonify({'error':'Forbidden'}),403
+        resp = jsonify({
+            'id':str(f.id),'filename':f.filename,
+            'fileType':f.file_type,'fileSize':f.file_size,
+            'created_at':f.created_at.isoformat(),
+            'course_id':str(f.course_id)
+        })
+        db.close(); return resp,200
 
-    file_data = file_obj.read()
-    filename = file_obj.filename
-    file_type = file_obj.content_type
-    file_size = len(file_data)
+    if request.method=='PATCH':
+        if not (prof and str(prof.id)==str(f.course.professor_id)):
+            db.close(); return jsonify({'error':'Forbidden'}),403
+        data = request.get_json()
+        updated = update_file(Session(), file_id=file_id, **data)
+        return jsonify({'id':str(updated.id)}),200
 
-    db_session = Session()
-    try:
-        new_file = create_file(
-            db=db_session,
-            filename=filename,
-            file_type=file_type,
-            file_size=file_size,
-            file_data=file_data
-        )
-        return jsonify({
-            "id": str(new_file.id),
-            "filename": new_file.filename,
-            "fileType": new_file.fileType,
-            "fileSize": new_file.fileSize,
-            "createdAt": new_file.createdAt.isoformat()
-        }), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/files/<file_id>', methods=['GET'])
-def get_file_route(file_id):
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    db_session = Session()
-    try:
-        file_record = get_file_by_id(db=db_session, file_id=file_id)
-        if not file_record:
-            return jsonify({"error": "File not found"}), 404
-
-        return jsonify({
-            "id": str(file_record.id),
-            "filename": file_record.filename,
-            "fileType": file_record.fileType,
-            "fileSize": file_record.fileSize,
-            "createdAt": file_record.createdAt.isoformat()
-        }), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/files/<file_id>', methods=['DELETE'])
-def delete_file_route(file_id):
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    db_session = Session()
-    try:
-        file_record = get_file_by_id(db=db_session, file_id=file_id)
-        if not file_record:
-            return jsonify({"error": "File not found"}), 404
-
-        db_session.delete(file_record)
-        db_session.commit()
-        return jsonify({"message": "File deleted successfully"}), 200
-    except Exception as e:
-        db_session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
+    # DELETE
+    if not (prof and str(prof.id)==str(f.course.professor_id)):
+        db.close(); return jsonify({'error':'Forbidden'}),403
+    delete_file(Session(), file_id=file_id)
+    return jsonify({'message':'Deleted'}),200
 
 @app.route('/files/<file_id>/content', methods=['GET'])
 def serve_file_content(file_id):
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
+    db = Session()
+    f = get_file_by_id(db, file_id)
+    if not f:
+        db.close(); return jsonify({'error':'Not found'}),404
+    user = get_user_session()
+    prof = get_professor_by_id(db, user.get('uid'))
+    enrolled = get_enrollment(db, student_id=user.get('uid'), course_id=str(f.course_id))
+    if not (prof and str(prof.id)==str(f.course.professor_id)) and not enrolled:
+        db.close(); return jsonify({'error':'Forbidden'}),403
+    data, mtype, fname = f.file_data, f.file_type, f.filename
+    db.close()
+    return Response(data, mimetype=mtype,
+                    headers={"Content-Disposition":f"inline; filename={fname}"})
 
-    db_session = Session()
-    try:
-        file_record = get_file_by_id(db=db_session, file_id=file_id)
-        if not file_record:
-            return jsonify({"error": "File not found"}), 404
+# --- PersonalizedFile (student-only) ---
+@app.route('/personalized-files', methods=['GET'])
+def list_pfiles_route():
+    st, err = verify_student()
+    if err: return err
+    db = Session()
+    pfs = get_personalized_files_by_student(db, str(st.id))
+    db.close()
+    return jsonify([{
+        'id':str(p.id),
+        'originalFileId':str(p.original_file_id) if p.original_file_id else None,
+        'createdAt':p.created_at.isoformat()
+    } for p in pfs]),200
 
-        return Response(
-            file_record.fileData,
-            mimetype=file_record.fileType,
-            headers={"Content-Disposition": f"inline; filename={file_record.filename}"}
-        )
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
+@app.route('/personalized-files/from-file/<file_id>', methods=['POST'])
+def create_pfile_from_file(file_id):
+    st, err = verify_student()
+    if err: return err
+    db = Session()
+    base = get_file_by_id(db, file_id)
+    if not base:
+        db.close()
+        return jsonify({'error':'File not found'}),404
 
-@app.route('/courses/<course_id>', methods=['PATCH'])
-def update_course_route(course_id):
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
+    temp = tempfile.mkdtemp()
+    path = os.path.join(temp, base.filename)
+    with open(path,'wb') as f: f.write(base.file_data)
 
-    update_fields = request.get_json()
-    if not update_fields:
-        return jsonify({"error": "Request JSON payload is required"}), 400
+    content = generate_course_outline_RAG(temp)
+    if content is None:
+        db.close()
+        return jsonify({'error':'LLM failure'}),500
 
-    db_session = Session()
-    try:
+    pf = create_personalized_file(db, str(st.id), file_id, content)
+    db.close()
+    return jsonify({'id':str(pf.id)}),201
 
-        course = get_course_by_id(db=db_session, course_id=course_id)
-        if not course:
-            return jsonify({"error": "Course not found"}), 404
-        if str(course.userId) != user["uid"]:
-            return jsonify({"error": "Unauthorized"}), 401
+@app.route('/personalized-files/<pf_id>', methods=['GET'])
+def get_pfile_route(pf_id):
+    st, err = verify_student()
+    if err: return err
+    db = Session()
+    pf = get_personalized_file_by_id(db, pf_id)
+    db.close()
+    if not pf or str(pf.student_id) != str(st.id):
+        return jsonify({'error':'Forbidden'}),403
+    return jsonify({'id':str(pf.id),'content':pf.content}),200
 
-        updated_course = update_course(db=db_session, course_id=course_id, update_data=update_fields)
-        return jsonify({
-            "id": str(updated_course.id),
-            "topic": updated_course.topic,
-            "expertise": updated_course.expertise,
-            "content": updated_course.content,
-            "createdAt": updated_course.createdAt.isoformat(),
-            "fileId": str(updated_course.fileId) if updated_course.fileId else None
-        }), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/files/<file_id>', methods=['PATCH'])
-def update_file_route(file_id):
-    user = verify_session_cookie()
-    if isinstance(user, dict) and "error" in user:
-        return user
-
-    update_fields = request.get_json()
-    if not update_fields:
-        return jsonify({"error": "Request JSON payload is required"}), 400
-
-    db_session = Session()
-    try:
-        file_record = get_file_by_id(db=db_session, file_id=file_id)
-        if not file_record:
-            return jsonify({"error": "File not found"}), 404
-
-        updated_file = update_file(db=db_session, file_id=file_id, update_data=update_fields)
-        return jsonify({
-            "id": str(updated_file.id),
-            "filename": updated_file.filename,
-            "fileType": updated_file.fileType,
-            "fileSize": updated_file.fileSize,
-            "createdAt": updated_file.createdAt.isoformat()
-        }), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/user', methods=['GET'])
-def get_user():
-
-    user_claims = verify_session_cookie()
-    if isinstance(user_claims, dict) and "error" in user_claims:
-        return user_claims
-
-    firebase_uid = user_claims["uid"]
-    db_session = Session()
-    try:
-        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
-        if not postgres_user:
-            return jsonify({"error": "User not found"}), 404
-
-        user_data = {
-            "id": str(postgres_user.id),
-            "email": postgres_user.email,
-            "firebase_uid": postgres_user.firebase_uid
-        }
-        return jsonify(user_data), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
-
-@app.route('/user', methods=['PATCH'])
-def update_user():
-    user_claims = verify_session_cookie()
-    if isinstance(user_claims, dict) and "error" in user_claims:
-        return user_claims
-
-    firebase_uid = user_claims["uid"]
+@app.route('/personalized-files/<pf_id>', methods=['PATCH'])
+def update_pfile_route(pf_id):
+    st, err = verify_student()
+    if err: return err
     data = request.get_json()
-    db_session = Session()
-    try:
-        if "email" in data or "password" in data:
-            update_args = {}
-            if "email" in data:
-                update_args["email"] = data["email"]
-            if "password" in data:
-                update_args["password"] = data["password"]
-            auth.update_user(firebase_uid, **update_args)
+    db = Session()
+    updated = update_personalized_file(db, pf_id, **data)
+    db.close()
+    if not updated:
+        return jsonify({'error':'Not found'}),404
+    return jsonify({'id':str(updated.id)}),200
 
-        updated_user = update_user_by_firebase_uid(db_session, firebase_uid, data)
-        user_data = {
-            "id": str(updated_user.id),
-            "email": updated_user.email,
-            "firebase_uid": updated_user.firebase_uid
-        }
-        return jsonify(user_data), 200
-    except Exception as e:
-        db_session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
+@app.route('/personalized-files/<pf_id>', methods=['DELETE'])
+def delete_pfile_route(pf_id):
+    st, err = verify_student()
+    if err: return err
+    db = Session()
+    delete_personalized_file(db, pf_id)
+    db.close()
+    return jsonify({'message':'Deleted'}),200
 
-@app.route('/user', methods=['DELETE'])
-def delete_user():
+# --- Chat & Message (student-only) ---
 
-    user_claims = verify_session_cookie()
-    if isinstance(user_claims, dict) and "error" in user_claims:
-        return user_claims
+@app.route('/chats/<chat_id>', methods=['GET'])
+def get_chat_by_id_route(chat_id):
+    student, err = verify_student()
+    if err:
+        return err
 
-    firebase_uid = user_claims["uid"]
-    db_session = Session()
-    try:
-        delete_user_by_firebase_uid(db_session, firebase_uid)
-        return jsonify({"message": "User deleted successfully"}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        db_session.close()
+    db = Session()
+    chat = get_chat_by_id(db, chat_id)
+    if not chat or str(chat.student_id) != str(student.id):
+        db.close()
+        return jsonify({'error': 'Forbidden'}), 403
+
+    chat_data = {
+        'id':        str(chat.id),
+        'title':     chat.title,
+        'fileId':    str(chat.file_id) if chat.file_id else None,
+        'createdAt': chat.created_at.isoformat()
+    }
+    db.close()
+    return jsonify(chat_data), 200
+
+@app.route('/chats', methods=['GET'])
+def list_chats_route():
+    st, err = verify_student()
+    if err: return err
+    db = Session()
+    chats = get_chats_by_student(db, str(st.id))
+    db.close()
+    return jsonify([{
+        'id':str(c.id),'title':c.title,'fileId':str(c.file_id) if c.file_id else None
+    } for c in chats]),200
+
+@app.route('/chats', methods=['POST'])
+def create_chat_route():
+    st, err = verify_student()
+    if err: return err
+    data = request.get_json()
+    db = Session()
+    c = create_chat(db, str(st.id), data['fileId'], data['title'])
+    db.close()
+    return jsonify({'id':str(c.id)}),201
+
+@app.route('/chats/<chat_id>/messages', methods=['GET'])
+def list_messages_route(chat_id):
+    st, err = verify_student()
+    if err: return err
+    db = Session()
+    msgs = get_messages_by_chat(db, chat_id)
+    db.close()
+    return jsonify([{
+        'id':str(m.id),'role':m.role,'content':m.content,'createdAt':m.created_at.isoformat()
+    } for m in msgs]),200
+
+@app.route('/chats/<chat_id>/messages', methods=['POST'])
+def create_message_route(chat_id):
+    st, err = verify_student()
+    if err: return err
+    data = request.get_json()
+    db = Session()
+    m = create_message(db, chat_id, data['role'], data['content'])
+    db.close()
+    return jsonify({'id':str(m.id)}),201
+
+@app.route('/messages/<message_id>', methods=['GET'])
+def get_message_by_id_route(message_id):
+    student, err = verify_student()
+    if err:
+        return err
+
+    db = Session()
+    msg = get_message_by_id(db, message_id)
+    if not msg:
+        db.close()
+        return jsonify({'error': 'Not found'}), 404
+    chat = get_chat_by_id(db, msg.chat_id)
+    if not chat or str(chat.student_id) != str(student.id):
+        db.close()
+        return jsonify({'error': 'Forbidden'}), 403
+
+    message_data = {
+        'id':        str(msg.id),
+        'chatId':    str(msg.chat_id),
+        'role':      msg.role,
+        'content':   msg.content,
+        'createdAt': msg.created_at.isoformat()
+    }
+    db.close()
+    return jsonify(message_data), 200
+
+@app.route('/chats/<chat_id>', methods=['PATCH'])
+def update_chat_route(chat_id):
+    st, err = verify_student()
+    if err: return err
+    data = request.get_json()
+    db = Session()
+    updated = update_chat(db, chat_id, **data)
+    db.close()
+    if not updated:
+        return jsonify({'error':'Not found'}),404
+    return jsonify({'id':str(updated.id)}),200
+
+@app.route('/chats/<chat_id>', methods=['DELETE'])
+def delete_chat_route(chat_id):
+    st, err = verify_student()
+    if err: return err
+    db = Session()
+    delete_chat(db, chat_id)
+    db.close()
+    return jsonify({'message':'Deleted'}),200
+
+# --- Report (professor-only) ---
+@app.route('/reports/course/<course_id>', methods=['GET'])
+def list_reports_route(course_id):
+    prof, err = verify_professor()
+    if err: return err
+    db = Session()
+    rpts = get_reports_by_course(db, course_id)
+    db.close()
+    return jsonify([{
+        'id':str(r.id),'createdAt':r.created_at.isoformat()
+    } for r in rpts]),200
+
+@app.route('/reports/<report_id>', methods=['GET'])
+def get_report_route(report_id):
+    prof, err = verify_professor()
+    if err: return err
+    db = Session()
+    r = get_report_by_id(db, report_id)
+    db.close()
+    if not r:
+        return jsonify({'error':'Not found'}),404
+    return jsonify({'id':str(r.id),'summary':r.summary}),200
+
+@app.route('/reports', methods=['POST'])
+def create_report_route():
+    prof, err = verify_professor()
+    if err: return err
+    data = request.get_json()
+    db = Session()
+    r = create_report(db, data['courseId'], data.get('fileId'), data['summary'])
+    db.close()
+    return jsonify({'id':str(r.id)}),201
+
+@app.route('/reports/<report_id>', methods=['PATCH'])
+def update_report_route(report_id):
+    prof, err = verify_professor()
+    if err: return err
+    data = request.get_json()
+    db = Session()
+    updated = update_report(db, report_id, **data)
+    db.close()
+    if not updated:
+        return jsonify({'error':'Not found'}),404
+    return jsonify({'id':str(updated.id)}),200
+
+@app.route('/reports/<report_id>', methods=['DELETE'])
+def delete_report_route(report_id):
+    prof, err = verify_professor()
+    if err: return err
+    db = Session()
+    delete_report(db, report_id)
+    db.close()
+    return jsonify({'message':'Deleted'}),200
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=8080)
