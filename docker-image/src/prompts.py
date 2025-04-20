@@ -20,6 +20,8 @@ def prompt1_create_course(user_query):
         "topic": "string",
         "expertise": "string"
     }
+    
+    Do NOT include any code-block markers (e.g., triple backticks, etc)
     """
     )
 
@@ -31,6 +33,8 @@ def prompt1_create_course(user_query):
         ],
         temperature=0
     )
+
+    # print(response.choices[0].message.content)
 
     return response
 
@@ -61,20 +65,15 @@ def prompt2_generate_course_outline_RAG(working_dir, expertise):
         ...
     ]
     }}
+
+    Do NOT include any code-block markers (e.g., triple backticks, etc)
     """
     )
 
     response = answer_to_QA(query, working_dir)
 
-    # try:
-    #     parsed_json = json.loads(response.choices[0].message.content)
-    # except (ValueError, AttributeError, IndexError) as e:
-    #     print("Invalid JSON returned from AI response:")
-    #     print("Error:", e)
-    #     print("Raw response:", response)
-    #     return None
+    #print(response)
 
-    # return response
     return response
 
 def prompt2_generate_course_outline(topic, expertise):
@@ -106,6 +105,8 @@ def prompt2_generate_course_outline(topic, expertise):
         ...
     ]
     }
+    
+    Do NOT include any code-block markers (e.g., triple backticks, etc)
     """
     )
 
@@ -119,16 +120,9 @@ def prompt2_generate_course_outline(topic, expertise):
         ],
         temperature=0
     )
-
-    # try:
-    #     parsed_json = json.loads(response.choices[0].message.content)
-    # except (ValueError, AttributeError, IndexError) as e:
-    #     print("Invalid JSON returned from AI response:")
-    #     print("Error:", e)
-    #     print("Raw response:", response)
-    #     return None
-
-    return response
+    
+    # Return just the message content
+    return response.choices[0].message.content
 
 def prompt3_generate_module_content():
     # TODO
