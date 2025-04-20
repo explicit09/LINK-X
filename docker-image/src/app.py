@@ -33,6 +33,7 @@ from src.db.queries import (
 
 from src.item_01_database_creation_FAISS import create_database
 from src.item_02_generate_citations_APA_FAISS import generate_citations
+from src.item_03_replace_source_by_citation import replace_sources
 
 load_dotenv()
 
@@ -978,8 +979,11 @@ def learn_from_question():
         
         pdf_file = request.files.get("file")
         
+        faiss_bytes = None
+        pkl_bytes = None
+
         if pdf_file:
-            # TODO integrate BLOB storage so PDFs aren't stored locally
+            # TODO integrate BLOB storage so PDFs and Index files aren't stored locally
 
             # Read PDF content into bytes
             file_bytes = pdf_file.read()
@@ -1001,15 +1005,28 @@ def learn_from_question():
             # FAISS database creation
             create_database(upload_dir, pdf_id)
             generate_citations(upload_dir)
-            # outline = prompt2_generate_course_outline_RAG(index_path, expertise)
+            replace_sources(upload_dir)
+            # Generate course outline using the PDF content and expertise
+            outline = prompt2_generate_course_outline_RAG(upload_dir, expertise)
+
+            index_faiss_path = os.path.join(upload_dir, "index.faiss")
+            index_pkl_path = os.path.join(upload_dir, "index.pkl")
+
+            with open(index_faiss_path, "rb") as f:
+                faiss_bytes = f.read()
+
+            with open(index_pkl_path, "rb") as f:
+                pkl_bytes = f.read()
+
+            # TODO Delete local course files after posted to DB
         else:
             pdf_id = None
-        # Generate course outline using the provided topic and expertise
-        outline = prompt2_generate_course_outline(topic, expertise)
+            # Generate course outline using the provided topic and expertise
+            outline = prompt2_generate_course_outline(topic, expertise)
 
         # Verify Course Outline JSON is valid
         try:
-            outline_parsed = json.loads(outline.choices[0].message.content)
+            outline_parsed = json.loads(outline)
         except (ValueError, AttributeError, IndexError) as e:
             return jsonify({"error": "Invalid JSON returned from AI response", "details": str(e)}), 400
 
@@ -1026,8 +1043,8 @@ def learn_from_question():
             topic=topic,
             expertise=expertise,
             content=outline_parsed,  # Course outline (JSON)
-            pkl=None,
-            index=None,
+            pkl=pkl_bytes,
+            index=faiss_bytes,
             file_id=pdf_id
         )
         db_session.close()
