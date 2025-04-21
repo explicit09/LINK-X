@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
 import { AuthForm } from "@/components/auth-form";
 import { SubmitButton } from "@/components/submit-button";
 import Header from "@/components/link-x/Header";
@@ -16,6 +22,7 @@ export default function Page() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
+  const [sOrE, setSOrE] = useState<{ studentOrEducator: string }>({ studentOrEducator: "" });
   const [isSuccessful, setIsSuccessful] = useState(false);
   const [state, setState] = useState<
     "idle" | "in_progress" | "success" | "failed" | "user_exists" | "invalid_data"
@@ -34,6 +41,11 @@ export default function Page() {
       router.push("/onboarding");
     }
   }, [state, router]);
+
+  const handleChange = (value: string) => {
+    setSOrE({ studentOrEducator: value });
+  };
+  
 
   const handleSubmit = async (formData: FormData) => {
     setEmail(formData.get("email") as string);
@@ -107,8 +119,27 @@ export default function Page() {
           <p className="text-sm text-gray-500 dark:text-zinc-400">
             Create an account with your email and password
           </p>
+          
         </div>
         <AuthForm action={handleSubmit} defaultEmail={email}>
+        <div className="flex flex-col gap-2">
+  <p className="text-zinc-600 text-sm font-normal dark:text-zinc-400">
+    Student or Educator
+  </p>
+  <Select onValueChange={handleChange}>
+    <SelectTrigger
+      id="studentOrEducator"
+      className="bg-muted text-md md:text-sm rounded-md border border-input px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
+    >
+      <SelectValue placeholder="Select position" />
+    </SelectTrigger>
+    <SelectContent className="bg-white dark:bg-zinc-800 border border-input text-sm text-gray-900 dark:text-white rounded-md shadow-md">
+      <SelectItem value="student">Student</SelectItem>
+      <SelectItem value="educator">Educator</SelectItem>
+    </SelectContent>
+  </Select>
+</div>
+
           <SubmitButton isSuccessful={isSuccessful}>Sign Up</SubmitButton>
           <p className="text-center text-sm text-gray-600 mt-4 dark:text-zinc-400">
             {"Already have an account? "}
