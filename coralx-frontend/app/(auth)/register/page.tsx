@@ -64,6 +64,8 @@ export default function Page() {
       const idToken = await userCredential.user.getIdToken();
       localStorage.setItem("token", idToken);
 
+      await new Promise<void>(resolve => setTimeout(resolve, 1000));
+
       const registerEndpoint =
         role === "student" ? "register/student" : "register/professor";
 

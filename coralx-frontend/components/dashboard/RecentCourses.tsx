@@ -1,4 +1,3 @@
-// components/RecentlyCompletedCourses.tsx
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 const RecentlyCompletedCourses: React.FC = () => {
