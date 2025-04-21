@@ -256,7 +256,7 @@ const Sidebar = ({
           {!collapsed && (
             <Link href="/" className="flex items-center h-full relative pl-1">
               <Image
-                src="/images/Logo-dark.png"
+                src="/images/LearnXLogo.png"
                 alt="Logo"
                 width={288}
                 height={197}
