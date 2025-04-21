@@ -2,6 +2,8 @@ from datetime import datetime
 import os
 import uuid
 import tempfile
+import faiss, pickle
+import numpy as np
 from flask import Flask, jsonify, request, Response, render_template
 from flask_cors import CORS
 import firebase_admin
@@ -9,14 +11,13 @@ from firebase_admin import auth, credentials
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
-from src.db.schema import Base, Suggestion, Chat, Message
-from alembic import command
-from alembic.config import Config
+from src.db.schema import Base
+from prompts import generate_course_outline_RAG, generate_module_content, generate_course_outline
 import uuid
 from openai import OpenAI
 import json
 
-from src.queries import generate_course_outline_RAG
+from src.prompts import (prompt1_create_course, prompt2_generate_course_outline, prompt2_generate_course_outline_RAG, prompt3_generate_module_content, prompt4_valid_query)
 from src.db.schema import Base
 from src.db.queries import (
     # Professor / Student
@@ -29,8 +30,7 @@ from src.db.queries import (
     create_course, update_course, delete_course,
     # AccessCode / Enrollment
     get_access_code_by_code, create_access_code,
-    get_enrollment, create_enrollment, delete_enrollment, 
-    get_enrollments_by_student, get_enrollments_by_course,
+    get_enrollment, create_enrollment, delete_enrollment,
     # File
     get_file_by_id, get_files_by_course, create_file, update_file, delete_file,
     # PersonalizedFile
@@ -38,7 +38,7 @@ from src.db.queries import (
     create_personalized_file, update_personalized_file, delete_personalized_file,
     # Chat / Message
     get_chat_by_id, get_chats_by_student, create_chat, update_chat, delete_chat,
-    get_message_by_id, get_messages_by_chat, create_message, update_message, delete_message,
+    get_message_by_id, get_messages_by_chat, create_message, delete_messages_after, 
     # Report
     get_report_by_id, get_reports_by_course, create_report, update_report, delete_report,
     # New helper
@@ -352,20 +352,54 @@ def list_course_files(course_id):
 @app.route('/files', methods=['POST'])
 def upload_file():
     prof, err = verify_professor()
-    if err: return err
+    if err:
+        return err
+
     course_id = request.args.get('course_id')
-    fobj = request.files.get('file')
+    fobj      = request.files.get('file')
     if not fobj or not course_id:
         return jsonify({'error':'Missing file or course_id'}),400
+
     data = fobj.read()
-    f = create_file(Session(),
-                    filename=fobj.filename,
-                    file_type=fobj.content_type,
-                    file_size=len(data),
-                    file_data=data,
-                    course_id=course_id)
-    # TODO: rebuild FAISS index and call update_course(..., index_pkl=...)
-    return jsonify({'id':str(f.id)}),201
+    new_file = create_file(
+        Session(),
+        filename=fobj.filename,
+        file_type=fobj.content_type,
+        file_size=len(data),
+        file_data=data,
+        course_id=course_id
+    )
+
+    db = Session()
+    files = get_files_by_course(db, course_id)
+    texts, metadata = [], {}
+    for file in files:
+        raw = extract_text(file.file_data, file.filename)
+        chunks = split_text(raw)
+        for i, chunk in enumerate(chunks):
+            idx = len(texts)
+            texts.append(chunk)
+            metadata[idx] = {'file_id': str(file.id), 'chunk_index': i}
+
+    embeddings = [embed_text(t) for t in texts]
+    arr = np.vstack(embeddings).astype('float32')
+    dim = arr.shape[1]
+
+    index = faiss.IndexFlatL2(dim)
+    index.add(arr)
+
+    faiss_bytes = faiss.serialize_index(index)
+    pkl_bytes   = pickle.dumps(metadata)
+
+    update_course(
+        db,
+        course_id=course_id,
+        index_faiss=faiss_bytes,
+        index_pkl=pkl_bytes
+    )
+    db.close()
+
+    return jsonify({'id': str(new_file.id)}), 201
 
 @app.route('/files/<file_id>', methods=['GET','PATCH','DELETE'])
 def manage_file(file_id):
@@ -653,6 +687,190 @@ def delete_report_route(report_id):
     delete_report(db, report_id)
     db.close()
     return jsonify({'message':'Deleted'}),200
+
+@app.route('/delete-trailing-messages', methods=['POST'])
+def delete_trailing_messages_route():
+    student, err = verify_student()
+    if err:
+        return err
+
+    data = request.get_json()
+    message_id = data.get('id')
+    if not message_id:
+        return jsonify({'error': 'Message ID is required'}), 400
+
+    db = Session()
+    msg = get_message_by_id(db, message_id)
+    if not msg:
+        db.close()
+        return jsonify({'error': 'Message not found'}), 404
+
+    chat = get_chat_by_id(db, msg.chat_id)
+    if not chat or str(chat.student_id) != str(student.id):
+        db.close()
+        return jsonify({'error': 'Forbidden'}), 403
+
+    # Remove all messages in that chat after the given timestamp
+    delete_messages_after(db, chat_id=str(chat.id), timestamp=msg.created_at)
+    db.close()
+    return jsonify({'message': 'Trailing messages deleted'}), 200
+
+@app.route('/generate-title', methods=['POST'])
+def generate_title_route():
+    student, err = verify_student()
+    if err:
+        return err
+
+    data = request.get_json()
+    message = data.get('message')
+    if not message:
+        return jsonify({'error': 'Message is required'}), 400
+
+    title = message[:80]
+    return jsonify({'title': title}), 200
+
+@app.route('/save-model-id', methods=['POST'])
+def save_model_id_route():
+    student, err = verify_student()
+    if err:
+        return err
+    data = request.get_json()
+    model = data.get('model')
+    if not model:
+        return jsonify({'error': 'Model ID is required'}), 400
+    return jsonify({'message': f'Model ID {model} saved successfully'}), 200
+
+@app.route('/ai-chat', methods=['POST'])
+def ai_chat_route():
+    student, err = verify_student()
+    if err:
+        return err
+    data = request.get_json()
+    chat_id      = data.get('id')
+    user_message = data.get('userMessage') or data.get('message')
+    history      = data.get('messages', [])
+
+    if not user_message:
+        return jsonify({'error': 'User message is required'}), 400
+    db = Session()
+    if chat_id:
+        chat = get_chat_by_id(db, chat_id)
+        if not chat or str(chat.student_id) != str(student.id):
+            db.close()
+            return jsonify({'error': 'Forbidden'}), 403
+    else:
+        chat = create_chat(db, str(student.id), file_id=None, title="New Chat")
+        chat_id = str(chat.id)
+    create_message(db, chat_id=chat_id, role='user', content=user_message)
+    system_msg = {
+        'role': 'system',
+        'content': (
+            "You are a friendly AI tutor. Keep answers concise (1–3 sentences), "
+            "use examples when helpful, and only expand if asked."
+        )
+    }
+    stack = [system_msg]
+    for m in history:
+        stack.append({'role': m['role'], 'content': m['content']})
+    stack.append({'role': 'user', 'content': user_message})
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=stack,
+        max_tokens=300
+    )
+    assistant_content = response.choices[0].message.content.strip()
+    create_message(db, chat_id=chat_id, role='assistant', content=assistant_content)
+    db.close()
+    return jsonify({'assistant': assistant_content, 'chatId': chat_id}), 200
+
+@app.route('/courses/<course_id>/citations', methods=['GET'])
+def citations_route(course_id):
+    prof, err = verify_professor()
+    if err: return err
+    course = get_course_by_id(Session(), course_id)
+    if not course.index_pkl:
+        return jsonify({'error':'No index built'}), 404
+
+    metadata = pickle.loads(course.index_pkl)
+    citations = [
+      {'source': md.get('source','Unknown'),
+       'citation': f"Mock APA Citation for {md.get('filename')}"}
+      for md in metadata.values()
+    ]
+    return jsonify({'citations': citations}), 200
+
+@app.route('/chatwithpersona', methods=['POST'])
+def chat_with_persona():
+    # 1) Authenticate as a student
+    student, err = verify_student()
+    if err:
+        return err
+
+    # 2) Pull in the request payload
+    data          = request.get_json() or {}
+    name          = data.get("name")
+    user_message  = data.get("message")
+    profile       = data.get("userProfile", {})
+    raw_expertise = data.get("expertise")
+
+    # 3) Map expertise to a short summary
+    expertise_map = {
+        "beginner":     "They prefer simple, clear explanations suitable for someone new to the topic.",
+        "intermediate": "They have some prior experience and prefer moderate technical depth.",
+        "advanced":     "They want in-depth explanations with technical language.",
+    }
+    expertise         = str(raw_expertise or "beginner").lower()
+    expertise_summary = expertise_map.get(expertise, expertise_map["beginner"])
+
+    # 4) Build the persona bits
+    persona_bits = []
+    if name:                            persona_bits.append(f"The user’s name is **{name}**")
+    if profile.get("role"):             persona_bits.append(f"they are a **{profile['role']}**")
+    if profile.get("traits"):           persona_bits.append(f"they like their assistant to be **{profile['traits']}**")
+    if profile.get("learningStyle"):    persona_bits.append(f"their preferred learning style is **{profile['learningStyle']}**")
+    if profile.get("depth"):            persona_bits.append(f"they prefer **{profile['depth']}-level** explanations")
+    if profile.get("interests"):        persona_bits.append(f"they’re interested in **{profile['interests']}**")
+    if profile.get("personalization"):  persona_bits.append(f"they enjoy **{profile['personalization']}**")
+    if profile.get("schedule"):         persona_bits.append(f"they study best **{profile['schedule']}**")
+    full_persona = ". ".join(persona_bits)
+
+    # 5) Validate
+    if not user_message:
+        return jsonify({"error": "Message is required"}), 400
+
+    # 6) Call OpenAI
+    try:
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        messages = [
+            { "role": "system", "content": "You are a helpful and friendly AI tutor." },
+            { "role": "system", "content": f"{full_persona}. {expertise_summary}" },
+            { "role": "user",   "content": f"Now explain this topic: {user_message}" }
+        ]
+        resp = client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages
+        )
+        reply = resp.choices[0].message.content.strip()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    # 7) (Optional) Persist into our Chat/Message tables
+    try:
+        db = Session()
+        chat = create_chat(db, student_id=str(student.id), file_id=None, title="Persona Chat")
+        create_message(db, chat_id=str(chat.id), role="user",      content=user_message)
+        create_message(db, chat_id=str(chat.id), role="assistant", content=reply)
+        db.close()
+        chat_id = str(chat.id)
+    except:
+        chat_id = None
+
+    # 8) Return
+    out = {"response": reply}
+    if chat_id:
+        out["chatId"] = chat_id
+    return jsonify(out), 200
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
