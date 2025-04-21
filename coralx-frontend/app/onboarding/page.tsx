@@ -28,7 +28,7 @@ export default function OnboardingPage() {
     topics: "",
     interests: "",
     schedule: "",
-    studentOrEducator: "",
+    //studentOrEducator: "",
     quizzes: false,
   });
 
@@ -185,7 +185,7 @@ export default function OnboardingPage() {
             </SelectContent>
           </Select>
 
-          <label className="block mt-4 mb-2 text-gray-700">
+          {/* <label className="block mt-4 mb-2 text-gray-700">
             Student or Educator
           </label>
           <Select onValueChange={(value) => handleChange(value, "studentOrEducator")}>
@@ -196,7 +196,7 @@ export default function OnboardingPage() {
               <SelectItem value="student">Student</SelectItem>
               <SelectItem value="educator">Educator</SelectItem>
             </SelectContent>
-          </Select>
+          </Select> */}
 
           <div className="flex items-center mt-4">
             <Checkbox
