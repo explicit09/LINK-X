@@ -9,6 +9,12 @@ from firebase_admin import auth, credentials
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
+from src.db.schema import Base, Suggestion, Chat, Message
+from alembic import command
+from alembic.config import Config
+import uuid
+from openai import OpenAI
+import json
 
 from src.queries import generate_course_outline_RAG
 from src.db.schema import Base
