@@ -204,7 +204,7 @@ const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
           {!collapsed && (
             <Link href="/" className="flex items-center h-full">
               <Image
-                src={"/images/Logo-dark.png"}
+                src={"/images/LearnXLogo.png"}
                 alt="Link-X Logo"
                 width={288}
                 height={197}
