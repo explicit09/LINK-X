@@ -960,23 +960,6 @@ def learn_from_question():
 
         topic_expertise = prompt1_create_course(question)
 
-        # Use OpenAI to extract topic and expertise
-        # client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        # response = client.chat.completions.create(
-        #     model="gpt-3.5-turbo",
-        #     messages=[
-        #         {
-        #             "role": "system",
-        #             "content": (
-        #                 "You are an education assistant. Extract a topic and the user's level of expertise from the question. "
-        #                 "Reply ONLY with a JSON object containing 'topic' and 'expertise' (one of: beginner, intermediate, advanced)."
-        #             )
-        #         },
-        #         {"role": "user", "content": question}
-        #     ]
-        # )
-        # import json
-
         # Verify JSON is valid
         try:
             topic_expertise_parsed = json.loads(topic_expertise.choices[0].message.content)
@@ -1269,13 +1252,18 @@ def get_courses_route():
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
-
+    
     db_session = Session()
     try:
-        courses = get_courses_by_user_id(db=db_session, user_id=user["uid"])
+        firebase_uid = user["uid"]
+        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
+        if not postgres_user:
+            return jsonify({"error": "User not found"}), 404
+        
+        courses = get_courses_by_user_id(db=db_session, user_id=postgres_user.id)
         result = [{
             "id": str(c.id),
-            "topic": c.topic,
+            "topic": c.topic.title(),
             "expertise": c.expertise,
             "content": c.content,
             "createdAt": c.createdAt.isoformat(),
