@@ -50,18 +50,19 @@ class Onboarding(Base):
 
 class Course(Base):
     __tablename__ = 'Course'
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    title = Column(String(128), nullable=False)
-    description = Column(String)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    index_pkl = Column(BYTEA, nullable=True)
-    professor_id = Column(UUID(as_uuid=True), ForeignKey('Professor.id', ondelete='CASCADE'), nullable=False)
+    id            = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title         = Column(String(128), nullable=False)
+    description   = Column(String)
+    created_at    = Column(DateTime, nullable=False, default=datetime.utcnow)
+    index_pkl     = Column(BYTEA, nullable=True)
+    index_faiss   = Column(BYTEA, nullable=True)
+    professor_id  = Column(UUID(as_uuid=True), ForeignKey('Professor.id', ondelete='CASCADE'), nullable=False)
 
-    professor = relationship('Professor', back_populates='courses')
-    files = relationship('File', back_populates='course')
-    access_code = relationship('AccessCode', back_populates='course', uselist=False)
-    enrollments = relationship('Enrollment', back_populates='course')
-    reports = relationship('Report', back_populates='course')
+    professor     = relationship('Professor', back_populates='courses')
+    files         = relationship('File', back_populates='course')
+    access_code   = relationship('AccessCode', back_populates='course', uselist=False)
+    enrollments   = relationship('Enrollment', back_populates='course')
+    reports       = relationship('Report', back_populates='course')
 
 class AccessCode(Base):
     __tablename__ = 'AccessCode'

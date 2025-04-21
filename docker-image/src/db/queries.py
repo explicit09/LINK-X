@@ -119,23 +119,36 @@ def get_courses_by_professor_id(db: Session, professor_id: str):
         .order_by(desc(Course.created_at))
     ).scalars().all()
 
-def create_course(db: Session, title: str, description: str, professor_id: str, index_pkl: bytes=None):
+def create_course(
+    db: Session,
+    title: str,
+    description: str,
+    professor_id: str,
+    index_pkl: bytes = None,
+    index_faiss: bytes = None
+):
     c = Course(
         title=title,
         description=description,
         professor_id=professor_id,
-        index_pkl=index_pkl
+        index_pkl=index_pkl,
+        index_faiss=index_faiss,
     )
-    db.add(c); db.commit(); db.refresh(c)
+    db.add(c)
+    db.commit()
+    db.refresh(c)
     return c
 
 def update_course(db: Session, course_id: str, **kwargs):
     c = get_course_by_id(db, course_id)
-    if not c: return None
-    if 'title' in kwargs: c.title = kwargs['title']
-    if 'description' in kwargs: c.description = kwargs['description']
-    if 'index_pkl' in kwargs: c.index_pkl = kwargs['index_pkl']
-    db.commit(); db.refresh(c)
+    if not c:
+        return None
+    if 'title' in kwargs:        c.title = kwargs['title']
+    if 'description' in kwargs:  c.description = kwargs['description']
+    if 'index_faiss' in kwargs:  c.index_faiss = kwargs['index_faiss']
+    if 'index_pkl' in kwargs:    c.index_pkl   = kwargs['index_pkl']
+    db.commit()
+    db.refresh(c)
     return c
 
 def delete_course(db: Session, course_id: str):
@@ -351,3 +364,9 @@ def update_report(db: Session, report_id: str, **kwargs):
 def delete_report(db: Session, report_id: str):
     r = get_report_by_id(db, report_id)
     if r: db.delete(r); db.commit()
+
+def delete_messages_after(db: Session, chat_id: str, timestamp: datetime):
+    db.query(Message)\
+      .filter(Message.chat_id == chat_id, Message.created_at > timestamp)\
+      .delete(synchronize_session=False)
+    db.commit()
