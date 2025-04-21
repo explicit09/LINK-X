@@ -12,12 +12,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 from src.db.schema import Base
-from prompts import generate_course_outline_RAG, generate_module_content, generate_course_outline
 import uuid
 from openai import OpenAI
 import json
 
-from src.prompts import (prompt1_create_course, prompt2_generate_course_outline, prompt2_generate_course_outline_RAG, prompt3_generate_module_content, prompt4_valid_query)
+from src.prompts import prompt1_create_course, prompt2_generate_course_outline, prompt2_generate_course_outline_RAG, prompt3_generate_module_content, prompt4_valid_query
 from src.db.schema import Base
 from src.db.queries import (
     # Professor / Student
@@ -481,7 +480,7 @@ def create_pfile_from_file(file_id):
     path = os.path.join(temp, base.filename)
     with open(path,'wb') as f: f.write(base.file_data)
 
-    content = generate_course_outline_RAG(temp)
+    content = prompt2_generate_course_outline_RAG(temp)
     if content is None:
         db.close()
         return jsonify({'error':'LLM failure'}),500
