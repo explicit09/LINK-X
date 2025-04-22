@@ -393,7 +393,7 @@ const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
                   {formData.name}
                 </p>
                 <p className="text-xs text-sidebar-foreground/60 truncate">
-                  Pro Member
+                  
                 </p>
               </div>
             )}
