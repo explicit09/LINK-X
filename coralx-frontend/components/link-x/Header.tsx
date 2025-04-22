@@ -35,7 +35,7 @@ const Header = ({ showAuthButton = true, isLoggedIn }: HeaderProps) => {
         <div className="flex justify-between items-center w-full h-full">
           <Link href="/" className="flex items-center h-full relative">
             <Image
-              src={"/images/Logo-dark.png"}
+              src={"/images/LearnXLogo.png"} // Make sure to provide a light-compatible logo
               alt="Link-X Logo"
               width={288}
               height={197}
@@ -47,8 +47,8 @@ const Header = ({ showAuthButton = true, isLoggedIn }: HeaderProps) => {
             {showAuthButton && (
               <button
                 type="button"
-                className="w-full cursor-pointer hover:bg-gray-700 focus:ring-4 focus:ring-gray-800 rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 mr-2 focus:outline-none"
-                onClick={user ? handleSignOut : handleLogin} // ✅ Check if user is logged in
+                className="w-full cursor-pointer bg-white text-gray-800 hover:bg-gray-100 focus:ring-4 focus:ring-blue-200 rounded-lg text-sm px-4 lg:px-5 py-2 lg:py-2.5 mr-2 focus:outline-none border border-gray-300 shadow-sm"
+                onClick={user ? handleSignOut : handleLogin}
               >
                 {user ? "Sign out" : "Log in"}
               </button>

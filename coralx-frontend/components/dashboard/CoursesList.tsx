@@ -15,7 +15,13 @@ interface Course {
   fileId: string | null;
 }
 
-const CoursesList = ({ search, setSearch }: { search: string; setSearch: (value: string) => void }) => {
+const CoursesList = ({
+  search,
+  setSearch,
+}: {
+  search: string;
+  setSearch: (value: string) => void;
+}) => {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -50,28 +56,34 @@ const CoursesList = ({ search, setSearch }: { search: string; setSearch: (value:
     <div
       className={cn(
         "transition-all duration-300",
-        isExpanded ? "fixed inset-0 bg-black z-50 flex items-center justify-center p-6" : "relative"
+        isExpanded
+          ? "fixed inset-0 bg-white z-50 flex items-center justify-center p-6"
+          : "relative"
       )}
     >
       <Card
         className={cn(
-          "bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg transition-all duration-300",
-          isExpanded ? "w-full max-w-4xl h-full p-6 overflow-auto" : "w-full"
+          "bg-white border border-gray-200 shadow-lg transition-all duration-300",
+          isExpanded
+            ? "w-full max-w-4xl h-full p-6 overflow-auto"
+            : "w-full"
         )}
         onClick={() => !isExpanded && setIsExpanded(true)}
       >
         <CardHeader className="relative flex justify-between items-center">
-          <CardTitle className="text-xl text-blue-400">Courses and Topics</CardTitle>
+          <CardTitle className="text-xl text-blue-600">
+            Courses and Topics
+          </CardTitle>
           {isExpanded && (
             <Button
               variant="ghost"
-              className="absolute top-3 right-3"
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-800"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsExpanded(false);
               }}
             >
-              <X className="h-6 w-6 text-white" />
+              <X className="h-6 w-6" />
             </Button>
           )}
         </CardHeader>
@@ -81,7 +93,7 @@ const CoursesList = ({ search, setSearch }: { search: string; setSearch: (value:
             <Input
               type="text"
               placeholder="Search courses..."
-              className="bg-gray-800 text-white border-blue-500/30"
+              className="bg-gray-100 text-gray-900 border-gray-300"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -91,9 +103,10 @@ const CoursesList = ({ search, setSearch }: { search: string; setSearch: (value:
             {visibleCourses.map((course) => (
               <li
                 key={course.id}
-                className="flex items-center justify-between bg-gray-800/50 p-3 rounded-lg"
+                className="flex items-center justify-between bg-gray-100 p-3 rounded-lg border border-gray-300"
+
               >
-                <span className="text-white">
+                <span className="text-black">
                   {course.topic.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1))}
                 </span>
                 <Button

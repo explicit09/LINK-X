@@ -20,7 +20,7 @@ import { ArrowLeft, Bell, Shield, Moon, UserCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Header from "@/components/link-x/Header";
-import Footer from "@/components/Footer";
+import Footer from "@/components/landing/Footer";
 
 interface OnboardingData {
   name: string;
@@ -199,12 +199,12 @@ const Settings = () => {
   const [privacy, setPrivacy] = useState<boolean>(true);
 
   return (
-    <div className="flex flex-col bg-black text-white min-h-screen w-full pt-24 pb-12 px-4 md:px-6">
+    <div className="flex flex-col bg-white text-black min-h-screen w-full pt-24 pb-12 px-4 md:px-6">
       <Header isLoggedIn={true}  />
       <div className="max-w-[900px] mx-auto w-full mb-12">
 
         <div className="mb-8 flex items-center">
-          <Link href="/dashboard" className="flex items-center text-gray-300 hover:text-blue-400 mr-4">
+          <Link href="/dashboard" className="flex items-center text-black hover:text-blue-400 mr-4">
             <ArrowLeft size={20} className="mr-2" />
             Dashboard
           </Link>
@@ -270,7 +270,7 @@ const Settings = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Edit Onboarding</CardTitle>
-                <CardDescription>Customize how the Link-X AI responds to your questions.</CardDescription>
+                <CardDescription>Customize how the Learn-X AI responds to your questions.</CardDescription>
               </CardHeader>
               <CardContent>
                 <h1 className="text-xl font-semibold mb-4 text-blue-400">
