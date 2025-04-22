@@ -898,10 +898,8 @@ def ai_chat():
         system_msg = {
             "role": "system",
             "content": (
-                "You are a friendly AI tutor. By default, keep your answers "
-                "short and concise (1–3 sentences). Provide a personalized "
-                "example or two whenever it's directly relevant. Only expand "
-                "into a longer explanation if the user asks you to."
+                "You are a friendly AI tutor. By default, utilize the user's occupation, "
+                "favorite topics, and interests to give examples in every response."
             )
         }
         persona_msg = {
@@ -917,10 +915,10 @@ def ai_chat():
         # ——— Call OpenAI with a max token limit to enforce brevity ———
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o",
             messages=messages,
             max_tokens=150,
-            temperature=0.7,
+            temperature=0.5,
         )
 
         assistant_content = response.choices[0].message.content.strip()
