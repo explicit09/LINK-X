@@ -103,9 +103,10 @@ const CoursesList = ({
             {visibleCourses.map((course) => (
               <li
                 key={course.id}
-                className="flex items-center justify-between bg-gray-800/50 p-3 rounded-lg"
+                className="flex items-center justify-between bg-gray-100 p-3 rounded-lg border border-gray-300"
+
               >
-                <span className="text-white">
+                <span className="text-black">
                   {course.topic.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1))}
                 </span>
                 <Button
