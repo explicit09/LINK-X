@@ -26,17 +26,16 @@ const LearnPrompt = () => {
       if (file) {
         formData.append("file", file);
       }
-  
+
       const res = await fetch("http://localhost:8080/create-course", {
         method: "POST",
         body: formData,
         credentials: "include",
       });
-  
+
       const data = await res.json();
       console.log("Created course:", data);
-  
-      // Redirect with new courseId in the query parameter
+
       if (data.courseId) {
         router.push(`/learn/${data.courseId}`);
       } else {
@@ -48,9 +47,9 @@ const LearnPrompt = () => {
   };
 
   return (
-    <Card className="bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg">
+    <Card className="bg-white border border-gray-200 shadow-lg">
       <CardHeader className="relative flex justify-between items-center">
-        <CardTitle className="text-blue-400 text-xl">What would you like to learn?</CardTitle>
+        <CardTitle className="text-blue-600 text-xl">What would you like to learn?</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-col sm:flex-row gap-3">
@@ -58,7 +57,7 @@ const LearnPrompt = () => {
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             placeholder="Give a topic and your expertise; optionally, upload a pdf with content you'd like to learn"
-            className="bg-gray-800 text-white border-blue-500/30"
+            className="bg-gray-100 text-gray-900 border-gray-300"
           />
           <input
             type="file"
@@ -67,17 +66,23 @@ const LearnPrompt = () => {
             onChange={handleFileChange}
             style={{ display: "none" }}
           />
-          <Button onClick={() => fileInputRef.current?.click()} className="bg-green-600 hover:bg-green-700 text-white">
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            className="bg-green-600 hover:bg-green-700 text-white"
+          >
             <Plus className="mr-2 h-4 w-4" />
             Upload PDF
           </Button>
-          <Button onClick={handleLearn} className="bg-blue-600 hover:bg-blue-700 text-white">
+          <Button
+            onClick={handleLearn}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
             <Brain className="mr-2 h-5" />
             Learn
           </Button>
         </div>
         {file && (
-          <div className="text-white text-sm truncate">
+          <div className="text-gray-700 text-sm truncate">
             Selected file: <span className="font-medium">{file.name}</span>
           </div>
         )}

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,61 +6,84 @@ import { Plus, ChevronRight, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const courses = ["Advanced Stock Trading", "Cryptocurrency Fundamentals", "Personal Finance Mastery"];
+interface Course {
+  id: string;
+  topic: string;
+  expertise: string;
+  content: any;
+  createdAt: string;
+  fileId: string | null;
+}
 
-const CoursesList = ({ search, setSearch }: { search: string; setSearch: (value: string) => void }) => {
+const CoursesList = ({
+  search,
+  setSearch,
+}: {
+  search: string;
+  setSearch: (value: string) => void;
+}) => {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
-  //const [file, setFile] = useState<File | null>(null);
-  //const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [showAll, setShowAll] = useState(false);
 
-  // const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-  //   if (event.target.files) {
-  //     setFile(event.target.files[0]);
-  //   }
-  // };
+  useEffect(() => {
+      const fetchCourses = async () => {
+        try {
+          const res = await fetch("http://localhost:8080/courses", {
+            method: "GET",
+            credentials: "include",
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data: Course[] = await res.json();
+          setCourses(data);
+        } catch (err) {
+          console.error("Failed to load courses:", err);
+        }
+    };
 
-  // const handleUpload = async () => {
-  //   if (!file) return;
+    fetchCourses();
+  }, []);
 
-  //   const formData = new FormData();
-  //   formData.append("file", file);
+  const filteredCourses = courses.filter((course) =>
+    course.topic.toLowerCase().includes(search.toLowerCase())
+  );
+  
+  const visibleCourses = showAll ? filteredCourses : filteredCourses.slice(0, 5);
 
-  //   // const response = await fetch("/api/upload", {
-  //   //   method: "POST",
-  //   //   body: formData,
-  //   // });
-
-  //   // const data = await response.json();
-  //   // console.log("Uploaded:", data);
-  // };
 
   return (
     <div
       className={cn(
         "transition-all duration-300",
-        isExpanded ? "fixed inset-0 bg-black z-50 flex items-center justify-center p-6" : "relative"
+        isExpanded
+          ? "fixed inset-0 bg-white z-50 flex items-center justify-center p-6"
+          : "relative"
       )}
     >
       <Card
         className={cn(
-          "bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg transition-all duration-300",
-          isExpanded ? "w-full max-w-4xl h-full p-6 overflow-auto" : "w-full"
+          "bg-white border border-gray-200 shadow-lg transition-all duration-300",
+          isExpanded
+            ? "w-full max-w-4xl h-full p-6 overflow-auto"
+            : "w-full"
         )}
         onClick={() => !isExpanded && setIsExpanded(true)}
       >
         <CardHeader className="relative flex justify-between items-center">
-          <CardTitle className="text-xl text-blue-400">Courses and Topics</CardTitle>
+          <CardTitle className="text-xl text-blue-600">
+            Courses and Topics
+          </CardTitle>
           {isExpanded && (
             <Button
               variant="ghost"
-              className="absolute top-3 right-3"
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-800"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsExpanded(false);
               }}
             >
-              <X className="h-6 w-6 text-white" />
+              <X className="h-6 w-6" />
             </Button>
           )}
         </CardHeader>
@@ -70,41 +93,43 @@ const CoursesList = ({ search, setSearch }: { search: string; setSearch: (value:
             <Input
               type="text"
               placeholder="Search courses..."
-              className="bg-gray-800 text-white border-blue-500/30"
+              className="bg-gray-100 text-gray-900 border-gray-300"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            {/* <input
-              type="file"
-              accept="application/pdf"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              style={{ display: "none" }}
-            /> */}
             
           </div>
-          {/* {file && (
-            <div className="mt-3 flex items-center gap-3">
-              <span className="text-white">{file.name}</span>
-              <Button onClick={handleUpload} className="bg-green-600 hover:bg-green-700 text-white">
-                Confirm Upload
-              </Button>
-            </div>
-          )} */}
           <ul className="space-y-4 mt-4">
-            {courses.map((course, index) => (
-              <li key={index} className="flex items-center justify-between bg-gray-800/50 p-3 rounded-lg">
-                <span className="text-white">{course}</span>
+            {visibleCourses.map((course) => (
+              <li
+                key={course.id}
+                className="flex items-center justify-between bg-gray-100 p-3 rounded-lg border border-gray-300"
+
+              >
+                <span className="text-black">
+                  {course.topic.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1))}
+                </span>
                 <Button
                   size="sm"
                   className="bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={() => router.push("/learn")}
+                  onClick={() => router.push(`/learn/${course.id}`)}
                 >
                   Learn <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </li>
             ))}
           </ul>
+          {filteredCourses.length > 5 && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                className="text-blue-400 border-blue-400 hover:bg-blue-700 hover:text-white"
+                onClick={() => setShowAll((prev) => !prev)}
+              >
+                {showAll ? "See Less" : "See More"}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
