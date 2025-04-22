@@ -1,21 +1,19 @@
-import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, ChevronRight, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const courses = [
-  "Advanced Stock Trading",
-  "Cryptocurrency Fundamentals",
-  "Personal Finance Mastery",
-];
+interface Course {
+  id: string;
+  topic: string;
+  expertise: string;
+  content: any;
+  createdAt: string;
+  fileId: string | null;
+}
 
 const CoursesList = ({
   search,
@@ -26,6 +24,33 @@ const CoursesList = ({
 }) => {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+      const fetchCourses = async () => {
+        try {
+          const res = await fetch("http://localhost:8080/courses", {
+            method: "GET",
+            credentials: "include",
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data: Course[] = await res.json();
+          setCourses(data);
+        } catch (err) {
+          console.error("Failed to load courses:", err);
+        }
+    };
+
+    fetchCourses();
+  }, []);
+
+  const filteredCourses = courses.filter((course) =>
+    course.topic.toLowerCase().includes(search.toLowerCase())
+  );
+  
+  const visibleCourses = showAll ? filteredCourses : filteredCourses.slice(0, 5);
+
 
   return (
     <div
@@ -72,25 +97,38 @@ const CoursesList = ({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+            
           </div>
-
           <ul className="space-y-4 mt-4">
-            {courses.map((course, index) => (
+            {visibleCourses.map((course) => (
               <li
-                key={index}
-                className="flex items-center justify-between bg-gray-100 p-3 rounded-lg"
+                key={course.id}
+                className="flex items-center justify-between bg-gray-800/50 p-3 rounded-lg"
               >
-                <span className="text-gray-800">{course}</span>
+                <span className="text-white">
+                  {course.topic.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1))}
+                </span>
                 <Button
                   size="sm"
                   className="bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={() => router.push("/learn")}
+                  onClick={() => router.push(`/learn/${course.id}`)}
                 >
                   Learn <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </li>
             ))}
           </ul>
+          {filteredCourses.length > 5 && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                className="text-blue-400 border-blue-400 hover:bg-blue-700 hover:text-white"
+                onClick={() => setShowAll((prev) => !prev)}
+              >
+                {showAll ? "See Less" : "See More"}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

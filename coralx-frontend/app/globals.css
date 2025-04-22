@@ -88,6 +88,10 @@
   .text-gradient {
     @apply bg-clip-text text-transparent purple-gradient;
   }
+
+  .text-blue-foreground {
+    color: hsl(var(--blue-foreground));
+  }
 }
 
 /*=========================
@@ -169,4 +173,77 @@
 
 .read-the-docs {
   color: #888;
+}
+
+/*=========================
+  MARKDOWN STYLING
+=========================*/
+
+.markdown-content {
+  max-width: 1080px; 
+  margin-left: auto;
+  margin-right: auto;
+  padding: 2rem 1rem;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  color: hsl(var(--blue-foreground));
+  text-align: center;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  font-weight: 700;
+}
+
+.markdown-content p {
+  margin-bottom: 1.5rem;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  text-align: left;
+}
+
+.markdown-content a {
+  color: hsl(var(--blue-foreground));
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.markdown-content a:hover {
+  color: hsl(var(--blue-accent-hover));
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 1.5rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.markdown-content code {
+  background-color: hsl(var(--muted));
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+  font-size: 0.95em;
+}
+
+.markdown-content pre {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+}
+
+.markdown-content blockquote {
+  border-left: 4px solid hsl(var(--blue-border));
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+  text-align: left;
 }

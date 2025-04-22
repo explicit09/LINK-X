@@ -203,6 +203,7 @@ const Sidebar = ({
       name: onboarding.name,
       expertise: "advanced",
       userProfile,
+      courseId,
     };
 
     try {
