@@ -270,7 +270,7 @@ const Settings = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Edit Onboarding</CardTitle>
-                <CardDescription>Customize how the Link-X AI responds to your questions.</CardDescription>
+                <CardDescription>Customize how the Learn-X AI responds to your questions.</CardDescription>
               </CardHeader>
               <CardContent>
                 <h1 className="text-xl font-semibold mb-4 text-blue-400">
