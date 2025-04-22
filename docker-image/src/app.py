@@ -33,9 +33,7 @@ from src.db.queries import (
     create_onboarding, get_user_by_firebase_uid, save_transcript
 )
 
-from src.item_01_database_creation_FAISS import create_database
-from src.item_02_generate_citations_APA_FAISS import generate_citations
-from src.item_03_replace_source_by_citation import replace_sources
+from FAISS_db_generation import create_database, generate_citations, replace_sources, file_cleanup
 
 load_dotenv()
 
@@ -1001,9 +999,11 @@ def learn_from_question():
                     f.write(file_bytes)
 
             # FAISS database creation
-            create_database(upload_dir, pdf_id)
+            create_database(upload_dir)
             generate_citations(upload_dir)
             replace_sources(upload_dir)
+            file_cleanup(upload_dir)
+
             # Generate course outline using the PDF content and expertise
             outline = prompt2_generate_course_outline_RAG(upload_dir, expertise)
 
