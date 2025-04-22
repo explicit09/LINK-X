@@ -1,6 +1,6 @@
 from sqlalchemy import select, and_, desc, asc
 from sqlalchemy.orm import Session
-from src.db.schema import Course, User, Chat, Message, Vote, Document, Suggestion, Onboarding, News, Market, File
+from src.db.schema import Course, User, Chat, Message, Vote, Document, Suggestion, Onboarding, News, Market, File, Transcript
 from werkzeug.security import generate_password_hash, check_password_hash
 from typing import List, Optional
 from datetime import date
@@ -548,4 +548,16 @@ def update_file(db: Session, file_id: str, update_data: dict) -> File:
     except Exception as e:
         db.rollback()
         print(f"Error updating file: {e}")
+        raise
+
+def save_transcript(db: Session, filename: str, text: str):
+    try:
+        transcript = Transcript(filename=filename, text=text)
+        db.add(transcript)
+        db.commit()
+        db.refresh(transcript)
+        return transcript
+    except Exception as e:
+        db.rollback()
+        print(f"Error saving transcript: {e}")
         raise
