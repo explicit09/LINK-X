@@ -11,7 +11,7 @@ import openai
 # Load environment variables from .env file
 load_dotenv(find_dotenv())
 
-def create_database(course_dir, course_id):
+def create_database(course_dir):
     # Validate existence of Course directory
     if not os.path.isdir(course_dir):
         print(f"The provided path is not a valid directory: {course_dir}")
