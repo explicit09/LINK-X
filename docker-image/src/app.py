@@ -16,6 +16,8 @@ from alembic.config import Config
 import uuid
 from openai import OpenAI
 import json
+from transcriber import transcribe_audio
+from werkzeug.utils import secure_filename
 
 from src.prompts import (prompt1_create_course, prompt2_generate_course_outline, prompt2_generate_course_outline_RAG, prompt3_generate_module_content, prompt4_valid_query)
 
@@ -27,7 +29,7 @@ from src.db.queries import (
     get_votes_by_chat_id, save_document, get_documents_by_id, get_document_by_id,
     delete_documents_by_id_after_timestamp, save_suggestions, get_suggestions_by_document_id,
     get_message_by_id, delete_messages_by_chat_id_after_timestamp, update_chat_visibility_by_id, 
-    create_onboarding, get_user_by_firebase_uid
+    create_onboarding, get_user_by_firebase_uid, save_transcript
 )
 
 load_dotenv()
@@ -346,7 +348,6 @@ def chat():
      except Exception as e:
          return jsonify({"error": str(e)}), 500
      
-
 @app.route('/chatwithpersona', methods=['POST'])
 def chat_with_persona():
     user_claims = verify_session_cookie()
@@ -440,7 +441,6 @@ def chat_with_persona():
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-     
      
 @app.route('/chats', methods=['DELETE'])
 def delete_chat_param_missing():
@@ -1006,6 +1006,35 @@ def learn_from_question():
     except Exception as e:
         print("Error in /create-course:", str(e))
         return jsonify({"error": str(e)}), 500
+
+@app.route('/upload', methods=['POST'])
+def upload_audio():
+    if 'audio' not in request.files:
+        return jsonify({"error": "No file part in request"}), 400
+
+    file = request.files['audio']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+
+    db_session = Session()
+
+    try:
+        text = transcribe_audio(file)  # 🎤 transcribe first
+        transcript = save_transcript(db_session, file.filename, text)  # 💾 save to DB
+
+        return jsonify({
+            "message": "Transcription successful",
+            "filename": transcript.filename,
+            "text": transcript.text
+        }), 200
+
+    except Exception as e:
+        db_session.rollback()
+        print(f"Upload error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+    finally:
+        db_session.close()  # ✅ always close the session
 
 
 if __name__ == '__main__':
