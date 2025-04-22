@@ -9,6 +9,7 @@ import Sidebar from "@/components/link-x/DashSidebar";
 import StatisticsCard from "@/components/dashboard/StatisticsCard";
 import MarketTrends from "@/components/dashboard/MarketTrends";
 import CoursesList from "@/components/dashboard/CoursesList";
+import AudioUpload from "@/components/dashboard/AudioUpload";
 import RecentlyCompletedCourses from "@/components/dashboard/RecentCourses";
 import Header from "@/components/link-x/Header";
 import Footer from "@/components/landing/Footer";
@@ -49,6 +50,9 @@ export default function Dashboard() {
 
           <div className="grid grid-cols-1 gap-6 my-8">
             <RecentlyCompletedCourses />
+          </div>
+          <div className="grid grid-cols-1 gap-6 my-8">
+            <AudioUpload />
           </div>
 
           <Footer />
