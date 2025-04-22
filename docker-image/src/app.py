@@ -15,8 +15,9 @@ from alembic import command
 from alembic.config import Config
 import uuid
 from openai import OpenAI
+import json
 
-from src.queries import (generate_course_outline, generate_course_outline_RAG, generate_module_content)
+from src.prompts import (prompt1_create_course, prompt2_generate_course_outline, prompt2_generate_course_outline_RAG, prompt3_generate_module_content, prompt4_valid_query)
 
 from src.db.queries import (
     create_course, create_file, delete_course_by_id, delete_market_item_by_id, delete_news_by_id, delete_onboarding_by_user_id, delete_user_by_firebase_uid, get_all_news, 
@@ -348,70 +349,97 @@ def chat():
 
 @app.route('/chatwithpersona', methods=['POST'])
 def chat_with_persona():
-     user_claims = verify_session_cookie()
-     if isinstance(user_claims, dict) and "error" in user_claims:
-         return user_claims
- 
-     data = request.get_json()
-     name = data.get("name")
-     user_message = data.get("message")
-     profile = data.get("userProfile", {})
-     raw_expertise = data.get("expertise")
+    user_claims = verify_session_cookie()
+    if isinstance(user_claims, dict) and "error" in user_claims:
+        return user_claims
 
-     expertise_map = {
+    data = request.get_json()
+    name = data.get("name")
+    user_message = data.get("message")
+    profile = data.get("userProfile", {})
+    raw_expertise = data.get("expertise")
+    #course_id = data.get("courseId")
+
+    expertise_map = {
     "beginner": "They prefer simple, clear explanations suitable for someone new to the topic.",
     "intermediate": "They have some prior experience and prefer moderate technical depth.",
     "advanced": "They want in-depth explanations with technical language.",
     }
      
-     expertise = str(raw_expertise).lower() if raw_expertise else "beginner"
-     expertise_summary = expertise_map.get(expertise, expertise_map["beginner"]) 
-    
+    expertise = str(raw_expertise).lower() if raw_expertise else "beginner"
+    expertise_summary = expertise_map.get(expertise, expertise_map["beginner"]) 
 
-     persona = []
 
-     if name:
+    persona = []
+
+    if name:
         persona.append(f'The user’s name is **{name}**')
+    if profile.get("role"):
+        persona.append(f'they are a **{profile["role"]}**')
+    if profile.get("traits"):
+        persona.append(f'they like their assistant to be **{profile["traits"]}**')
+    if profile.get("learningStyle"):
+        persona.append(f'their preferred learning style is **{profile["learningStyle"]}**')
+    if profile.get("depth"):
+        persona.append(f'they prefer **{profile["depth"]}-level** explanations')
+    if profile.get("interests"):
+        persona.append(f'they’re interested in **{profile["interests"]}**')
+    if profile.get("personalization"):
+        persona.append(f'they enjoy **{profile["personalization"]}**')
+    if profile.get("schedule"):
+        persona.append(f'they study best **{profile["schedule"]}**')
 
+    full_persona = ". ".join(persona)
     
-     if profile.get("role"):
-            persona.append(f'they are a **{profile["role"]}**')
-     if profile.get("traits"):
-            persona.append(f'they like their assistant to be **{profile["traits"]}**')
-     if profile.get("learningStyle"):
-            persona.append(f'their preferred learning style is **{profile["learningStyle"]}**')
-     if profile.get("depth"):
-            persona.append(f'they prefer **{profile["depth"]}-level** explanations')
-     if profile.get("interests"):
-            persona.append(f'they’re interested in **{profile["interests"]}**')
-     if profile.get("personalization"):
-            persona.append(f'they enjoy **{profile["personalization"]}**')
-     if profile.get("schedule"):
-            persona.append(f'they study best **{profile["schedule"]}**')
+    if not user_message:
+        return jsonify({"error": "Message is required"}), 400
 
-     full_persona = ". ".join(persona)
-     
-     if not user_message:
-         return jsonify({"error": "Message is required"}), 400
- 
-     try:
-         client = OpenAI()
- 
-         response = client.chat.completions.create(
-             model="gpt-4o",  # or gpt-3.5-turbo
-             messages=[
-                { "role": "system", "content": "You are a helpful and friendly AI tutor." },
-                { "role": "user", "content": f"{full_persona}. {expertise_summary}" },
-                { "role": "user", "content": f"Now explain this topic: {user_message}" }
-            ]
-         )
- 
-         reply_text = response.choices[0].message.content
- 
-         return jsonify({"response": reply_text})
-     
-     except Exception as e:
-         return jsonify({"error": str(e)}), 500
+    try:
+        client = OpenAI()
+
+        response = client.chat.completions.create(
+            model="gpt-4o",  # or gpt-3.5-turbo
+            messages=[
+            { "role": "system", "content": "You are a helpful and friendly AI tutor." },
+            { "role": "user", "content": f"{full_persona}. {expertise_summary}" },
+            { "role": "user", "content": f"Now explain this topic: {user_message}" }
+        ]
+        )
+
+        reply_text = response.choices[0].message.content
+        #SAVE COURSE CONTENT BROKEN RN
+        # if course_id and user_message:
+        #     db = Session()
+        #     try:
+        #         course = get_course_by_id(db, course_id)
+        #         if not course:
+        #             raise Exception("Course not found")
+
+        #         content = course.content or {}
+                
+        #         # Ensure we have a 'lessonContent' map
+        #         if "lessonContent" not in content:
+        #             content["lessonContent"] = {}
+
+        #         # Update the lesson content using the metadata string (user_message)
+        #         content["lessonContent"][user_message] = reply_text
+
+        #         update_course(
+        #             db=db,
+        #             course_id=course_id,
+        #             update_data={"content": content}
+        #         )
+
+        #     except Exception as e:
+        #         print(f"Error saving generated lesson content: {e}")
+        #         db.rollback()
+        #     finally:
+        #         db.close()
+
+        return jsonify({"response": reply_text})
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
      
      
 @app.route('/chats', methods=['DELETE'])
@@ -797,39 +825,33 @@ def generate_title_from_message():
     title = message[:80]
     return jsonify({"title": title}), 200
 
-
-@app.route('/ai-chat', methods=['POST']) 
+@app.route('/ai-chat', methods=['POST'])
 def ai_chat():
     try:
-        # ✅ Session validation (unchanged)
         user = get_user_from_session()
         if "error" in user:
             return jsonify(user), 401
 
-        # 🔄 CHANGED: cleaned up variable names
         data = request.get_json()
-        print("Received data:", data)
-
-        chat_id = data.get("id")
-        user_message = data.get("userMessage")
-        conversation = data.get("messages", [])  # ✅ Expect full conversation history now
+        chat_id       = data.get("id")
+        user_message  = data.get("userMessage")
+        conversation  = data.get("messages", [])
 
         if not user_message:
             return jsonify({"error": "User message is required"}), 400
 
         db_session = Session()
 
-        # ✅ Chat retrieval or creation
+        # ——— Get or create chat ———
         chat = get_chat_by_id(db_session, chat_id) if chat_id else None
+        pg_user = get_user_by_firebase_uid(db_session, user["uid"])
         if not chat:
-            postgres_user = get_user_by_firebase_uid(db_session, user["uid"])
-            if not postgres_user:
+            if not pg_user:
                 return jsonify({"error": "User not found in database"}), 404
-
-            chat = save_chat(db_session, user_id=postgres_user.id, title="New Chat")  # 🔄 CHANGED: added fallback title
+            chat = save_chat(db_session, user_id=pg_user.id, title="New Chat")
             chat_id = str(chat.id)
 
-        # ✅ Save user message
+        # ——— Save the incoming user message ———
         user_msg = Message(
             id=str(uuid.uuid4()),
             chatId=chat_id,
@@ -839,19 +861,71 @@ def ai_chat():
         )
         save_messages(db_session, messages=[user_msg])
 
-        # ✅ Build prompt for OpenAI
-        conversation_payload = conversation.copy()  # 🔄 CHANGED: now includes full history from frontend
-        conversation_payload.append({"role": "user", "content": user_message})
+        # ——— Fetch onboarding/persona info ———
+        onboarding = get_onboarding(db_session, pg_user.id)
+        if not onboarding:
+            return jsonify({"error": "User onboarding profile not found"}), 404
 
+        name, job, traits, learningStyle, depth, topics, interests, schedule = (
+            onboarding.name,
+            *onboarding.answers
+        )
+
+        # Build a short persona summary
+        persona_bits = []
+        if name:   persona_bits.append(f"Name: {name}")
+        if job:    persona_bits.append(f"Occupation: {job}")
+        if traits: persona_bits.append(f"Preferred tone: {traits}")
+        if learningStyle:
+                   persona_bits.append(f"Learning style: {learningStyle}")
+        if depth:  persona_bits.append(f"Depth: {depth}")
+        if topics: persona_bits.append(f"Topics: {topics}")
+        if interests:
+                   persona_bits.append(f"Interests: {interests}")
+        if schedule:
+                   persona_bits.append(f"Schedule: {schedule}")
+        persona_string = " • ".join(persona_bits)
+
+        expertise_map = {
+            "beginner":     "They prefer simple, clear explanations.",
+            "intermediate": "They want moderate technical depth.",
+            "advanced":     "They want in-depth, technical explanations."
+        }
+        expertise = depth.lower() if depth else "beginner"
+        expertise_summary = expertise_map.get(expertise, expertise_map["beginner"])
+
+        # ——— Compose system & persona prompts ———
+        system_msg = {
+            "role": "system",
+            "content": (
+                "You are a friendly AI tutor. By default, keep your answers "
+                "short and concise (1–3 sentences). Provide a personalized "
+                "example or two whenever it's directly relevant. Only expand "
+                "into a longer explanation if the user asks you to."
+            )
+        }
+        persona_msg = {
+            "role": "system",
+            "content": f"{persona_string}. {expertise_summary}"
+        }
+
+        # ——— Build the full message stack ———
+        messages = [system_msg, persona_msg] + conversation + [
+            {"role": "user", "content": user_message}
+        ]
+
+        # ——— Call OpenAI with a max token limit to enforce brevity ———
         client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=conversation_payload
+            messages=messages,
+            max_tokens=150,
+            temperature=0.7,
         )
-        assistant_content = response.choices[0].message.content
-        print("OpenAI responded with:", assistant_content)
 
-        # ✅ Save assistant message
+        assistant_content = response.choices[0].message.content.strip()
+
+        # ——— Save the assistant’s reply ———
         assistant_msg = Message(
             id=str(uuid.uuid4()),
             chatId=chat_id,
@@ -861,15 +935,15 @@ def ai_chat():
         )
         save_messages(db_session, messages=[assistant_msg])
 
-        # 🔄 CHANGED: Return both assistant reply and chatId (chatId may be newly created)
         return jsonify({
             "assistant": assistant_content,
-            "chatId": chat_id
+            "chatId":    chat_id
         }), 200
 
     except Exception as e:
         print("Error in /ai-chat:", str(e))
         return jsonify({"error": "Server error: " + str(e)}), 500
+
 
 @app.route('/create-course', methods=['POST'])
 def learn_from_question():
@@ -884,30 +958,27 @@ def learn_from_question():
         if not question:
             return jsonify({"error": "Missing question"}), 400
 
-        # Use OpenAI to extract topic and expertise
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an education assistant. Extract a topic and the user's level of expertise from the question. "
-                        "Reply ONLY with a JSON object containing 'topic' and 'expertise' (one of: beginner, intermediate, advanced)."
-                    )
-                },
-                {"role": "user", "content": question}
-            ]
-        )
-        import json
-        parsed = json.loads(response.choices[0].message.content)
-        topic = parsed.get("topic")
-        expertise = parsed.get("expertise")
+        topic_expertise = prompt1_create_course(question)
+
+        # Verify JSON is valid
+        try:
+            topic_expertise_parsed = json.loads(topic_expertise.choices[0].message.content)
+        except (ValueError, AttributeError, IndexError) as e:
+            return jsonify({"error": "Invalid JSON returned from AI response", "details": str(e)}), 400
+        
+        topic = topic_expertise_parsed.get("topic")
+        expertise = topic_expertise_parsed.get("expertise")
+
         if not topic or not expertise:
             return jsonify({"error": "Invalid GPT response"}), 400
 
         # Generate course outline using the provided topic and expertise
-        outline = generate_course_outline(topic, expertise)
+        outline = prompt2_generate_course_outline(topic, expertise)
+        # Verify JSON is valid
+        try:
+            outline_parsed = json.loads(outline.choices[0].message.content)
+        except (ValueError, AttributeError, IndexError) as e:
+            return jsonify({"error": "Invalid JSON returned from AI response", "details": str(e)}), 400
 
         # Retrieve Postgres user record
         db_session = Session()
@@ -921,13 +992,14 @@ def learn_from_question():
             user_id=str(postgres_user.id),
             topic=topic,
             expertise=expertise,
-            content=outline,  # Course outline (JSON)
+            content=outline_parsed,  # Course outline (JSON)
             pkl=None,
             index=None,
             file_id=None
         )
         db_session.close()
-
+        import time
+        time.sleep(0.5)
         # Return the new course ID to the client
         return jsonify({"message": "Course created successfully", "courseId": str(new_course.id)}), 200
 
@@ -1180,13 +1252,18 @@ def get_courses_route():
     user = verify_session_cookie()
     if isinstance(user, dict) and "error" in user:
         return user
-
+    
     db_session = Session()
     try:
-        courses = get_courses_by_user_id(db=db_session, user_id=user["uid"])
+        firebase_uid = user["uid"]
+        postgres_user = get_user_by_firebase_uid(db_session, firebase_uid)
+        if not postgres_user:
+            return jsonify({"error": "User not found"}), 404
+        
+        courses = get_courses_by_user_id(db=db_session, user_id=postgres_user.id)
         result = [{
             "id": str(c.id),
-            "topic": c.topic,
+            "topic": c.topic.title(),
             "expertise": c.expertise,
             "content": c.content,
             "createdAt": c.createdAt.isoformat(),
