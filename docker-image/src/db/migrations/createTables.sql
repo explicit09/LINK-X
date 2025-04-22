@@ -99,6 +99,14 @@ CREATE TABLE IF NOT EXISTS "Course" (
     "fileId" uuid
 );
 
+CREATE TABLE IF NOT EXISTS "Transcript" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+    "filename" varchar(255) NOT NULL,
+    "text" text NOT NULL,
+    "createdAt" timestamp NOT NULL DEFAULT now()
+);
+
+
 DO $$ BEGIN
  ALTER TABLE "Chat" 
  ADD CONSTRAINT "Chat_userId_User_id_fk" 

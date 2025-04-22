@@ -152,3 +152,10 @@ class Course(Base):
     user = relationship("User", back_populates="courses")
     file = relationship("File", back_populates="course", uselist=False)
 
+class Transcript(Base):
+    __tablename__ = 'Transcript'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    filename = Column(String(255), nullable=False)
+    text = Column(Text, nullable=False)
+    createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
+
