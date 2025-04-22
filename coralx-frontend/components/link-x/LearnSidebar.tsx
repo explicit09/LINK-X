@@ -113,36 +113,6 @@ const Sidebar = ({
     }
   };
 
-  // const userProfile = {
-  //   role: "Student",
-  //   traits: "friendly and curious",
-  //   learningStyle: "visual",
-  //   depth: "beginner",
-  //   interests: "finance, gaming",
-  //   personalization: "basketball, coding",
-  //   schedule: "evenings"
-  // };
-
-  // const userName = "Alex Johnson";
-  // const expertise = "beginner";
-
-  // useEffect(() => {
-  //   setMounted(true);
-  //   if (isMobile) setCollapsed(true);
-
-  //   async function fetchChapters() {
-  //         try {
-  //           const res = await fetch("/api/chapters") // update as needed
-  //           const data = await res.json()
-  //           setChapters(data.chapters || [])
-  //         } catch (err) {
-  //           console.error("Failed to load chapters:", err)
-  //         }
-  //       }
-
-  //       fetchChapters()
-  // }, [isMobile]);
-
   useEffect(() => {
     setMounted(true);
     if (isMobile) setCollapsed(true);
@@ -257,7 +227,7 @@ const Sidebar = ({
           {!collapsed && (
             <Link href="/" className="flex items-center h-full relative pl-1">
               <Image
-                src="/images/Logo-dark.png"
+                src="/images/LearnXLogo.png"
                 alt="Logo"
                 width={288}
                 height={197}
