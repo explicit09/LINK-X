@@ -1,7 +1,7 @@
 import os
 from openai import OpenAI
 from dotenv import load_dotenv, find_dotenv
-from item_04_retriever_FAISS import answer_to_QA
+from FAISS_retriever import answer_to_QA
 
 load_dotenv(find_dotenv())
 
