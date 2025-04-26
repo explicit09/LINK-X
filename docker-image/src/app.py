@@ -17,7 +17,6 @@ import uuid
 from openai import OpenAI
 import json
 from transcriber import transcribe_audio
-from werkzeug.utils import secure_filename
 import hashlib
 
 from src.prompts import (prompt1_create_course, prompt2_generate_course_outline, prompt2_generate_course_outline_RAG, prompt3_generate_module_content, prompt4_valid_query)
