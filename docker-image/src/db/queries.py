@@ -46,7 +46,6 @@ def create_user(db: Session, email: str, password: str, firebase_uid: str, role_
     db.add(user)
     db.commit()
     db.refresh(user)
-    # assign role
     role = Role(user_id=user.id, role_type=role_type)
     db.add(role)
     db.commit()
@@ -152,6 +151,8 @@ def update_student_profile(db: Session, user_id: str, **kwargs):
         student.onboard_answers = kwargs['onboard_answers']
     if 'want_quizzes' in kwargs:
         student.want_quizzes = kwargs['want_quizzes']
+    if 'model_preference' in kwargs:
+        student.model_preference = kwargs['model_preference']
     db.commit()
     db.refresh(student)
     return student
@@ -210,11 +211,11 @@ def get_courses_by_instructor_id(db: Session, instructor_id: str):
     ).scalars().all()
 
 
-def get_courses_by_student_id(db: Session, student_id: str):
+def get_courses_by_student_id(db: Session, user_id: str):
     stmt = (
         select(Course)
         .join(Enrollment, Enrollment.course_id == Course.id)
-        .filter(Enrollment.student_id == student_id)
+        .filter(Enrollment.user_id == user_id)
         .order_by(desc(Course.created_at))
     )
     return db.execute(stmt).scalars().all()
@@ -383,34 +384,32 @@ def get_enrollment(db: Session, enrollment_id: str):
     return db.execute(select(Enrollment).filter_by(id=enrollment_id)).scalars().first()
 
 
-def get_enrollment_by_student_course(db: Session, student_id: str, course_id: str):
+def get_enrollment_by_student_course(db: Session, user_id: str, course_id: str):
     return db.execute(
         select(Enrollment)
-        .filter_by(student_id=student_id, course_id=course_id)
+        .filter_by(user_id=user_id, course_id=course_id)
     ).scalars().first()
 
-
-def get_enrollments_by_student(db: Session, student_id: str):
-    return db.execute(select(Enrollment).filter_by(student_id=student_id)).scalars().all()
+def get_enrollments_by_student(db: Session, user_id: str):
+    return db.execute(
+        select(Enrollment)
+        .filter_by(user_id=user_id)
+    ).scalars().all()
 
 
 def get_enrollments_by_course(db: Session, course_id: str):
     return db.execute(select(Enrollment).filter_by(course_id=course_id)).scalars().all()
 
 
-def create_enrollment(db: Session, student_id: str, course_id: str):
-    e = Enrollment(student_id=student_id, course_id=course_id)
-    db.add(e)
-    db.commit()
-    db.refresh(e)
+def create_enrollment(db: Session, user_id: str, course_id: str):
+    e = Enrollment(user_id=user_id, course_id=course_id)
+    db.add(e); db.commit(); db.refresh(e)
     return e
 
-
-def delete_enrollment(db: Session, enrollment_id: str):
-    e = get_enrollment(db, enrollment_id)
+def delete_enrollment(db: Session, user_id: str, course_id: str):
+    e = get_enrollment_by_student_course(db, user_id, course_id)
     if e:
-        db.delete(e)
-        db.commit()
+        db.delete(e); db.commit()
 
 # --- PersonalizedFile CRUD ---
 
@@ -418,19 +417,19 @@ def get_personalized_file_by_id(db: Session, pf_id: str):
     return db.execute(select(PersonalizedFile).filter_by(id=pf_id)).scalars().first()
 
 
-def get_personalized_files_by_student(db: Session, student_id: str):
+def get_personalized_files_by_student(db: Session, user_id: str):
     return db.execute(
         select(PersonalizedFile)
-        .filter_by(student_id=student_id)
+        .filter_by(user_id=user_id)
         .order_by(desc(PersonalizedFile.created_at))
     ).scalars().all()
 
 
-def create_personalized_file(db: Session, student_id: str, original_file_id: str, content: dict):
-    pf = PersonalizedFile(student_id=student_id, original_file_id=original_file_id, content=content)
-    db.add(pf)
-    db.commit()
-    db.refresh(pf)
+def create_personalized_file(db: Session, user_id: str, original_file_id: str, content: dict):
+    pf = PersonalizedFile(user_id=user_id,
+                          original_file_id=original_file_id,
+                          content=content)
+    db.add(pf); db.commit(); db.refresh(pf)
     return pf
 
 
@@ -457,21 +456,17 @@ def get_chat_by_id(db: Session, chat_id: str):
     return db.execute(select(Chat).filter_by(id=chat_id)).scalars().first()
 
 
-def get_chats_by_student(db: Session, student_id: str):
+def get_chats_by_student(db: Session, user_id: str):
     return db.execute(
         select(Chat)
-        .filter_by(student_id=student_id)
+        .filter_by(user_id=user_id)
         .order_by(desc(Chat.created_at))
     ).scalars().all()
 
-
-def create_chat(db: Session, student_id: str, file_id: str, title: str):
-    c = Chat(student_id=student_id, file_id=file_id, title=title)
-    db.add(c)
-    db.commit()
-    db.refresh(c)
+def create_chat(db: Session, user_id: str, file_id: str, title: str):
+    c = Chat(user_id=user_id, file_id=file_id, title=title)
+    db.add(c); db.commit(); db.refresh(c)
     return c
-
 
 def update_chat(db: Session, chat_id: str, **kwargs):
     c = get_chat_by_id(db, chat_id)
