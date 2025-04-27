@@ -45,7 +45,7 @@ const AccessCodeCard = () => {
             ? "w-full max-w-2xl h-full p-6 overflow-auto"
             : "w-full"
         )}
-        onClick={() => !isExpanded && setIsExpanded(true)}
+        
       >
         <CardHeader className="relative flex justify-between items-center">
           <CardTitle className="text-xl text-blue-600">
