@@ -476,10 +476,10 @@ def student_unenroll(enrollment_id):
         return err
     db = Session()
     e = get_enrollment(db, enrollment_id)
-    if not e or str(e.student_id) != str(user_id):
+    if not e or str(e.user_id) != str(user_id):
         db.close()
         return jsonify({'error': 'Forbidden'}), 403
-    delete_enrollment(db, enrollment_id)
+    delete_enrollment(db, user_id, e.course_id)
     db.close()
     return jsonify({'message': 'Unenrolled'}), 200
 
@@ -540,7 +540,7 @@ def student_get_pfile(pf_id):
     db = Session()
     pf = get_personalized_file_by_id(db, pf_id)
     db.close()
-    if not pf or str(pf.student_id) != str(user_id):
+    if not pf or str(pf.user_id) != str(user_id):
         return jsonify({'error': 'Forbidden'}), 403
     return jsonify({'id': str(pf.id), 'content': pf.content}), 200
 
@@ -566,7 +566,7 @@ def student_manage_chat(chat_id):
         return err
     db = Session()
     chat = get_chat_by_id(db, chat_id)
-    if not chat or str(chat.student_id) != str(user_id):
+    if not chat or str(chat.user_id) != str(user_id):
         db.close()
         return jsonify({'error': 'Forbidden'}), 403
     if request.method == 'GET':
@@ -608,7 +608,7 @@ def student_delete_trailing():
         return jsonify({'error': 'Message ID required'}), 400
     db = Session()
     msg = get_message_by_id(db, msg_id)
-    if not msg or str(msg.chat.student_id) != str(user_id):
+    if not msg or str(msg.chat.user_id) != str(user_id):
         db.close()
         return jsonify({'error': 'Forbidden'}), 403
     delete_messages_after(db, chat_id=msg.chat_id, timestamp=msg.created_at)
@@ -666,7 +666,7 @@ def instructor_create_report():
 @app.route('/ai-chat', methods=['POST'])
 def ai_chat():
     # 1. Verify student session
-    student_id, err = verify_student()
+    user_id, err = verify_student()
     if err:
         return err
 
@@ -684,18 +684,18 @@ def ai_chat():
     # 3. Get or create Chat
     if chat_id:
         chat = get_chat_by_id(db, chat_id)
-        if not chat or str(chat.student_id) != str(student_id):
+        if not chat or str(chat.user_id) != str(user_id):
             db.close()
             return jsonify({'error': 'Forbidden'}), 403
     else:
-        chat = create_chat(db, student_id, None, title='New Chat')
+        chat = create_chat(db, user_id, None, title='New Chat')
         chat_id = str(chat.id)
 
     # 4. Save incoming user message
     create_message(db, chat_id, role='user', content=user_message)
 
     # 5. Build persona prompt from StudentProfile
-    sp = get_student_profile(db, student_id)
+    sp = get_student_profile(db, user_id)
     if not sp:
         db.close()
         return jsonify({'error': 'Student profile not found'}), 404
