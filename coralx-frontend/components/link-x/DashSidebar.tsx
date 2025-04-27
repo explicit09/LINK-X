@@ -134,10 +134,10 @@ const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
       active: pathname === "/",
     },
     {
-      name: "Learn",
-      path: "/learn",
+      name: "Dashboard",
+      path: "/dashboard",
       icon: BookOpen,
-      active: pathname === "/learn",
+      active: pathname === "/dashboard",
     },
     // {
     //   name: "Market",
