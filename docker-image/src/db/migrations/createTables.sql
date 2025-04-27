@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS "InstructorProfile" (
 );
 
 CREATE TABLE IF NOT EXISTS "StudentProfile" (
-  "user_id"         UUID PRIMARY KEY REFERENCES "User"("id") ON DELETE CASCADE,
+  "user_id"         UUID PRIMARY KEY,
   "name"            TEXT    NOT NULL,
   "onboard_answers" JSONB   NOT NULL,
   "want_quizzes"    BOOLEAN NOT NULL DEFAULT FALSE,
@@ -79,33 +79,33 @@ CREATE TABLE IF NOT EXISTS "AccessCode" (
 );
 
 CREATE TABLE IF NOT EXISTS "Enrollment" (
-  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  "student_id" UUID NOT NULL,
-  "course_id" UUID NOT NULL,
-  "enrolled_at" TIMESTAMP NOT NULL DEFAULT now(),
-  CONSTRAINT fk_enroll_student FOREIGN KEY("student_id") REFERENCES "StudentProfile"("user_id") ON DELETE CASCADE,
-  CONSTRAINT fk_enroll_course  FOREIGN KEY("course_id")  REFERENCES "Course"       ("id")          ON DELETE CASCADE,
-  CONSTRAINT uq_enrollment_student_course UNIQUE ("student_id", "course_id")
+  "id"            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "user_id"       UUID NOT NULL,
+  "course_id"     UUID NOT NULL,
+  "enrolled_at"   TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT fk_enroll_student FOREIGN KEY("user_id") REFERENCES "StudentProfile"("user_id") ON DELETE CASCADE,
+  CONSTRAINT fk_enroll_course FOREIGN KEY("course_id") REFERENCES "Course"("id") ON DELETE CASCADE,
+  CONSTRAINT uq_enrollment_student_course UNIQUE ("user_id", "course_id")
 );
 
 CREATE TABLE IF NOT EXISTS "PersonalizedFile" (
-  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  "student_id" UUID NOT NULL,
+  "id"               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "user_id"          UUID NOT NULL,
   "original_file_id" UUID,
-  "content" JSONB NOT NULL,
-  "created_at" TIMESTAMP NOT NULL DEFAULT now(),
-  CONSTRAINT fk_pfile_student  FOREIGN KEY("student_id")      REFERENCES "StudentProfile"("user_id") ON DELETE CASCADE,
-  CONSTRAINT fk_pfile_original FOREIGN KEY("original_file_id") REFERENCES "File"           ("id")        ON DELETE SET NULL
+  "content"          JSONB   NOT NULL,
+  "created_at"       TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT fk_pfile_student FOREIGN KEY("user_id") REFERENCES "StudentProfile"("user_id") ON DELETE CASCADE,
+  CONSTRAINT fk_pfile_original FOREIGN KEY("original_file_id") REFERENCES "File"("id") ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS "Chat" (
-  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  "student_id" UUID NOT NULL,
-  "file_id" UUID,
-  "title" TEXT NOT NULL,
+  "id"         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "user_id"    UUID NOT NULL,
+  "file_id"    UUID,
+  "title"      TEXT    NOT NULL,
   "created_at" TIMESTAMP NOT NULL DEFAULT now(),
-  CONSTRAINT fk_chat_student FOREIGN KEY("student_id") REFERENCES "StudentProfile"("user_id") ON DELETE CASCADE,
-  CONSTRAINT fk_chat_file    FOREIGN KEY("file_id")    REFERENCES "File"           ("id")        ON DELETE SET NULL
+  CONSTRAINT fk_chat_student FOREIGN KEY("user_id") REFERENCES "StudentProfile"("user_id") ON DELETE CASCADE,
+  CONSTRAINT fk_chat_file FOREIGN KEY("file_id") REFERENCES "File"("id") ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS "Message" (
