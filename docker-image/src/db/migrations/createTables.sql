@@ -1,198 +1,139 @@
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'document_kind') THEN
-        CREATE TYPE document_kind AS ENUM ('text', 'code');
-    END IF;
-END$$;
+CREATE TYPE role_enum AS ENUM (
+  'admin',
+  'instructor',
+  'student'
+);
 
 CREATE TABLE IF NOT EXISTS "User" (
-    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-    "email" varchar(64) NOT NULL,
-    "password" varchar(255),
-    "firebase_uid" varchar(128)
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "email" VARCHAR(64) NOT NULL UNIQUE,
+  "password" VARCHAR(255) NOT NULL,
+  "firebase_uid" VARCHAR(128)
 );
 
-CREATE TABLE IF NOT EXISTS "Chat" (
-    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-    "createdAt" timestamp NOT NULL DEFAULT now(),
-    "title" text NOT NULL,
-    "userId" uuid NOT NULL,
-    "visibility" varchar CHECK("visibility" IN ('public','private')) DEFAULT 'private' NOT NULL
+CREATE TABLE IF NOT EXISTS "Role" (
+  "user_id" UUID PRIMARY KEY,
+  "role_type" role_enum NOT NULL,
+  CONSTRAINT fk_role_user FOREIGN KEY("user_id") REFERENCES "User"("id") ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS "Document" (
-    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-    "createdAt" timestamp NOT NULL DEFAULT now(),
-    "title" text NOT NULL,
-    "content" text,
-    "kind" document_kind DEFAULT 'text' NOT NULL,
-    "userId" uuid NOT NULL
+CREATE TABLE IF NOT EXISTS "InstructorProfile" (
+  "user_id" UUID PRIMARY KEY,
+  "name" TEXT NOT NULL,
+  "university" VARCHAR(128),
+  CONSTRAINT fk_instructor_user FOREIGN KEY("user_id") REFERENCES "User"("id") ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS "Message" (
-    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-    "chatId" uuid NOT NULL,
-    "role" varchar NOT NULL,
-    "content" text NOT NULL,
-    "createdAt" timestamp NOT NULL DEFAULT now()
+CREATE TABLE IF NOT EXISTS "StudentProfile" (
+  "user_id"         UUID PRIMARY KEY,
+  "name"            TEXT    NOT NULL,
+  "onboard_answers" JSONB   NOT NULL,
+  "want_quizzes"    BOOLEAN NOT NULL DEFAULT FALSE,
+  "model_preference" VARCHAR(64),
+  CONSTRAINT fk_student_user FOREIGN KEY("user_id") REFERENCES "User"("id") ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS "Onboarding" (
-    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-    "userId" uuid NOT NULL,
-    "name" text NOT NULL,
-    "answers" jsonb NOT NULL,
-    "quizzes" boolean DEFAULT false NOT NULL,
-    "createdAt" timestamp NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS "Suggestion" (
-    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-    "documentId" uuid NOT NULL,
-    "documentCreatedAt" timestamp NOT NULL,
-    "originalText" text NOT NULL,
-    "suggestedText" text NOT NULL,
-    "description" text,
-    "isResolved" boolean DEFAULT false NOT NULL,
-    "userId" uuid NOT NULL,
-    "createdAt" timestamp NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS "Vote" (
-    "chatId" uuid NOT NULL,
-    "messageId" uuid NOT NULL,
-    "isUpvoted" boolean NOT NULL,
-    CONSTRAINT "Vote_chatId_messageId_pk" PRIMARY KEY("chatId", "messageId")
-);
-
-CREATE TABLE IF NOT EXISTS "Market" (
-    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-    "snp500" numeric NOT NULL,
-    "date" date NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS "News" (
-    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-    "title" varchar(64) NOT NULL,
-    "subject" varchar(64) NOT NULL,
-    "link" varchar(120) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS "File" (
-    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-    "filename" varchar NOT NULL,
-    "fileType" varchar NOT NULL,
-    "fileSize" integer NOT NULL,
-    "fileData" bytea NOT NULL,
-    "createdAt" timestamp NOT NULL DEFAULT now()
+CREATE TABLE IF NOT EXISTS "AdminProfile" (
+  "user_id" UUID PRIMARY KEY,
+  "name" TEXT NOT NULL,
+  CONSTRAINT fk_admin_user FOREIGN KEY("user_id") REFERENCES "User"("id") ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS "Course" (
-    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-    "topic" varchar(64),
-    "expertise" varchar(64),
-    "createdAt" timestamp NOT NULL DEFAULT now(),
-    "pkl" bytea,
-    "index" bytea,
-    "content" jsonb,
-    "userId" uuid NOT NULL,
-    "fileId" uuid
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "title" VARCHAR(128) NOT NULL,
+  "description" TEXT,
+  "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+  "index_pkl" BYTEA,
+  "index_faiss" BYTEA,
+  "instructor_id" UUID NOT NULL,
+  CONSTRAINT fk_course_instructor FOREIGN KEY("instructor_id") REFERENCES "InstructorProfile"("user_id") ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS "Transcript" (
-    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-    "filename" varchar(255) NOT NULL,
-    "text" text NOT NULL,
-    "createdAt" timestamp NOT NULL DEFAULT now()
+CREATE TABLE IF NOT EXISTS "Module" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "course_id" UUID NOT NULL,
+  "title" VARCHAR(128) NOT NULL,
+  CONSTRAINT fk_module_course FOREIGN KEY("course_id") REFERENCES "Course"("id") ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS "File" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "module_id" UUID NOT NULL,
+  "title" VARCHAR(128) NOT NULL,
+  "filename" VARCHAR NOT NULL,
+  "file_type" VARCHAR NOT NULL,
+  "file_size" INTEGER NOT NULL,
+  "file_data" BYTEA NOT NULL,
+  "transcription" TEXT,
+  "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT fk_file_module FOREIGN KEY("module_id") REFERENCES "Module"("id") ON DELETE CASCADE
+);
 
-DO $$ BEGIN
- ALTER TABLE "Chat" 
- ADD CONSTRAINT "Chat_userId_User_id_fk" 
- FOREIGN KEY ("userId") REFERENCES "public"."User"("id")
- ON DELETE NO ACTION ON UPDATE NO ACTION;
-EXCEPTION
- WHEN duplicate_object THEN null;
-END $$;
+CREATE TABLE IF NOT EXISTS "AccessCode" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "code" VARCHAR(32) NOT NULL UNIQUE,
+  "course_id" UUID NOT NULL,
+  "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT fk_accesscode_course FOREIGN KEY("course_id") REFERENCES "Course"("id") ON DELETE CASCADE
+);
 
-DO $$ BEGIN
- ALTER TABLE "Document" 
- ADD CONSTRAINT "Document_userId_User_id_fk" 
- FOREIGN KEY ("userId") REFERENCES "public"."User"("id")
- ON DELETE NO ACTION ON UPDATE NO ACTION;
-EXCEPTION
- WHEN duplicate_object THEN null;
-END $$;
+CREATE TABLE IF NOT EXISTS "Enrollment" (
+  "id"            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "user_id"       UUID NOT NULL,
+  "course_id"     UUID NOT NULL,
+  "enrolled_at"   TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT fk_enroll_student FOREIGN KEY("user_id") REFERENCES "StudentProfile"("user_id") ON DELETE CASCADE,
+  CONSTRAINT fk_enroll_course FOREIGN KEY("course_id") REFERENCES "Course"("id") ON DELETE CASCADE,
+  CONSTRAINT uq_enrollment_student_course UNIQUE ("user_id", "course_id")
+);
 
-DO $$ BEGIN
- ALTER TABLE "Message" 
- ADD CONSTRAINT "Message_chatId_Chat_id_fk" 
- FOREIGN KEY ("chatId") REFERENCES "public"."Chat"("id")
- ON DELETE NO ACTION ON UPDATE NO ACTION;
-EXCEPTION
- WHEN duplicate_object THEN null;
-END $$;
+CREATE TABLE IF NOT EXISTS "PersonalizedFile" (
+  "id"               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "user_id"          UUID NOT NULL,
+  "original_file_id" UUID,
+  "content"          JSONB   NOT NULL,
+  "created_at"       TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT fk_pfile_student FOREIGN KEY("user_id") REFERENCES "StudentProfile"("user_id") ON DELETE CASCADE,
+  CONSTRAINT fk_pfile_original FOREIGN KEY("original_file_id") REFERENCES "File"("id") ON DELETE SET NULL
+);
 
-DO $$ BEGIN
- ALTER TABLE "Onboarding" 
- ADD CONSTRAINT "Onboarding_userId_User_id_fk" 
- FOREIGN KEY ("userId") REFERENCES "public"."User"("id")
- ON DELETE CASCADE ON UPDATE NO ACTION;
-EXCEPTION
- WHEN duplicate_object THEN null;
-END $$;
+CREATE TABLE IF NOT EXISTS "Chat" (
+  "id"         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "user_id"    UUID NOT NULL,
+  "file_id"    UUID,
+  "title"      TEXT    NOT NULL,
+  "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT fk_chat_student FOREIGN KEY("user_id") REFERENCES "StudentProfile"("user_id") ON DELETE CASCADE,
+  CONSTRAINT fk_chat_file FOREIGN KEY("file_id") REFERENCES "File"("id") ON DELETE SET NULL
+);
 
-DO $$ BEGIN
- ALTER TABLE "Suggestion" 
- ADD CONSTRAINT "Suggestion_userId_User_id_fk" 
- FOREIGN KEY ("userId") REFERENCES "public"."User"("id")
- ON DELETE NO ACTION ON UPDATE NO ACTION;
-EXCEPTION
- WHEN duplicate_object THEN null;
-END $$;
+CREATE TABLE IF NOT EXISTS "Message" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "chat_id" UUID NOT NULL,
+  "role" VARCHAR NOT NULL,
+  "content" TEXT NOT NULL,
+  "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT fk_message_chat FOREIGN KEY("chat_id") REFERENCES "Chat"("id") ON DELETE CASCADE
+);
 
-DO $$ BEGIN
- ALTER TABLE "Suggestion" 
- ADD CONSTRAINT "Suggestion_documentId_documentCreatedAt_Document_id_createdAt_fk" 
- FOREIGN KEY ("documentId", "documentCreatedAt") REFERENCES "public"."Document"("id", "createdAt")
- ON DELETE NO ACTION ON UPDATE NO ACTION;
-EXCEPTION
- WHEN duplicate_object THEN null;
-END $$;
+CREATE TABLE IF NOT EXISTS "Report" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "course_id" UUID NOT NULL,
+  "summary" JSONB NOT NULL,
+  "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+  CONSTRAINT fk_report_course FOREIGN KEY("course_id") REFERENCES "Course"("id") ON DELETE CASCADE
+);
 
-DO $$ BEGIN
- ALTER TABLE "Vote" 
- ADD CONSTRAINT "Vote_chatId_Chat_id_fk" 
- FOREIGN KEY ("chatId") REFERENCES "public"."Chat"("id")
- ON DELETE NO ACTION ON UPDATE NO ACTION;
-EXCEPTION
- WHEN duplicate_object THEN null;
-END $$;
+CREATE TABLE IF NOT EXISTS "Market" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "snp500" NUMERIC NOT NULL,
+  "date" DATE NOT NULL
+);
 
-DO $$ BEGIN
- ALTER TABLE "Vote" 
- ADD CONSTRAINT "Vote_messageId_Message_id_fk" 
- FOREIGN KEY ("messageId") REFERENCES "public"."Message"("id")
- ON DELETE NO ACTION ON UPDATE NO ACTION;
-EXCEPTION
- WHEN duplicate_object THEN null;
-END $$;
-
-DO $$ BEGIN
-    ALTER TABLE "Course"
-      ADD CONSTRAINT "Course_userId_User_id_fk" 
-      FOREIGN KEY ("userId") REFERENCES "User"("id")
-      ON DELETE NO ACTION ON UPDATE NO ACTION;
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
-DO $$ BEGIN
-    ALTER TABLE "Course"
-      ADD CONSTRAINT "Course_fileId_File_id_fk" 
-      FOREIGN KEY ("fileId") REFERENCES "File"("id")
-      ON DELETE NO ACTION ON UPDATE NO ACTION;
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
+CREATE TABLE IF NOT EXISTS "News" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "title" VARCHAR(64) NOT NULL,
+  "subject" VARCHAR(64) NOT NULL,
+  "link" VARCHAR(120) NOT NULL
+);
