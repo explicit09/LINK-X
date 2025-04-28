@@ -147,14 +147,17 @@ def register_instructor():
         firebase_uid = decoded['uid']
     except Exception as e:
         return jsonify({'error': f'Invalid ID token: {e}'}), 401
-    email = data.get('email'); pwd = data.get('password')
+
+    email = data.get('email')
+    pwd   = data.get('password')
     if not email or not pwd:
         return jsonify({'error':'Email and password required'}), 400
+
     db = Session()
     user = create_user(db, email, pwd, firebase_uid, 'instructor')
-    create_instructor_profile(db, user.id, data.get('name'), data.get('university'))
     db.close()
-    return jsonify({'id':str(user.id), 'email':user.email}), 201
+
+    return jsonify({'id': str(user.id), 'email': user.email}), 201
 
 @app.route('/register/student', methods=['POST'])
 def register_student():
@@ -167,29 +170,50 @@ def register_student():
         firebase_uid = decoded['uid']
     except Exception as e:
         return jsonify({'error': f'Invalid ID token: {e}'}), 401
-    email = data.get('email'); pwd = data.get('password')
+
+    email = data.get('email')
+    pwd   = data.get('password')
     if not email or not pwd:
         return jsonify({'error':'Email and password required'}), 400
+
     db = Session()
     user = create_user(db, email, pwd, firebase_uid, 'student')
-    create_student_profile(db, user.id, data.get('name'), data.get('onboard_answers', {}), data.get('want_quizzes', False))
     db.close()
-    return jsonify({'id':str(user.id), 'email':user.email}), 201
 
-@app.route('/instructor/profile', methods=['GET', 'PATCH', 'DELETE'])
+    return jsonify({'id': str(user.id), 'email': user.email}), 201
+
+@app.route('/instructor/profile', methods=['POST','GET','PATCH','DELETE'])
 def instructor_profile():
     user_id, err = verify_instructor()
-    if err: return err
+    if err:
+        return err
     db = Session()
+
+    if request.method == 'POST':
+        data = request.get_json() or {}
+        name       = data.get('name')
+        university = data.get('university')
+        if not name:
+            db.close()
+            return jsonify({'error':'Name required'}), 400
+        prof = create_instructor_profile(db, user_id, name, university)
+        db.close()
+        return jsonify(prof.__dict__), 201
+
     if request.method == 'GET':
         prof = get_instructor_profile(db, user_id)
         db.close()
+        if not prof:
+            return jsonify({'error':'Not found'}), 404
         return jsonify(prof.__dict__), 200
+
     if request.method == 'PATCH':
         data = request.get_json() or {}
         updated = update_instructor_profile(db, user_id, **data)
         db.close()
         return jsonify({'id': str(updated.user_id)}), 200
+
+    # DELETE
     delete_instructor_profile(db, user_id)
     delete_user(db, user_id)
     db.close()
@@ -425,26 +449,50 @@ def instructor_file_content(file_id):
     db.close()
     return Response(data, mimetype=mtype, headers={"Content-Disposition": f"inline; filename={fname}"})
 
-@app.route('/student/profile', methods=['GET', 'PATCH', 'DELETE'])
+@app.route('/student/profile', methods=['POST','GET','PATCH','DELETE'])
 def student_profile():
     user_id, err = verify_student()
     if err:
         return err
     db = Session()
+
+    if request.method == 'POST':
+        data = request.get_json() or {}
+        name            = data.get('name')
+        onboard_answers = data.get('onboard_answers', {})
+        want_quizzes    = data.get('want_quizzes', False)
+        if not name:
+            db.close()
+            return jsonify({'error':'Name required'}), 400
+        prof = create_student_profile(
+            db,
+            user_id,
+            name,
+            onboard_answers,
+            want_quizzes
+        )
+        db.close()
+        return jsonify(prof.__dict__), 201
+
     if request.method == 'GET':
         sp = get_student_profile(db, user_id)
         db.close()
+        if not sp:
+            return jsonify({'error':'Not found'}), 404
         return jsonify(sp.__dict__), 200
+
     if request.method == 'PATCH':
         data = request.get_json() or {}
         updated = update_student_profile(db, user_id, **data)
         db.close()
         return jsonify({'id': str(updated.user_id)}), 200
+
+    # DELETE
     delete_student_profile(db, user_id)
     delete_user(db, user_id)
     db.close()
-    resp = jsonify({'message': 'Deleted'})
-    resp.set_cookie('session', '', max_age=0)
+    resp = jsonify({'message':'Student deleted'})
+    resp.set_cookie('session','',max_age=0)
     return resp, 200
 
 @app.route('/student/enrollments', methods=['POST', 'GET'])
@@ -1014,14 +1062,6 @@ def save_model_id():
         'message': f'Model ID {model} saved successfully',
         'model_preference': updated.model_preference
     }), 200
-
-_original_get_user_session = get_user_session
-def _fake_get_user_session():
-    if app.config['TESTING']:
-        return {'uid': '00000000-0000-0000-0000-000000000000'}
-    return _original_get_user_session()
-
-get_user_session = _fake_get_user_session
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8080))
