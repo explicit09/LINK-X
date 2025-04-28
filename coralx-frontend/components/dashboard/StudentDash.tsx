@@ -22,15 +22,33 @@ import {
   GraduationCap,
 } from "lucide-react";
 import LearnPrompt from "@/components/dashboard/LearnPrompt";
-import StudentDash from "@/components/dashboard/StudentDash";
 
-export default function Dashboard() {
+export default function StudentDash() {
   const [search, setSearch] = useState("");
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 flex flex-col">
-  <StudentDash />
-</div>
+    <div className="min-h-screen bg-white text-gray-900 flex">
+      <Sidebar onCollapseChange={(value) => setIsCollapsed(value)} />
+      <div className={cn("flex-1 transition-all duration-300", isCollapsed ? "ml-14" : "ml-44")}>
+        <main className={cn("pt-6 transition-all duration-300", isCollapsed ? "px-6 md:px-8 lg:px-12" : "px-4")}>
+          <h1 className="text-4xl font-bold mb-4 text-blue-600">Learning Dashboard</h1>
+          <h2 className="text-lg font-medium mb-8 text-gray-700">
+            Welcome back to Learn-X! Here's an overview of your learning journey.
+          </h2>
+
+          <div className="grid grid-cols-1 gap-6">
+            <LearnPrompt />
+            <CoursesGrid search={search} setSearch={setSearch} />
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 my-8">
+            <AudioUpload />
+          </div>
+
+          <Footer />
+        </main>
+      </div>
+    </div>
   );
 }
