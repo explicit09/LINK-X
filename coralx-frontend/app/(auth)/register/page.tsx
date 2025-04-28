@@ -20,10 +20,10 @@ import { auth } from "@/firebaseconfig";
 
 export default function Page() {
   const router = useRouter();
+  const API = process.env.NEXT_PUBLIC_API_BASE_URL;
 
   const [email, setEmail] = useState("");
-  const [sOrE, setSOrE] = useState<{ studentOrEducator: string }>({ studentOrEducator: "" });
-  const [isSuccessful, setIsSuccessful] = useState(false);
+  const [role, setRole] = useState<"student" | "educator">("student");
   const [state, setState] = useState<
     "idle" | "in_progress" | "success" | "failed" | "user_exists" | "invalid_data"
   >("idle");
@@ -34,78 +34,79 @@ export default function Page() {
     } else if (state === "failed") {
       toast.error("Failed to create account");
     } else if (state === "invalid_data") {
-      toast.error("Failed validating your submission!");
+      toast.error("Invalid data");
     } else if (state === "success") {
       toast.success("Account created successfully");
-      setIsSuccessful(true);
-      router.push("/onboarding");
+      if (role === "student") {
+        router.push("/onboarding");
+      } else {
+        router.push("/dashboard");
+      }
     }
-  }, [state, router]);
+  }, [state, router, role]);
 
   const handleChange = (value: string) => {
-    setSOrE({ studentOrEducator: value });
+    if (value === "student" || value === "educator") {
+      setRole(value);
+    }
   };
-  
 
   const handleSubmit = async (formData: FormData) => {
     setEmail(formData.get("email") as string);
     setState("in_progress");
-  
+
     try {
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.get("email") as string,
         formData.get("password") as string
       );
-  
-      const token = await userCredential.user.getIdToken();
-      localStorage.setItem("token", token);
-  
-      const postgresResponse = await fetch("http://localhost:8080/createUser", {
+      const idToken = await userCredential.user.getIdToken();
+      localStorage.setItem("token", idToken);
+
+      await new Promise<void>(resolve => setTimeout(resolve, 1000));
+
+      const registerEndpoint =
+        role === "student" ? "register/student" : "register/professor";
+
+      const resp = await fetch(`${API}/${registerEndpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: formData.get("email"),
           password: formData.get("password"),
-          idToken: token,
-        })
+          idToken,
+        }),
       });
-  
-      if (!postgresResponse.ok) {
-        const errorData = await postgresResponse.json();
-        console.error("Postgres user creation error:", errorData.error);
+      if (!resp.ok) {
+        const err = await resp.json();
+        console.error("Postgres register error:", err.error);
         setState("failed");
-        toast.error("Failed to create Postgres user record");
         return;
       }
-      const loginResponse = await fetch("http://localhost:8080/sessionLogin", {
+
+      const loginResp = await fetch(`${API}/sessionLogin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ idToken: token })
+        body: JSON.stringify({ idToken }),
       });
-      
-      if (!loginResponse.ok) {
-        const errorData = await loginResponse.json();
-        console.error("Session login error:", errorData.error);
+      if (!loginResp.ok) {
+        const err = await loginResp.json();
+        console.error("sessionLogin error:", err.error);
         setState("failed");
-        toast.error("Failed to set session cookie.");
         return;
       }
-  
+
       setState("success");
-      router.push("/onboarding");
     } catch (error: any) {
-      console.error("Registration Error:", error.message);
+      console.error("Registration Error:", error);
       if (error.code === "auth/email-already-in-use") {
         setState("user_exists");
-        toast.error("Email is already registered!");
       } else if (error.code === "auth/weak-password") {
         setState("invalid_data");
-        toast.error("Password is too weak!");
       } else {
         setState("failed");
-        toast.error("Failed to create account.");
       }
     }
   };
@@ -119,30 +120,33 @@ export default function Page() {
           <p className="text-sm text-gray-500 dark:text-zinc-400">
             Create an account with your email and password
           </p>
-          
         </div>
         <AuthForm action={handleSubmit} defaultEmail={email}>
-        <div className="flex flex-col gap-2">
-  <p className="text-zinc-600 text-sm font-normal dark:text-zinc-400">
-    Student or Educator
-  </p>
-  <Select onValueChange={handleChange}>
-    <SelectTrigger
-      id="studentOrEducator"
-      className="bg-muted text-md md:text-sm rounded-md border border-input px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring"
-    >
-      <SelectValue placeholder="Select position" />
-    </SelectTrigger>
-    <SelectContent className="bg-white dark:bg-zinc-800 border border-input text-sm text-gray-900 dark:text-white rounded-md shadow-md">
-      <SelectItem value="student">Student</SelectItem>
-      <SelectItem value="educator">Educator</SelectItem>
-    </SelectContent>
-  </Select>
-</div>
+          {/* Role dropdown */}
+          <div className="flex flex-col gap-2">
+            <p className="text-zinc-600 text-sm font-normal dark:text-zinc-400">
+              I am a
+            </p>
+            <Select onValueChange={handleChange}>
+              <SelectTrigger
+                id="studentOrEducator"
+                className="bg-muted text-md md:text-sm rounded-md border border-input px-3 py-2"
+              >
+                <SelectValue placeholder="Select role" />
+              </SelectTrigger>
+              <SelectContent className="bg-white dark:bg-zinc-800 border border-input text-sm rounded-md shadow-md">
+                <SelectItem value="student">Student</SelectItem>
+                <SelectItem value="educator">Educator</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <SubmitButton isSuccessful={isSuccessful}>Sign Up</SubmitButton>
+          <SubmitButton isSuccessful={state === "success"}>
+            Sign Up
+          </SubmitButton>
+
           <p className="text-center text-sm text-gray-600 mt-4 dark:text-zinc-400">
-            {"Already have an account? "}
+            Already have an account?{" "}
             <Link
               href="/login"
               className="font-semibold text-gray-800 hover:underline dark:text-zinc-200"
