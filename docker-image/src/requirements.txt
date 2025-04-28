@@ -8,7 +8,6 @@ firebase-admin==5.0.2
 replicate==0.24.0
 transformers==4.38.2
 llama_index==0.10.19
-llama-index-embeddings-huggingface==0.1.4
 faiss-cpu
 langchain_community
 langchain_openai
