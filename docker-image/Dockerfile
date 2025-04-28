@@ -23,7 +23,7 @@ COPY src/textUtils.py ./
 COPY src/indexer.py ./
 COPY src/transcriber.py ./
 
-COPY src/item_04_retriever_FAISS.py ./
+# COPY src/item_04_retriever_FAISS.py ./
 
 # Copy the application source code
 COPY src $APP_HOME/src
