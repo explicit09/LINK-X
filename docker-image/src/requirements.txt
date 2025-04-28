@@ -19,3 +19,4 @@ PyPDF2
 textract
 tiktoken
 pgvector
+pytest
