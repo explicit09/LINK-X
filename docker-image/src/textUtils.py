@@ -4,7 +4,6 @@ from typing import List
 import tiktoken
 from PyPDF2 import PdfReader
 import textract
-
 from openai import OpenAI
 import os
 
@@ -26,11 +25,7 @@ def extract_text(file_data: bytes, filename: str) -> str:
     elif ext in ('doc', 'docx', 'ppt', 'pptx'):
         return textract.process(io.BytesIO(file_data), extension=ext).decode('utf-8', errors='ignore')
     else:
-        # fallback: assume UTF-8 text
         return file_data.decode('utf-8', errors='ignore')
-
-# 2. Split text into chunks based on token count
-
 def split_text(text: str, max_tokens: int = 500, overlap: int = 50) -> List[str]:
     """
     Splits text into chunks of up to max_tokens tokens, with overlap.
@@ -45,9 +40,6 @@ def split_text(text: str, max_tokens: int = 500, overlap: int = 50) -> List[str]
         chunks.append(chunk)
         start += max_tokens - overlap
     return chunks
-
-# 3. Embed text using OpenAI embeddings
-
 def embed_text(text: str) -> List[float]:
     """
     Returns an embedding vector for the given text.
