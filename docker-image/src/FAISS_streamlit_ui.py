@@ -4,7 +4,7 @@ import base64
 import os
 import sys
 import streamlit as st
-from item_04_retriever_FAISS import answer_to_QA
+from FAISS_retriever import answer_to_QA
 
 working_dir = os.getenv("WORKING_DIR")
 faiss_index_path = os.path.join(working_dir, "faiss_index")

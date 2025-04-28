@@ -85,7 +85,7 @@ def cascading_LLM_response(query, faiss_index_path, threshold=2):
     if len(faiss_docs) >= threshold:
         final_docs = faiss_docs
     else:
-        print("FAISS retrieval weak - falling backl to OpenAI knowledge.")
+        print("FAISS retrieval weak - falling back to OpenAI knowledge.")
         openai_retriever = OpenAIRetriever(llm)
         openai_docs = openai_retriever._get_relevant_documents(query)
         final_docs = faiss_docs + openai_docs
