@@ -10,7 +10,7 @@ import openai
 
 # Load environment variables from .env file
 load_dotenv(find_dotenv())
-
+# item_01
 def create_database(course_dir):
     # Validate existence of Course directory
     if not os.path.isdir(course_dir):
@@ -33,7 +33,7 @@ def create_database(course_dir):
 
     # vectordb.save_local(output_dir)
     vectordb.save_local(course_dir)
-
+# item_02
 def generate_citations(course_dir):
     # Validate existence of Course directory
     if not os.path.isdir(course_dir):
@@ -93,7 +93,7 @@ def generate_citations(course_dir):
 
     # Optionally, display the first few rows of the DataFrame
     # print(citations_df.head())
-
+# item_03
 def replace_sources(course_dir):
     # Validate existence of Course directory
     if not os.path.isdir(course_dir):

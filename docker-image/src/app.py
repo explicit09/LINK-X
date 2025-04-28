@@ -18,8 +18,14 @@ from openai import OpenAI
 import json
 from transcriber import transcribe_audio
 import hashlib
+import tempfile
 
-from src.prompts import (prompt1_create_course, prompt2_generate_course_outline, prompt2_generate_course_outline_RAG, prompt3_generate_module_content, prompt4_valid_query)
+from src.prompts import (
+    prompt1_create_course,
+    prompt2_generate_course_outline, prompt2_generate_course_outline_RAG,
+    prompt3_generate_module_content, prompt3_generate_module_content_RAG, 
+    prompt4_valid_query
+)
 
 from src.db.queries import (
     create_course, create_file, delete_course_by_id, delete_market_item_by_id, delete_news_by_id, delete_onboarding_by_user_id, delete_user_by_firebase_uid, get_all_news, 
@@ -343,7 +349,7 @@ def chat():
              ]
          )
  
-         reply_text = response.choices[0].message.content
+         reply_text = response.choices[0].message.content.strip()
  
          return jsonify({"response": reply_text})
      
@@ -352,16 +358,21 @@ def chat():
      
 @app.route('/chatwithpersona', methods=['POST'])
 def chat_with_persona():
+    # Authenticate session
     user_claims = verify_session_cookie()
     if isinstance(user_claims, dict) and "error" in user_claims:
-        return user_claims
+        return user_claims  # Returns a 401 if session cookie was invalid
 
+    # Read and validate JSON body
     data = request.get_json()
     name = data.get("name")
     user_message = data.get("message")
     profile = data.get("userProfile", {})
     raw_expertise = data.get("expertise")
-    #course_id = data.get("courseId")
+    course_id = data.get("courseId")
+
+    if not user_message:
+        return jsonify({"error": "Message is required"}), 400
 
     expertise_map = {
     "beginner": "They prefer simple, clear explanations suitable for someone new to the topic.",
@@ -393,23 +404,36 @@ def chat_with_persona():
         persona.append(f'they study best **{profile["schedule"]}**')
 
     full_persona = ". ".join(persona)
-    
-    if not user_message:
-        return jsonify({"error": "Message is required"}), 400
 
+    faiss_bytes = None
+    pkl_bytes = None
+
+    # Check for index.faiss and index.pkl bytes on the database
+    if course_id:
+        db_session = Session()
+        try:
+            course = get_course_by_id(db_session, course_id)
+            if course: 
+                faiss_bytes = course.index
+                pkl_bytes = course.pkl
+        except Exception as e:
+            print(f"Error fetching course for ID {course_id}: {e}")
+        finally:
+            db_session.close()
     try:
-        client = OpenAI()
+        if faiss_bytes is None or pkl_bytes is None:
+            response = prompt3_generate_module_content(full_persona, expertise_summary, user_message)
+        else:
+            tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{course_id}_")
+            tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
+            os.makedirs(tmp_idx_dir, exist_ok=True)
 
-        response = client.chat.completions.create(
-            model="gpt-4o",  # or gpt-3.5-turbo
-            messages=[
-            { "role": "system", "content": "You are a helpful and friendly AI tutor." },
-            { "role": "user", "content": f"{full_persona}. {expertise_summary}" },
-            { "role": "user", "content": f"Now explain this topic: {user_message}" }
-        ]
-        )
+            with open(os.path.join(tmp_idx_dir, "index.faiss"), "wb") as idx_faiss:
+                idx_faiss.write(faiss_bytes)
+            with open(os.path.join(tmp_idx_dir, "index.pkl"), "wb") as idx_pkl:
+                idx_pkl.write(pkl_bytes)
 
-        reply_text = response.choices[0].message.content
+            response = prompt3_generate_module_content_RAG(full_persona, expertise_summary, user_message, tmp_idx_dir)
         #SAVE COURSE CONTENT BROKEN RN
         # if course_id and user_message:
         #     db = Session()
@@ -439,7 +463,7 @@ def chat_with_persona():
         #     finally:
         #         db.close()
 
-        return jsonify({"response": reply_text})
+        return jsonify({"response": response}), 200
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -962,7 +986,7 @@ def learn_from_question():
 
         # Verify Topic & Expertise JSON is valid
         try:
-            topic_expertise_parsed = json.loads(topic_expertise.choices[0].message.content)
+            topic_expertise_parsed = json.loads(topic_expertise)
         except (ValueError, AttributeError, IndexError) as e:
             return jsonify({"error": "Invalid JSON returned from AI response", "details": str(e)}), 400
         
@@ -1004,7 +1028,7 @@ def learn_from_question():
             file_cleanup(upload_dir)
 
             # Generate course outline using the PDF content and expertise
-            outline = prompt2_generate_course_outline_RAG(upload_dir, expertise)
+            response = prompt2_generate_course_outline_RAG(upload_dir, expertise)
 
             index_faiss_path = os.path.join(upload_dir, "index.faiss")
             index_pkl_path = os.path.join(upload_dir, "index.pkl")
@@ -1019,7 +1043,9 @@ def learn_from_question():
         else:
             pdf_id = None
             # Generate course outline using the provided topic and expertise
-            outline = prompt2_generate_course_outline(topic, expertise)
+            response = prompt2_generate_course_outline(topic, expertise)
+
+        outline = response
 
         # Verify Course Outline JSON is valid
         try:
