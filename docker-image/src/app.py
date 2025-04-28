@@ -90,23 +90,45 @@ def me_get():
     session = get_user_session()
     if 'error' in session:
         return jsonify(session), 401
+
     user_id = session['uid']
     db = Session()
     user = get_user_by_id(db, user_id)
     role = get_role_by_user_id(db, user_id)
-    profile = None
+    profile_data = None
     if role.role_type == 'instructor':
-        profile = get_instructor_profile(db, user_id)
+        prof = get_instructor_profile(db, user_id)
+        if prof:
+            profile_data = {
+                'user_id':     str(prof.user_id),
+                'name':        prof.name,
+                'university':  prof.university
+            }
     elif role.role_type == 'student':
-        profile = get_student_profile(db, user_id)
+        prof = get_student_profile(db, user_id)
+        if prof:
+            profile_data = {
+                'user_id':          str(prof.user_id),
+                'name':             prof.name,
+                'onboard_answers':  prof.onboard_answers,
+                'want_quizzes':     prof.want_quizzes,
+                'model_preference': prof.model_preference
+            }
     elif role.role_type == 'admin':
-        profile = get_admin_profile(db, user_id)
+        prof = get_admin_profile(db, user_id)
+        if prof:
+            profile_data = {
+                'user_id': str(prof.user_id),
+                'name':    prof.name
+            }
+
     db.close()
+
     return jsonify({
-        'id': user_id,
-        'email': user.email,
-        'role': role.role_type,
-        'profile': profile.__dict__ if profile else None
+        'id':      str(user_id),
+        'email':   user.email,
+        'role':    role.role_type,
+        'profile': profile_data
     }), 200
 
 @app.route('/me', methods=['PATCH'])
@@ -196,22 +218,35 @@ def instructor_profile():
         if not name:
             db.close()
             return jsonify({'error':'Name required'}), 400
+
         prof = create_instructor_profile(db, user_id, name, university)
         db.close()
-        return jsonify(prof.__dict__), 201
+
+        out = {
+            'user_id':  str(prof.user_id),
+            'name':     prof.name,
+            'university': prof.university
+        }
+        return jsonify(out), 201
 
     if request.method == 'GET':
         prof = get_instructor_profile(db, user_id)
         db.close()
         if not prof:
             return jsonify({'error':'Not found'}), 404
-        return jsonify(prof.__dict__), 200
+
+        out = {
+            'user_id':  str(prof.user_id),
+            'name':     prof.name,
+            'university': prof.university
+        }
+        return jsonify(out), 200
 
     if request.method == 'PATCH':
         data = request.get_json() or {}
         updated = update_instructor_profile(db, user_id, **data)
         db.close()
-        return jsonify({'id': str(updated.user_id)}), 200
+        return jsonify({'user_id': str(updated.user_id)}), 200
 
     # DELETE
     delete_instructor_profile(db, user_id)
@@ -464,6 +499,7 @@ def student_profile():
         if not name:
             db.close()
             return jsonify({'error':'Name required'}), 400
+
         prof = create_student_profile(
             db,
             user_id,
@@ -472,20 +508,36 @@ def student_profile():
             want_quizzes
         )
         db.close()
-        return jsonify(prof.__dict__), 201
+
+        out = {
+            'user_id':       str(prof.user_id),
+            'name':          prof.name,
+            'onboard_answers': prof.onboard_answers,
+            'want_quizzes':  prof.want_quizzes,
+            'model_preference': prof.model_preference
+        }
+        return jsonify(out), 201
 
     if request.method == 'GET':
         sp = get_student_profile(db, user_id)
         db.close()
         if not sp:
             return jsonify({'error':'Not found'}), 404
-        return jsonify(sp.__dict__), 200
+
+        out = {
+            'user_id':       str(sp.user_id),
+            'name':          sp.name,
+            'onboard_answers': sp.onboard_answers,
+            'want_quizzes':  sp.want_quizzes,
+            'model_preference': sp.model_preference
+        }
+        return jsonify(out), 200
 
     if request.method == 'PATCH':
         data = request.get_json() or {}
         updated = update_student_profile(db, user_id, **data)
         db.close()
-        return jsonify({'id': str(updated.user_id)}), 200
+        return jsonify({'user_id': str(updated.user_id)}), 200
 
     # DELETE
     delete_student_profile(db, user_id)
