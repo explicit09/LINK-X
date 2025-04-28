@@ -46,7 +46,7 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
 
-app.config['TESTING'] = True
+app.config['TESTING'] = False
 
 cred = credentials.Certificate(os.getenv("FIREBASE_KEY_PATH", "firebaseKey.json"))
 firebase_admin.initialize_app(cred)
@@ -84,6 +84,7 @@ def verify_role(required_role):
 def verify_admin():    return verify_role('admin')
 def verify_instructor(): return verify_role('instructor')
 def verify_student():   return verify_role('student')
+
 
 @app.route('/me', methods=['GET'])
 def me_get():
@@ -1015,13 +1016,13 @@ def save_model_id():
         'model_preference': updated.model_preference
     }), 200
 
-_original_get_user_session = get_user_session
-def _fake_get_user_session():
-    if app.config['TESTING']:
-        return {'uid': '00000000-0000-0000-0000-000000000000'}
-    return _original_get_user_session()
+# _original_get_user_session = get_user_session
+# def _fake_get_user_session():
+#     if app.config['TESTING']:
+#         return {'uid': '00000000-0000-0000-0000-000000000000'}
+#     return _original_get_user_session()
 
-get_user_session = _fake_get_user_session
+# get_user_session = _fake_get_user_session
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8080))

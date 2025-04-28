@@ -1,31 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import Sidebar from "@/components/link-x/DashSidebar";
-import StatisticsCard from "@/components/dashboard/StatisticsCard";
-import MarketTrends from "@/components/dashboard/MarketTrends";
-import CoursesList from "@/components/dashboard/CoursesList";
-import AudioUpload from "@/components/dashboard/AudioUpload";
-import RecentlyCompletedCourses from "@/components/dashboard/RecentCourses";
-import Header from "@/components/link-x/Header";
-import Footer from "@/components/landing/Footer";
 import { cn } from "@/lib/utils";
-import {
-  BookOpen,
-  Clock,
-  TrendingUp,
-  GraduationCap,
-} from "lucide-react";
-import LearnPrompt from "@/components/dashboard/LearnPrompt";
+import Sidebar from "@/components/link-x/DashSidebar";
+import AudioUpload from "@/components/dashboard/AudioUpload";
+import Footer from "@/components/landing/Footer";
+import ProfessorDashboard from "@/components/dashboard/ProfessorDash"; // 🚨 make sure path is correct
+import { getMe } from "@/lib/api"; // ✅ this will be a small API helper you create
 
 export default function Dashboard() {
-  const [search, setSearch] = useState("");
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [role, setRole] = useState<"student" | "instructor" | "admin" | "unknown">("unknown");
+  const router = useRouter();
 
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      try {
+        const user = await getMe();
+        setRole(user.role || "unknown");
+      } catch (error) {
+        console.error("Failed to fetch user:", error);
+        router.push("/login"); // maybe redirect if not logged in
+      }
+    };
+
+    fetchUserRole();
+  }, [router]);
+
+  if (role === "unknown") {
+    // You can show a loading spinner here if you want
+    return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
+  }
+
+  if (role === "instructor") {
+    // ✅ Render Professor Dashboard
+    return <ProfessorDashboard />;
+  }
+
+  // Otherwise, default to Student Dashboard
   return (
     <div className="min-h-screen bg-white text-gray-900 flex">
       <Sidebar onCollapseChange={(value) => setIsCollapsed(value)} />
@@ -33,24 +46,10 @@ export default function Dashboard() {
         <main className={cn("pt-6 transition-all duration-300", isCollapsed ? "px-6 md:px-8 lg:px-12" : "px-4")}>
           <h1 className="text-4xl font-bold mb-4 text-blue-600">Learning Dashboard</h1>
           <h2 className="text-lg font-medium mb-8 text-gray-700">
-            Welcome back to Learn-X! Here's an overview of your  learning journey.
+            Welcome back to Learn-X! Here's an overview of your learning journey.
           </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 my-8">
-            <StatisticsCard title="Courses Completed" value="12" icon={BookOpen} />
-            <StatisticsCard title="Hours Studied" value="87" icon={Clock} />
-            <StatisticsCard title="Community Rank" value="#42" icon={TrendingUp} />
-            <StatisticsCard title="Next Milestone" value="15 courses" icon={GraduationCap} />
-          </div>
 
-          <div className="grid grid-cols-1 gap-6">
-            <LearnPrompt />
-            <CoursesList search={search} setSearch={setSearch} />
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 my-8">
-            <RecentlyCompletedCourses />
-          </div>
+          {/* You can customize this part later for student-only */}
           <div className="grid grid-cols-1 gap-6 my-8">
             <AudioUpload />
           </div>

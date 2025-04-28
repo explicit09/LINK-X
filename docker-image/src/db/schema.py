@@ -17,7 +17,7 @@ from datetime import datetime
 
 Base = declarative_base()
 
-role_enum = ENUM('admin', 'instructor', 'student', name='role_enum', create_type=False)
+role_enum = ENUM('admin', 'instructor', 'student', name='role_enum', create_type=True)
 
 class User(Base):
     __tablename__ = 'User'
