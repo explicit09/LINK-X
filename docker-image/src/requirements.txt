@@ -18,3 +18,4 @@ streamlit>=1.44.0
 PyPDF2
 textract
 tiktoken
+pytest
