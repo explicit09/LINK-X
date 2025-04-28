@@ -2,6 +2,7 @@ import os
 import sys
 import atexit
 import types
+import uuid
 
 # ─── 0) Make docker-image/ & src/ importable ────────────────────────────
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -14,8 +15,8 @@ os.environ["POSTGRES_URL"] = "sqlite:///:memory:"
 # ─── 2) Patch Postgres-specific types to SQLite-friendly ones ──────────
 from sqlalchemy import JSON, LargeBinary
 from sqlalchemy.dialects import postgresql
-postgresql.JSONB  = JSON
-postgresql.BYTEA  = LargeBinary
+postgresql.JSONB = JSON
+postgresql.BYTEA = LargeBinary
 
 # ─── 3) Load .env (for any other vars you need) ─────────────────────────
 from dotenv import load_dotenv
@@ -37,7 +38,7 @@ sys.modules["indexer"] = indexer_stub
 
 # — textUtils / textract
 sys.modules["textUtils"] = types.ModuleType("textUtils")
-sys.modules["textract"]  = types.ModuleType("textract")
+sys.modules["textract"] = types.ModuleType("textract")
 
 # — Firebase credentials + init no-ops
 import firebase_admin
@@ -47,8 +48,10 @@ firebase_admin.initialize_app = lambda *args, **kwargs: None
 
 # — Firebase auth stub
 import firebase_admin.auth as fauth
-fauth.verify_id_token       = lambda token: {"uid": token}
-fauth.verify_session_cookie = lambda cookie, check_revoked=True: {"uid": cookie}
+fauth.verify_id_token = lambda token: {"uid": token}
+fauth.verify_session_cookie = lambda cookie, check_revoked=True: {
+    "uid": uuid.UUID(cookie)
+}
 
 # ─── 6) Import your real Flask app & metadata ──────────────────────────
 from src.app import app, Base, engine
@@ -69,5 +72,6 @@ def client():
 
 @pytest.fixture
 def auth_client(client):
-    client.set_cookie("localhost", "session", "test-uid")
+    # set session cookie to a valid UUID string
+    client.set_cookie("session", str(uuid.uuid4()))
     return client
