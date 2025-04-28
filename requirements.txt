@@ -12,10 +12,11 @@ chromadb>=0.4.22
 PyPDF2>=3.0.0
 python-magic>=0.4.27
 python-magic-bin>=0.4.14; platform_system == 'Windows'
+textract
+tiktoken
 
 # Embeddings
 transformers>=4.36.0
-torch>=2.2.0
 sentence-transformers>=2.3.1
 
 # Data Processing
@@ -32,7 +33,3 @@ streamlit>=1.31.0
 
 # Progress Bars
 tqdm>=4.66.1
-
-# Optional but recommended
-nvidia-cuda-runtime; platform_system != 'Darwin'  # For GPU support
-nvidia-cudnn; platform_system != 'Darwin'  # For GPU support 

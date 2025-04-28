@@ -14,6 +14,7 @@ import { auth } from "@/firebaseconfig";
 
 export default function Page() {
   const router = useRouter();
+  const API = process.env.NEXT_PUBLIC_API_BASE_URL;
 
   const [email, setEmail] = useState("");
   const [isSuccessful, setIsSuccessful] = useState(false);
@@ -43,7 +44,7 @@ export default function Page() {
       );
       const token = await userCredential.user.getIdToken();
 
-      const sessionRes = await fetch("http://localhost:8080/sessionLogin", {
+      const sessionRes = await fetch(`${API}/sessionLogin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

@@ -19,6 +19,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/.env ./  
 COPY src/firebaseKey.json ./
 COPY src/prompts.py ./
+COPY src/textUtils.py ./
+COPY src/indexer.py ./
+COPY src/transcriber.py ./
 
 # COPY src/item_04_retriever_FAISS.py ./
 
