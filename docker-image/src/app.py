@@ -19,6 +19,7 @@ import json
 from transcriber import transcribe_audio
 import hashlib
 import tempfile
+import shutil
 
 from src.prompts import (
     prompt1_create_course,
@@ -433,7 +434,12 @@ def chat_with_persona():
             with open(os.path.join(tmp_idx_dir, "index.pkl"), "wb") as idx_pkl:
                 idx_pkl.write(pkl_bytes)
 
+            # Generate response using the temp directory
             response = prompt3_generate_module_content_RAG(full_persona, expertise_summary, user_message, tmp_idx_dir)
+
+            # After generating response, remove temp directory and all files in it
+            shutil.rmtree(tmp_root)
+            
         #SAVE COURSE CONTENT BROKEN RN
         # if course_id and user_message:
         #     db = Session()
