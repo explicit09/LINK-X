@@ -79,7 +79,7 @@ def cascading_LLM_response(query, faiss_index_path, threshold=2):
     faiss_retriever = vectordb.as_retriever(search_kwargs={"k" : 4})
 
     # Query FAISS first
-    faiss_docs = faiss_retriever.get_relevant_documents(query)
+    faiss_docs = faiss_retriever.invoke(query)
 
     # Check if we got enough good documents
     if len(faiss_docs) >= threshold:
