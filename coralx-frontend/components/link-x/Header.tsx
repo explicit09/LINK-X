@@ -35,7 +35,7 @@ const Header = ({ showAuthButton = true, isLoggedIn }: HeaderProps) => {
         <div className="flex justify-between items-center w-full h-full">
           <Link href="/" className="flex items-center h-full relative">
             <Image
-              src={"/images/Logo-light.png"} // Make sure to provide a light-compatible logo
+              src={"/images/LearnXLogo.png"} // Make sure to provide a light-compatible logo
               alt="Link-X Logo"
               width={288}
               height={197}

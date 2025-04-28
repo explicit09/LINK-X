@@ -204,7 +204,7 @@ const Settings = () => {
       <Header isLoggedIn={true} />
       <div className="max-w-[900px] mx-auto w-full mb-12">
         <div className="mb-8 flex items-center">
-          <Link href="/dashboard" className="flex items-center text-gray-300 hover:text-blue-400 mr-4">
+          <Link href="/dashboard" className="flex items-center text-black hover:text-blue-400 mr-4">
             <ArrowLeft size={20} className="mr-2" />
             Dashboard
           </Link>

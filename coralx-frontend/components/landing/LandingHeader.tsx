@@ -52,7 +52,7 @@ const LandingHeader = () => {
       <div className="w-full flex items-center justify-between px-6">
         <Link href="/" className="flex items-center">
           <Image
-            src="/images/Logo-light.png" // swap to light-friendly logo
+            src="/images/LearnXLogo.png" // swap to light-friendly logo
             alt="Link-X Logo"
             width={288}
             height={197}
