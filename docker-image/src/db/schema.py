@@ -12,6 +12,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.dialects.postgresql import UUID, BYTEA, ENUM, JSONB
+from pgvector.sqlalchemy import Vector
 import uuid
 from datetime import datetime
 
@@ -86,6 +87,7 @@ class Course(Base):
     instructor_id = Column(UUID(as_uuid=True),
                            ForeignKey('InstructorProfile.user_id', ondelete='CASCADE'),
                            nullable=False)
+    embedding = Column(Vector(1536)) 
 
     instructor_profile = relationship('InstructorProfile', back_populates='courses')
     modules = relationship('Module', back_populates='course')
