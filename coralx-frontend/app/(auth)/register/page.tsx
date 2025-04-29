@@ -23,7 +23,7 @@ export default function Page() {
   const API = process.env.NEXT_PUBLIC_API_BASE_URL;
 
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"student" | "educator">("student");
+  const [role, setRole] = useState<"student" | "instructor">("student");
   const [name, setName] = useState("");
   const [university, setUniversity] = useState("");
   const [state, setState] = useState<
@@ -70,7 +70,7 @@ export default function Page() {
       let signupUrl = "";
       if (role == "student") {
         signupUrl = "http://localhost:8080/register/student";
-      } else if (role == "educator") {
+      } else if (role == "instructor") {
         signupUrl = "http://localhost:8080/register/instructor";
       } else {
         setState("invalid_data");
@@ -85,7 +85,7 @@ export default function Page() {
       };
 
       // if instructor, include name + university
-      if (role === "educator") {
+      if (role === "instructor") {
         bodyData.name = formData.get("name");
         bodyData.university = formData.get("university");
       }
@@ -165,7 +165,7 @@ export default function Page() {
           </div>
 
           {/* ✅ Show these fields ONLY if Educator selected */}
-          {role === "educator" && (
+          {role === "instructor" && (
             <div className="flex flex-col gap-2">
               <p className="text-zinc-600 text-sm font-normal dark:text-zinc-400">
               Full Name
