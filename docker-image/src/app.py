@@ -612,8 +612,8 @@ def student_profile():
     if request.method == 'POST':
         data = request.get_json() or {}
         name            = data.get('name')
-        onboard_answers = data.get('onboard_answers', {})
-        want_quizzes    = data.get('want_quizzes', False)
+        onboard_answers = data.get('onboard_answers')
+        want_quizzes    = data.get('want_quizzes')
         if not name:
             db.close()
             return jsonify({'error':'Name required'}), 400

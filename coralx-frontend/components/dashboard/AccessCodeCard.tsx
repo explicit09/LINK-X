@@ -14,20 +14,34 @@ const AccessCodeCard = () => {
 
   const handleAccessCodeSubmit = async () => {
     setIsLoading(true);
-
+  
     try {
-      console.log("Access Code Submitted:", accessCode);
-      // Simulate a request (you would replace this with your real API call)
-      await new Promise((resolve) => setTimeout(resolve, 1500)); //Remove when functionality is added
-
-      // Clear the input after success
-      setAccessCode("");
+      const response = await fetch("http://localhost:8080/student/enrollments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include", // important for cookies/session auth
+        body: JSON.stringify({ accessCode }),
+      });
+  
+      const data = await response.json();
+  
+      if (!response.ok) {
+        // Backend responded with an error
+        alert(data.error || "Failed to enroll.");
+      } else {
+        alert("Enrollment successful!");
+        setAccessCode("");
+      }
     } catch (error) {
       console.error("Failed to submit access code:", error);
+      alert("Network error or server is down.");
     } finally {
       setIsLoading(false);
     }
   };
+  
 
   return (
     <div
