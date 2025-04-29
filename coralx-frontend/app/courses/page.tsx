@@ -37,7 +37,7 @@ export default function Dashboard() {
           
           <div className="grid grid-cols-1 gap-6">
             <AccessCodeCard />
-            <LearnPrompt />
+            {/* <LearnPrompt /> */}
             <CoursesList search={search} setSearch={setSearch} />
           </div>
 

@@ -38,12 +38,12 @@ export default function StudentDash() {
           </h2>
 
           <div className="grid grid-cols-1 gap-6">
-            <LearnPrompt />
+            {/* <LearnPrompt /> */}
             <CoursesGrid search={search} setSearch={setSearch} />
           </div>
 
           <div className="grid grid-cols-1 gap-6 my-8">
-            <AudioUpload />
+            {/* <AudioUpload /> */}
           </div>
 
           <Footer />
