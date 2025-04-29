@@ -24,6 +24,8 @@ export default function Page() {
 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"student" | "educator">("student");
+  const [name, setName] = useState("");
+  const [university, setUniversity] = useState("");
   const [state, setState] = useState<
     "idle" | "in_progress" | "success" | "failed" | "user_exists" | "invalid_data"
   >("idle");
@@ -61,52 +63,75 @@ export default function Page() {
         formData.get("email") as string,
         formData.get("password") as string
       );
-      const idToken = await userCredential.user.getIdToken();
-      localStorage.setItem("token", idToken);
 
-      await new Promise<void>(resolve => setTimeout(resolve, 1000));
+      const token = await userCredential.user.getIdToken();
+      localStorage.setItem("token", token);
 
-      const registerEndpoint =
-        role === "student" ? "register/student" : "register/professor";
-
-      const resp = await fetch(`http://localhost:8080/${registerEndpoint}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: formData.get("email"),
-          password: formData.get("password"),
-          idToken,
-        }),
-      });
-      if (!resp.ok) {
-        const err = await resp.json();
-        console.error("Postgres register error:", err.error);
-        setState("failed");
+      let signupUrl = "";
+      if (role == "student") {
+        signupUrl = "http://localhost:8080/register/student";
+      } else if (role == "educator") {
+        signupUrl = "http://localhost:8080/register/instructor";
+      } else {
+        setState("invalid_data");
+        toast.error("Please select Student or Educator.");
         return;
       }
 
-      const loginResp = await fetch(`${API}/sessionLogin`, {
+      const bodyData: any = {
+        email: formData.get("email"),
+        password: formData.get("password"),
+        idToken: token,
+      };
+
+      // if instructor, include name + university
+      if (role === "educator") {
+        bodyData.name = formData.get("name");
+        bodyData.university = formData.get("university");
+      }
+
+      const postgresResponse = await fetch(signupUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyData),
+      });
+
+      if (!postgresResponse.ok) {
+        const errorData = await postgresResponse.json();
+        console.error("Postgres user creation error:", errorData.error);
+        setState("failed");
+        toast.error("Failed to create Postgres user record");
+        return;
+      }
+
+      const loginResponse = await fetch("http://localhost:8080/sessionLogin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ idToken }),
+        body: JSON.stringify({ idToken: token }),
       });
-      if (!loginResp.ok) {
-        const err = await loginResp.json();
-        console.error("sessionLogin error:", err.error);
+
+      if (!loginResponse.ok) {
+        const errorData = await loginResponse.json();
+        console.error("Session login error:", errorData.error);
         setState("failed");
+        toast.error("Failed to set session cookie.");
         return;
       }
 
       setState("success");
+      router.push("/onboarding");
     } catch (error: any) {
-      console.error("Registration Error:", error);
+      console.error("Registration Error:", error.message);
       if (error.code === "auth/email-already-in-use") {
         setState("user_exists");
+        toast.error("Email is already registered!");
       } else if (error.code === "auth/weak-password") {
         setState("invalid_data");
+        toast.error("Password is too weak!");
       } else {
         setState("failed");
+        toast.error("Failed to create account.");
       }
     }
   };
@@ -116,13 +141,10 @@ export default function Page() {
       <Header isLoggedIn={false} showAuthButton={false} />
       <div className="w-full max-w-md overflow-hidden rounded-2xl gap-12 flex flex-col">
         <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
-          <h3 className="text-xl font-semibold dark:text-zinc-50">Sign Up</h3>
-          <p className="text-sm text-gray-500 dark:text-zinc-400">
-            Create an account with your email and password
-          </p>
+          <h3 className="text-xl font-semibold dark:text-blue-400">Sign Up</h3>
         </div>
+
         <AuthForm action={handleSubmit} defaultEmail={email}>
-          {/* Role dropdown */}
           <div className="flex flex-col gap-2">
             <p className="text-zinc-600 text-sm font-normal dark:text-zinc-400">
               I am a
@@ -134,12 +156,42 @@ export default function Page() {
               >
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-zinc-800 border border-input text-sm rounded-md shadow-md">
+              <SelectContent className="bg-white border border-input text-sm rounded-md shadow-md">
                 <SelectItem value="student">Student</SelectItem>
                 <SelectItem value="educator">Educator</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {/* ✅ Show these fields ONLY if Educator selected */}
+          {role === "educator" && (
+            <div className="flex flex-col gap-2">
+              <p className="text-zinc-600 text-sm font-normal dark:text-zinc-400">
+              Full Name
+            </p>
+              <input
+                type="text"
+                name="name"
+                placeholder=""
+                className="bg-muted text-md md:text-sm rounded-md border border-input px-3 py-2"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+              <p className="text-zinc-600 text-sm font-normal dark:text-zinc-400">
+              University Name
+            </p>
+              <input
+                type="text"
+                name="university"
+                placeholder=""
+                className="bg-muted text-md md:text-sm rounded-md border border-input px-3 py-2"
+                value={university}
+                onChange={(e) => setUniversity(e.target.value)}
+                required
+              />
+            </div>
+          )}
 
           <SubmitButton isSuccessful={state === "success"}>
             Sign Up
@@ -149,7 +201,7 @@ export default function Page() {
             Already have an account?{" "}
             <Link
               href="/login"
-              className="font-semibold text-gray-800 hover:underline dark:text-zinc-200"
+              className="font-semibold text-blue-400 hover:underline dark:text-blue-400"
             >
               Sign in
             </Link>
