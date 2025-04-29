@@ -4,6 +4,8 @@ import tempfile
 import pickle
 import faiss
 import numpy as np
+import tempfile
+import shutil
 from datetime import datetime
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
@@ -17,6 +19,7 @@ from openai import OpenAI
 from transcriber import transcribe_audio
 from indexer import rebuild_course_index
 from io import BytesIO
+
 
 from src.db.queries import (
     # User & Role
@@ -40,7 +43,14 @@ from src.db.queries import (
     get_report_by_id, get_reports_by_course, create_report, update_report, delete_report
 )
 
+from src.prompts import (
+    prompt1_create_course,
+    prompt2_generate_course_outline, prompt2_generate_course_outline_RAG,
+    prompt3_generate_module_content, prompt3_generate_module_content_RAG, 
+    prompt4_valid_query
+)
 
+from FAISS_db_generation import create_database, generate_citations, replace_sources, file_cleanup
 
 load_dotenv()
 app = Flask(__name__)
@@ -641,7 +651,89 @@ def generate_personalized_file_content():
     if err:
         return err
     # TODO: hook into your AI pipeline; stub for now
-    return jsonify({'error': 'Not implemented'}), 501
+    # return jsonify({'error': 'Not implemented'}), 501
+    
+    # Read and validate JSON body
+    data = request.get_json()
+    name = data.get("name")
+    user_message = data.get("message")
+    profile = data.get("userProfile", {})
+    raw_expertise = data.get("expertise")
+    course_id = data.get("courseId")
+
+    if not user_message:
+        return jsonify({"error": "Message is required"}), 400
+
+    expertise_map = {
+        "beginner": "They prefer simple, clear explanations suitable for someone new to the topic.",
+        "intermediate": "They have some prior experience and prefer moderate technical depth.",
+        "advanced": "They want in-depth explanations with technical language.",
+    }
+
+    expertise = str(raw_expertise).lower() if raw_expertise else "beginner"
+    expertise_summary = expertise_map.get(expertise, expertise_map["beginner"])
+
+    persona = []
+
+    if name:
+        persona.append(f'The user’s name is **{name}**')
+    if profile.get("role"):
+        persona.append(f'they are a **{profile["role"]}**')
+    if profile.get("traits"):
+        persona.append(f'they like their assistant to be **{profile["traits"]}**')
+    if profile.get("learningStyle"):
+        persona.append(f'their preferred learning style is **{profile["learningStyle"]}**')
+    if profile.get("depth"):
+        persona.append(f'they prefer **{profile["depth"]}-level** explanations')
+    if profile.get("interests"):
+        persona.append(f'they’re interested in **{profile["interests"]}**')
+    if profile.get("personalization"):
+        persona.append(f'they enjoy **{profile["personalization"]}**')
+    if profile.get("schedule"):
+        persona.append(f'they study best **{profile["schedule"]}**')
+
+    full_persona = ". ".join(persona)
+
+    faiss_bytes = None
+    pkl_bytes = None
+
+    # Check for index.faiss and index.pkl bytes on the database
+    if course_id:
+        db_session = Session()
+        try:
+            course = get_course_by_id(db_session, course_id)
+            if course: 
+                faiss_bytes = course.index
+                pkl_bytes = course.pkl
+        except Exception as e:
+            print(f"Error fetching course for ID {course_id}: {e}")
+        finally:
+            db_session.close()
+    try:
+        if faiss_bytes is None or pkl_bytes is None:
+            response = prompt3_generate_module_content(full_persona, expertise_summary, user_message)
+        else:
+            tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{course_id}_")
+            tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
+            os.makedirs(tmp_idx_dir, exist_ok=True)
+
+            with open(os.path.join(tmp_idx_dir, "index.faiss"), "wb") as idx_faiss:
+                idx_faiss.write(faiss_bytes)
+            with open(os.path.join(tmp_idx_dir, "index.pkl"), "wb") as idx_pkl:
+                idx_pkl.write(pkl_bytes)
+
+            # Generate response using the temp directory
+            response = prompt3_generate_module_content_RAG(full_persona, expertise_summary, user_message, tmp_idx_dir)
+
+            # After generating response, remove temp directory and all files in it
+            shutil.rmtree(tmp_root)
+            
+        # TODO: SAVE COURSE CONTENT TO DATABASE
+
+        return jsonify({"response": response}), 200
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/student/personalized-files/<pf_id>', methods=['GET'])
 def student_get_pfile(pf_id):
