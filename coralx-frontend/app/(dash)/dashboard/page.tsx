@@ -8,6 +8,7 @@ import AudioUpload from "@/components/dashboard/AudioUpload";
 import Footer from "@/components/landing/Footer";
 import ProfessorDashboard from "@/components/dashboard/ProfessorDash"; // 🚨 make sure path is correct
 import { getMe } from "@/lib/api"; // ✅ this will be a small API helper you create
+import StudentDashboard from "@/components/dashboard/StudentDash";
 
 export default function Dashboard() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -29,13 +30,18 @@ export default function Dashboard() {
   }, [router]);
 
   if (role === "unknown") {
-    // You can show a loading spinner here if you want
+   
     return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
   }
 
   if (role === "instructor") {
-    // ✅ Render Professor Dashboard
+   
     return <ProfessorDashboard />;
+  }
+
+  if (role === "student") {
+   
+    return <StudentDashboard />;
   }
 
   // Otherwise, default to Student Dashboard

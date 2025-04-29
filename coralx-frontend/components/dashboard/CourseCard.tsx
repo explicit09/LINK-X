@@ -40,7 +40,6 @@ export function CourseCard({
   return (
     // <Card className="overflow-hidden glass-effect border-2 border-white/20"> -----> Old one less border
     <Card className="flex flex-col justify-between h-full overflow-hidden rounded-xl shadow-md bg-white">
-
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
