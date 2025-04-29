@@ -44,34 +44,37 @@ export default function OnboardingPage() {
   const handleSubmit = async () => {
     const payload = {
       name: formData.name,
-      answers: [
-        formData.job,
-        formData.traits,
-        formData.learningStyle,
-        formData.depth,
-        formData.topics,
-        formData.interests,
-        formData.schedule,
-      ],
-      quizzes: formData.quizzes,
+      onboard_answers: {
+        job: formData.job,
+        traits: formData.traits,
+        learningStyle: formData.learningStyle,
+        depth: formData.depth,
+        topics: formData.topics,
+        interests: formData.interests,
+        schedule: formData.schedule,
+      },
+      want_quizzes: formData.quizzes,
     };
-
+  
     try {
-      const res = await fetch(`${API_URL}/onboarding`, {
+      const res = await fetch(`http://localhost:8080/student/profile`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(payload),
       });
+  
       if (!res.ok) {
         console.error("Failed to save onboarding:", await res.text());
         return;
       }
+  
       router.push("/dashboard");
     } catch (err) {
       console.error("Error saving onboarding:", err);
     }
   };
+  
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen text-gray-900 bg-gray-100 p-6">
