@@ -86,19 +86,20 @@ def verify_instructor(): return verify_role('instructor')
 def verify_student():   return verify_role('student')
 
 
+
 @app.route('/me', methods=['GET'])
 def me_get():
     session = get_user_session()
     if 'error' in session:
         return jsonify(session), 401
 
-    user_id = session['uid']
+    firebase_uid = session['uid']
     db = Session()
-    user = get_user_by_id(db, user_id)
-    role = get_role_by_user_id(db, user_id)
+    user = get_user_by_firebase_uid(db, firebase_uid)
+    role = get_role_by_user_id(db, user.id)
     profile_data = None
     if role.role_type == 'instructor':
-        prof = get_instructor_profile(db, user_id)
+        prof = get_instructor_profile(db, user.id)
         if prof:
             profile_data = {
                 'user_id':     str(prof.user_id),
@@ -106,7 +107,7 @@ def me_get():
                 'university':  prof.university
             }
     elif role.role_type == 'student':
-        prof = get_student_profile(db, user_id)
+        prof = get_student_profile(db, user.id)
         if prof:
             profile_data = {
                 'user_id':          str(prof.user_id),
@@ -116,7 +117,7 @@ def me_get():
                 'model_preference': prof.model_preference
             }
     elif role.role_type == 'admin':
-        prof = get_admin_profile(db, user_id)
+        prof = get_admin_profile(db, user.id)
         if prof:
             profile_data = {
                 'user_id': str(prof.user_id),
@@ -126,11 +127,57 @@ def me_get():
     db.close()
 
     return jsonify({
-        'id':      str(user_id),
+        'id':      str(user.id),
         'email':   user.email,
         'role':    role.role_type,
         'profile': profile_data
     }), 200
+
+# @app.route('/me', methods=['GET'])
+# def me_get():
+#     session = get_user_session()
+#     if 'error' in session:
+#         return jsonify(session), 401
+
+#     user_id = session['uid']
+#     db = Session()
+#     user = get_user_by_id(db, user_id)
+#     role = get_role_by_user_id(db, user_id)
+#     profile_data = None
+#     if role.role_type == 'instructor':
+#         prof = get_instructor_profile(db, user_id)
+#         if prof:
+#             profile_data = {
+#                 'user_id':     str(prof.user_id),
+#                 'name':        prof.name,
+#                 'university':  prof.university
+#             }
+#     elif role.role_type == 'student':
+#         prof = get_student_profile(db, user_id)
+#         if prof:
+#             profile_data = {
+#                 'user_id':          str(prof.user_id),
+#                 'name':             prof.name,
+#                 'onboard_answers':  prof.onboard_answers,
+#                 'want_quizzes':     prof.want_quizzes,
+#                 'model_preference': prof.model_preference
+#             }
+#     elif role.role_type == 'admin':
+#         prof = get_admin_profile(db, user_id)
+#         if prof:
+#             profile_data = {
+#                 'user_id': str(prof.user_id),
+#                 'name':    prof.name
+#             }
+
+#     db.close()
+
+#     return jsonify({
+#         'id':      str(user_id),
+#         'email':   user.email,
+#         'role':    role.role_type,
+#         'profile': profile_data
+#     }), 200
 
 @app.route('/me', methods=['PATCH'])
 def me_patch():

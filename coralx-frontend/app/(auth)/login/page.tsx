@@ -79,7 +79,7 @@ export default function Page() {
       <Header isLoggedIn={false} showAuthButton={false} />
       <div className="w-full max-w-md overflow-hidden rounded-2xl flex flex-col gap-12">
         <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
-          <h3 className="text-xl font-semibold dark:text-zinc-50">Sign In</h3>
+          <h3 className="text-xl font-semibold dark:text-blue-400">Sign In</h3>
           <p className="text-sm text-gray-500 dark:text-zinc-400">
             Use your email and password to sign in
           </p>
@@ -93,7 +93,7 @@ export default function Page() {
             {"Don't have an account? "}
             <Link
               href="/register"
-              className="font-semibold text-gray-800 hover:underline dark:text-zinc-200"
+              className="font-semibold text-gray-800 hover:underline dark:text-blue-400"
             >
               Sign up
             </Link>

@@ -1,5 +1,5 @@
 export async function getMe() {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080"}/me`, {
+    const res = await fetch(`${"http://localhost:8080"}/me`, {
       method: "GET",
       credentials: "include",
     });

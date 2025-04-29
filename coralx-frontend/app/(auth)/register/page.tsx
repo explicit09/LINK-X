@@ -156,7 +156,7 @@ export default function Page() {
               >
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-zinc-800 border border-input text-sm rounded-md shadow-md">
+              <SelectContent className="bg-white border border-input text-sm rounded-md shadow-md">
                 <SelectItem value="student">Student</SelectItem>
                 <SelectItem value="educator">Educator</SelectItem>
               </SelectContent>
