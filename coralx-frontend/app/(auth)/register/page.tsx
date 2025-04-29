@@ -48,7 +48,7 @@ export default function Page() {
   }, [state, router, role]);
 
   const handleChange = (value: string) => {
-    if (value === "student" || value === "educator") {
+    if (value === "student" || value === "instructor") {
       setRole(value);
     }
   };
@@ -103,6 +103,7 @@ export default function Page() {
         toast.error("Failed to create Postgres user record");
         return;
       }
+      console.log("success")
 
       const loginResponse = await fetch("http://localhost:8080/sessionLogin", {
         method: "POST",
@@ -158,7 +159,7 @@ export default function Page() {
               </SelectTrigger>
               <SelectContent className="bg-white border border-input text-sm rounded-md shadow-md">
                 <SelectItem value="student">Student</SelectItem>
-                <SelectItem value="educator">Educator</SelectItem>
+                <SelectItem value="instructor">Educator</SelectItem>
               </SelectContent>
             </Select>
           </div>
