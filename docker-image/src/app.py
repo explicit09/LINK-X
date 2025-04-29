@@ -20,7 +20,7 @@ from io import BytesIO
 
 from src.db.queries import (
     # User & Role
-    get_access_code_by_id, get_enrollment, get_user_by_id, get_user_by_email, get_user_by_firebase_uid,
+    get_access_code_by_course, get_access_code_by_id, get_enrollment, get_user_by_id, get_user_by_email, get_user_by_firebase_uid,
     create_user, update_user, delete_user,
     get_role_by_user_id, set_role,
     # Profiles
@@ -341,17 +341,24 @@ def instructor_manage_course(course_id):
 @app.route('/instructor/courses/<course_id>/accesscodes', methods=['POST','GET'])
 def instructor_accesscodes(course_id):
     user_id, err = verify_instructor()
-    if err: return err
+    if err: 
+        return err
+
     db = Session()
     c = get_course_by_id(db, course_id)
-    if not c or str(c.instructor_id)!=str(user_id):
-        db.close(); return jsonify({'error':'Forbidden'}), 403
+    if not c or str(c.instructor_id) != str(user_id):
+        db.close()
+        return jsonify({'error':'Forbidden'}), 403
+
     if request.method == 'POST':
         code = uuid.uuid4().hex[:8]
         ac = create_access_code(db, course_id=course_id, code=code)
-        db.close(); return jsonify({'id':str(ac.id), 'code':ac.code}), 201
-    acs = get_access_code_by_code(db, course_id)
-    db.close(); return jsonify([{'id':str(a.id),'code':a.code} for a in acs]), 200
+        db.close()
+        return jsonify({'id':str(ac.id), 'code':ac.code}), 201
+
+    acs = get_access_code_by_course(db, course_id)
+    db.close()
+    return jsonify([{'id':str(a.id),'code':a.code} for a in acs]), 200
 
 @app.route('/instructor/accesscodes/<code_id>', methods=['DELETE'])
 def instructor_delete_accesscode(code_id):
