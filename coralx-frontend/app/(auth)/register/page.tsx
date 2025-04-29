@@ -23,7 +23,7 @@ export default function Page() {
   const API = process.env.NEXT_PUBLIC_API_BASE_URL;
 
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"student" | "educator">("student");
+  const [role, setRole] = useState<"student" | "instructor">("student");
   const [state, setState] = useState<
     "idle" | "in_progress" | "success" | "failed" | "user_exists" | "invalid_data"
   >("idle");
@@ -46,7 +46,7 @@ export default function Page() {
   }, [state, router, role]);
 
   const handleChange = (value: string) => {
-    if (value === "student" || value === "educator") {
+    if (value === "student" || value === "instructor") {
       setRole(value);
     }
   };
@@ -67,9 +67,9 @@ export default function Page() {
       await new Promise<void>(resolve => setTimeout(resolve, 1000));
 
       const registerEndpoint =
-        role === "student" ? "register/student" : "register/professor";
-
-      const resp = await fetch(`http://localhost:8080/${registerEndpoint}`, {
+        role === "student" ? "register/student" : "register/instructor";
+      console.log("${API}/${registerEndpoint}")
+      const resp = await fetch("http://localhost:8080/register/student", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -84,8 +84,9 @@ export default function Page() {
         setState("failed");
         return;
       }
+      console.log("success")
 
-      const loginResp = await fetch(`${API}/sessionLogin`, {
+      const loginResp = await fetch("http://localhost:8080/sessionLogin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -136,7 +137,7 @@ export default function Page() {
               </SelectTrigger>
               <SelectContent className="bg-white dark:bg-zinc-800 border border-input text-sm rounded-md shadow-md">
                 <SelectItem value="student">Student</SelectItem>
-                <SelectItem value="educator">Educator</SelectItem>
+                <SelectItem value="instructor">Educator</SelectItem>
               </SelectContent>
             </Select>
           </div>
