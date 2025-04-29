@@ -68,17 +68,40 @@ def get_user_session():
         return {'error': str(e)}
 
 
+
 def verify_role(required_role):
     session = get_user_session()
     if 'error' in session:
         return None, (jsonify(session), 401)
-    user_id = session['uid']
+
+    firebase_uid = session['uid']
+
     db = Session()
-    role = get_role_by_user_id(db, user_id)
+    user = get_user_by_firebase_uid(db, firebase_uid)
+    if not user:
+        db.close()
+        return None, (jsonify({'error': 'User not found'}), 404)
+
+    role = get_role_by_user_id(db, user.id) 
     db.close()
+
     if not role or role.role_type != required_role:
         return None, (jsonify({'error': 'Forbidden'}), 403)
-    return user_id, None
+
+    return user.id, None
+
+
+# def verify_role(required_role):
+#     session = get_user_session()
+#     if 'error' in session:
+#         return None, (jsonify(session), 401)
+#     user_id = session['uid']
+#     db = Session()
+#     role = get_role_by_user_id(db, user_id)
+#     db.close()
+#     if not role or role.role_type != required_role:
+#         return None, (jsonify({'error': 'Forbidden'}), 403)
+#     return user_id, None
 
 
 def verify_admin():    return verify_role('admin')
@@ -220,14 +243,19 @@ def register_instructor():
 
     email = data.get('email')
     pwd   = data.get('password')
-    if not email or not pwd:
-        return jsonify({'error':'Email and password required'}), 400
+    name = data.get("name")
+    university = data.get("university")
+
+    if not email or not pwd or not name:
+        return jsonify({'error':'Email, password, and name required'}), 400
 
     db = Session()
     user = create_user(db, email, pwd, firebase_uid, 'instructor')
+    create_instructor_profile(db, user.id, name, university)
     db.close()
 
     return jsonify({'id': str(user.id), 'email': user.email}), 201
+
 
 @app.route('/register/student', methods=['POST'])
 def register_student():
@@ -307,18 +335,53 @@ def instructor_profile():
 @app.route('/instructor/courses', methods=['POST', 'GET'])
 def instructor_courses():
     user_id, err = verify_instructor()
-    if err: return err
+    if err: 
+        return err
     db = Session()
+
     if request.method == 'POST':
         data = request.get_json() or {}
-        c = create_course(db, data['title'], data.get('description',''), user_id)
-        code = uuid.uuid4().hex[:8]
-        create_access_code(db, course_id=c.id, code=code)
+        title = data.get('title')
+        description = data.get('description', '')
+        code = data.get('code')          
+        term = data.get('term')  
+        published = data.get('published', False)        
+
+    
+        c = create_course(
+            db,
+            title=title,
+            description=description,
+            instructor_id=user_id,
+            code=code,
+            term=term,
+            published=published,
+        )
+
+        access_code = uuid.uuid4().hex[:8]
+        create_access_code(db, course_id=c.id, code=access_code)
+
         db.close()
-        return jsonify({'id': str(c.id), 'accessCode': code}), 201
+        return jsonify({'id': str(c.id), 'accessCode': access_code}), 201
+
+    # GET request
     courses = get_courses_by_instructor_id(db, user_id)
     db.close()
-    return jsonify([{'id':str(c.id), 'title':c.title} for c in courses]), 200
+    return jsonify([
+    {
+        'id': str(c.id),
+        'title': c.title,
+        'description': c.description,
+        'code': c.code,
+        'term': c.term,
+        'published': c.published,
+        'last_updated': c.last_updated.isoformat() if c.last_updated else None
+    }
+    for c in courses
+]), 200
+
+
+
 
 @app.route('/instructor/courses/<course_id>', methods=['GET','PATCH','DELETE'])
 def instructor_manage_course(course_id):
