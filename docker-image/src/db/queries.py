@@ -256,15 +256,19 @@ def get_courses_by_student_id(db: Session, user_id: str):
 
 
 def create_course(db: Session, title: str, description: str, instructor_id: str,
-                  index_pkl: bytes = None, index_faiss: bytes = None):
+                  code: str = None, term: str = None,
+                  published: bool = False, index_pkl: bytes = None, index_faiss: bytes = None):
     if isinstance(instructor_id, str):
         instructor_id = uuid.UUID(instructor_id)
     c = Course(
         title=title,
         description=description,
+        code=code,
+        term=term,
+        published=published,
         instructor_id=instructor_id,
         index_pkl=index_pkl,
-        index_faiss=index_faiss
+        index_faiss=index_faiss,
     )
     db.add(c)
     db.commit()
@@ -272,11 +276,12 @@ def create_course(db: Session, title: str, description: str, instructor_id: str,
     return c
 
 
+
 def update_course(db: Session, course_id: str, **kwargs):
     c = get_course_by_id(db, course_id)
     if not c:
         return None
-    for key in ('title', 'description', 'index_pkl', 'index_faiss'):
+    for key in ('title', 'description', 'code', 'term', 'index_pkl', 'index_faiss', 'published'):
         if key in kwargs:
             setattr(c, key, kwargs[key])
     db.commit()
@@ -284,11 +289,15 @@ def update_course(db: Session, course_id: str, **kwargs):
     return c
 
 
+
+
 def delete_course(db: Session, course_id: str):
+    db.query(AccessCode).filter(AccessCode.course_id == course_id).delete()
     c = get_course_by_id(db, course_id)
     if c:
         db.delete(c)
-        db.commit()
+    db.commit()
+
 
 # --- Module CRUD ---
 
