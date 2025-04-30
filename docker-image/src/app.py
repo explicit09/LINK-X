@@ -20,7 +20,6 @@ from transcriber import transcribe_audio
 from indexer import rebuild_course_index
 from io import BytesIO
 
-
 from src.db.queries import (
     # User & Role
     get_access_code_by_course, get_access_code_by_id, get_enrollment, get_user_by_id, get_user_by_email, get_user_by_firebase_uid,
@@ -650,9 +649,9 @@ def generate_personalized_file_content():
     user_id, err = verify_student()
     if err:
         return err
-    # TODO: hook into your AI pipeline; stub for now
-    # return jsonify({'error': 'Not implemented'}), 501
     
+    # TODO: Verify the functionality compared to the old /chatwithpersona
+
     # Read and validate JSON body
     data = request.get_json()
     name = data.get("name")
@@ -728,7 +727,7 @@ def generate_personalized_file_content():
             # After generating response, remove temp directory and all files in it
             shutil.rmtree(tmp_root)
             
-        # TODO: SAVE COURSE CONTENT TO DATABASE
+        # TODO: SAVE PERSOANLIZED CONTENT TO DATABASE
 
         return jsonify({"response": response}), 200
     
