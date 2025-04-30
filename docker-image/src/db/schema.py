@@ -18,7 +18,7 @@ from datetime import datetime
 
 Base = declarative_base()
 
-role_enum = ENUM('admin', 'instructor', 'student', name='role_enum', create_type=False)
+role_enum = ENUM('admin', 'instructor', 'student', name='role_enum', create_type=True)
 
 class User(Base):
     __tablename__ = 'User'
@@ -81,6 +81,10 @@ class Course(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(String(128), nullable=False)
     description = Column(Text)
+    code = Column(String(32), nullable=True)      
+    term = Column(String(32), nullable=True)
+    published = Column(Boolean, nullable=False, default=False)
+    last_updated = Column(DateTime, nullable=False, default=datetime.utcnow)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     index_pkl = Column(BYTEA)
     index_faiss = Column(BYTEA)
