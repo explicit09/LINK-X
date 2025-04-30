@@ -82,7 +82,7 @@ const Settings = () => {
 
   // Determine role
   useEffect(() => {
-    fetch(`${API}/onboarding`, {
+    fetch(`http://localhost:8080/me`, {
       method: "GET",
       credentials: "include",
     }).then(res => {
@@ -100,7 +100,7 @@ const Settings = () => {
   // Fetch Onboarding (students only)
   useEffect(() => {
     if (!isStudent) return;
-    fetch(`${API}/onboarding`, {
+    fetch(`http://localhost:8080/student/profile`, {
       method: "GET",
       credentials: "include",
     })
@@ -109,23 +109,25 @@ const Settings = () => {
         const data = await res.json();
         setFormData({
           name: data.name,
-          job: data.answers[0] || "",
-          traits: data.answers[1] || "",
-          learningStyle: data.answers[2] || "",
-          depth: data.answers[3] || "",
-          topics: data.answers[4] || "",
-          interests: data.answers[5] || "",
-          schedule: data.answers[6] || "",
-          quizzes: data.quizzes,
+          job: data.onboard_answers?.job || "",
+          traits: data.onboard_answers?.traits || "",
+          learningStyle: data.onboard_answers?.learningStyle || "",
+          depth: data.onboard_answers?.depth || "",
+          topics: data.onboard_answers?.topics || "",
+          interests: data.onboard_answers?.interests || "",
+          schedule: data.onboard_answers?.schedule || "",
+          quizzes: data.want_quizzes,
         });
+        
       })
       .catch(err => console.error("Failed to load onboarding:", err));
   }, [API, isStudent]);
+  
 
   // Fetch Account
   useEffect(() => {
     const path = isStudent ? "/student/profile" : "/professor/profile";
-    fetch(`${API}${path}`, {
+    fetch(`http://localhost:8080${path}`, {
       method: "GET",
       credentials: "include",
     })
@@ -137,6 +139,20 @@ const Settings = () => {
       .catch(err => console.error("Failed to load account:", err));
   }, [API, isStudent]);
 
+  useEffect(() => {
+    fetch(`http://localhost:8080/me`, {
+      method: "GET",
+      credentials: "include",
+    })
+      .then(async res => {
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setAccountData({ email: data.email, password: "" });
+      })
+      .catch(err => console.error("Failed to load email:", err));
+  }, []);
+  
+
   const handleChange = (value: string, name: keyof OnboardingData) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -147,19 +163,20 @@ const Settings = () => {
   const handleUpdateOnboarding = async () => {
     const payload = {
       name: formData.name,
-      answers: [
-        formData.job,
-        formData.traits,
-        formData.learningStyle,
-        formData.depth,
-        formData.topics,
-        formData.interests,
-        formData.schedule,
-      ],
-      quizzes: formData.quizzes,
+      onboard_answers: {
+        job: formData.job,
+        traits: formData.traits,
+        learningStyle: formData.learningStyle,
+        depth: formData.depth,
+        topics: formData.topics,
+        interests: formData.interests,
+        schedule: formData.schedule,
+      },
+      want_quizzes: formData.quizzes,
     };
+  
     try {
-      const res = await fetch(`${API}/onboarding`, {
+      const res = await fetch(`http://localhost:8080/student/profile`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -171,30 +188,45 @@ const Settings = () => {
       console.error("❌", e);
     }
   };
-
-  const handleAccountUpdate = async () => {
-    if (accountData.password && accountData.password.length < 6) {
+  
+  const updateEmailAndPassword = async (email: string, password?: string) => {
+    if (password && password.length < 6) {
       setPasswordError("Password must be at least 6 characters long.");
       return;
     }
+  
     setPasswordError("");
+  
     const path = isStudent ? "/student/profile" : "/professor/profile";
+  
     try {
-      const res = await fetch(`${API}${path}`, {
+      const res = await fetch("http://localhost:8080/me", {
         method: "PATCH",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
-          email: accountData.email,
-          password: accountData.password || undefined,
+          email,
+          password: password || undefined,  // Send password only if defined
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
-      router.push("/dashboard");
+  
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText);
+      }
+  
+      router.push("/dashboard"); // Redirect to dashboard on success
     } catch (e) {
-      console.error("❌", e);
+      console.error("❌ Failed to update account info:", e);
     }
   };
+  
+  const handleAccountUpdate = () => {
+    updateEmailAndPassword(accountData.email, accountData.password);
+  };
+  
 
   const [notifications, setNotifications] = useState<boolean>(true);
   const [privacy, setPrivacy] = useState<boolean>(true);
