@@ -207,26 +207,77 @@ def me_patch():
     session = get_user_session()
     if 'error' in session:
         return jsonify(session), 401
-    user_id = session['uid']
+
+    firebase_uid = session['uid']
     data = request.get_json() or {}
+
     db = Session()
-    updated = update_user(db, user_id=user_id, **data)
-    db.close()
-    if not updated:
+    user = get_user_by_firebase_uid(db, firebase_uid)
+    if not user:
+        db.close()
         return jsonify({'error': 'User not found'}), 404
-    return jsonify({'id': str(updated.id), 'email': updated.email}), 200
+
+    if 'email' in data:
+        user.email = data['email']
+    if 'password' in data:
+        user.password = data['password']
+
+    role = get_role_by_user_id(db, user.id)
+    if role.role_type == 'student':
+        prof = get_student_profile(db, user.id)
+        if prof:
+            if 'name' in data:
+                prof.name = data['name']
+            if 'onboard_answers' in data:
+                prof.onboard_answers = data['onboard_answers']
+            if 'want_quizzes' in data:
+                prof.want_quizzes = data['want_quizzes']
+            if 'model_preference' in data:
+                prof.model_preference = data['model_preference']
+
+    elif role.role_type == 'instructor':
+        prof = get_instructor_profile(db, user.id)
+        if prof:
+            if 'name' in data:
+                prof.name = data['name']
+            if 'university' in data:
+                prof.university = data['university']
+
+    elif role.role_type == 'admin':
+        prof = get_admin_profile(db, user.id)
+        if prof and 'name' in data:
+            prof.name = data['name']
+
+    db.commit()
+    db.refresh(user)
+    response = {
+        'id':    str(user.id),
+        'email': user.email,
+        'role':  role.role_type,
+    }
+    db.close()
+    return jsonify(response), 200
 
 @app.route('/me', methods=['DELETE'])
 def me_delete():
     session = get_user_session()
     if 'error' in session:
         return jsonify(session), 401
-    user_id = session['uid']
+
+    firebase_uid = session['uid']
+
     db = Session()
-    delete_user(db, user_id)
+    user = get_user_by_firebase_uid(db, firebase_uid)
+    if not user:
+        db.close()
+        return jsonify({'error': 'User not found'}), 404
+
+    db.delete(user)
+    db.commit()
     db.close()
+
     resp = jsonify({'message': 'Account deleted'})
-    resp.set_cookie('session', '', max_age=0)
+    resp.set_cookie('session', '', max_age=0, httponly=True, samesite='Lax')
     return resp, 200
 
 @app.route('/register/instructor', methods=['POST'])
