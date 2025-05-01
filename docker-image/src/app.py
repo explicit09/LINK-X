@@ -40,8 +40,6 @@ from src.db.queries import (
     get_report_by_id, get_reports_by_course, create_report, update_report, delete_report
 )
 
-
-
 load_dotenv()
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
@@ -68,7 +66,6 @@ def get_user_session():
         return {'error': str(e)}
 
 
-
 def verify_role(required_role):
     session = get_user_session()
     if 'error' in session:
@@ -91,23 +88,9 @@ def verify_role(required_role):
     return user.id, None
 
 
-# def verify_role(required_role):
-#     session = get_user_session()
-#     if 'error' in session:
-#         return None, (jsonify(session), 401)
-#     user_id = session['uid']
-#     db = Session()
-#     role = get_role_by_user_id(db, user_id)
-#     db.close()
-#     if not role or role.role_type != required_role:
-#         return None, (jsonify({'error': 'Forbidden'}), 403)
-#     return user_id, None
-
-
 def verify_admin():    return verify_role('admin')
 def verify_instructor(): return verify_role('instructor')
 def verify_student():   return verify_role('student')
-
 
 
 @app.route('/me', methods=['GET'])
@@ -156,51 +139,6 @@ def me_get():
         'profile': profile_data
     }), 200
 
-# @app.route('/me', methods=['GET'])
-# def me_get():
-#     session = get_user_session()
-#     if 'error' in session:
-#         return jsonify(session), 401
-
-#     user_id = session['uid']
-#     db = Session()
-#     user = get_user_by_id(db, user_id)
-#     role = get_role_by_user_id(db, user_id)
-#     profile_data = None
-#     if role.role_type == 'instructor':
-#         prof = get_instructor_profile(db, user_id)
-#         if prof:
-#             profile_data = {
-#                 'user_id':     str(prof.user_id),
-#                 'name':        prof.name,
-#                 'university':  prof.university
-#             }
-#     elif role.role_type == 'student':
-#         prof = get_student_profile(db, user_id)
-#         if prof:
-#             profile_data = {
-#                 'user_id':          str(prof.user_id),
-#                 'name':             prof.name,
-#                 'onboard_answers':  prof.onboard_answers,
-#                 'want_quizzes':     prof.want_quizzes,
-#                 'model_preference': prof.model_preference
-#             }
-#     elif role.role_type == 'admin':
-#         prof = get_admin_profile(db, user_id)
-#         if prof:
-#             profile_data = {
-#                 'user_id': str(prof.user_id),
-#                 'name':    prof.name
-#             }
-
-#     db.close()
-
-#     return jsonify({
-#         'id':      str(user_id),
-#         'email':   user.email,
-#         'role':    role.role_type,
-#         'profile': profile_data
-#     }), 200
 
 @app.route('/me', methods=['PATCH'])
 def me_patch():
@@ -747,6 +685,32 @@ def student_enrollments():
         'courseId':  str(e.course_id),
         'enrolledAt': e.enrolled_at.isoformat()
     } for e in ens]), 200
+
+@app.route('/student/files/<file_id>/content', methods=['GET'])
+def student_file_content(file_id):
+    user_id, err = verify_student()
+    if err:
+        return err
+
+    db = Session()
+
+    f = get_file_by_id(db, file_id)
+    if not f:
+        db.close()
+        return jsonify({'error': 'Not found'}), 404
+
+    mod = get_module_by_id(db, f.module_id)
+    if not mod or not get_enrollment_by_student_course(db, user_id, mod.course_id):
+        db.close()
+        return jsonify({'error': 'Forbidden'}), 403
+
+    data, mimetype, fname = f.file_data, f.file_type, f.filename
+    db.close()
+    return Response(
+        data,
+        mimetype=mimetype,
+        headers={'Content-Disposition': f'inline; filename={fname}'}
+    )
 
 @app.route('/student/enrollments/<enrollment_id>', methods=['DELETE'])
 def student_unenroll(enrollment_id):
