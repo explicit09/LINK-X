@@ -15,7 +15,7 @@ from sqlalchemy.orm import sessionmaker
 from src.db.schema import Base
 from openai import OpenAI
 from transcriber import transcribe_audio
-from indexer import rebuild_course_index
+from indexer import rebuild_course_index, rebuild_file_index
 from io import BytesIO
 
 from src.db.queries import (
@@ -39,8 +39,6 @@ from src.db.queries import (
     get_message_by_id, get_messages_by_chat, create_message, delete_messages_after,
     get_report_by_id, get_reports_by_course, create_report, update_report, delete_report
 )
-
-
 
 load_dotenv()
 app = Flask(__name__)
@@ -68,7 +66,6 @@ def get_user_session():
         return {'error': str(e)}
 
 
-
 def verify_role(required_role):
     session = get_user_session()
     if 'error' in session:
@@ -91,23 +88,9 @@ def verify_role(required_role):
     return user.id, None
 
 
-# def verify_role(required_role):
-#     session = get_user_session()
-#     if 'error' in session:
-#         return None, (jsonify(session), 401)
-#     user_id = session['uid']
-#     db = Session()
-#     role = get_role_by_user_id(db, user_id)
-#     db.close()
-#     if not role or role.role_type != required_role:
-#         return None, (jsonify({'error': 'Forbidden'}), 403)
-#     return user_id, None
-
-
 def verify_admin():    return verify_role('admin')
 def verify_instructor(): return verify_role('instructor')
 def verify_student():   return verify_role('student')
-
 
 
 @app.route('/me', methods=['GET'])
@@ -156,51 +139,6 @@ def me_get():
         'profile': profile_data
     }), 200
 
-# @app.route('/me', methods=['GET'])
-# def me_get():
-#     session = get_user_session()
-#     if 'error' in session:
-#         return jsonify(session), 401
-
-#     user_id = session['uid']
-#     db = Session()
-#     user = get_user_by_id(db, user_id)
-#     role = get_role_by_user_id(db, user_id)
-#     profile_data = None
-#     if role.role_type == 'instructor':
-#         prof = get_instructor_profile(db, user_id)
-#         if prof:
-#             profile_data = {
-#                 'user_id':     str(prof.user_id),
-#                 'name':        prof.name,
-#                 'university':  prof.university
-#             }
-#     elif role.role_type == 'student':
-#         prof = get_student_profile(db, user_id)
-#         if prof:
-#             profile_data = {
-#                 'user_id':          str(prof.user_id),
-#                 'name':             prof.name,
-#                 'onboard_answers':  prof.onboard_answers,
-#                 'want_quizzes':     prof.want_quizzes,
-#                 'model_preference': prof.model_preference
-#             }
-#     elif role.role_type == 'admin':
-#         prof = get_admin_profile(db, user_id)
-#         if prof:
-#             profile_data = {
-#                 'user_id': str(prof.user_id),
-#                 'name':    prof.name
-#             }
-
-#     db.close()
-
-#     return jsonify({
-#         'id':      str(user_id),
-#         'email':   user.email,
-#         'role':    role.role_type,
-#         'profile': profile_data
-#     }), 200
 
 @app.route('/me', methods=['PATCH'])
 def me_patch():
@@ -576,6 +514,12 @@ def instructor_files(module_id):
         )
         if transcription is not None:
             update_file(db, new_file.id, transcription=transcription)
+
+        file_idx, file_pkl = rebuild_file_index(db, new_file.id)
+        update_file(db, new_file.id,
+                    index_faiss=file_idx,
+                    index_pkl=file_pkl)
+        
         idx_bytes, pkl_bytes = rebuild_course_index(db, course.id)
         update_course(
             db,
@@ -742,6 +686,32 @@ def student_enrollments():
         'enrolledAt': e.enrolled_at.isoformat()
     } for e in ens]), 200
 
+@app.route('/student/files/<file_id>/content', methods=['GET'])
+def student_file_content(file_id):
+    user_id, err = verify_student()
+    if err:
+        return err
+
+    db = Session()
+
+    f = get_file_by_id(db, file_id)
+    if not f:
+        db.close()
+        return jsonify({'error': 'Not found'}), 404
+
+    mod = get_module_by_id(db, f.module_id)
+    if not mod or not get_enrollment_by_student_course(db, user_id, mod.course_id):
+        db.close()
+        return jsonify({'error': 'Forbidden'}), 403
+
+    data, mimetype, fname = f.file_data, f.file_type, f.filename
+    db.close()
+    return Response(
+        data,
+        mimetype=mimetype,
+        headers={'Content-Disposition': f'inline; filename={fname}'}
+    )
+
 @app.route('/student/enrollments/<enrollment_id>', methods=['DELETE'])
 def student_unenroll(enrollment_id):
     user_id, err = verify_student()
@@ -755,6 +725,51 @@ def student_unenroll(enrollment_id):
     delete_enrollment(db, user_id, e.course_id)
     db.close()
     return jsonify({'message': 'Unenrolled'}), 200
+
+@app.route('/courses/<course_id>/moduleswithfiles', methods=['GET'])
+def moduleswithfiles(course_id):
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+
+    firebase_uid = session['uid']
+    db = Session()
+    user = get_user_by_firebase_uid(db, firebase_uid)
+    role = get_role_by_user_id(db, user.id)
+
+    if role.role_type == 'student':
+        if not get_enrollment_by_student_course(db, user.id, course_id):
+            db.close()
+            return jsonify({'error':'Forbidden'}), 403
+    elif role.role_type == 'instructor':
+        course = get_course_by_id(db, course_id)
+        if not course or str(course.instructor_id) != str(user.id):
+            db.close()
+            return jsonify({'error':'Forbidden'}), 403
+    else:
+        db.close()
+        return jsonify({'error':'Forbidden'}), 403
+
+    modules = get_modules_by_course(db, course_id)
+    out = []
+    for m in modules:
+        files = get_files_by_module(db, m.id)
+        out.append({
+            'id':       str(m.id),
+            'title':    m.title,
+            'ordering': m.ordering,
+            'files': [
+                {
+                  'id':       str(f.id),
+                  'title':    f.title,
+                  'ordering': f.ordering
+                }
+                for f in files
+            ]
+        })
+
+    db.close()
+    return jsonify(out), 200
 
 @app.route('/student/courses/<course_id>/modules', methods=['GET'])
 def student_modules(course_id):
