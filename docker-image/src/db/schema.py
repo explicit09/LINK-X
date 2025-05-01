@@ -106,6 +106,7 @@ class Module(Base):
                        ForeignKey('Course.id', ondelete='CASCADE'),
                        nullable=False)
     title = Column(String(128), nullable=False)
+    ordering = Column(Integer, nullable=False, default=0)
 
     course = relationship('Course', back_populates='modules')
     files = relationship('File', back_populates='module')
@@ -123,6 +124,9 @@ class File(Base):
     file_data = Column(BYTEA, nullable=False)
     transcription = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    index_pkl   = Column(BYTEA)
+    index_faiss = Column(BYTEA)
+    ordering    = Column(Integer, nullable=False, default=0)
 
     module = relationship('Module', back_populates='files')
     chats = relationship('Chat', back_populates='file')
