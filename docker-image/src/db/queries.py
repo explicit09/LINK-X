@@ -1,4 +1,4 @@
-from sqlalchemy import select, asc, desc, delete
+from sqlalchemy import func, select, asc, desc, delete
 from sqlalchemy.orm import Session
 from werkzeug.security import generate_password_hash
 from datetime import datetime
@@ -318,9 +318,12 @@ def get_modules_by_course(db: Session, course_id):
 
 
 def create_module(db: Session, course_id: str, title: str):
-    if isinstance(course_id, str):
-        course_id = uuid.UUID(course_id)
-    m = Module(course_id=course_id, title=title)
+    max_ord = db.query(func.max(Module.ordering)).filter(Module.course_id == course_id).scalar() or 0
+    m = Module(
+        course_id=course_id,
+        title=title,
+        ordering=max_ord + 1
+    )
     db.add(m)
     db.commit()
     db.refresh(m)
@@ -364,15 +367,15 @@ def get_files_by_module(db: Session, module_id):
 
 def create_file(db: Session, module_id: str, title: str, filename: str,
                 file_type: str, file_size: int, file_data: bytes):
-    if isinstance(module_id, str):
-        module_id = uuid.UUID(module_id)
+    max_ord = db.query(func.max(File.ordering)).filter(File.module_id == module_id).scalar() or 0
     f = File(
         module_id=module_id,
         title=title,
         filename=filename,
         file_type=file_type,
         file_size=file_size,
-        file_data=file_data
+        file_data=file_data,
+        ordering=max_ord + 1
     )
     db.add(f)
     db.commit()
