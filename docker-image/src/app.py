@@ -15,7 +15,7 @@ from sqlalchemy.orm import sessionmaker
 from src.db.schema import Base
 from openai import OpenAI
 from transcriber import transcribe_audio
-from indexer import rebuild_course_index
+from indexer import rebuild_course_index, rebuild_file_index
 from io import BytesIO
 
 from src.db.queries import (
@@ -576,6 +576,12 @@ def instructor_files(module_id):
         )
         if transcription is not None:
             update_file(db, new_file.id, transcription=transcription)
+
+        file_idx, file_pkl = rebuild_file_index(db, new_file.id)
+        update_file(db, new_file.id,
+                    index_faiss=file_idx,
+                    index_pkl=file_pkl)
+        
         idx_bytes, pkl_bytes = rebuild_course_index(db, course.id)
         update_course(
             db,
@@ -755,6 +761,51 @@ def student_unenroll(enrollment_id):
     delete_enrollment(db, user_id, e.course_id)
     db.close()
     return jsonify({'message': 'Unenrolled'}), 200
+
+@app.route('/courses/<course_id>/moduleswithfiles', methods=['GET'])
+def moduleswithfiles(course_id):
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+
+    firebase_uid = session['uid']
+    db = Session()
+    user = get_user_by_firebase_uid(db, firebase_uid)
+    role = get_role_by_user_id(db, user.id)
+
+    if role.role_type == 'student':
+        if not get_enrollment_by_student_course(db, user.id, course_id):
+            db.close()
+            return jsonify({'error':'Forbidden'}), 403
+    elif role.role_type == 'instructor':
+        course = get_course_by_id(db, course_id)
+        if not course or str(course.instructor_id) != str(user.id):
+            db.close()
+            return jsonify({'error':'Forbidden'}), 403
+    else:
+        db.close()
+        return jsonify({'error':'Forbidden'}), 403
+
+    modules = get_modules_by_course(db, course_id)
+    out = []
+    for m in modules:
+        files = get_files_by_module(db, m.id)
+        out.append({
+            'id':       str(m.id),
+            'title':    m.title,
+            'ordering': m.ordering,
+            'files': [
+                {
+                  'id':       str(f.id),
+                  'title':    f.title,
+                  'ordering': f.ordering
+                }
+                for f in files
+            ]
+        })
+
+    db.close()
+    return jsonify(out), 200
 
 @app.route('/student/courses/<course_id>/modules', methods=['GET'])
 def student_modules(course_id):

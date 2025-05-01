@@ -313,7 +313,7 @@ def get_modules_by_course(db: Session, course_id):
     return db.execute(
         select(Module)
         .filter_by(course_id=course_id)
-        .order_by(desc(Module.id))
+        .order_by(Module.ordering)
     ).scalars().all()
 
 
@@ -331,8 +331,8 @@ def update_module(db: Session, module_id: str, **kwargs):
     m = get_module_by_id(db, module_id)
     if not m:
         return None
-    if 'title' in kwargs:
-        m.title = kwargs['title']
+    if 'title' in kwargs: m.title = kwargs['title']
+    if 'ordering' in kwargs: m.ordering = kwargs['ordering']
     db.commit()
     db.refresh(m)
     return m
@@ -358,7 +358,7 @@ def get_files_by_module(db: Session, module_id):
     return db.execute(
         select(File)
         .filter_by(module_id=module_id)
-        .order_by(desc(File.created_at))
+        .order_by(File.ordering)
     ).scalars().all()
 
 
@@ -383,7 +383,10 @@ def update_file(db: Session, file_id: str, **kwargs):
     f = get_file_by_id(db, file_id)
     if not f:
         return None
-    for key in ('title', 'filename', 'file_type', 'file_size', 'file_data', 'transcription'):
+    for key in (
+        'title','filename','file_type','file_size','file_data',
+        'transcription','index_pkl','index_faiss','ordering'
+    ):
         if key in kwargs:
             setattr(f, key, kwargs[key])
     db.commit()
