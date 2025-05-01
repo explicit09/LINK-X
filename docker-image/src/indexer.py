@@ -4,7 +4,7 @@ import numpy as np
 from sqlalchemy.orm import Session
 
 from textUtils import extract_text, split_text, embed_text
-from src.db.queries import get_modules_by_course, get_files_by_module
+from src.db.queries import get_file_by_id, get_modules_by_course, get_files_by_module
 
 def rebuild_course_index(db: Session, course_id: str):
     """
@@ -50,3 +50,30 @@ def rebuild_course_index(db: Session, course_id: str):
     pkl_bytes = pickle.dumps(metadata)
 
     return index_bytes, pkl_bytes
+
+def rebuild_file_index(db: Session, file_id: str):
+    
+    f = get_file_by_id(db, file_id)
+    raw = extract_text(f.file_data, f.filename)
+    chunks = split_text(raw)
+
+    texts, metadata = [], {}
+    for i, chunk in enumerate(chunks):
+        idx = len(texts)
+        texts.append(chunk)
+        metadata[idx] = {
+            'file_id':     str(f.id),
+            'chunk_index': i,
+            'filename':    f.filename
+        }
+
+    if not texts:
+        empty = faiss.IndexFlatL2(1)
+        return faiss.serialize_index(empty), pickle.dumps(metadata)
+
+    emb = [embed_text(t) for t in texts]
+    arr = np.vstack(emb).astype('float32')
+    dim = arr.shape[1]
+    index = faiss.IndexFlatL2(dim)
+    index.add(arr)
+    return faiss.serialize_index(index), pickle.dumps(metadata)
