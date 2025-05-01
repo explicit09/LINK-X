@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -55,6 +56,7 @@ export default function StudentDashboard() {
   const handleBackToDashboard = () => {
     setSelectedCourse(null);
   };
+
 
   return (
     <div className="min-h-screen bg-white text-gray-900 flex">
