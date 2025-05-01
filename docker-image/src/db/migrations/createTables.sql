@@ -142,3 +142,8 @@ CREATE TABLE IF NOT EXISTS "News" (
   "subject" VARCHAR(64) NOT NULL,
   "link" VARCHAR(120) NOT NULL
 );
+
+ALTER TABLE "Module" ADD COLUMN ordering integer NOT NULL DEFAULT 0;
+ALTER TABLE "File"   ADD COLUMN index_pkl bytea;
+ALTER TABLE "File"   ADD COLUMN index_faiss bytea;
+ALTER TABLE "File"   ADD COLUMN ordering integer NOT NULL DEFAULT 0;
