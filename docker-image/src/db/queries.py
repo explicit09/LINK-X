@@ -366,6 +366,21 @@ def get_files_by_module(db: Session, module_id):
     ).scalars().all()
 
 
+def get_files_without_raw_by_module(db: Session, module_id):
+    if isinstance(module_id, str):
+        module_id = uuid.UUID(module_id)
+    stmt = (
+        select(
+            File.id.label("id"),
+            File.title.label("title"),
+            File.ordering.label("ordering"),
+        )
+        .filter_by(module_id=module_id)
+        .order_by(File.ordering)
+    )
+    return db.execute(stmt).all()
+
+
 def create_file(db: Session, module_id: str, title: str, filename: str,
                 file_type: str, file_size: int, file_data: bytes):
     max_ord = db.query(func.max(File.ordering)).filter(File.module_id == module_id).scalar() or 0
