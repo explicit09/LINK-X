@@ -3,7 +3,7 @@ import faiss
 import numpy as np
 from sqlalchemy.orm import Session
 
-from textUtils import extract_text, split_text, embed_text, openai_embed_text
+from textUtils import extract_text, clean_extracted_text, split_text, embed_text, openai_embed_text
 from src.db.queries import get_file_by_id, get_modules_by_course, get_files_by_module, insert_file_chunks
 
 def rebuild_course_index(db: Session, course_id: str):
@@ -85,7 +85,8 @@ def store_file_embeddings(db: Session, file_id: str) -> int:
     """
     f = get_file_by_id(db, file_id)          # assumes raises if not found
     raw_text  = extract_text(f.file_data, f.filename)
-    chunks    = split_text(raw_text)         # list[str]
+    clean_text = clean_extracted_text(raw_text)
+    chunks    = split_text(clean_text)         # list[str]
 
     if not chunks:
         return 0
