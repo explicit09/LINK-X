@@ -49,6 +49,7 @@ const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const router = useRouter(); //router
+  
 
   useEffect(() => {
     setMounted(true);
@@ -79,16 +80,10 @@ const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
       active: pathname === "/",
     },
     {
-      name: "Learn",
-      path: "/learn",
+      name: "Dashboard",
+      path: "/dashboard",
       icon: BookOpen,
-      active: pathname === "/learn",
-    },
-    {
-      name: "Market",
-      path: "/market",
-      icon: BarChart3,
-      active: pathname === "/market",
+      active: pathname === "/dashboard",
     },
     {
       name: "Courses",
@@ -97,28 +92,10 @@ const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
       active: pathname === "/courses",
     },
     {
-      name: "News",
-      path: "/news",
-      icon: Newspaper,
-      active: pathname === "/news",
-    },
-    {
-      name: "Portfolio",
-      path: "/portfolio",
-      icon: TrendingUp,
-      active: pathname === "/portfolio",
-    },
-    {
-      name: "Wallet",
-      path: "/wallet",
-      icon: Wallet,
-      active: pathname === "/wallet",
-    },
-    {
-      name: "History",
-      path: "/history",
-      icon: History,
-      active: pathname === "/history",
+      name: "Analytics",
+      path: "/analytics",
+      icon: BarChart3,
+      active: pathname === "/analytics",
     },
   ];
 
@@ -149,7 +126,7 @@ const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
           {!collapsed && (
             <Link href="/" className="flex items-center h-full">
               <Image
-                src={"/images/Logo-dark.png"}
+                src={"/images/LearnXLogo.png"}
                 alt="Link-X Logo"
                 width={288}
                 height={197}
@@ -232,116 +209,58 @@ const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
         </div>
 
         {/* Footer Actions */}
-        <div className="px-2 py-2 border-t border-sidebar-border/30 space-y-2">
-          <TooltipProvider delayDuration={collapsed ? 200 : 1000}>
+        <div className="px-2 pt-4 pb-2 border-t border-sidebar-border/30">
+          <div className="flex flex-col gap-3">
             {/* Notifications */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size={collapsed ? "icon" : "default"}
-                  className={cn(
-                    "w-full bg-sidebar-accent hover:bg-sidebar-accent/70 border-sidebar-border/50 text-sidebar-foreground/70 hover:text-sidebar-foreground",
-                    collapsed ? "justify-center" : "justify-start"
-                  )}
-                >
-                  <Bell className="h-5 w-5 flex-shrink-0" />
-                  {!collapsed && (
-                    <span className="ml-2 text-sm">Notifications</span>
-                  )}
-                </Button>
-              </TooltipTrigger>
-              {collapsed && (
-                <TooltipContent
-                  side="right"
-                  className="bg-sidebar-accent text-sidebar-foreground border-sidebar-border"
-                >
-                  Notifications
-                </TooltipContent>
+            <Button
+              variant="outline"
+              size={collapsed ? "icon" : "default"}
+              className={cn(
+                "w-full bg-sidebar-accent hover:bg-sidebar-accent/70 border-sidebar-border/50 text-sidebar-foreground/70 hover:text-sidebar-foreground",
+                collapsed ? "justify-center" : "justify-start"
               )}
-            </Tooltip>
+            >
+              <Bell className="h-5 w-5 flex-shrink-0" />
+              {!collapsed && (
+                <span className="ml-2 text-sm">Notifications</span>
+              )}
+            </Button>
 
             {/* Settings */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                 <Link href="/settings" passHref>
-                <Button
-                  variant="outline"
-                  size={collapsed ? "icon" : "default"}
-                  className={cn(
-                    "w-full bg-sidebar-accent hover:bg-sidebar-accent/70 border-sidebar-border/50 text-sidebar-foreground/70 hover:text-sidebar-foreground",
-                    collapsed ? "justify-center" : "justify-start"
-                  )}
-                >
-                  <Settings className="h-5 w-5 flex-shrink-0" />
-                  {!collapsed && <span className="ml-2 text-sm">Settings</span>}
-                </Button>
-                   </Link>
-              </TooltipTrigger>
-              {collapsed && (
-                <TooltipContent
-                  side="right"
-                  className="bg-sidebar-accent text-sidebar-foreground border-sidebar-border"
-                >
-                  Settings
-                </TooltipContent>
+            <Link href="/settings" passHref>
+              <Button
+                variant="outline"
+                size={collapsed ? "icon" : "default"}
+                className={cn(
+                  "w-full bg-sidebar-accent hover:bg-sidebar-accent/70 border-sidebar-border/50 text-sidebar-foreground/70 hover:text-sidebar-foreground",
+                  collapsed ? "justify-center" : "justify-start"
+                )}
+              >
+                <Settings className="h-5 w-5 flex-shrink-0" />
+                {!collapsed && <span className="ml-2 text-sm">Settings</span>}
+              </Button>
+            </Link>
+
+            {/* Sign Out */}
+            <Button
+              variant="outline"
+              size={collapsed ? "icon" : "default"}
+              onClick={async () => {
+                try {
+                  await signOut(auth);
+                  router.push("/");
+                } catch (error) {
+                  console.error("Error signing out:", error);
+                }
+              }}
+              className={cn(
+                "w-full bg-sidebar-accent hover:bg-sidebar-accent/70 border-sidebar-border/50 text-sidebar-foreground/70 hover:text-sidebar-foreground",
+                collapsed ? "justify-center" : "justify-start"
               )}
-            </Tooltip>
-
-            {/* Logout */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size={collapsed ? "icon" : "default"}
-                  onClick={async () => {
-                    try {
-                      await signOut(auth);
-                      router.push("/");
-                    } catch (error) {
-                      console.error("Error signing out:", error);
-                    }
-                  }}
-                  className={cn(
-                    "w-full bg-sidebar-accent hover:bg-sidebar-accent/70 border-sidebar-border/50 text-sidebar-foreground/70 hover:text-sidebar-foreground",
-                    collapsed ? "justify-center" : "justify-start"
-                  )}
-                >
-                  <LogOut className="h-5 w-5 flex-shrink-0" />
-                  {!collapsed && <span className="ml-2 text-sm">Sign out</span>}
-                </Button>
-              </TooltipTrigger>
-              {collapsed && (
-                <TooltipContent
-                  side="right"
-                  className="bg-sidebar-accent text-sidebar-foreground border-sidebar-border"
-                >
-                  Sign Out
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TooltipProvider>
-
-          {/* User Profile */}
-          <div
-            className={cn(
-              "mt-3 pt-3 border-t border-sidebar-border/30",
-              collapsed ? "justify-center" : "justify-between",
-              "flex items-center"
-            )}
-          >
-            <Avatar />
-
-            {!collapsed && (
-              <div className="ml-3 overflow-hidden">
-                <p className="text-sm font-medium text-sidebar-foreground truncate">
-                  Alex Johnson
-                </p>
-                <p className="text-xs text-sidebar-foreground/60 truncate">
-                  Pro Member
-                </p>
-              </div>
-            )}
+            >
+              <LogOut className="h-5 w-5 flex-shrink-0" />
+              {!collapsed && <span className="ml-2 text-sm">Sign out</span>}
+            </Button>
           </div>
         </div>
       </aside>

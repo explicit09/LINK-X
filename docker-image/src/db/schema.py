@@ -1,153 +1,229 @@
-from sqlalchemy import create_engine, Column, String, Integer, DateTime, ForeignKey, Boolean, Enum, Text, Numeric, Date, LargeBinary
-from sqlalchemy.orm import relationship, declarative_base
-from sqlalchemy.dialects.postgresql import UUID, JSONB
-
+from sqlalchemy import (
+    Column,
+    String,
+    Integer,
+    DateTime,
+    Boolean,
+    ForeignKey,
+    UniqueConstraint,
+    Numeric,
+    Date,
+    Text
+)
+from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.dialects.postgresql import UUID, BYTEA, ENUM, JSONB
+from pgvector.sqlalchemy import Vector
 import uuid
 from datetime import datetime
 
 Base = declarative_base()
 
-# User model
+role_enum = ENUM('admin', 'instructor', 'student', name='role_enum', create_type=True)
+
 class User(Base):
     __tablename__ = 'User'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(64), nullable=False, unique=True)
-    password = Column(String(255))
-    firebase_uid = Column(String(128), nullable=True)  # New field
+    password = Column(String(255), nullable=False)
+    firebase_uid = Column(String(128))
 
-    # relationships
-    chats = relationship("Chat", back_populates="user")
-    documents = relationship("Document", back_populates="user")
-    suggestions = relationship("Suggestion", back_populates="user")
-    onboarding = relationship("Onboarding", back_populates="user", uselist=False)
-    courses = relationship("Course", back_populates="user")
+    role = relationship('Role', back_populates='user', uselist=False)
+    instructor_profile = relationship('InstructorProfile', back_populates='user', uselist=False)
+    student_profile = relationship('StudentProfile', back_populates='user', uselist=False)
+    admin_profile = relationship('AdminProfile', back_populates='user', uselist=False)
 
-# Chat model
+class Role(Base):
+    __tablename__ = 'Role'
+    user_id = Column(UUID(as_uuid=True),
+                     ForeignKey('User.id', ondelete='CASCADE'),
+                     primary_key=True)
+    role_type = Column(role_enum, nullable=False)
+
+    user = relationship('User', back_populates='role')
+
+class InstructorProfile(Base):
+    __tablename__ = 'InstructorProfile'
+    user_id = Column(UUID(as_uuid=True),
+                     ForeignKey('User.id', ondelete='CASCADE'),
+                     primary_key=True)
+    name = Column(Text, nullable=False)
+    university = Column(String(128))
+
+    user = relationship('User', back_populates='instructor_profile')
+    courses = relationship('Course', back_populates='instructor_profile')
+
+class StudentProfile(Base):
+    __tablename__ = 'StudentProfile'
+    user_id = Column(UUID(as_uuid=True),
+                     ForeignKey('User.id', ondelete='CASCADE'),
+                     primary_key=True)
+    name = Column(Text, nullable=False)
+    onboard_answers = Column(JSONB, nullable=False)
+    want_quizzes = Column(Boolean, nullable=False, default=False)
+    model_preference = Column(String(64), nullable=True)
+
+    user = relationship('User', back_populates='student_profile')
+    enrollments = relationship('Enrollment', back_populates='student')
+    chats = relationship('Chat', back_populates='student')
+    personalized_files = relationship('PersonalizedFile', back_populates='student')
+
+class AdminProfile(Base):
+    __tablename__ = 'AdminProfile'
+    user_id = Column(UUID(as_uuid=True),
+                     ForeignKey('User.id', ondelete='CASCADE'),
+                     primary_key=True)
+    name = Column(Text, nullable=False)
+
+    user = relationship('User', back_populates='admin_profile')
+
+class Course(Base):
+    __tablename__ = 'Course'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title = Column(String(128), nullable=False)
+    description = Column(Text)
+    code = Column(String(32), nullable=True)      
+    term = Column(String(32), nullable=True)
+    published = Column(Boolean, nullable=False, default=False)
+    last_updated = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    index_pkl = Column(BYTEA)
+    index_faiss = Column(BYTEA)
+    instructor_id = Column(UUID(as_uuid=True),
+                           ForeignKey('InstructorProfile.user_id', ondelete='CASCADE'),
+                           nullable=False)
+    embedding = Column(Vector(1536)) 
+
+    instructor_profile = relationship('InstructorProfile', back_populates='courses')
+    modules = relationship('Module', back_populates='course')
+    access_code = relationship('AccessCode', back_populates='course', uselist=False)
+    enrollments = relationship('Enrollment', back_populates='course')
+    reports = relationship('Report', back_populates='course')
+
+class Module(Base):
+    __tablename__ = 'Module'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    course_id = Column(UUID(as_uuid=True),
+                       ForeignKey('Course.id', ondelete='CASCADE'),
+                       nullable=False)
+    title = Column(String(128), nullable=False)
+    ordering = Column(Integer, nullable=False, default=0)
+
+    course = relationship('Course', back_populates='modules')
+    files = relationship('File', back_populates='module')
+
+class File(Base):
+    __tablename__ = 'File'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    module_id = Column(UUID(as_uuid=True),
+                       ForeignKey('Module.id', ondelete='CASCADE'),
+                       nullable=False)
+    title = Column(String(128), nullable=False)
+    filename = Column(String, nullable=False)
+    file_type = Column(String, nullable=False)
+    file_size = Column(Integer, nullable=False)
+    file_data = Column(BYTEA, nullable=False)
+    transcription = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    index_pkl   = Column(BYTEA)
+    index_faiss = Column(BYTEA)
+    ordering    = Column(Integer, nullable=False, default=0)
+
+    module = relationship('Module', back_populates='files')
+    chats = relationship('Chat', back_populates='file')
+    personalized_files = relationship('PersonalizedFile', back_populates='original_file')
+
+class AccessCode(Base):
+    __tablename__ = 'AccessCode'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code = Column(String(32), nullable=False, unique=True)
+    course_id = Column(UUID(as_uuid=True),
+                       ForeignKey('Course.id', ondelete='CASCADE'),
+                       nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    course = relationship('Course', back_populates='access_code')
+
+class Enrollment(Base):
+    __tablename__ = 'Enrollment'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True),
+                     ForeignKey('StudentProfile.user_id', ondelete='CASCADE'),
+                     nullable=False)
+    course_id = Column(UUID(as_uuid=True),
+                       ForeignKey('Course.id', ondelete='CASCADE'),
+                       nullable=False)
+    enrolled_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'course_id', name='uq_enrollment_student_course'),
+    )
+
+    student = relationship('StudentProfile', back_populates='enrollments', foreign_keys=[user_id])
+    course = relationship('Course', back_populates='enrollments')
+
+class PersonalizedFile(Base):
+    __tablename__ = 'PersonalizedFile'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True),
+                     ForeignKey('StudentProfile.user_id', ondelete='CASCADE'),
+                     nullable=False)
+    original_file_id = Column(UUID(as_uuid=True),
+                              ForeignKey('File.id', ondelete='SET NULL'),
+                              nullable=True)
+    content = Column(JSONB, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    student = relationship('StudentProfile', back_populates='personalized_files', foreign_keys=[user_id])
+    original_file = relationship('File', back_populates='personalized_files')
+
 class Chat(Base):
     __tablename__ = 'Chat'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
+    user_id = Column(UUID(as_uuid=True),
+                     ForeignKey('StudentProfile.user_id', ondelete='CASCADE'),
+                     nullable=False)
+    file_id = Column(UUID(as_uuid=True),
+                     ForeignKey('File.id', ondelete='SET NULL'),
+                     nullable=True)
     title = Column(Text, nullable=False)
-    userId = Column(UUID(as_uuid=True), ForeignKey('User.id'), nullable=False)
-    visibility = Column(Enum('public', 'private', name='visibility'), default='private', nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
-    # relationships
-    user = relationship("User", back_populates="chats")
-    messages = relationship("Message", back_populates="chat")
-    votes = relationship("Vote", back_populates="chat")
+    student = relationship('StudentProfile', back_populates='chats', foreign_keys=[user_id])
+    file = relationship('File', back_populates='chats')
+    messages = relationship('Message', back_populates='chat')
 
-# Message model
 class Message(Base):
     __tablename__ = 'Message'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    chatId = Column(UUID(as_uuid=True), ForeignKey('Chat.id'), nullable=False)
+    chat_id = Column(UUID(as_uuid=True),
+                     ForeignKey('Chat.id', ondelete='CASCADE'),
+                     nullable=False)
     role = Column(String, nullable=False)
     content = Column(Text, nullable=False)
-    createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
-    # relationships
-    chat = relationship("Chat", back_populates="messages")
-    votes = relationship("Vote", back_populates="message")
+    chat = relationship('Chat', back_populates='messages')
 
-# Vote model
-class Vote(Base):
-    __tablename__ = 'Vote'
-    chatId = Column(UUID(as_uuid=True), ForeignKey('Chat.id'), primary_key=True)
-    messageId = Column(UUID(as_uuid=True), ForeignKey('Message.id'), primary_key=True)
-    isUpvoted = Column(Boolean, nullable=False)
-
-    # relationships
-    chat = relationship("Chat", back_populates="votes")
-    message = relationship("Message", back_populates="votes")
-
-# Document model
-class Document(Base):
-    __tablename__ = 'Document'
+class Report(Base):
+    __tablename__ = 'Report'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
-    title = Column(Text, nullable=False)
-    content = Column(Text)
-    kind = Column(Enum('text', 'code', name='document_kind'), default='text', nullable=False)
-    userId = Column(UUID(as_uuid=True), ForeignKey('User.id'), nullable=False)
+    course_id = Column(UUID(as_uuid=True),
+                       ForeignKey('Course.id', ondelete='CASCADE'),
+                       nullable=False)
+    summary = Column(JSONB, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
-    # relationships
-    user = relationship("User", back_populates="documents")
-    suggestions = relationship("Suggestion", back_populates="document")
+    course = relationship('Course', back_populates='reports')
 
-# Suggestion model
-class Suggestion(Base):
-    __tablename__ = 'Suggestion'
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    documentId = Column(UUID(as_uuid=True), ForeignKey('Document.id'), nullable=False)
-    documentCreatedAt = Column(DateTime, nullable=False)
-    originalText = Column(Text, nullable=False)
-    suggestedText = Column(Text, nullable=False)
-    description = Column(Text)
-    isResolved = Column(Boolean, default=False, nullable=False)
-    userId = Column(UUID(as_uuid=True), ForeignKey('User.id'), nullable=False)
-    createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
-
-    # relationships
-    document = relationship("Document", back_populates="suggestions")
-    user = relationship("User", back_populates="suggestions")
-
-# Onboarding model
-class Onboarding(Base):
-    __tablename__ = 'Onboarding'
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    userId = Column(
-        UUID(as_uuid=True),
-        ForeignKey('User.id', ondelete='CASCADE'),
-        nullable=False
-    )
-    name = Column(Text, nullable=False)
-    # New column to store all quiz answers as a list in JSONB format.
-    answers = Column(JSONB, nullable=False)
-    quizzes = Column(Boolean, nullable=False, default=False)
-    createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
-
-    # relationships
-    user = relationship("User", back_populates="onboarding")
-
-# Market model
 class Market(Base):
     __tablename__ = 'Market'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     snp500 = Column(Numeric, nullable=False)
     date = Column(Date, nullable=False)
 
-# News model
 class News(Base):
     __tablename__ = 'News'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(String(64), nullable=False)
     subject = Column(String(64), nullable=False)
     link = Column(String(120), nullable=False)
-
-class File(Base):
-    __tablename__ = 'File'
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    filename = Column(String, nullable=False)
-    fileType = Column(String, nullable=False)
-    fileSize = Column(Integer, nullable=False)
-    fileData = Column(LargeBinary, nullable=False)
-    createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
-
-    # One-to-one relationship to Course (if attached)
-    course = relationship("Course", back_populates="file", uselist=False)
-
-class Course(Base):
-    __tablename__ = 'Course'
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    topic = Column(String(64))
-    expertise = Column(String(64))
-    createdAt = Column(DateTime, nullable=False, default=datetime.utcnow)
-    pkl = Column(LargeBinary)      # to store model pickled data, if any
-    index = Column(LargeBinary)    # to store associated index data, if any
-    content = Column(JSONB)        # detailed course content as JSON
-    userId = Column(UUID(as_uuid=True), ForeignKey('User.id'), nullable=False)
-    fileId = Column(UUID(as_uuid=True), ForeignKey('File.id'), nullable=True)  # optional file reference
-
-    # relationships
-    user = relationship("User", back_populates="courses")
-    file = relationship("File", back_populates="course", uselist=False)

@@ -7,26 +7,27 @@
 =========================*/
 @layer base {
   :root {
-    --background: 0 0% 0%; /* black */
-    --foreground: 0 0% 100%; /* white */
-    --card: 0 0% 10%;
-    --card-foreground: 0 0% 100%;
-    --muted: 0 0% 20%;
-    --muted-foreground: 0 0% 70%;
-    --primary: 210 100% 50%;
-    --primary-foreground: 0 0% 100%;
-    --border: 0 0% 20%;
-    --ring: 210 100% 50%;
+    --background: 0 0% 100%; /* white */
+    --foreground: 0 0% 0%;   /* black */
+    --card: 0 0% 98%;         /* very light gray */
+    --card-foreground: 0 0% 10%; /* near black text */
+    --muted: 0 0% 90%;        /* light gray */
+    --muted-foreground: 0 0% 40%; /* medium gray */
+    --primary: 210 100% 40%;  /* slightly softer blue */
+    --primary-foreground: 0 0% 100%; /* white text on blue */
+    --border: 0 0% 80%;       /* light gray border */
+    --ring: 210 100% 50%;     /* same blue */
     --radius: 0.5rem;
-    --blue-foreground: 210 100% 70%;         /* ~text-blue-400 */
-    --blue-muted: 210 100% 60%;              /* ~text-blue-300 */
-    --blue-border: 210 100% 50%;             /* ~border-blue-500 */
-    --blue-accent: 210 100% 60%;             /* ~bg-blue-600 */
-    --blue-accent-hover: 210 100% 50%;       /* ~hover:bg-blue-700 */
-    --blue-shadow: 210 100% 10%;             /* ~shadow-blue-900/10 */
-    }
+  
+    --blue-foreground: 210 100% 40%;         /* ~text-blue-600 */
+    --blue-muted: 210 100% 50%;              /* ~text-blue-500 */
+    --blue-border: 210 100% 60%;             /* ~border-blue-400 */
+    --blue-accent: 210 100% 90%;             /* ~bg-blue-100 */
+    --blue-accent-hover: 210 100% 80%;       /* ~hover:bg-blue-200 */
+    --blue-shadow: 210 100% 80%;             /* ~shadow-blue-200/10 */
+  }
 
-  /*.light {
+  /* .light {
     --background: 0 0% 100%; 
     --foreground: 0 0% 0%; 
     --card: 0 0% 96%;
@@ -86,6 +87,10 @@
 
   .text-gradient {
     @apply bg-clip-text text-transparent purple-gradient;
+  }
+
+  .text-blue-foreground {
+    color: hsl(var(--blue-foreground));
   }
 }
 
@@ -168,4 +173,77 @@
 
 .read-the-docs {
   color: #888;
+}
+
+/*=========================
+  MARKDOWN STYLING
+=========================*/
+
+.markdown-content {
+  max-width: 1080px; 
+  margin-left: auto;
+  margin-right: auto;
+  padding: 2rem 1rem;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  color: hsl(var(--blue-foreground));
+  text-align: center;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  font-weight: 700;
+}
+
+.markdown-content p {
+  margin-bottom: 1.5rem;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  text-align: left;
+}
+
+.markdown-content a {
+  color: hsl(var(--blue-foreground));
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.markdown-content a:hover {
+  color: hsl(var(--blue-accent-hover));
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 1.5rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+}
+
+.markdown-content code {
+  background-color: hsl(var(--muted));
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+  font-size: 0.95em;
+}
+
+.markdown-content pre {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+}
+
+.markdown-content blockquote {
+  border-left: 4px solid hsl(var(--blue-border));
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+  text-align: left;
 }
