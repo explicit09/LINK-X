@@ -75,6 +75,18 @@ CREATE TABLE IF NOT EXISTS "File" (
   CONSTRAINT fk_file_module FOREIGN KEY("module_id") REFERENCES "Module"("id") ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS "FileChunk" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "content" TEXT NOT NULL,
+  "embedding" vector(1536) NOT NULL,
+  "file_id" UUID NOT NULL,
+  "course_id" UUID NOT NULL,
+  "chunk_index" INTEGER NOT NULL,
+  CONSTRAINT fk_filechunk_file FOREIGN KEY("file_id") REFERENCES "File"("id") ON DELETE CASCADE,
+  CONSTRAINT fk_filechunk_course FOREIGN KEY("course_id") REFERENCES "Course"("id") ON DELETE CASCADE,
+  CONSTRAINT uq_filechunk_file_index UNIQUE("file_id", "chunk_index")
+);
+
 CREATE TABLE IF NOT EXISTS "AccessCode" (
   "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   "code" VARCHAR(32) NOT NULL UNIQUE,
