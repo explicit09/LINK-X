@@ -166,49 +166,72 @@ def prompt_generate_personalized_file_content(working_dir, persona):
 
     JSON_response = answer_to_QA_all_chunks(rag_query, working_dir)
     print(JSON_response)
-    # personalization_query = (
-    # f"""
-    # You are an AI assistant generating a personalized educational file.
 
-    # You have been provided a JSON of the full content of the file: {JSON_response}
+    personalization_query = (
+    f"""
+    You are an AI assistant tasked with personalizing structured educational content.
 
-    # The user will provide you with their persona.
+    You have been provided with a JSON object containing chapters and subsections: {JSON_response}
+    Each subsection includes:
+    - A **title** describing its focus
+    - A **fullText** field containing the original explanation
 
-    # Your tasks:
-    # 1. You must use **ALL** of the knowledge provided in the JSON
-    # 2. Organize and explain the fullText of each subsection clearly, without omitting or skipping important parts.
-    # 3. Personalize the explanation based on the user's persona to adjust tone, depth, and style.
-    # 4. Adapt examples to be more relevant to the user's persona without changing the underlying lesson or concept.
-    #     - Do not change the core explanation or lesson being taught by the example.
-    #     - Adjust only the context, terminology, or scenario so that the example feels more relatable and applicable to the user's background.
+    You will also receive:
+    - A description of the **user’s persona**
 
-    # Return ONLY the **raw valid JSON string** with the following structure:
+    **Your task is to revise ONLY the fullText fields to match the user’s tone and background preferences.**
 
-    # {
-    #     "chapters": [
-    #         {
-    #             "chapterTitle": "string",
-    #             "subsections": [
-    #                 {
-    #                     "title": "string",
-    #                     "fullText": "string"
-    #                 },
-    #                 ...
-    #             ]
-    #         },
-    #         ...
-    #     ]
-    # }
+    **INSTRUCTIONS**
+    1. You must **retain the original explanation and meaning** in every subsection.
+    2. Do **not change** any subsection titles, chapter titles, or the number of items.
+    3. You may personalize language, tone, depth, and examples based on the persona and expertise, but:
+    - Do **not invent** new facts, terms, or interpretations
+    - Do **not remove** information unless it is explicitly redundant
+    4. If a subsection includes an example, you may **adapt its context or framing** to be more relatable to the user, but:
+    - The example must still teach the same lesson
+    - The core logic or takeaway must be unchanged
 
-    # Ensure that the entire provided content is covered within the personalized JSON.
+    **Return ONLY a valid JSON object** with the same structure as provided, with updated fullText values:
 
-    # **DO NOT** include any code-block markers (e.g., triple backticks, etc)
-    # **DO NOT** add chapters or subsections
-    # **DO NOT** change the chapter titles or subsection titles
-    # **DO NOT** add any new information or content that wasn't in the retrieved knowledge.
-    # **DO NOT** leave out any part of the retrieved content unless explicitly redundant.
-    # """
-    # )
+    **OUTPUT FORMAT**
+    Return a valid JSON matching this structure:
+
+    {{
+        "chapters": [
+            {{
+                "chapterTitle": "string",
+                "subsections": [
+                    {{
+                        "title": "string",
+                        "fullText": "string"
+                    }},
+                    ...
+                ]
+            }},
+            ...
+        ]
+    }}
+
+    **Do not** include markdown or code block markers (e.g., triple backticks). Return just the modified JSON object.
+    """
+    )
+
+    user_query = (
+    f"""
+    Persona: {persona}
+    """
+    )
+
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": personalization_query},
+            {"role": "user", "content": user_query}
+        ],
+        temperature=0
+    )
+
+    return response.choices[0].message.content.strip()
 
 def prompt3_generate_module_content_RAG(persona, expertise_summary, topic, working_dir):
     rag_query = (
