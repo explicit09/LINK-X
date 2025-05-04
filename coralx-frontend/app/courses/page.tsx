@@ -23,6 +23,11 @@ export default function Dashboard() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [accessCode, setAccessCode] = useState("");
   const [showPopup, setShowPopup] = useState(false);
+  const router = useRouter();
+  const handleCourseAdded = () => {
+    setShowPopup(false);     // Close popup
+    router.refresh();        // Refresh page content
+  };
 
   return (
     <div className="min-h-screen bg-white text-gray-900 flex">
@@ -47,7 +52,10 @@ export default function Dashboard() {
   </div>
 </div>
 
-<AccessCodeCard open={showPopup} onClose={() => setShowPopup(false)} />
+<AccessCodeCard open={showPopup} onClose={() => setShowPopup(false)} onSuccess={() => {
+    setShowPopup(false);
+    router.push('/dashboard'); // ✅ This will now work properly
+  }} />
 
 <CoursesList search={search} setSearch={setSearch} />
 

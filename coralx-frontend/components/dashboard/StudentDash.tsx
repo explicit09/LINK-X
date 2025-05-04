@@ -25,6 +25,7 @@ export default function StudentDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("modules");
+  
 
   useEffect(() => {
     const fetchEnrollments = async () => {
