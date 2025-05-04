@@ -3,8 +3,8 @@ import faiss
 import numpy as np
 from sqlalchemy.orm import Session
 
-from textUtils import extract_text, split_text, embed_text
-from src.db.queries import get_file_by_id, get_modules_by_course, get_files_by_module
+from textUtils import extract_text, clean_extracted_text, split_text, embed_text, openai_embed_text
+from src.db.queries import get_file_by_id, get_modules_by_course, get_files_by_module, insert_file_chunks
 
 def rebuild_course_index(db: Session, course_id: str):
     """
@@ -77,3 +77,22 @@ def rebuild_file_index(db: Session, file_id: str):
     index = faiss.IndexFlatL2(dim)
     index.add(arr)
     return faiss.serialize_index(index), pickle.dumps(metadata)
+
+def store_file_embeddings(db: Session, file_id: str) -> int:
+    """
+    Extracts, splits, embeds, and persists all chunks for one file.
+    Returns the number of chunks stored.
+    """
+    f = get_file_by_id(db, file_id)          # assumes raises if not found
+    raw_text  = extract_text(f.file_data, f.filename)
+    clean_text = clean_extracted_text(raw_text)
+    chunks    = split_text(clean_text)         # list[str]
+
+    if not chunks:
+        return 0
+
+    vectors = openai_embed_text(chunks)      # in textUtils.py
+
+    course_id = f.module.course_id
+
+    return insert_file_chunks(db, file_id, course_id, chunks, vectors) # in queries.py
