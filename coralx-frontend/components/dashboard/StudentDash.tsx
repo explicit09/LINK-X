@@ -25,18 +25,19 @@ export default function StudentDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("modules");
+  
 
   useEffect(() => {
     const fetchEnrollments = async () => {
       try {
-        const res = await fetch("http://localhost:8080/student/enrollments", {
+        const res = await fetch("http://localhost:8080/student/courses", {
           credentials: "include",
         });
-        if (!res.ok) throw new Error("Failed to fetch enrollments");
+        if (!res.ok) throw new Error("Failed to fetch courses");
         const data = await res.json();
         setCourses(data); 
       } catch (err) {
-        console.error("Error fetching enrollments:", err);
+        console.error("Error fetching courses:", err);
       }
     };
     fetchEnrollments();
@@ -45,9 +46,10 @@ export default function StudentDashboard() {
 
   const filteredCourses = courses.filter(
     (course) =>
-      course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      course.code.toLowerCase().includes(searchQuery.toLowerCase())
+      course?.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course?.code?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  
 
   const handleCourseClick = (course: any) => {
     setSelectedCourse(course);

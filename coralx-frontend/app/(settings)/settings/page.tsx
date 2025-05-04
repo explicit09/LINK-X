@@ -197,7 +197,6 @@ const Settings = () => {
   
     setPasswordError("");
   
-    const path = isStudent ? "/student/profile" : "/professor/profile";
   
     try {
       const res = await fetch("http://localhost:8080/me", {
