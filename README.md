@@ -183,40 +183,6 @@ Located in `faiss_index/`:
 - Used by: All retrieval and evaluation scripts
 - Contains: FAISS vector database with document embeddings
 
-## Project Structure (FIXME)
-```
-project/
-├── scripts/
-│   └── FAISS_scripts/
-│       ├── item_01_database_creation_FAISS.py    # Initial document processing
-│       ├── item_02_generate_citations_APA_FAISS.py # Citation generation
-│       ├── item_03_replace_source_by_citation.py   # Citation integration
-│       ├── item_04_retriever_FAISS.py             # Query processing
-│       ├── item_05_streamlit_FAISS.py             # Web interface
-│       ├── item_06_eval_01_save_response_and_context.py # Evaluation data collection
-│       ├── item_07_eval_02_human_evaluation.py     # System evaluation
-│       ├── item_08_eval_03_generate_questions_answers_from_chunk.py  
-│       ├── item_09_eval_04_save_response_and_context_LLM.py
-│       ├── item_10_eval_05_llm_evaluation.py
-├── data/
-│   └── nine_pdfs/            # Source PDF documents
-├── faiss_index/             # FAISS vector database storage
-├── additional_files/
-│   ├── citations.csv        # Generated APA citations
-│   ├── background.jpeg      # UI background image
-│   ├── system_architecture.png # System architecture diagram
-│   ├── Q&A-Human_generated.csv # Human-created test questions
-│   ├── Q&A-human_generated_with_context.csv # System responses
-│   ├── Q&A_result-human_generated.csv # Detailed evaluation results
-│   ├── overall_result-human_generated.csv # Summary evaluation metrics
-│   ├── Q&A-LLM_generated.csv # LLM-created test questions
-│   ├── Q&A-LLM_generated_with_context.csv # System responses
-│   ├── Q&A_result-LLM_generated.csv # Detailed evaluation results
-│   ├── overall_result-LLM_generated.csv # Summary evaluation metrics
-│   └── overall_result-LLM_generated_divided.csv # Summary evaluation metrics
-└── README.md
-```
-
 ## Prerequisites
 
 - Python 3.10.11
@@ -224,12 +190,25 @@ project/
 - Required Python packages:
   ```
   langchain
-  faiss-cpu
+  langchain-openai
   openai
   python-dotenv
-  pandas
-  streamlit
+  faiss-cpu
+  chromadb
   PyPDF2
+  python-magic
+  python-magic-bin
+  textract
+  tiktoken
+  transformers
+  sentence-transformers
+  pandas
+  numpy
+  ragas
+  datasets
+  nest-asyncio
+  streamlit
+  tqdm
   ```
 
 ## Installation
@@ -249,4 +228,3 @@ project/
 - LangChain for the document processing framework
 - OpenAI for embeddings and GPT-4
 - Facebook Research for FAISS
-- RAGAS for evaluation metrics
