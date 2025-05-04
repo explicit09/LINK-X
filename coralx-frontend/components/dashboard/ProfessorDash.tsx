@@ -61,7 +61,7 @@ export default function ProfessorDashboard() {
   const [editedCourse, setEditedCourse] = useState<Course | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [uploading, setUploading]   = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ content: string }[]>([]);
 
@@ -91,15 +91,18 @@ export default function ProfessorDashboard() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-  
-      const res = await fetch(`http://localhost:8080/courses/${courseId}/upload`, {
-        method: "POST",
-        body: formData,
-      });
-  
+
+      const res = await fetch(
+        `http://localhost:8080/courses/${courseId}/upload`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
-  
+
       alert(`✅ ${data.message}`);
     } catch (err) {
       alert(`❌ Upload failed: ${(err as Error).message}`);
@@ -110,24 +113,26 @@ export default function ProfessorDashboard() {
 
   const handleSearch = async () => {
     if (!query || !selectedCourse) return;
-  
+
     try {
-      const res = await fetch(`http://localhost:8080/courses/${selectedCourse.id}/search`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
-      });
-  
+      const res = await fetch(
+        `http://localhost:8080/courses/${selectedCourse.id}/search`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query }),
+        }
+      );
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Search failed");
-  
+
       setResults(data.results);
     } catch (err) {
       console.error("Search error:", err);
       alert("Error searching content");
     }
   };
-  
 
   const filteredCourses = courses
     .filter(
@@ -397,41 +402,111 @@ export default function ProfessorDashboard() {
 
               {/* Main Content */}
               <main className="flex-1 p-8">
-              {activeTab === "modules" && (
-                <section>
-                  <h2 className="text-2xl font-bold mb-4">Modules</h2>
+                {activeTab === "modules" && (
+                  <section>
+                    <h2 className="text-2xl font-bold mb-4">Modules</h2>
+                    <Card className="border border-gray-200 shadow-sm rounded-xl">
+                      <CardHeader>
+                        <CardTitle>
+                          Upload Materials for {selectedCourse.title}
+                        </CardTitle>
+                        <CardDescription>
+                          Choose how you'd like to upload your content below.
+                        </CardDescription>
+                      </CardHeader>
 
-                  <div className="mb-6">
-                    <UploadPdf
-                      onUpload={(file) => handleUploadPdf(selectedCourse.id, file)}
-                      uploading={uploading}
-                    />
-                  </div>
+                      <CardContent className="space-y-4">
+                        {/* Drag-and-drop area */}
+                        <div className="border border-dashed border-gray-300 p-6 rounded-lg bg-gray-50 hover:bg-gray-100 text-center transition">
+                          <p className="text-gray-600 mb-2">
+                            Drag & drop files here
+                          </p>
+                          <p className="text-sm text-gray-400">
+                            Accepted formats: .pdf, .mp3, .wav, etc.
+                          </p>
+                        </div>
 
-                  {/* Search input */}
-                  <div className="mb-4">
-                    <input
-                      type="text"
-                      placeholder="Search your course materials..."
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      className="w-full p-3 rounded border border-gray-300 bg-white text-black placeholder-gray-500 focus:outline-none focus:ring focus:ring-blue-300"
-                    />
-                    <Button onClick={handleSearch} className="mt-2">Search</Button>
-                  </div>
+                        {/* OR divider */}
+                        <div className="flex items-center justify-center">
+                          <span className="px-4 text-gray-400 text-sm">OR</span>
+                        </div>
 
-                  {/* Search results */}
-                  <div className="space-y-4">
-                  {results.map((chunk, index) => (
-                    <Card key={index} className="w-full p-6 bg-white border border-gray-300 shadow-md">
-                      <p className="text-xl text-gray-900 whitespace-pre-wrap leading-relaxed">
-                        {chunk.content}
-                      </p>
+                        {/* Buttons */}
+                        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                          <Button
+                            variant="outline"
+                            className="w-full sm:w-auto border-dashed border-2 border-purple-500 text-purple-600 hover:bg-purple-50"
+                            onClick={() =>
+                              document.getElementById("pdf-upload")?.click()
+                            }
+                          >
+                            Upload PDF
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="w-full sm:w-auto border-dashed border-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50"
+                            onClick={() =>
+                              document.getElementById("audio-upload")?.click()
+                            }
+                          >
+                            Upload Audio
+                          </Button>
+                        </div>
+
+                        {/* Hidden Inputs */}
+                        <input
+                          type="file"
+                          id="pdf-upload"
+                          accept=".pdf"
+                          className="hidden"
+                        />
+                        <input
+                          type="file"
+                          id="audio-upload"
+                          accept="audio/*"
+                          className="hidden"
+                        />
+                      </CardContent>
                     </Card>
-                  ))}
-                  </div>
-                </section>
-              )}
+
+                    <div className="mb-6">
+                      <UploadPdf
+                        onUpload={(file) =>
+                          handleUploadPdf(selectedCourse.id, file)
+                        }
+                        uploading={uploading}
+                      />
+                    </div>
+
+                    {/* Search input */}
+                    <div className="mb-4">
+                      <input
+                        type="text"
+                        placeholder="Search your course materials..."
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        className="w-full p-3 rounded border border-gray-300 bg-white text-black placeholder-gray-500 focus:outline-none focus:ring focus:ring-blue-300"
+                      />
+                      <Button onClick={handleSearch} className="mt-2">
+                        Search
+                      </Button>
+                    </div>
+
+                    {/* Search results */}
+                    <div className="space-y-4">
+                      {results.map((chunk, index) => (
+                        <Card
+                          key={index}
+                          className="w-full p-6 bg-white border border-gray-300 shadow-md"
+                        >
+                          <p className="text-xl text-gray-900 whitespace-pre-wrap leading-relaxed">
+                            {chunk.content}
+                          </p>
+                        </Card>
+                      ))}
+                    </div>
+                  </section>
+                )}
                 {/* modules content goes here */}
                 {activeTab === "people" && (
                   <section>
@@ -642,15 +717,16 @@ export default function ProfessorDashboard() {
                     className="cursor-pointer"
                   >
                     <CourseCard
-                        course={course}
-                        uploading={uploading}
-                        onEdit={() => setEditingCourse(course)}
-                        onPublishToggle={() => handlePublishToggle(course.id)}
-                        onUploadPdf={handleUploadPdf}
-                        showUploadButton={
-                          selectedCourse?.id === course.id && activeTab === "modules"
-                        }
-                      />
+                      course={course}
+                      uploading={uploading}
+                      onEdit={() => setEditingCourse(course)}
+                      onPublishToggle={() => handlePublishToggle(course.id)}
+                      onUploadPdf={handleUploadPdf}
+                      showUploadButton={
+                        selectedCourse?.id === course.id &&
+                        activeTab === "modules"
+                      }
+                    />
                   </div>
                 ))}
               </TabsContent>
@@ -674,7 +750,8 @@ export default function ProfessorDashboard() {
                         onPublishToggle={() => handlePublishToggle(course.id)}
                         onUploadPdf={handleUploadPdf}
                         showUploadButton={
-                          selectedCourse?.id === course.id && activeTab === "modules"
+                          selectedCourse?.id === course.id &&
+                          activeTab === "modules"
                         }
                       />
                     </div>
@@ -700,7 +777,8 @@ export default function ProfessorDashboard() {
                         onPublishToggle={() => handlePublishToggle(course.id)}
                         onUploadPdf={handleUploadPdf}
                         showUploadButton={
-                          selectedCourse?.id === course.id && activeTab === "modules"
+                          selectedCourse?.id === course.id &&
+                          activeTab === "modules"
                         }
                       />
                     </div>
