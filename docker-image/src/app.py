@@ -23,7 +23,7 @@ from src.textUtils import openai_embed_text
 
 from src.db.queries import (
     # User & Role
-    get_access_code_by_course, get_access_code_by_id, get_enrollment, get_user_by_id, get_user_by_email, get_user_by_firebase_uid,
+    get_access_code_by_course, get_access_code_by_id, get_enrollment, get_files_without_raw_by_module, get_user_by_id, get_user_by_email, get_user_by_firebase_uid,
     create_user, update_user, delete_user,
     get_role_by_user_id, set_role,
     # Profiles
@@ -401,9 +401,6 @@ def instructor_courses():
     }
     for c in courses
 ]), 200
-
-
-
 
 @app.route('/instructor/courses/<course_id>', methods=['GET','PATCH','DELETE'])
 def instructor_manage_course(course_id):
@@ -850,18 +847,18 @@ def moduleswithfiles(course_id):
     modules = get_modules_by_course(db, course_id)
     out = []
     for m in modules:
-        files = get_files_by_module(db, m.id)
+        rows = get_files_without_raw_by_module(db, m.id)
         out.append({
             'id':       str(m.id),
             'title':    m.title,
             'ordering': m.ordering,
             'files': [
                 {
-                  'id':       str(f.id),
-                  'title':    f.title,
-                  'ordering': f.ordering
+                  'id':       str(row.id),
+                  'title':    row.title,
+                  'ordering': row.ordering,
                 }
-                for f in files
+                for row in rows
             ]
         })
 
