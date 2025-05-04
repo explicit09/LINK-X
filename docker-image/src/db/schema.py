@@ -91,7 +91,6 @@ class Course(Base):
     instructor_id = Column(UUID(as_uuid=True),
                            ForeignKey('InstructorProfile.user_id', ondelete='CASCADE'),
                            nullable=False)
-    embedding = Column(Vector(1536)) 
 
     instructor_profile = relationship('InstructorProfile', back_populates='courses')
     modules = relationship('Module', back_populates='course')

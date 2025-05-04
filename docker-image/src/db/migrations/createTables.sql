@@ -51,7 +51,6 @@ CREATE TABLE IF NOT EXISTS "Course" (
   "index_pkl" BYTEA,
   "index_faiss" BYTEA,
   "instructor_id" UUID NOT NULL,
-  "embedding" vector(1536),
   CONSTRAINT fk_course_instructor FOREIGN KEY("instructor_id") REFERENCES "InstructorProfile"("user_id") ON DELETE CASCADE
 );
 

@@ -7,6 +7,7 @@ import textract
 from openai import OpenAI
 import numpy as np
 import os
+import re
 
 _embed_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -27,6 +28,23 @@ def extract_text(file_data: bytes, filename: str) -> str:
         return textract.process(io.BytesIO(file_data), extension=ext).decode('utf-8', errors='ignore')
     else:
         return file_data.decode('utf-8', errors='ignore')
+    
+def clean_extracted_text(text: str) -> str:
+    """
+    Attempts to fix broken spacing in extracted PDF text.
+    """
+    # Replace multiple spaces/newlines with a single space
+    text = re.sub(r'\s+', ' ', text)
+
+    # Insert space between lowercase-uppercase (e.g., 'attentionTransformers' → 'attention Transformers')
+    text = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', text)
+
+    # Insert space between words stuck together (e.g., 'theinputsequentially' → 'the input sequentially')
+    text = re.sub(r'(?<=[a-zA-Z])(?=[0-9])', ' ', text)
+    text = re.sub(r'(?<=[0-9])(?=[a-zA-Z])', ' ', text)
+
+    return text.strip()
+
 def split_text(text: str, max_tokens: int = 500, overlap: int = 50) -> List[str]:
     """
     Splits text into chunks of up to max_tokens tokens, with overlap.
