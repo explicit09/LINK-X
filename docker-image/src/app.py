@@ -834,22 +834,22 @@ def generate_personalized_file_content():
     # Read and validate JSON body
     data = request.get_json()
     name = data.get("name")
-    user_message = data.get("message")
+    user_message = data.get("message") # message is the topic, which is unlikely to be needed anymore
     profile = data.get("userProfile", {})
-    raw_expertise = data.get("expertise")
-    course_id = data.get("courseId")
+    # raw_expertise = data.get("expertise")
+    course_id = data.get("courseId") # TODO: Use index files from module, not course
 
     if not user_message:
         return jsonify({"error": "Message is required"}), 400
 
-    expertise_map = {
-        "beginner": "They prefer simple, clear explanations suitable for someone new to the topic.",
-        "intermediate": "They have some prior experience and prefer moderate technical depth.",
-        "advanced": "They want in-depth explanations with technical language.",
-    }
+    # expertise_map = {
+    #     "beginner": "They prefer simple, clear explanations suitable for someone new to the topic.",
+    #     "intermediate": "They have some prior experience and prefer moderate technical depth.",
+    #     "advanced": "They want in-depth explanations with technical language.",
+    # }
 
-    expertise = str(raw_expertise).lower() if raw_expertise else "beginner"
-    expertise_summary = expertise_map.get(expertise, expertise_map["beginner"])
+    # expertise = str(raw_expertise).lower() if raw_expertise else "beginner"
+    # expertise_summary = expertise_map.get(expertise, expertise_map["beginner"])
 
     persona = []
 

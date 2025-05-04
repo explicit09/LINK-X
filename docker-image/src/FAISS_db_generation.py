@@ -46,15 +46,15 @@ def generate_citations(course_dir):
     vectordb = FAISS.load_local(course_dir, embedding, allow_dangerous_deserialization=True)
 
     # Get the document store data
-    data_to_manipulate = vectordb.docstore.__dict__['_dict']
-    values_list = list(data_to_manipulate.values())
-    all_keys = list(data_to_manipulate.keys())
+    docstore_data = vectordb.docstore.__dict__['_dict']
+    values_list = list(docstore_data.values())
+    all_keys = list(docstore_data.keys())
 
     # Create initial DataFrame
     df = pd.DataFrame({"Keys": all_keys, "Values": values_list})
 
     # Extract source from metadata
-    df["Source"] = df["Values"].apply(lambda x: x.metadata["source"])
+    df["Source"] = df["Values"].apply(lambda x: x.metadata.get("source", "unknown"))
 
     # Get unique sources
     unique_sources = df['Source'].unique()
@@ -65,7 +65,10 @@ def generate_citations(course_dir):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a straightforward assistant who provides quick, direct, and answers without unnecessary elaboration. You will be provided a text chunk and you need to generate the APA 7th reference. Please reply 'I do not know' if you cannot generate the reference. Do not use any other information than the text chunk.",
+                    "content": (
+                        "You are a straightforward assistant who provides quick, direct APA 7th-style citations. "
+                        "Use only the provided text chunk. If you cannot generate a citation, respond with 'I do not know'."
+                    ),
                 },
                 {
                     "role": "user",
@@ -73,26 +76,33 @@ def generate_citations(course_dir):
                 }
             ],
         )
-        return completion.choices[0].message.content
+        return completion.choices[0].message.content.strip()
 
-    # Generate references for unique sources
+    # Generate citations
     reference_dict = {}
     for source in unique_sources:
-        df_for_each_unique = df[df["Source"] == source].iloc[:3]
-        text_for_obtaining_reference = " ".join(df_for_each_unique["Values"].apply(lambda x: x.page_content))
-        reference = obtain_reference_using_gpt(text_for_obtaining_reference)
+        df_for_each = df[df["Source"] == source].iloc[:3]
+        combined_text = " ".join(df_for_each["Values"].apply(lambda x: x.page_content))
+        reference = obtain_reference_using_gpt(combined_text)
         reference_dict[source] = reference
 
-    # Create a new DataFrame with Source and Reference columns
-    citations_df = pd.DataFrame(list(reference_dict.items()), columns=['Source', 'Reference'])
+    # Add citation to each chunk’s metadata
+    for key, doc in docstore_data.items():
+        original_source = doc.metadata.get("source", "unknown")
+        if original_source in reference_dict:
+            doc.metadata["citation"] = reference_dict[original_source]
 
-    csv_filename = os.path.join(course_dir, "citations.csv")
-    citations_df.to_csv(csv_filename, index=False, encoding='utf-8')
+    # Save updated FAISS index
+    vectordb.save_local(course_dir)
+    print(f"Saved updated FAISS index with citation metadata to: {course_dir}")
 
-    print(f"CSV file '{csv_filename}' has been created with Source and Reference columns.")
+    # Optionally write CSV too
+    citation_records = [{"Source": k, "Reference": v} for k, v in reference_dict.items()]
+    pd.DataFrame(citation_records).to_csv(
+        os.path.join(course_dir, "citations.csv"), index=False, encoding='utf-8'
+    )
+    print(f"Saved citation lookup table to citations.csv.")
 
-    # Optionally, display the first few rows of the DataFrame
-    # print(citations_df.head())
 # item_03
 def replace_sources(course_dir):
     # Validate existence of Course directory
@@ -142,7 +152,8 @@ def replace_sources(course_dir):
     # print("\nVerifying a few entries:")
     # for i in range(min(5, len(all_keys))):
     #   print(f"Document {i + 1} source:", vectordb.docstore.__dict__['_dict'][all_keys[i]].metadata["source"])
-    
+
+# item_03.5    
 # Remove all files except for index.faiss and index.pkl from the folder
 def file_cleanup(course_dir):
     # Validate existence of Course directory

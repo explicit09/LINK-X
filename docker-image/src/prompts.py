@@ -1,7 +1,7 @@
 import os
 from openai import OpenAI
 from dotenv import load_dotenv, find_dotenv
-from FAISS_retriever import answer_to_QA
+from FAISS_retriever import answer_to_QA, answer_to_QA_all_chunks
 
 load_dotenv(find_dotenv())
 
@@ -119,6 +119,96 @@ def prompt2_generate_course_outline(topic, expertise):
     )
     
     return response.choices[0].message.content.strip()
+
+def prompt_generate_personalized_file_content(working_dir, persona):
+    rag_query = ( 
+    """
+    You are an AI assistant generating a structured outline for educational content.
+
+    You have been provided with the full body of source material. Your task is to divide this content into **5–10 logically organized chapters**, ensuring that all key information is represented.
+    
+    **STRUCTURE**
+    For each chapter:
+    1. Provide a **concise chapter title** (3–7 words).
+    2. Include **2–4 comprehensive subsections**, each with:
+        - A **short title** summarizing the subsection's focus.
+        - A **fullText** explanation that summarizes relevant information in **at least two sentences**.
+
+    **INSTRUCTIONS**
+    - Use language that is **clear, precise, and faithful** to the original material. Rephrase only to improve structure or flow.
+    - Use the **entire content** unless something is clearly redundant.
+    - You may **reorder or group** related points for clarity, but you must not omit any meaningful content.
+    - Do **not invent** any facts, examples, or interpretations. Work only with the content provided.
+    - If the original text contains specific names, terms, dates, steps, or examples, they **must be preserved** in the output.
+
+    **OUTPUT FORMAT**
+    Return a valid JSON matching this structure:
+
+    {
+        "chapters": [
+            {
+                "chapterTitle": "string",
+                "subsections": [
+                    {
+                        "title": "string",
+                        "fullText": "string"
+                    },
+                    ...
+                ]
+            },
+            ...
+        ]
+    }
+
+    **Do not** include markdown, code block markers (e.g., triple backticks), or extra commentary. Return only clean, raw JSON.
+    """
+    )
+
+    JSON_response = answer_to_QA_all_chunks(rag_query, working_dir)
+    print(JSON_response)
+    # personalization_query = (
+    # f"""
+    # You are an AI assistant generating a personalized educational file.
+
+    # You have been provided a JSON of the full content of the file: {JSON_response}
+
+    # The user will provide you with their persona.
+
+    # Your tasks:
+    # 1. You must use **ALL** of the knowledge provided in the JSON
+    # 2. Organize and explain the fullText of each subsection clearly, without omitting or skipping important parts.
+    # 3. Personalize the explanation based on the user's persona to adjust tone, depth, and style.
+    # 4. Adapt examples to be more relevant to the user's persona without changing the underlying lesson or concept.
+    #     - Do not change the core explanation or lesson being taught by the example.
+    #     - Adjust only the context, terminology, or scenario so that the example feels more relatable and applicable to the user's background.
+
+    # Return ONLY the **raw valid JSON string** with the following structure:
+
+    # {
+    #     "chapters": [
+    #         {
+    #             "chapterTitle": "string",
+    #             "subsections": [
+    #                 {
+    #                     "title": "string",
+    #                     "fullText": "string"
+    #                 },
+    #                 ...
+    #             ]
+    #         },
+    #         ...
+    #     ]
+    # }
+
+    # Ensure that the entire provided content is covered within the personalized JSON.
+
+    # **DO NOT** include any code-block markers (e.g., triple backticks, etc)
+    # **DO NOT** add chapters or subsections
+    # **DO NOT** change the chapter titles or subsection titles
+    # **DO NOT** add any new information or content that wasn't in the retrieved knowledge.
+    # **DO NOT** leave out any part of the retrieved content unless explicitly redundant.
+    # """
+    # )
 
 def prompt3_generate_module_content_RAG(persona, expertise_summary, topic, working_dir):
     rag_query = (
