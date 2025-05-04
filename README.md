@@ -1,26 +1,15 @@
 
 <p align="center">
-  An Open-Source AI Chatbot Template Built With Next.js and the AI SDK by Vercel.
+  An AI-Powered Personalized-Learning Platform Built with a Next.js Frontend and a Flask Backend.
 </p>
 
-<p align="center">
-  <a href="#model-providers"><strong>Model Providers</strong></a> ·
-  <a href="#deploy-your-own"><strong>Deploy Your Own</strong></a>
-  <a href="#features"><strong>Features</strong></a> ·
-  <a href="#running-locally"><strong>Running locally</strong></a>
-</p>
 <br/>
 
 ## Model Providers
 
-This template ships with OpenAI `gpt-4o` as the default.
-
-### TO-DO
-
-Add Coral AI custom RAG system to API routes in `app/xhat/api`
+This platform uses OpenAI `gpt-4o` as the default.
 
 ## Features
-
 - [Next.js](https://nextjs.org) App Router
   - Advanced routing for seamless navigation and performance
   - React Server Components (RSCs) and Server Actions for server-side rendering and increased performance
@@ -28,14 +17,6 @@ Add Coral AI custom RAG system to API routes in `app/xhat/api`
   - Unified API for generating text, structured objects, and tool calls with LLMs
   - Hooks for building dynamic chat and generative user interfaces
   - Supports OpenAI (default), Anthropic, Cohere, and other model providers
-- [shadcn/ui](https://ui.shadcn.com)
-  - Styling with [Tailwind CSS](https://tailwindcss.com)
-  - Component primitives from [Radix UI](https://radix-ui.com) for accessibility and flexibility
-- Data Persistence
-  - [Vercel Postgres powered by Neon](https://vercel.com/storage/postgres) for saving chat history and user data
-  - [Vercel Blob](https://vercel.com/storage/blob) for efficient file storage
-- [NextAuth.js](https://github.com/nextauthjs/next-auth)
-  - Simple and secure authentication
 
 ## Running locally
 
@@ -74,7 +55,7 @@ docker exec -it backend /bin/bash
 ```
 ## FAISS database generation & RAG testing
 
-You will need to run the docker container in and open a new interactive shell (shown above)
+You will need to run the docker container and open a new interactive shell (shown above)
 
 From the shell, enter the src folder:
 
@@ -82,22 +63,24 @@ From the shell, enter the src folder:
 cd src
 ```
 
-### 1. Generate FAISS database from desired PDF
+### 1. Generate FAISS database from desired PDFs
 ```bash
-bash run_faiss.sh learning_pdfs/<name_of_pdf>
-docker exec -it <container_id_or_name> /bin/bash # Open an interactive shell (separate from main process)
+python -i FAISS_db_generation.py
+create_database("<path_to_working_dir>")
+generate_citations("<path_to_working_dir>") 
+file_cleanup("<path_to_working_dir>")
 ```
-- Creates an md5 hash to be used as the PDF's unique ID
-- `item_01_database_creation_FAISS.py`
+- `create_database()`
   - Loads specified PDF document
   - Splits text into manageable chunks
   - Creates FAISS vector embeddings using OpenAI
-  - Saves files `index.faiss` and `index.pkl` to `/app/src/faiss_generated/<pdf_id>/faiss_index/` within the container
-  
-- `item_02_generate_citations_APA_FAISS.py` && `item_03_replace_source_by_citation.py`
+  - Saves files `index.faiss` and `index.pkl` in `<path_to_working_dir>` within the container
+- `generate_citations()`
   - Generates APA citations using LLM: GPT-4o-mini
-  - Saves citations to `/app/src/faiss_generated/<pdf_id>/additional_files/citations.csv` within the container
+  - Saves citations to `<path_to_working_dir>/citations.csv` within the container
   - Updates vector storage with proper citations
+- `file_cleanup()`
+  - Recursively removes all files except for `index.faiss` & `index.pkl` from `<path_to_working_dir>`
 
 ### 2. FAISS index retrieval and RAG
 > Note: Step 1. should be complete for the desired pdf before Step 2.
@@ -108,7 +91,7 @@ docker exec -it <container_id_or_name> /bin/bash # Open an interactive shell (se
 ### 3. Launch the Web Interface for testing RAG
 > Note: Step 1. should be complete for the desired pdf before Step 3.
 ```bash
-bash run_streamlit_ui.sh faiss_generated/<pdf_id>
+bash run_streamlit_ui.sh <path_to_working_dir>
 ```
 - The streamlit web interface should now be running on [localhost:8501](http://localhost:8501/).
 - From here, you can:
@@ -116,72 +99,36 @@ bash run_streamlit_ui.sh faiss_generated/<pdf_id>
   - Receive AI-generated answers
   - View source citations for all responses
 
-# PYTHON/RAG NOTES: Coral Research Question-Answering System
+# PYTHON/RAG NOTES: Question-Answering System
 
-A sophisticated document processing and retrieval system that leverages FAISS (Facebook AI Similarity Search) and OpenAI embeddings to create an interactive question-answering interface for coral research documents.
+A sophisticated document processing and retrieval system that leverages FAISS (Facebook AI Similarity Search) and OpenAI embeddings to create an interactive question-answering interface for provided documents.
 
 ## Overview
 
-This project implements a document processing pipeline that converts PDF documents into a searchable vector database, coupled with a user-friendly Streamlit interface for querying coral-related research information.
-
+This project implements a document processing pipeline that converts PDF documents into a searchable vector database.
 ## System Architecture
 
 ![System Architecture](additional_files/system_architecture.png)
 
-The system consists of three main workflows:
-
-### 1. Document Processing Pipeline
-- **Data Collection & Processing** (`item_01_database_creation_FAISS.py`)
-  - Loads coral reef research papers
+### 1. Document Processing Pipeline (`FAISS_db_generation.py`)
+- **Data Collection & Processing** (`FAISS_db_generation.py`: `create_db(<path_to_working_dir>)`)
+  - Loads all documents in the provided path
   - Splits documents into smaller chunks
   - Creates embeddings using OpenAI's model: Ada-002
   - Stores vectors in FAISS database: FlatL2-index
 
-- **Citation Management** (`item_02_generate_citations_APA_FAISS.py` & `item_03_replace_source_by_citation.py`)
+- **Citation Management** (`docker-image/src/FAISS_db_generation.py`: `generate_citations(<path_to_working_dir>)` & `replace_sources(<path_to_working_dir>)`)
   - Generates APA citations using LLM: GPT-4o-mini
-  - Human verification of citations (Done manually)
   - Updates vector storage with proper citations
 
 ### 2. Query Processing Pipeline
-- **Query Processing** (`item_04_retriever_FAISS.py`)
+- **Query Processing** (`docker-image/src/FAISS_retriever.py`)
   - Processes user queries
   - Creates query embeddings: Ada-002
   - Checks similarity with stored vectors: Euclidean-distance
   - Selects top k most similar chunks
   - Generates context-aware prompts: GPT-4o-mini
   - Uses LLM to generate answers with citations: GPT-4o-mini
-
-- **User Interface** (`item_05_streamlit_FAISS.py`)
-  - Provides web interface for user interaction
-  - Displays answers and citations
-  - Handles user input and system responses
-
-## File Structure and Relationships
-
-### Input Files
-Located in `data/learning_pdfs/`:
-- Collection of PDF documents to test course creation with
-- Used by `item_01_database_creation_FAISS.py` for initial database creation
-
-### Generated Files (FIXME)
-Located in `additional_files/`:
-
-1. **citations.csv**
-   - Generated by: `item_02_generate_citations_APA_FAISS.py`
-   - Contains: PDF source paths and their corresponding APA citations
-   - Format:
-     ```
-     Source,Reference
-     path/to/pdf,APA formatted citation
-     ```
-
-
-### Vector Database (FIXME)
-Located in `faiss_index/`:
-- Generated by: `item_01_database_creation_FAISS.py`
-- Modified by: `item_03_replace_source_by_citation.py`
-- Used by: All retrieval and evaluation scripts
-- Contains: FAISS vector database with document embeddings
 
 ## Prerequisites
 
@@ -218,11 +165,18 @@ Located in `faiss_index/`:
    ```bash
    pip install -r requirements.txt
    ```
-3. Create a `.env` file with your OpenAI API key:
+3. Create the file `.env.local` in the `coralx-frontend/` with the following:
    ```
    OPENAI_API_KEY=your_api_key_here
+   AUTH_SECRET=your_auth_secret_here
+   POSTGRES_URL=your_postgres_url_here
    ```
-
+4. Create the file `.env ` in `docker-image/src` with the following:
+   ```
+   OPENAI_API_KEY=your_api_key_here
+   AUTH_SECRET=your_auth_secret_here
+   POSTGRES_URL=your_postgres_url_here
+   ```
 ## Acknowledgments
 
 - LangChain for the document processing framework
