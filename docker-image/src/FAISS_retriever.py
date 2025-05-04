@@ -76,7 +76,7 @@ def cascading_LLM_response(query, faiss_index_path, threshold=2):
     vectordb = FAISS.load_local(
         faiss_index_path, embedding, allow_dangerous_deserialization=True
     )
-    faiss_retriever = vectordb.as_retriever(search_kwargs={"k" : 4})
+    faiss_retriever = vectordb.as_retriever(search_kwargs={"k" : 5})
 
     # Query FAISS first
     faiss_docs = faiss_retriever.invoke(query)
@@ -109,6 +109,31 @@ def cascading_LLM_response(query, faiss_index_path, threshold=2):
 
     return llm_response
 
+def LLM_response_all_chunks(query, faiss_index_path):
+    embedding = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+    vectordb = FAISS.load_local(
+        faiss_index_path, embedding, allow_dangerous_deserialization=True
+    )
+    all_chunks = list(vectordb.docstore.__dict__["_dict"].values())
+
+    class FullDumpRetriever(BaseRetriever):
+        def _get_relevant_documents(self, q):
+            return all_chunks
+
+    retriever = FullDumpRetriever()
+
+    qa_chain = RetrievalQA.from_chain_type(
+        llm,
+        chain_type="stuff",
+        retriever=retriever,
+        return_source_documents=False
+    )
+
+    llm_response = qa_chain.invoke(query)
+    return llm_response
+
 def answer_to_QA(query, faiss_index_path):
     llm_response = cascading_LLM_response(query, faiss_index_path)
     
@@ -119,6 +144,11 @@ def answer_to_QA(query, faiss_index_path):
 
     return answer_txt
 
+def answer_to_QA_all_chunks(query, faiss_index_path):
+    llm_response = LLM_response_all_chunks(query, faiss_index_path)
+    answer_txt = process_llm_response(llm_response)
+
+    return answer_txt
 
 if __name__ == "__main__":
     # query = "How parastites are damaging the corals?"
@@ -132,4 +162,4 @@ if __name__ == "__main__":
 
     # print(similar_chunk_list)
 
-    print(answer_to_QA(query))
+    print(answer_to_QA(query, ""))
