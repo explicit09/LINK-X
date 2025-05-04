@@ -69,6 +69,7 @@ def process_llm_response(llm_response):
     
 #     return similar_chunks
 
+# Performs an LLM query using the top similar chunks and falls back to OpenAI knowledge if not enough
 def cascading_LLM_response(query, faiss_index_path, threshold=2):
     embedding = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
@@ -109,6 +110,7 @@ def cascading_LLM_response(query, faiss_index_path, threshold=2):
 
     return llm_response
 
+# Perfoms LLM query using all of the provided chunks and does not fall back to OpenAI knowledge
 def LLM_response_all_chunks(query, faiss_index_path):
     embedding = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)

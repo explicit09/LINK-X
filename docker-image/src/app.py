@@ -47,7 +47,8 @@ from src.prompts import (
     prompt1_create_course,
     prompt2_generate_course_outline, prompt2_generate_course_outline_RAG,
     prompt3_generate_module_content, prompt3_generate_module_content_RAG, 
-    prompt4_valid_query
+    prompt4_valid_query,
+    prompt_generate_personalized_file_content
 )
 
 from FAISS_db_generation import create_database, generate_citations, replace_sources, file_cleanup
@@ -954,7 +955,8 @@ def generate_personalized_file_content():
             db_session.close()
     try:
         if faiss_bytes is None or pkl_bytes is None:
-            response = prompt3_generate_module_content(full_persona, expertise_summary, user_message)
+            #FIXME
+            return
         else:
             tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{course_id}_")
             tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
@@ -966,8 +968,7 @@ def generate_personalized_file_content():
                 idx_pkl.write(pkl_bytes)
 
             # Generate response using the temp directory
-            response = prompt3_generate_module_content_RAG(full_persona, expertise_summary, user_message, tmp_idx_dir)
-
+            response = prompt_generate_personalized_file_content(tmp_idx_dir, full_persona)
             # After generating response, remove temp directory and all files in it
             shutil.rmtree(tmp_root)
             
