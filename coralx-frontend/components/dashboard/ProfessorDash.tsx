@@ -64,6 +64,26 @@ export default function ProfessorDashboard() {
   const [uploading, setUploading]   = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ content: string }[]>([]);
+  const [modules, setModules] = useState<{ id: string; title: string }[]>([]);
+  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+  const [newModuleTitle, setNewModuleTitle] = useState("");
+  
+  useEffect(() => {
+    const fetchModules = async () => {
+      if (!selectedCourse) return;
+      try {
+        const res = await fetch(`http://localhost:8080/instructor/courses/${selectedCourse.id}/modules`, {
+          credentials: "include",
+        });
+        const data = await res.json();
+        setModules(data);
+      } catch (err) {
+        console.error("Error fetching modules:", err);
+      }
+    };
+  
+    fetchModules();
+  }, [selectedCourse]);
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -86,11 +106,39 @@ export default function ProfessorDashboard() {
     }
   }, [selectedCourse]);
 
+  const handleAddModule = async () => {
+    if (!selectedCourse) return;
+  
+    try {
+      const res = await fetch(`http://localhost:8080/instructor/courses/${selectedCourse.id}/modules`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newModuleTitle }),
+        credentials: "include", // important if session/cookie-based auth
+      });
+  
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to add module");
+  
+      setModules((prev) => [...prev, data]);
+      setNewModuleTitle("");
+    } catch (err) {
+      console.error("Add module failed:", err);
+      alert("Error adding module");
+    }
+  };
+
   const handleUploadPdf = async (courseId: string, file: File) => {
+    if (!selectedModuleId) {
+      alert("Please select a module.");
+      return;
+    }
+  
     setUploading(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("module_id", selectedModuleId);
   
       const res = await fetch(`http://localhost:8080/courses/${courseId}/upload`, {
         method: "POST",
@@ -107,6 +155,7 @@ export default function ProfessorDashboard() {
       setUploading(false);
     }
   };
+  
 
   const handleSearch = async () => {
     if (!query || !selectedCourse) return;
@@ -402,10 +451,46 @@ export default function ProfessorDashboard() {
                   <h2 className="text-2xl font-bold mb-4">Modules</h2>
 
                   <div className="mb-6">
-                    <UploadPdf
-                      onUpload={(file) => handleUploadPdf(selectedCourse.id, file)}
-                      uploading={uploading}
-                    />
+                    <h3 className="text-lg font-semibold mb-2">Add Module</h3>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Module Title"
+                        value={newModuleTitle}
+                        onChange={(e) => setNewModuleTitle(e.target.value)}
+                        className="w-full p-3 rounded border border-gray-300 bg-white text-black placeholder-gray-500 focus:outline-none focus:ring focus:ring-blue-300"
+                      />
+                      <Button onClick={handleAddModule} disabled={!newModuleTitle}>
+                        Add Module
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                  <UploadPdf
+                    onUpload={(file) => handleUploadPdf(selectedCourse.id, file)}
+                    uploading={uploading}
+                    modules={modules}
+                    selectedModuleId={selectedModuleId}
+                    setSelectedModuleId={setSelectedModuleId}
+                  />
+                  </div>
+
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold mb-2">Your Modules</h3>
+                    <ul className="space-y-2">
+                      {modules.map((mod) => (
+                        <li
+                          key={mod.id}
+                          className={`p-3 rounded-md border border-gray-300 cursor-pointer ${
+                            selectedModuleId === mod.id ? "bg-blue-100 border-blue-400" : "hover:bg-gray-50"
+                          }`}
+                          onClick={() => setSelectedModuleId(mod.id)}
+                        >
+                          <span className="font-medium text-gray-900">{mod.title}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
 
                   {/* Search input */}
