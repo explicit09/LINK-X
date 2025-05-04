@@ -1,7 +1,7 @@
 import os
 from openai import OpenAI
 from dotenv import load_dotenv, find_dotenv
-from FAISS_retriever import answer_to_QA
+from FAISS_retriever import answer_to_QA, answer_to_QA_all_chunks
 
 load_dotenv(find_dotenv())
 
@@ -118,6 +118,119 @@ def prompt2_generate_course_outline(topic, expertise):
         temperature=0
     )
     
+    return response.choices[0].message.content.strip()
+
+def prompt_generate_personalized_file_content(working_dir, persona):
+    rag_query = ( 
+    """
+    You are an AI assistant generating a structured outline for educational content.
+
+    You have been provided with the full body of source material. Your task is to divide this content into **5–10 logically organized chapters**, ensuring that all key information is represented.
+    
+    **STRUCTURE**
+    For each chapter:
+    1. Provide a **concise chapter title** (3–7 words).
+    2. Include **2–4 comprehensive subsections**, each with:
+        - A **short title** summarizing the subsection's focus.
+        - A **fullText** explanation that presents the relevant information in **at least two sentences**.
+
+    **INSTRUCTIONS**
+    - Use language that is **clear, precise, and faithful** to the original material. Rephrase only to improve structure or flow.
+    - Use the **entire content** unless something is clearly redundant.
+    - You may **reorder or group** related points for clarity, but you must not omit any meaningful content.
+    - Do **not invent** any facts, examples, or interpretations. Work only with the content provided.
+    - If the original text contains specific names, terms, dates, steps, or examples, they **must be preserved** in the output.
+
+    **OUTPUT FORMAT**
+    Return a valid JSON matching this structure:
+
+    {
+        "chapters": [
+            {
+                "chapterTitle": "string",
+                "subsections": [
+                    {
+                        "title": "string",
+                        "fullText": "string"
+                    },
+                    ...
+                ]
+            },
+            ...
+        ]
+    }
+
+    **Do not** include markdown, code block markers (e.g., triple backticks), or extra commentary. Return only clean, raw JSON.
+    """
+    )
+
+    JSON_response = answer_to_QA_all_chunks(rag_query, working_dir)
+    print(JSON_response)
+
+    personalization_query = (
+    f"""
+    You are an AI assistant tasked with personalizing structured educational content.
+
+    You have been provided with a JSON object containing chapters and subsections: {JSON_response}
+    Each subsection includes:
+    - A **title** describing its focus
+    - A **fullText** field containing the original explanation
+
+    You will also receive:
+    - A description of the **user’s persona**
+
+    **Your task is to revise ONLY the fullText fields to match the user’s tone and background preferences.**
+
+    **INSTRUCTIONS**
+    1. You must **retain the original explanation and meaning** in every subsection.
+    2. Do **not change** any subsection titles, chapter titles, or the number of items.
+    3. You may personalize language, tone, depth, and examples based on the persona and expertise, but:
+    - Do **not invent** new facts, terms, or interpretations
+    - Do **not remove** information unless it is explicitly redundant
+    4. If a subsection includes an example, you may **adapt its context or framing** to be more relatable to the user, but:
+    - The example must still teach the same lesson
+    - The core logic or takeaway must be unchanged
+
+    **Return ONLY a valid JSON object** with the same structure as provided, with updated fullText values:
+
+    **OUTPUT FORMAT**
+    Return a valid JSON matching this structure:
+
+    {{
+        "chapters": [
+            {{
+                "chapterTitle": "string",
+                "subsections": [
+                    {{
+                        "title": "string",
+                        "fullText": "string"
+                    }},
+                    ...
+                ]
+            }},
+            ...
+        ]
+    }}
+
+    **Do not** include markdown or code block markers (e.g., triple backticks). Return just the modified JSON object.
+    """
+    )
+
+    user_query = (
+    f"""
+    Persona: {persona}
+    """
+    )
+
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": personalization_query},
+            {"role": "user", "content": user_query}
+        ],
+        temperature=0
+    )
+
     return response.choices[0].message.content.strip()
 
 def prompt3_generate_module_content_RAG(persona, expertise_summary, topic, working_dir):

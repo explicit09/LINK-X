@@ -4,19 +4,22 @@ import tempfile
 import pickle
 import faiss
 import numpy as np
+import tempfile
+import shutil
 from datetime import datetime
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 import firebase_admin
 from firebase_admin import auth, credentials
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from src.db.schema import Base
 from openai import OpenAI
 from transcriber import transcribe_audio
-from indexer import rebuild_course_index, rebuild_file_index
+from indexer import rebuild_course_index, rebuild_file_index, store_file_embeddings
 from io import BytesIO
+from src.textUtils import openai_embed_text
 
 from src.db.queries import (
     # User & Role
@@ -39,6 +42,16 @@ from src.db.queries import (
     get_message_by_id, get_messages_by_chat, create_message, delete_messages_after,
     get_report_by_id, get_reports_by_course, create_report, update_report, delete_report
 )
+
+from src.prompts import (
+    prompt1_create_course,
+    prompt2_generate_course_outline, prompt2_generate_course_outline_RAG,
+    prompt3_generate_module_content, prompt3_generate_module_content_RAG, 
+    prompt4_valid_query,
+    prompt_generate_personalized_file_content
+)
+
+from FAISS_db_generation import create_database, generate_citations, replace_sources, file_cleanup
 
 load_dotenv()
 app = Flask(__name__)
@@ -544,6 +557,70 @@ def instructor_files(module_id):
         for f in files
     ]), 200
 
+@app.route('/courses/<course_id>/upload', methods=['POST'])
+def upload_to_course(course_id):
+    db = Session()
+    try:
+        file = request.files.get('file')
+        if not file:
+            return jsonify({"error": "No file uploaded"}), 400
+
+        course = get_course_by_id(db, course_id)
+        if not course or not course.modules:
+            return jsonify({"error": "Course or module not found"}), 404
+
+        first_module = course.modules[0]  # assumes modules are ordered
+
+        file_data = file.read()
+        new_file = create_file(
+            db,
+            module_id=first_module.id,
+            title=request.form.get('title', file.filename),
+            filename=file.filename,
+            file_type=file.mimetype,
+            file_size=len(file_data),
+            file_data=file_data,
+        )
+
+        num_chunks = store_file_embeddings(db, str(new_file.id))
+        return jsonify({"message": f"File added and embedded into course. {num_chunks} chunks."})
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/courses/<course_id>/search', methods=['POST'])
+def search_course_chunks(course_id):
+    db = Session()
+    try:
+        data = request.get_json()
+        query = data.get("query")
+        if not query:
+            return jsonify({"error": "Missing query"}), 400
+
+        # Embed the query sentence
+        vector_list = openai_embed_text([query])[0].tolist()
+        pgvector_str = f"[{','.join(map(str, vector_list))}]"
+
+        # Perform vector similarity search
+        sql = text("""
+            SELECT content
+            FROM "FileChunk"
+            WHERE course_id = :cid
+            ORDER BY embedding <-> :query_vec
+            LIMIT 5
+        """)
+        rows = db.execute(sql, {"cid": course_id, "query_vec": pgvector_str}).fetchall()
+        return jsonify({"results": [{"content": row[0]} for row in rows]})
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
 @app.route('/instructor/files/<file_id>', methods=['GET', 'PATCH', 'DELETE'])
 def instructor_manage_file(file_id):
     user_id, err = verify_instructor()
@@ -817,8 +894,86 @@ def generate_personalized_file_content():
     user_id, err = verify_student()
     if err:
         return err
-    # TODO: hook into your AI pipeline; stub for now
-    return jsonify({'error': 'Not implemented'}), 501
+    
+    # TODO: Verify the functionality compared to the old /chatwithpersona
+
+    # Read and validate JSON body
+    data = request.get_json()
+    name = data.get("name")
+    user_message = data.get("message") # message is the topic, which is unlikely to be needed anymore
+    profile = data.get("userProfile", {})
+    # raw_expertise = data.get("expertise")
+    course_id = data.get("courseId") # TODO: Use index files from module, not course
+
+    if not user_message:
+        return jsonify({"error": "Message is required"}), 400
+
+    # expertise_map = {
+    #     "beginner": "They prefer simple, clear explanations suitable for someone new to the topic.",
+    #     "intermediate": "They have some prior experience and prefer moderate technical depth.",
+    #     "advanced": "They want in-depth explanations with technical language.",
+    # }
+
+    # expertise = str(raw_expertise).lower() if raw_expertise else "beginner"
+    # expertise_summary = expertise_map.get(expertise, expertise_map["beginner"])
+
+    persona = []
+
+    if name:
+        persona.append(f'The user’s name is **{name}**')
+    if profile.get("role"):
+        persona.append(f'they are a **{profile["role"]}**')
+    if profile.get("traits"):
+        persona.append(f'they like their assistant to be **{profile["traits"]}**')
+    if profile.get("learningStyle"):
+        persona.append(f'their preferred learning style is **{profile["learningStyle"]}**')
+    if profile.get("depth"):
+        persona.append(f'they prefer **{profile["depth"]}-level** explanations')
+    if profile.get("interests"):
+        persona.append(f'they’re interested in **{profile["interests"]}**')
+    if profile.get("personalization"):
+        persona.append(f'they enjoy **{profile["personalization"]}**')
+    if profile.get("schedule"):
+        persona.append(f'they study best **{profile["schedule"]}**')
+
+    full_persona = ". ".join(persona)
+
+    faiss_bytes = None
+    pkl_bytes = None
+
+    # Check for index.faiss and index.pkl bytes on the database
+    if course_id:
+        db_session = Session()
+        try:
+            course = get_course_by_id(db_session, course_id)
+            if course: 
+                faiss_bytes = course.index
+                pkl_bytes = course.pkl
+        except Exception as e:
+            print(f"Error fetching course for ID {course_id}: {e}")
+        finally:
+            db_session.close()
+    try:
+        tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{course_id}_")
+        tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
+        os.makedirs(tmp_idx_dir, exist_ok=True)
+
+        with open(os.path.join(tmp_idx_dir, "index.faiss"), "wb") as idx_faiss:
+            idx_faiss.write(faiss_bytes)
+        with open(os.path.join(tmp_idx_dir, "index.pkl"), "wb") as idx_pkl:
+            idx_pkl.write(pkl_bytes)
+
+        # Generate response using the temp directory
+        response = prompt_generate_personalized_file_content(tmp_idx_dir, full_persona)
+        # After generating response, remove temp directory and all files in it
+        shutil.rmtree(tmp_root)
+            
+        # TODO: SAVE PERSOANLIZED CONTENT TO DATABASE
+
+        return jsonify({"response": response}), 200
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/student/personalized-files/<pf_id>', methods=['GET'])
 def student_get_pfile(pf_id):
