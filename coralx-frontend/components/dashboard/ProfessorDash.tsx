@@ -28,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { CourseCard } from "@/components/dashboard/CourseCard";
 import { CourseForm } from "@/components/dashboard/CourseForm";
+import UploadPdf from "@/components/dashboard/UploadPDF";
 
 // Sample courses
 // const initialCourses = [
@@ -60,6 +61,9 @@ export default function ProfessorDashboard() {
   const [editedCourse, setEditedCourse] = useState<Course | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [uploading, setUploading]   = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<{ content: string }[]>([]);
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -81,6 +85,49 @@ export default function ProfessorDashboard() {
       setEditedCourse(selectedCourse);
     }
   }, [selectedCourse]);
+
+  const handleUploadPdf = async (courseId: string, file: File) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+  
+      const res = await fetch(`http://localhost:8080/courses/${courseId}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+  
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+  
+      alert(`✅ ${data.message}`);
+    } catch (err) {
+      alert(`❌ Upload failed: ${(err as Error).message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSearch = async () => {
+    if (!query || !selectedCourse) return;
+  
+    try {
+      const res = await fetch(`http://localhost:8080/courses/${selectedCourse.id}/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+  
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Search failed");
+  
+      setResults(data.results);
+    } catch (err) {
+      console.error("Search error:", err);
+      alert("Error searching content");
+    }
+  };
+  
 
   const filteredCourses = courses
     .filter(
@@ -350,12 +397,42 @@ export default function ProfessorDashboard() {
 
               {/* Main Content */}
               <main className="flex-1 p-8">
-                {activeTab === "modules" && (
-                  <section>
-                    <h2 className="text-2xl font-bold mb-4">Modules</h2>
-                    {/* modules content goes here */}
-                  </section>
-                )}
+              {activeTab === "modules" && (
+                <section>
+                  <h2 className="text-2xl font-bold mb-4">Modules</h2>
+
+                  <div className="mb-6">
+                    <UploadPdf
+                      onUpload={(file) => handleUploadPdf(selectedCourse.id, file)}
+                      uploading={uploading}
+                    />
+                  </div>
+
+                  {/* Search input */}
+                  <div className="mb-4">
+                    <input
+                      type="text"
+                      placeholder="Search your course materials..."
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      className="w-full p-3 rounded border border-gray-300 bg-white text-black placeholder-gray-500 focus:outline-none focus:ring focus:ring-blue-300"
+                    />
+                    <Button onClick={handleSearch} className="mt-2">Search</Button>
+                  </div>
+
+                  {/* Search results */}
+                  <div className="space-y-4">
+                  {results.map((chunk, index) => (
+                    <Card key={index} className="w-full p-6 bg-white border border-gray-300 shadow-md">
+                      <p className="text-xl text-gray-900 whitespace-pre-wrap leading-relaxed">
+                        {chunk.content}
+                      </p>
+                    </Card>
+                  ))}
+                  </div>
+                </section>
+              )}
+                {/* modules content goes here */}
                 {activeTab === "people" && (
                   <section>
                     <h2 className="text-2xl font-bold mb-4">People</h2>
@@ -565,10 +642,15 @@ export default function ProfessorDashboard() {
                     className="cursor-pointer"
                   >
                     <CourseCard
-                      course={course}
-                      onEdit={() => setEditingCourse(course)}
-                      onPublishToggle={() => handlePublishToggle(course.id)}
-                    />
+                        course={course}
+                        uploading={uploading}
+                        onEdit={() => setEditingCourse(course)}
+                        onPublishToggle={() => handlePublishToggle(course.id)}
+                        onUploadPdf={handleUploadPdf}
+                        showUploadButton={
+                          selectedCourse?.id === course.id && activeTab === "modules"
+                        }
+                      />
                   </div>
                 ))}
               </TabsContent>
@@ -587,8 +669,13 @@ export default function ProfessorDashboard() {
                     >
                       <CourseCard
                         course={course}
+                        uploading={uploading}
                         onEdit={() => setEditingCourse(course)}
                         onPublishToggle={() => handlePublishToggle(course.id)}
+                        onUploadPdf={handleUploadPdf}
+                        showUploadButton={
+                          selectedCourse?.id === course.id && activeTab === "modules"
+                        }
                       />
                     </div>
                   ))}
@@ -608,8 +695,13 @@ export default function ProfessorDashboard() {
                     >
                       <CourseCard
                         course={course}
+                        uploading={uploading}
                         onEdit={() => setEditingCourse(course)}
                         onPublishToggle={() => handlePublishToggle(course.id)}
+                        onUploadPdf={handleUploadPdf}
+                        showUploadButton={
+                          selectedCourse?.id === course.id && activeTab === "modules"
+                        }
                       />
                     </div>
                   ))}
