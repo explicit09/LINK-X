@@ -1,4 +1,5 @@
-import { Book, Edit, Eye, EyeOff, MoreHorizontal, Users } from "lucide-react";
+import { Book, Edit, Eye, EyeOff, MoreHorizontal, Users, Upload } from "lucide-react";
+import { useRef } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,17 +29,29 @@ interface CourseCardProps {
     published: boolean;
     lastUpdated: string;
   };
+  uploading: boolean;
   onEdit: () => void;
   onPublishToggle: () => void;
+  onUploadPdf: (courseId: string, file: File) => Promise<void>;
+  showUploadButton?: boolean;
 }
 
 export function CourseCard({
   course,
+  uploading,
   onEdit,
   onPublishToggle,
+  onUploadPdf,
+  showUploadButton,
 }: CourseCardProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) onUploadPdf(course.id, file);
+  };
+
   return (
-    // <Card className="overflow-hidden glass-effect border-2 border-white/20"> -----> Old one less border
     <Card className="flex flex-col justify-between h-full overflow-hidden rounded-xl shadow-md bg-white">
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
@@ -47,7 +60,6 @@ export function CourseCard({
               <Book className="h-5 w-5 text-primary" />
               <span className="line-clamp-2 leading-snug">{course.title}</span>
             </CardTitle>
-
             <CardDescription>
               {course.code} • {course.term}
             </CardDescription>
@@ -59,26 +71,11 @@ export function CourseCard({
                 <span className="sr-only">Open menu</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="glass-effect border-white/10"
-            >
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit();
-                }}
-              >
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Course
+            <DropdownMenuContent align="end" className="glass-effect border-white/10">
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+                <Edit className="mr-2 h-4 w-4" /> Edit Course
               </DropdownMenuItem>
-
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPublishToggle();
-                }}
-              >
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onPublishToggle(); }}>
                 {course.published ? (
                   <>
                     <EyeOff className="mr-2 h-4 w-4" />
@@ -91,13 +88,8 @@ export function CourseCard({
                   </>
                 )}
               </DropdownMenuItem>
-
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
-              >
+              <DropdownMenuItem>
                 <Users className="mr-2 h-4 w-4" />
                 Manage Students
               </DropdownMenuItem>
@@ -105,12 +97,10 @@ export function CourseCard({
           </DropdownMenu>
         </div>
       </CardHeader>
-      <CardContent>
+
+      <CardContent className="space-y-2">
         <div className="flex items-center gap-2">
-          <Badge
-            variant={course.published ? "default" : "outline"}
-            className={course.published ? "purple-gradient" : ""}
-          >
+          <Badge variant={course.published ? "default" : "outline"} className={course.published ? "purple-gradient" : ""}>
             {course.published ? "Published" : "Unpublished"}
           </Badge>
           <Badge variant="secondary">
@@ -118,14 +108,32 @@ export function CourseCard({
             {course.students} Students
           </Badge>
         </div>
+
+        {showUploadButton && (
+        <div className="flex flex-col items-start gap-1">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="application/pdf"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            {uploading ? "Uploading…" : "Upload PDF"}
+          </Button>
+        </div>
+      )}
       </CardContent>
+
       <CardFooter className="border-t border-border bg-muted/20 px-6 py-3">
         <div className="w-full flex justify-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs hover:text-primary"
-          >
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs hover:text-primary">
             View Course
           </Button>
         </div>
