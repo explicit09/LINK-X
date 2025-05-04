@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/button";
 interface Props {
   open: boolean;
   onClose: () => void;
+  onSuccess?: () => void;  // ✅ Add the onSuccess prop, optional
 }
 
-export default function AccessCodePopup({ open, onClose }: Props) {
+export default function AccessCodePopup({ open, onClose, onSuccess }: Props) {
   const [accessCode, setAccessCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [show, setShow] = useState(false);
@@ -39,12 +40,12 @@ export default function AccessCodePopup({ open, onClose }: Props) {
       });
 
       const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || "Failed to enroll.");
-      } else {
-        alert("Enrollment successful!");
+      if (res.ok) {
         setAccessCode("");
         onClose();
+        onSuccess?.();  // ✅ Call onSuccess if provided
+      } else {
+        console.error(data.error || "Failed to enroll.");
       }
     } catch (err) {
       console.error("Enrollment error:", err);
