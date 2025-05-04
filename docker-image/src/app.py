@@ -10,13 +10,14 @@ from flask_cors import CORS
 import firebase_admin
 from firebase_admin import auth, credentials
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from src.db.schema import Base
 from openai import OpenAI
 from transcriber import transcribe_audio
-from indexer import rebuild_course_index, rebuild_file_index
+from indexer import rebuild_course_index, rebuild_file_index, store_file_embeddings
 from io import BytesIO
+from src.textUtils import openai_embed_text
 
 from src.db.queries import (
     # User & Role
@@ -543,6 +544,70 @@ def instructor_files(module_id):
         }
         for f in files
     ]), 200
+
+@app.route('/courses/<course_id>/upload', methods=['POST'])
+def upload_to_course(course_id):
+    db = Session()
+    try:
+        file = request.files.get('file')
+        if not file:
+            return jsonify({"error": "No file uploaded"}), 400
+
+        course = get_course_by_id(db, course_id)
+        if not course or not course.modules:
+            return jsonify({"error": "Course or module not found"}), 404
+
+        first_module = course.modules[0]  # assumes modules are ordered
+
+        file_data = file.read()
+        new_file = create_file(
+            db,
+            module_id=first_module.id,
+            title=request.form.get('title', file.filename),
+            filename=file.filename,
+            file_type=file.mimetype,
+            file_size=len(file_data),
+            file_data=file_data,
+        )
+
+        num_chunks = store_file_embeddings(db, str(new_file.id))
+        return jsonify({"message": f"File added and embedded into course. {num_chunks} chunks."})
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/courses/<course_id>/search', methods=['POST'])
+def search_course_chunks(course_id):
+    db = Session()
+    try:
+        data = request.get_json()
+        query = data.get("query")
+        if not query:
+            return jsonify({"error": "Missing query"}), 400
+
+        # Embed the query sentence
+        vector_list = openai_embed_text([query])[0].tolist()
+        pgvector_str = f"[{','.join(map(str, vector_list))}]"
+
+        # Perform vector similarity search
+        sql = text("""
+            SELECT content
+            FROM "FileChunk"
+            WHERE course_id = :cid
+            ORDER BY embedding <-> :query_vec
+            LIMIT 5
+        """)
+        rows = db.execute(sql, {"cid": course_id, "query_vec": pgvector_str}).fetchall()
+        return jsonify({"results": [{"content": row[0]} for row in rows]})
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
 
 @app.route('/instructor/files/<file_id>', methods=['GET', 'PATCH', 'DELETE'])
 def instructor_manage_file(file_id):
