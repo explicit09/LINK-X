@@ -954,23 +954,19 @@ def generate_personalized_file_content():
         finally:
             db_session.close()
     try:
-        if faiss_bytes is None or pkl_bytes is None:
-            #FIXME
-            return
-        else:
-            tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{course_id}_")
-            tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
-            os.makedirs(tmp_idx_dir, exist_ok=True)
+        tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{course_id}_")
+        tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
+        os.makedirs(tmp_idx_dir, exist_ok=True)
 
-            with open(os.path.join(tmp_idx_dir, "index.faiss"), "wb") as idx_faiss:
-                idx_faiss.write(faiss_bytes)
-            with open(os.path.join(tmp_idx_dir, "index.pkl"), "wb") as idx_pkl:
-                idx_pkl.write(pkl_bytes)
+        with open(os.path.join(tmp_idx_dir, "index.faiss"), "wb") as idx_faiss:
+            idx_faiss.write(faiss_bytes)
+        with open(os.path.join(tmp_idx_dir, "index.pkl"), "wb") as idx_pkl:
+            idx_pkl.write(pkl_bytes)
 
-            # Generate response using the temp directory
-            response = prompt_generate_personalized_file_content(tmp_idx_dir, full_persona)
-            # After generating response, remove temp directory and all files in it
-            shutil.rmtree(tmp_root)
+        # Generate response using the temp directory
+        response = prompt_generate_personalized_file_content(tmp_idx_dir, full_persona)
+        # After generating response, remove temp directory and all files in it
+        shutil.rmtree(tmp_root)
             
         # TODO: SAVE PERSOANLIZED CONTENT TO DATABASE
 
