@@ -771,7 +771,7 @@ export default function ProfessorDashboard() {
                             ))}
                           </ul>
                         </div>
-                        {/* Search */}
+                        {/* Search
                         <div className="mb-6">
                           <input
                             type="text"
@@ -786,7 +786,7 @@ export default function ProfessorDashboard() {
                         </div>
 
                         {/* Search results */}
-                        <div className="space-y-4">
+                        {/* <div className="space-y-4">
                           {results.map((chunk, index) => (
                             <Card
                               key={index}
@@ -797,7 +797,7 @@ export default function ProfessorDashboard() {
                               </p>
                             </Card>
                           ))}
-                        </div>
+                        </div> */}
                       </>
                     )}
                   </section>

@@ -29,7 +29,7 @@ from src.db.queries import (
     # Profiles
     get_instructor_profile, create_instructor_profile, update_instructor_profile, delete_instructor_profile,
     get_student_profile, create_student_profile, update_student_profile, delete_student_profile,
-    get_admin_profile, create_admin_profile, update_admin_profile, delete_admin_profile, get_chunks_for_file,
+    get_admin_profile, create_admin_profile, update_admin_profile, delete_admin_profile,
     # Domain
     get_course_by_id, get_courses_by_instructor_id, get_courses_by_student_id, create_course, update_course, delete_course,
     get_module_by_id, get_modules_by_course, create_module, update_module, delete_module,
