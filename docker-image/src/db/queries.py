@@ -672,14 +672,12 @@ def get_report_by_id(db: Session, report_id: str):
     return db.execute(select(Report).filter_by(id=report_id)).scalars().first()
 
 
-def get_reports_by_course(db: Session, course_id: str):
+def get_report_by_course(db: Session, course_id: str) -> Report | None:
     if isinstance(course_id, str):
         course_id = uuid.UUID(course_id)
     return db.execute(
-        select(Report)
-        .filter_by(course_id=course_id)
-        .order_by(desc(Report.created_at))
-    ).scalars().all()
+        select(Report).filter_by(course_id=course_id)
+    ).scalars().first()
 
 
 def create_report(db: Session, course_id: str, summary: dict):
@@ -787,3 +785,71 @@ def delete_market(db: Session, market_id: str):
 
 def transcribe_audio(db: Session, file_id: str, transcription: str):
     return update_file(db, file_id, transcription=transcription)
+
+def get_student_questions_for_course(db: Session, course_id: str) -> list[str]:
+    if isinstance(course_id, str):
+        course_id = uuid.UUID(course_id)
+    stmt = (
+        select(Message.content)
+        .join(Chat, Chat.id == Message.chat_id)
+        .join(File, File.id == Chat.file_id)
+        .join(Module, Module.id == File.module_id)
+        .filter(Module.course_id == course_id, Message.role == 'user')
+    )
+    return [row[0] for row in db.execute(stmt).all()]
+
+def get_course_title(db: Session, course_id: str) -> str:
+    if isinstance(course_id, str):
+        course_id = uuid.UUID(course_id)
+    course = get_course_by_id(db, course_id)
+    if not course:
+        raise ValueError(f"Course {course_id} not found")
+    return course.title
+
+def get_file_metrics_for_course(db: Session, course_id: str) -> list[dict]:
+    if isinstance(course_id, str):
+        course_id = uuid.UUID(course_id)
+    stmt = (
+        select(
+            File.id,
+            File.view_count_raw,
+            File.view_count_personalized,
+            File.chat_count
+        )
+        .join(Module, Module.id == File.module_id)
+        .filter(Module.course_id == course_id)
+    )
+    rows = db.execute(stmt).all()
+    return [
+        {
+            'fileId': str(fid),
+            'rawViews': raw,
+            'personalizedViews': pviews,
+            'chatCount': chats
+        }
+        for fid, raw, pviews, chats in rows
+    ]
+
+
+def get_module_metrics_for_course(db: Session, course_id: str) -> list[dict]:
+    if isinstance(course_id, str):
+        course_id = uuid.UUID(course_id)
+    stmt = (
+        select(
+            Module.id,
+            func.sum(File.view_count_raw + File.view_count_personalized).label('views'),
+            func.sum(File.chat_count).label('chats')
+        )
+        .join(File, File.module_id == Module.id)
+        .filter(Module.course_id == course_id)
+        .group_by(Module.id)
+    )
+    rows = db.execute(stmt).all()
+    return [
+        {
+            'moduleId': str(mid),
+            'views': views,
+            'chatCount': chats
+        }
+        for mid, views, chats in rows
+    ]

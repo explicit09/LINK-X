@@ -96,7 +96,7 @@ class Course(Base):
     modules = relationship('Module', back_populates='course')
     access_code = relationship('AccessCode', back_populates='course', uselist=False)
     enrollments = relationship('Enrollment', back_populates='course')
-    reports = relationship('Report', back_populates='course')
+    report = relationship('Report', back_populates='course', uselist=False, cascade='all, delete-orphan')
 
 class Module(Base):
     __tablename__ = 'Module'
@@ -123,9 +123,12 @@ class File(Base):
     file_data = Column(BYTEA, nullable=False)
     transcription = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    index_pkl   = Column(BYTEA)
+    index_pkl = Column(BYTEA)
     index_faiss = Column(BYTEA)
-    ordering    = Column(Integer, nullable=False, default=0)
+    ordering = Column(Integer, nullable=False, default=0)
+    view_count_raw = Column(Integer, nullable=False, default=0)
+    view_count_personalized = Column(Integer, nullable=False, default=0)
+    chat_count = Column(Integer, nullable=False, default=0)
 
     module = relationship('Module', back_populates='files')
     chats = relationship('Chat', back_populates='file')
@@ -225,14 +228,15 @@ class Message(Base):
 
 class Report(Base):
     __tablename__ = 'Report'
+    __table_args__ = (
+        UniqueConstraint('course_id', name='uq_report_course'),
+    )
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    course_id = Column(UUID(as_uuid=True),
-                       ForeignKey('Course.id', ondelete='CASCADE'),
-                       nullable=False)
+    course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='CASCADE'), nullable=False)
     summary = Column(JSONB, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
-    course = relationship('Course', back_populates='reports')
+    course = relationship('Course', back_populates='report')
 
 class Market(Base):
     __tablename__ = 'Market'
