@@ -6,6 +6,7 @@ import faiss
 import numpy as np
 import tempfile
 import shutil
+import json
 from datetime import datetime
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
@@ -959,6 +960,11 @@ def generate_personalized_file_content():
 
         # Generate response using the temp directory
         response = prompt_generate_personalized_file_content(tmp_idx_dir, full_persona)
+        # Verify JSON is valid
+        try:
+            response_json = json.loads(response)
+        except (ValueError, AttributeError, IndexError) as e:
+            return jsonify({"error": "Invalid JSON returned from AI response", "details": str(e)}), 400
 
         # Recursively remove temp directory
         shutil.rmtree(tmp_root)
@@ -970,7 +976,7 @@ def generate_personalized_file_content():
                 db=db,
                 user_id=user_id,
                 original_file_id=file_id,
-                content=response
+                content=response_json
             )
         finally:
             db.close()
