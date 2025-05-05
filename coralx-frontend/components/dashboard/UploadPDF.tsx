@@ -1,75 +1,84 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-
-interface Module {
-  id: string;
-  title: string;
-}
 
 interface UploadPdfProps {
   onUpload: (file: File) => Promise<void>;
   uploading: boolean;
-  modules: Module[];
-  selectedModuleId: string | null;
-  setSelectedModuleId: (id: string) => void;
+  moduleId: string;
 }
 
 export default function UploadPdf({
   onUpload,
   uploading,
-  modules,
-  selectedModuleId,
-  setSelectedModuleId,
+  moduleId,
 }: UploadPdfProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [pdfToUpload, setPdfToUpload] = useState<File | null>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPdfToUpload(file);
+      setPreviewPdfUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleCancelPreview = () => {
+    setPreviewPdfUrl(null);
+    setPdfToUpload(null);
+  };
+
+  const handleConfirmUpload = async () => {
+    if (pdfToUpload) {
+      await onUpload(pdfToUpload);
+      handleCancelPreview();
+    }
+  };
 
   return (
     <div className="border p-4 rounded shadow space-y-4">
-      <h3 className="text-lg font-semibold">Upload a PDF to index</h3>
+      <h3 className="text-sm font-medium text-gray-700">Upload a PDF</h3>
 
-      {/* Module selection */}
-      <div>
-        <label htmlFor="module-select" className="block text-sm font-medium mb-1">
-          Select Module
-        </label>
-        <select
-          id="module-select"
-          value={selectedModuleId || ""}
-          onChange={(e) => setSelectedModuleId(e.target.value)}
-          className="w-full p-3 rounded border border-gray-300 bg-white text-black placeholder-gray-500 focus:outline-none focus:ring focus:ring-blue-300"
-        >
-          <option value="">-- Choose a module --</option>
-          {modules.map((mod) => (
-            <option key={mod.id} value={mod.id}>
-              {mod.title}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Hidden file input */}
       <input
         ref={inputRef}
         type="file"
         accept="application/pdf"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) onUpload(file);
-        }}
+        onChange={handleFileSelect}
         className="hidden"
       />
 
-      {/* Trigger button */}
-      <Button
-        onClick={() => inputRef.current?.click()}
-        disabled={uploading || !selectedModuleId}
-      >
-        {uploading ? "Uploading…" : "Choose PDF"}
-      </Button>
+      {!previewPdfUrl && (
+        <Button onClick={() => inputRef.current?.click()} disabled={uploading}>
+          {uploading ? "Uploading…" : "Choose PDF"}
+        </Button>
+      )}
 
-      {uploading && (
+      {previewPdfUrl && (
+        <div className="space-y-4">
+          <iframe
+            src={previewPdfUrl}
+            className="w-full h-[400px] border rounded-md"
+            title="PDF Preview"
+          ></iframe>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={handleCancelPreview}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmUpload}
+              disabled={uploading}
+              className="bg-blue-600 text-white hover:bg-blue-500"
+            >
+              {uploading ? "Uploading…" : "Confirm Upload"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {uploading && !previewPdfUrl && (
         <p className="text-sm text-blue-600">Uploading and processing…</p>
       )}
     </div>

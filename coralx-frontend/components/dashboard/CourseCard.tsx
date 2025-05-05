@@ -88,11 +88,6 @@ export function CourseCard({
                   </>
                 )}
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Users className="mr-2 h-4 w-4" />
-                Manage Students
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

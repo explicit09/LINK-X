@@ -29,7 +29,7 @@ from src.db.queries import (
     # Profiles
     get_instructor_profile, create_instructor_profile, update_instructor_profile, delete_instructor_profile,
     get_student_profile, create_student_profile, update_student_profile, delete_student_profile,
-    get_admin_profile, create_admin_profile, update_admin_profile, delete_admin_profile,
+    get_admin_profile, create_admin_profile, update_admin_profile, delete_admin_profile, get_chunks_for_file,
     # Domain
     get_course_by_id, get_courses_by_instructor_id, get_courses_by_student_id, create_course, update_course, delete_course,
     get_module_by_id, get_modules_by_course, create_module, update_module, delete_module,
@@ -56,6 +56,10 @@ from FAISS_db_generation import create_database, generate_citations, replace_sou
 load_dotenv()
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
+
+app.config["PROPAGATE_EXCEPTIONS"] = True
+app.debug = True
+
 
 app.config['TESTING'] = False
 
@@ -469,6 +473,55 @@ def instructor_course_details(course_id):
         'accessCode': access_code,
         'students': students_enrolled
     }), 200
+
+
+@app.route('/instructor/enrollments/<enrollment_id>', methods=['DELETE'])
+def instructor_unenroll(enrollment_id):
+    user_id, err = verify_instructor()
+    if err:
+        return err
+    db = Session()
+    e = get_enrollment(db, enrollment_id)
+    if not e:
+        db.close()
+        return jsonify({'error': 'Enrollment not found'}), 404
+    course = get_course_by_id(db, e.course_id)
+    if str(course.instructor_id) != str(user_id):
+        db.close()
+        return jsonify({'error': 'Forbidden'}), 403
+    delete_enrollment(db, e.user_id, e.course_id)
+    db.close()
+    return jsonify({'message': 'Student unenrolled'}), 200
+
+
+@app.route('/instructor/courses/<course_id>/students', methods=['GET'])
+def instructor_course_students(course_id):
+    user_id, err = verify_instructor()
+    if err:
+        return err
+
+    db = Session()
+    course = get_course_by_id(db, course_id)
+    if not course or str(course.instructor_id) != str(user_id):
+        db.close()
+        return jsonify({'error': 'Forbidden'}), 403
+
+    enrollments = course.enrollments
+    students = []
+    for e in enrollments:
+        student = get_user_by_id(db, e.user_id)
+        profile = get_student_profile(db, e.user_id)
+        students.append({
+            'id': str(student.id),
+            'email': student.email,
+            'name': profile.name if profile else "Unknown",
+            'enrolledAt': e.enrolled_at.isoformat(),
+            'enrollmentId': str(e.id) 
+        })
+
+    db.close()
+    return jsonify(students), 200
+
 
 
 @app.route('/instructor/courses/<course_id>/modules', methods=['POST', 'GET'])
@@ -917,9 +970,75 @@ def student_list_pfiles():
         'createdAt': p.created_at.isoformat()
     } for p in pfs]), 200
 
+
+
+
+# @app.route('/generatepersonalizedfilecontent', methods=['POST'])
+# def generate_personalized_file_content():
+#     user_id, err = verify_instructor()
+#     if err:
+#         return err
+
+#     data = request.get_json()
+#     name = data.get("name")
+#     file_id = data.get("fileId")
+#     profile = data.get("userProfile", {})
+
+#     if not file_id:
+#         return jsonify({"error": "fileId is required"}), 400
+
+#     # Compose persona string
+#     persona = []
+#     if name:
+#         persona.append(f"The user’s name is **{name}**")
+#     if profile.get("role"):
+#         persona.append(f"they are a **{profile['role']}**")
+#     if profile.get("traits"):
+#         persona.append(f"they like their assistant to be **{profile['traits']}**")
+#     if profile.get("learningStyle"):
+#         persona.append(f"their preferred learning style is **{profile['learningStyle']}**")
+#     if profile.get("depth"):
+#         persona.append(f"they prefer **{profile['depth']}-level** explanations")
+#     if profile.get("interests"):
+#         persona.append(f"they’re interested in **{profile['interests']}**")
+#     if profile.get("personalization"):
+#         persona.append(f"they enjoy **{profile['personalization']}**")
+#     if profile.get("schedule"):
+#         persona.append(f"they study best **{profile['schedule']}**")
+#     full_persona = ". ".join(persona)
+
+#     db = Session()
+#     try:
+#         # Load text chunks from DB
+#         file = get_file_by_id(db, file_id)
+#         if not file:
+#             return jsonify({"error": "File not found"}), 404
+
+#         chunks = get_chunks_for_file(db, file_id)
+#         if not chunks:
+#             return jsonify({"error": "No text chunks found for this file"}), 404
+
+#         file_text = "\n\n".join(chunk['chunk'] for chunk in chunks)
+
+#     except Exception as e:
+#         print(f"[ERROR] DB error while loading file/chunks for {file_id}: {e}")
+#         return jsonify({"error": "Database error"}), 500
+
+#     finally:
+#         db.close()
+
+#     try:
+#         response = prompt_generate_personalized_file_content(file_text, full_persona)
+#         return jsonify({"response": response}), 200
+
+#     except Exception as e:
+#         print(f"[ERROR] Personalization failed: {e}")
+#         return jsonify({"error": str(e)}), 500
+
+
 @app.route('/generatepersonalizedfilecontent', methods=['POST'])
 def generate_personalized_file_content():
-    user_id, err = verify_student()
+    user_id, err = verify_instructor()
     if err:
         return err
     
@@ -931,7 +1050,7 @@ def generate_personalized_file_content():
     user_message = data.get("message") # message is the topic, which is unlikely to be needed anymore
     profile = data.get("userProfile", {})
     # raw_expertise = data.get("expertise")
-    course_id = data.get("courseId") # TODO: Use index files from module, not course
+    file_id = data.get("fileId") # TODO: Use index files from module, not course
 
     if not user_message:
         return jsonify({"error": "Message is required"}), 400
@@ -966,23 +1085,23 @@ def generate_personalized_file_content():
 
     full_persona = ". ".join(persona)
 
+
     faiss_bytes = None
     pkl_bytes = None
 
-    # Check for index.faiss and index.pkl bytes on the database
-    if course_id:
+    if file_id:
         db_session = Session()
         try:
-            course = get_course_by_id(db_session, course_id)
-            if course: 
-                faiss_bytes = course.index
-                pkl_bytes = course.pkl
+            file = get_file_by_id(db_session, file_id)
+            if file: 
+                faiss_bytes = file.index_faiss
+                pkl_bytes = file.index_pkl
         except Exception as e:
-            print(f"Error fetching course for ID {course_id}: {e}")
+            print(f"Error fetching course for ID {file_id}: {e}")
         finally:
             db_session.close()
     try:
-        tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{course_id}_")
+        tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{file_id}_")
         tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
         os.makedirs(tmp_idx_dir, exist_ok=True)
 
