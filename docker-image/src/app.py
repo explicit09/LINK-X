@@ -58,10 +58,6 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
 
-app.config["PROPAGATE_EXCEPTIONS"] = True
-app.debug = True
-
-
 app.config['TESTING'] = False
 
 cred = credentials.Certificate(os.getenv("FIREBASE_KEY_PATH", "firebaseKey.json"))
@@ -550,19 +546,30 @@ def instructor_modules(course_id):
     user_id, err = verify_instructor()
     if err:
         return err
+
     db = Session()
     course = get_course_by_id(db, course_id)
+
     if not course or str(course.instructor_id) != str(user_id):
         db.close()
         return jsonify({'error': 'Forbidden'}), 403
+
     if request.method == 'POST':
         data = request.get_json() or {}
         m = create_module(db, course_id, data['title'])
         db.close()
         return jsonify({'id': str(m.id), 'title': m.title}), 201
+
     mods = get_modules_by_course(db, course_id)
     db.close()
+
+    # 🚨 Defensive fallback in case mods is None
+    if not isinstance(mods, list):
+        mods = []
+
     return jsonify([{'id': str(m.id), 'title': m.title} for m in mods]), 200
+
+
 
 @app.route('/instructor/modules/<module_id>', methods=['GET', 'PATCH', 'DELETE'])
 def instructor_manage_module(module_id):
