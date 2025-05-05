@@ -12,9 +12,6 @@ import re
 _embed_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def extract_text(file_data: bytes, filename: str) -> str:
-    """
-    Extracts text from PDF, Office docs, or plain-text files.
-    """
     ext = filename.lower().rsplit('.', 1)[-1]
     if ext == 'pdf':
         reader = PdfReader(io.BytesIO(file_data))
@@ -30,25 +27,14 @@ def extract_text(file_data: bytes, filename: str) -> str:
         return file_data.decode('utf-8', errors='ignore')
     
 def clean_extracted_text(text: str) -> str:
-    """
-    Attempts to fix broken spacing in extracted PDF text.
-    """
-    # Replace multiple spaces/newlines with a single space
     text = re.sub(r'\s+', ' ', text)
-
-    # Insert space between lowercase-uppercase (e.g., 'attentionTransformers' → 'attention Transformers')
     text = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', text)
-
-    # Insert space between words stuck together (e.g., 'theinputsequentially' → 'the input sequentially')
     text = re.sub(r'(?<=[a-zA-Z])(?=[0-9])', ' ', text)
     text = re.sub(r'(?<=[0-9])(?=[a-zA-Z])', ' ', text)
 
     return text.strip()
 
 def split_text(text: str, max_tokens: int = 500, overlap: int = 50) -> List[str]:
-    """
-    Splits text into chunks of up to max_tokens tokens, with overlap.
-    """
     enc = tiktoken.get_encoding("cl100k_base")
     token_ids = enc.encode(text)
     chunks = []
@@ -60,25 +46,15 @@ def split_text(text: str, max_tokens: int = 500, overlap: int = 50) -> List[str]
         start += max_tokens - overlap
     return chunks
 def embed_text(text: str) -> List[float]:
-    """
-    Returns an embedding vector for the given text.
-    """
     response = _embed_client.embeddings.create(
         model="text-embedding-ada-002",
         input=text
     )
     return response.data[0].embedding
 
-#Batch embed a list of texts
 def openai_embed_text(texts: Sequence[str]) -> np.ndarray:
-    """
-    Batch-embed a list of text chunks with OpenAI `text-embedding-3-small`
-    Returns: np.ndarray shape (len(texts), 1536)  dtype float32  (unit-norm)
-    """
     if not texts:
         return np.empty((0, 1536), dtype=np.float32)
-
-    # OpenAI lets up to 2048 inputs per request; keep batches small for latency
     CHUNK = 512
     out: List[np.ndarray] = []
 
@@ -88,10 +64,8 @@ def openai_embed_text(texts: Sequence[str]) -> np.ndarray:
         resp = _embed_client.embeddings.create(
             model="text-embedding-3-small",
             input=batch,
-            encoding_format="float"   # returns list[float] not base64
+            encoding_format="float"
         )
-
-        # order is preserved; convert to float32 for pgvector / FAISS
         arr = np.asarray([d.embedding for d in resp.data], dtype=np.float32)
         out.append(arr)
 
