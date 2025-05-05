@@ -993,75 +993,9 @@ def student_list_pfiles():
         'createdAt': p.created_at.isoformat()
     } for p in pfs]), 200
 
-
-
-
-# @app.route('/generatepersonalizedfilecontent', methods=['POST'])
-# def generate_personalized_file_content():
-#     user_id, err = verify_instructor()
-#     if err:
-#         return err
-
-#     data = request.get_json()
-#     name = data.get("name")
-#     file_id = data.get("fileId")
-#     profile = data.get("userProfile", {})
-
-#     if not file_id:
-#         return jsonify({"error": "fileId is required"}), 400
-
-#     # Compose persona string
-#     persona = []
-#     if name:
-#         persona.append(f"The user’s name is **{name}**")
-#     if profile.get("role"):
-#         persona.append(f"they are a **{profile['role']}**")
-#     if profile.get("traits"):
-#         persona.append(f"they like their assistant to be **{profile['traits']}**")
-#     if profile.get("learningStyle"):
-#         persona.append(f"their preferred learning style is **{profile['learningStyle']}**")
-#     if profile.get("depth"):
-#         persona.append(f"they prefer **{profile['depth']}-level** explanations")
-#     if profile.get("interests"):
-#         persona.append(f"they’re interested in **{profile['interests']}**")
-#     if profile.get("personalization"):
-#         persona.append(f"they enjoy **{profile['personalization']}**")
-#     if profile.get("schedule"):
-#         persona.append(f"they study best **{profile['schedule']}**")
-#     full_persona = ". ".join(persona)
-
-#     db = Session()
-#     try:
-#         # Load text chunks from DB
-#         file = get_file_by_id(db, file_id)
-#         if not file:
-#             return jsonify({"error": "File not found"}), 404
-
-#         chunks = get_chunks_for_file(db, file_id)
-#         if not chunks:
-#             return jsonify({"error": "No text chunks found for this file"}), 404
-
-#         file_text = "\n\n".join(chunk['chunk'] for chunk in chunks)
-
-#     except Exception as e:
-#         print(f"[ERROR] DB error while loading file/chunks for {file_id}: {e}")
-#         return jsonify({"error": "Database error"}), 500
-
-#     finally:
-#         db.close()
-
-#     try:
-#         response = prompt_generate_personalized_file_content(file_text, full_persona)
-#         return jsonify({"response": response}), 200
-
-#     except Exception as e:
-#         print(f"[ERROR] Personalization failed: {e}")
-#         return jsonify({"error": str(e)}), 500
-
-
 @app.route('/generatepersonalizedfilecontent', methods=['POST'])
 def generate_personalized_file_content():
-    user_id, err = verify_instructor()
+    user_id, err = verify_student()
     if err:
         return err
     
