@@ -1,18 +1,21 @@
+"use client";
+
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronRight, X } from "lucide-react";
+import { ChevronRight, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 interface Course {
   id: string;
-  topic: string;
-  expertise: string;
-  content: any;
-  createdAt: string;
-  fileId: string | null;
+  title: string;
+  description: string;
+  code: string;
+  term: string;
+  published: boolean;
+  last_updated: string | null;
 }
 
 const CoursesList = ({
@@ -28,29 +31,27 @@ const CoursesList = ({
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
-      const fetchCourses = async () => {
-        try {
-          const res = await fetch("http://localhost:8080/courses", {
-            method: "GET",
-            credentials: "include",
-          });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data: Course[] = await res.json();
-          setCourses(data);
-        } catch (err) {
-          console.error("Failed to load courses:", err);
-        }
+    const fetchCourses = async () => {
+      try {
+        const res = await fetch("http://localhost:8080/student/courses", {
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setCourses(data);
+      } catch (err) {
+        console.error("Failed to load courses:", err);
+      }
     };
 
     fetchCourses();
   }, []);
 
   const filteredCourses = courses.filter((course) =>
-    course.topic.toLowerCase().includes(search.toLowerCase())
+    course.title.toLowerCase().includes(search.toLowerCase())
   );
-  
-  const visibleCourses = showAll ? filteredCourses : filteredCourses.slice(0, 5);
 
+  const visibleCourses = showAll ? filteredCourses : filteredCourses.slice(0, 5);
 
   return (
     <div
@@ -72,7 +73,7 @@ const CoursesList = ({
       >
         <CardHeader className="relative flex justify-between items-center">
           <CardTitle className="text-xl text-blue-600">
-            Courses and Topics
+            Enrolled Courses
           </CardTitle>
           {isExpanded && (
             <Button
@@ -97,18 +98,17 @@ const CoursesList = ({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            
           </div>
           <ul className="space-y-4 mt-4">
             {visibleCourses.map((course) => (
               <li
                 key={course.id}
                 className="flex items-center justify-between bg-gray-100 p-3 rounded-lg border border-gray-300"
-
               >
-                <span className="text-black">
-                  {course.topic.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1))}
-                </span>
+                <div>
+                  <div className="font-semibold text-black">{course.title}</div>
+                  <div className="text-sm text-gray-600">{course.term} • {course.code}</div>
+                </div>
                 <Button
                   size="sm"
                   className="bg-blue-600 hover:bg-blue-700 text-white"
