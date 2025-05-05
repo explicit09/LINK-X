@@ -56,7 +56,7 @@ export default function StudentDashboard() {
   useEffect(() => {
     const fetchEnrollments = async () => {
       try {
-        const res = await fetch("http://localhost:8080/student/enrollments", {
+        const res = await fetch("http://localhost:8080/student/courses", {
           credentials: "include",
         });
         if (!res.ok) throw new Error("Failed to fetch courses");

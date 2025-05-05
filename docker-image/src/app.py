@@ -23,7 +23,7 @@ from src.textUtils import openai_embed_text
 
 from src.db.queries import (
     # User & Role
-    get_access_code_by_course, get_access_code_by_id, get_enrollment, get_files_without_raw_by_module, get_user_by_id, get_user_by_email, get_user_by_firebase_uid,
+    get_access_code_by_course, get_access_code_by_id, get_course_title, get_enrollment, get_file_metrics_for_course, get_files_without_raw_by_module, get_module_metrics_for_course, get_report_by_course, get_student_questions_for_course, get_user_by_id, get_user_by_email, get_user_by_firebase_uid,
     create_user, update_user, delete_user,
     get_role_by_user_id, set_role,
     # Profiles
@@ -40,7 +40,7 @@ from src.db.queries import (
     update_personalized_file, delete_personalized_file,
     get_chat_by_id, get_chats_by_student, create_chat, update_chat, delete_chat,
     get_message_by_id, get_messages_by_chat, create_message, delete_messages_after,
-    get_report_by_id, get_reports_by_course, create_report, update_report, delete_report
+    get_report_by_id, create_report, update_report, delete_report
 )
 
 from src.prompts import (
@@ -48,6 +48,7 @@ from src.prompts import (
     prompt2_generate_course_outline, prompt2_generate_course_outline_RAG,
     prompt3_generate_module_content, prompt3_generate_module_content_RAG, 
     prompt4_valid_query,
+    prompt_course_faqs,
     prompt_generate_personalized_file_content
 )
 
@@ -338,13 +339,33 @@ def instructor_profile():
     resp.set_cookie('session','',max_age=0)
     return resp, 200
 
+@app.route('/student/courses', methods=['GET'])
+def student_courses():
+    user_id, err = verify_student()
+    if err:
+        return err
+    db = Session()
+    courses = get_courses_by_student_id(db, user_id)
+    db.close()
+    return jsonify([
+    {
+        'id': str(c.id),
+        'title': c.title,
+        'description': c.description,
+        'code': c.code,
+        'term': c.term,
+        'published': c.published,
+        'last_updated': c.last_updated.isoformat() if c.last_updated else None
+    }
+    for c in courses
+]), 200
+
 @app.route('/instructor/courses', methods=['POST', 'GET'])
 def instructor_courses():
     user_id, err = verify_instructor()
     if err: 
         return err
     db = Session()
-
     if request.method == 'POST':
         data = request.get_json() or {}
         title = data.get('title')
@@ -638,24 +659,18 @@ def instructor_files(module_id):
         for f in files
     ]), 200
 
-@app.route('/courses/<course_id>/upload', methods=['POST'])
-def upload_to_course(course_id):
+@app.route('/instructor/modules/<module_id>/files/upload', methods=['POST'])
+def upload_to_module(module_id):
     db = Session()
     try:
         file = request.files.get('file')
         if not file:
             return jsonify({"error": "No file uploaded"}), 400
 
-        course = get_course_by_id(db, course_id)
-        if not course or not course.modules:
-            return jsonify({"error": "Course or module not found"}), 404
-
-        first_module = course.modules[0]  # assumes modules are ordered
-
         file_data = file.read()
         new_file = create_file(
             db,
-            module_id=first_module.id,
+            module_id=module_id,
             title=request.form.get('title', file.filename),
             filename=file.filename,
             file_type=file.mimetype,
@@ -1142,7 +1157,12 @@ def student_chats():
     db = Session()
     if request.method == 'POST':
         data = request.get_json() or {}
-        c = create_chat(db, user_id, data.get('fileId'), data['title'])
+        file_id = data.get('fileId')
+        c = create_chat(db, user_id, file_id, data.get('title'))
+        if file_id:
+            f = get_file_by_id(db, file_id)
+            f.chat_count += 1
+            db.commit()
         db.close()
         return jsonify({'id': str(c.id)}), 201
     chats = get_chats_by_student(db, user_id)
@@ -1172,6 +1192,7 @@ def student_manage_chat(chat_id):
     db.close()
     return jsonify({'message': 'Deleted'}), 200
 
+
 @app.route('/student/chats/<chat_id>/messages', methods=['GET', 'POST'])
 def student_messages(chat_id):
     user_id, err = verify_student()
@@ -1186,6 +1207,7 @@ def student_messages(chat_id):
     msgs = get_messages_by_chat(db, chat_id)
     db.close()
     return jsonify([{'id': str(m.id), 'role': m.role, 'content': m.content} for m in msgs]), 200
+
 
 @app.route('/delete-trailing-messages', methods=['POST'])
 def student_delete_trailing():
@@ -1205,53 +1227,94 @@ def student_delete_trailing():
     db.close()
     return jsonify({'message': 'Deleted trailing messages'}), 200
 
+
 @app.route('/instructor/courses/<course_id>/reports', methods=['GET'])
-def instructor_list_reports(course_id):
+def instructor_get_report(course_id):
     user_id, err = verify_instructor()
     if err:
         return err
     db = Session()
-    rpts = get_reports_by_course(db, course_id)
-    db.close()
-    return jsonify([{'id': str(r.id), 'createdAt': r.created_at.isoformat()} for r in rpts]), 200
+    try:
+        course = get_course_by_id(db, course_id)
+        if not course or str(course.instructor_id) != str(user_id):
+            return jsonify({'error': 'Forbidden'}), 403
+        rpt = get_report_by_course(db, course_id)
+        if not rpt:
+            return jsonify({'error': 'Not found'}), 404
+        return jsonify({'id': str(rpt.id), 'summary': rpt.summary}), 200
+    finally:
+        db.close()
 
-@app.route('/instructor/reports/<report_id>', methods=['GET', 'PATCH', 'DELETE'])
-def instructor_manage_report(report_id):
+
+@app.route('/instructor/courses/<course_id>/reports', methods=['POST'])
+def instructor_create_or_update_report(course_id):
     user_id, err = verify_instructor()
     if err:
         return err
     db = Session()
-    r = get_report_by_id(db, report_id)
-    if not r:
+    try:
+        course = get_course_by_id(db, course_id)
+        if not course or str(course.instructor_id) != str(user_id):
+            return jsonify({'error': 'Forbidden'}), 403
+        file_metrics = get_file_metrics_for_course(db, course_id)
+        module_metrics = get_module_metrics_for_course(db, course_id)
+        questions = get_student_questions_for_course(db, course_id)
+        faqs_obj = prompt_course_faqs(get_course_title(db, course_id), questions)
+        summary = {
+            'fileMetrics': file_metrics,
+            'moduleMetrics': module_metrics,
+            'faqs': faqs_obj.get('faqs', [])
+        }
+        existing = get_report_by_course(db, course_id)
+        if existing:
+            rpt, status = update_report(db, existing.id, summary=summary), 200
+        else:
+            rpt, status = create_report(db, course_id, summary), 201
+        return jsonify({'id': str(rpt.id), 'summary': rpt.summary}), status
+    finally:
         db.close()
-        return jsonify({'error': 'Not found'}), 404
-    course = get_course_by_id(db, r.course_id)
-    if str(course.instructor_id) != str(user_id):
-        db.close()
-        return jsonify({'error': 'Forbidden'}), 403
-    if request.method == 'GET':
-        out = {'id': str(r.id), 'summary': r.summary}
-        db.close()
-        return jsonify(out), 200
-    if request.method == 'PATCH':
-        data = request.get_json() or {}
-        updated = update_report(db, report_id, **data)
-        db.close()
-        return jsonify({'id': str(updated.id)}), 200
-    delete_report(db, report_id)
-    db.close()
-    return jsonify({'message': 'Deleted'}), 200
 
-@app.route('/instructor/reports', methods=['POST'])
-def instructor_create_report():
+
+@app.route('/instructor/reports/<report_id>', methods=['PATCH'])
+def instructor_update_report(report_id):
     user_id, err = verify_instructor()
     if err:
         return err
     data = request.get_json() or {}
+    if 'summary' not in data:
+        return jsonify({'error': 'summary required'}), 400
     db = Session()
-    r = create_report(db, data['courseId'], data['summary'])
-    db.close()
-    return jsonify({'id': str(r.id)}), 201
+    try:
+        rpt = get_report_by_id(db, report_id)
+        if not rpt:
+            return jsonify({'error': 'Not found'}), 404
+        course = get_course_by_id(db, rpt.course_id)
+        if not course or str(course.instructor_id) != str(user_id):
+            return jsonify({'error': 'Forbidden'}), 403
+        updated = update_report(db, report_id, summary=data['summary'])
+        result = {'id': str(updated.id), 'summary': updated.summary}
+    finally:
+        db.close()
+    return jsonify(result), 200
+
+
+@app.route('/instructor/reports/<report_id>', methods=['DELETE'])
+def instructor_delete_report(report_id):
+    user_id, err = verify_instructor()
+    if err:
+        return err
+    db = Session()
+    try:
+        rpt = get_report_by_id(db, report_id)
+        if not rpt:
+            return jsonify({'error': 'Not found'}), 404
+        course = get_course_by_id(db, rpt.course_id)
+        if not course or str(course.instructor_id) != str(user_id):
+            return jsonify({'error': 'Forbidden'}), 403
+        delete_report(db, report_id)
+    finally:
+        db.close()
+    return '', 204
 
 @app.route('/ai-chat', methods=['POST'])
 def ai_chat():
@@ -1280,6 +1343,10 @@ def ai_chat():
     else:
         chat = create_chat(db, user_id, None, title='New Chat')
         chat_id = str(chat.id)
+        if chat.file_id:
+            f = get_file_by_id(db, chat.file_id)
+            f.chat_count += 1
+            db.commit()
 
     # 4. Save incoming user message
     create_message(db, chat_id, role='user', content=user_message)
@@ -1600,6 +1667,63 @@ def save_model_id():
         'message': f'Model ID {model} saved successfully',
         'model_preference': updated.model_preference
     }), 200
+
+# Analytics Routes
+
+@app.route('/student/files/<file_id>/view-raw', methods=['POST'])
+def raw_file_view(file_id):
+    user_id, err = verify_student()
+    if err:
+        return err
+    db = Session()
+    f = get_file_by_id(db, file_id)
+    if not f:
+        db.close()
+        return jsonify({'error': 'File not found'}), 404
+    m = get_module_by_id(db, f.module_id)
+    if not m or not get_enrollment_by_student_course(db, user_id, m.course_id):
+        db.close()
+        return jsonify({'error': 'Forbidden'}), 403
+    f.view_count_raw += 1
+    db.commit()
+    db.close()
+    return '', 204
+
+@app.route('/student/files/<file_id>/view-personalized', methods=['POST'])
+def personalized_file_view(file_id):
+    user_id, err = verify_student()
+    if err:
+        return err
+    db = Session()
+    f = get_file_by_id(db, file_id)
+    if not f:
+        db.close()
+        return jsonify({'error': 'File not found'}), 404
+    m = get_module_by_id(db, f.module_id)
+    if not m or not get_enrollment_by_student_course(db, user_id, m.course_id):
+        db.close()
+        return jsonify({'error': 'Forbidden'}), 403
+    f.view_count_personalized += 1
+    db.commit()
+    db.close()
+    return '', 204
+
+@app.route('/instructor/courses/<course_id>/faqs', methods=['GET'])
+def instructor_course_faqs(course_id):
+    user_id, err = verify_instructor()
+    if err:
+        return err
+    db = Session()
+    try:
+        course = get_course_by_id(db, course_id)
+        if not course or str(course.instructor_id) != str(user_id):
+            return jsonify({'error': 'Forbidden'}), 403
+        questions = get_student_questions_for_course(db, course_id)
+        title     = get_course_title(db, course_id)
+    finally:
+        db.close()
+    faqs_payload = prompt_course_faqs(title, questions)
+    return jsonify(faqs_payload), 200
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8080))
