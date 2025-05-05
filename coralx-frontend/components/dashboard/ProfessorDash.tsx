@@ -30,14 +30,6 @@ import { CourseCard } from "@/components/dashboard/CourseCard";
 import { CourseForm } from "@/components/dashboard/CourseForm";
 import UploadPdf from "@/components/dashboard/UploadPDF";
 
-// Sample courses
-// const initialCourses = [
-//   { id: "1", title: "Introduction to Computer Science", code: "CS101", term: "Fall 2024", students: 45, published: true, lastUpdated: "2024-04-15" },
-//   { id: "2", title: "Data Structures and Algorithms", code: "CS201", term: "Fall 2024", students: 32, published: true, lastUpdated: "2024-04-10" },
-//   { id: "3", title: "Database Systems", code: "CS301", term: "Fall 2024", students: 28, published: false, lastUpdated: "2024-04-05" },
-//   { id: "4", title: "Machine Learning", code: "CS401", term: "Spring 2025", students: 0, published: false, lastUpdated: "2024-04-01" },
-// ];
-
 export default function ProfessorDashboard() {
   type Course = {
     id: string;
@@ -47,6 +39,8 @@ export default function ProfessorDashboard() {
     term: string;
     published: boolean;
     lastUpdated: string;
+    accessCode: string;
+    students: number;
   };
 
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -55,9 +49,9 @@ export default function ProfessorDashboard() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<any>(null);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<"modules" | "people" | "settings">(
-    "modules"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "home" | "modules" | "people" | "settings"
+  >("home");
   const [editedCourse, setEditedCourse] = useState<Course | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -67,21 +61,24 @@ export default function ProfessorDashboard() {
   const [modules, setModules] = useState<{ id: string; title: string }[]>([]);
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [newModuleTitle, setNewModuleTitle] = useState("");
-  
+
   useEffect(() => {
     const fetchModules = async () => {
       if (!selectedCourse) return;
       try {
-        const res = await fetch(`http://localhost:8080/instructor/courses/${selectedCourse.id}/modules`, {
-          credentials: "include",
-        });
+        const res = await fetch(
+          `http://localhost:8080/instructor/courses/${selectedCourse.id}/modules`,
+          {
+            credentials: "include",
+          }
+        );
         const data = await res.json();
         setModules(data);
       } catch (err) {
         console.error("Error fetching modules:", err);
       }
     };
-  
+
     fetchModules();
   }, [selectedCourse]);
 
@@ -108,18 +105,21 @@ export default function ProfessorDashboard() {
 
   const handleAddModule = async () => {
     if (!selectedCourse) return;
-  
+
     try {
-      const res = await fetch(`http://localhost:8080/instructor/courses/${selectedCourse.id}/modules`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: newModuleTitle }),
-        credentials: "include", // important if session/cookie-based auth
-      });
-  
+      const res = await fetch(
+        `http://localhost:8080/instructor/courses/${selectedCourse.id}/modules`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: newModuleTitle }),
+          credentials: "include", // important if session/cookie-based auth
+        }
+      );
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to add module");
-  
+
       setModules((prev) => [...prev, data]);
       setNewModuleTitle("");
     } catch (err) {
@@ -133,18 +133,21 @@ export default function ProfessorDashboard() {
       alert("Please select a module.");
       return;
     }
-  
+
     setUploading(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("module_id", selectedModuleId);
-  
-      const res = await fetch(`http://localhost:8080/courses/${courseId}/upload`, {
-        method: "POST",
-        body: formData,
-      });
-  
+
+      const res = await fetch(
+        `http://localhost:8080/courses/${courseId}/upload`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
 
@@ -155,7 +158,6 @@ export default function ProfessorDashboard() {
       setUploading(false);
     }
   };
-  
 
   const handleSearch = async () => {
     if (!query || !selectedCourse) return;
@@ -339,9 +341,35 @@ export default function ProfessorDashboard() {
     }
   };
 
-  const handleCourseClick = (course: any) => {
-    setSelectedCourse(course);
+  const handleCourseClick = async (course: any) => {
+    try {
+      const res = await fetch(
+        `http://localhost:8080/instructor/courses/${course.id}/details`,
+        {
+          credentials: "include",
+        }
+      );
+  
+      if (!res.ok) {
+        throw new Error("Failed to fetch course details");
+      }
+  
+      const details = await res.json();
+  
+      setSelectedCourse({
+        ...course,
+        description: details.description,
+        accessCode: details.accessCode,
+        students: details.students,
+        lastUpdated: details.lastUpdated,
+        published: details.published,
+      });
+    } catch (err) {
+      console.error("Error fetching course details:", err);
+      setSelectedCourse({ ...course, accessCode: "N/A", students: 0 });
+    }
   };
+  
 
   const handleBackToDashboard = () => {
     setSelectedCourse(null);
@@ -407,6 +435,16 @@ export default function ProfessorDashboard() {
                 <nav className="flex flex-col space-y-4">
                   <button
                     className={`text-left ${
+                      activeTab === "home"
+                        ? "font-semibold text-blue-600 border-l-4 pl-2 border-blue-600"
+                        : "text-gray-700 hover:text-blue-600"
+                    }`}
+                    onClick={() => setActiveTab("home")}
+                  >
+                    Home
+                  </button>
+                  <button
+                    className={`text-left ${
                       activeTab === "modules"
                         ? "font-semibold text-blue-600 border-l-4 pl-2 border-blue-600"
                         : "text-gray-700 hover:text-blue-600"
@@ -448,52 +486,99 @@ export default function ProfessorDashboard() {
 
               {/* Main Content */}
               <main className="flex-1 p-8">
-              {activeTab === "modules" && (
-                <section>
-                  <h2 className="text-2xl font-bold mb-4">Modules</h2>
-
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold mb-2">Add Module</h3>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Module Title"
-                        value={newModuleTitle}
-                        onChange={(e) => setNewModuleTitle(e.target.value)}
-                        className="w-full p-3 rounded border border-gray-300 bg-white text-black placeholder-gray-500 focus:outline-none focus:ring focus:ring-blue-300"
-                      />
-                      <Button onClick={handleAddModule} disabled={!newModuleTitle}>
-                        Add Module
-                      </Button>
+                {activeTab === "home" && selectedCourse && (
+                  <section>
+                    <h2 className="text-2xl font-bold mb-4">Home</h2>
+                    <div className="space-y-8">
+                      <Card className="glass-effect border-white/10">
+                        <CardHeader>
+                          <CardTitle>{selectedCourse.title}</CardTitle>
+                          <CardDescription>
+                            {selectedCourse.code} • {selectedCourse.term}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <div>
+                            <strong>Description:</strong>{" "}
+                            {selectedCourse.description}
+                          </div>
+                          <div>
+                            <strong>Access Code:</strong>{" "}
+                            {selectedCourse.accessCode}
+                          </div>
+                          <div>
+                            <strong>Students Enrolled:</strong>{" "}
+                            {selectedCourse.students}
+                          </div>
+                          <div>
+                            <strong>Status:</strong>{" "}
+                            {selectedCourse.published
+                              ? "Published"
+                              : "Unpublished"}
+                          </div>
+                        </CardContent>
+                      </Card>
                     </div>
-                  </div>
+                  </section>
+                )}
 
-                  <div className="mb-6">
-                  <UploadPdf
-                    onUpload={(file) => handleUploadPdf(selectedCourse.id, file)}
-                    uploading={uploading}
-                    modules={modules}
-                    selectedModuleId={selectedModuleId}
-                    setSelectedModuleId={setSelectedModuleId}
-                  />
-                  </div>
+                {activeTab === "modules" && (
+                  <section>
+                    <h2 className="text-2xl font-bold mb-4">Modules</h2>
 
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold mb-2">Your Modules</h3>
-                    <ul className="space-y-2">
-                      {modules.map((mod) => (
-                        <li
-                          key={mod.id}
-                          className={`p-3 rounded-md border border-gray-300 cursor-pointer ${
-                            selectedModuleId === mod.id ? "bg-blue-100 border-blue-400" : "hover:bg-gray-50"
-                          }`}
-                          onClick={() => setSelectedModuleId(mod.id)}
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold mb-2">Add Module</h3>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Module Title"
+                          value={newModuleTitle}
+                          onChange={(e) => setNewModuleTitle(e.target.value)}
+                          className="w-full p-3 rounded border border-gray-300 bg-white text-black placeholder-gray-500 focus:outline-none focus:ring focus:ring-blue-300"
+                        />
+                        <Button
+                          onClick={handleAddModule}
+                          disabled={!newModuleTitle}
                         >
-                          <span className="font-medium text-gray-900">{mod.title}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                          Add Module
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="mb-6">
+                      <UploadPdf
+                        onUpload={(file) =>
+                          handleUploadPdf(selectedCourse.id, file)
+                        }
+                        uploading={uploading}
+                        modules={modules}
+                        selectedModuleId={selectedModuleId}
+                        setSelectedModuleId={setSelectedModuleId}
+                      />
+                    </div>
+
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold mb-2">
+                        Your Modules
+                      </h3>
+                      <ul className="space-y-2">
+                        {modules.map((mod) => (
+                          <li
+                            key={mod.id}
+                            className={`p-3 rounded-md border border-gray-300 cursor-pointer ${
+                              selectedModuleId === mod.id
+                                ? "bg-blue-100 border-blue-400"
+                                : "hover:bg-gray-50"
+                            }`}
+                            onClick={() => setSelectedModuleId(mod.id)}
+                          >
+                            <span className="font-medium text-gray-900">
+                              {mod.title}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
 
                     {/* Search input */}
                     <div className="mb-4">

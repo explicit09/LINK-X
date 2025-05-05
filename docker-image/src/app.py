@@ -440,6 +440,37 @@ def instructor_delete_accesscode(code_id):
     db.close()
     return jsonify({'message': 'Deleted'}), 200
 
+@app.route('/instructor/courses/<course_id>/details', methods=['GET'])
+def instructor_course_details(course_id):
+    user_id, err = verify_instructor()
+    if err:
+        return err
+
+    db = Session()
+    course = get_course_by_id(db, course_id)
+    if not course or str(course.instructor_id) != str(user_id):
+        db.close()
+        return jsonify({'error': 'Forbidden'}), 403
+
+    # Fetch access code and enrollments
+    access_codes = get_access_code_by_course(db, course_id)
+    access_code = access_codes[0].code if access_codes else "N/A"
+    students_enrolled = len(course.enrollments) if course.enrollments else 0
+
+    db.close()
+    return jsonify({
+        'id': str(course.id),
+        'title': course.title,
+        'description': course.description,
+        'code': course.code,
+        'term': course.term,
+        'published': course.published,
+        'lastUpdated': course.last_updated.isoformat(),
+        'accessCode': access_code,
+        'students': students_enrolled
+    }), 200
+
+
 @app.route('/instructor/courses/<course_id>/modules', methods=['POST', 'GET'])
 def instructor_modules(course_id):
     user_id, err = verify_instructor()
