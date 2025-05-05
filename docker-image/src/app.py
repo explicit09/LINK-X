@@ -6,6 +6,7 @@ import faiss
 import numpy as np
 import tempfile
 import shutil
+import json
 from datetime import datetime
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
@@ -1064,30 +1065,13 @@ def generate_personalized_file_content():
     if err:
         return err
     
-    # TODO: Verify the functionality compared to the old /chatwithpersona
-
     # Read and validate JSON body
     data = request.get_json()
     name = data.get("name")
-    user_message = data.get("message") # message is the topic, which is unlikely to be needed anymore
     profile = data.get("userProfile", {})
-    # raw_expertise = data.get("expertise")
-    file_id = data.get("fileId") # TODO: Use index files from module, not course
-
-    if not user_message:
-        return jsonify({"error": "Message is required"}), 400
-
-    # expertise_map = {
-    #     "beginner": "They prefer simple, clear explanations suitable for someone new to the topic.",
-    #     "intermediate": "They have some prior experience and prefer moderate technical depth.",
-    #     "advanced": "They want in-depth explanations with technical language.",
-    # }
-
-    # expertise = str(raw_expertise).lower() if raw_expertise else "beginner"
-    # expertise_summary = expertise_map.get(expertise, expertise_map["beginner"])
+    file_id = data.get("fileId")
 
     persona = []
-
     if name:
         persona.append(f'The user’s name is **{name}**')
     if profile.get("role"):
@@ -1104,22 +1088,22 @@ def generate_personalized_file_content():
         persona.append(f'they enjoy **{profile["personalization"]}**')
     if profile.get("schedule"):
         persona.append(f'they study best **{profile["schedule"]}**')
-
     full_persona = ". ".join(persona)
 
 
     faiss_bytes = None
     pkl_bytes = None
 
+    # Fetch FAISS data from DB
     if file_id:
         db_session = Session()
         try:
             file = get_file_by_id(db_session, file_id)
             if file: 
-                faiss_bytes = file.index_faiss
-                pkl_bytes = file.index_pkl
+                faiss_bytes = file.index
+                pkl_bytes = file.pkl
         except Exception as e:
-            print(f"Error fetching course for ID {file_id}: {e}")
+            print(f"Error fetching file for ID {file_id}: {e}")
         finally:
             db_session.close()
     try:
@@ -1134,10 +1118,26 @@ def generate_personalized_file_content():
 
         # Generate response using the temp directory
         response = prompt_generate_personalized_file_content(tmp_idx_dir, full_persona)
-        # After generating response, remove temp directory and all files in it
+        # Verify JSON is valid
+        try:
+            response_json = json.loads(response)
+        except (ValueError, AttributeError, IndexError) as e:
+            return jsonify({"error": "Invalid JSON returned from AI response", "details": str(e)}), 400
+
+        # Recursively remove temp directory
         shutil.rmtree(tmp_root)
             
-        # TODO: SAVE PERSOANLIZED CONTENT TO DATABASE
+        # Save personalized file to DB
+        db = Session()
+        try:
+            saved_file = create_personalized_file(
+                db=db,
+                user_id=user_id,
+                original_file_id=file_id,
+                content=response_json
+            )
+        finally:
+            db.close()
 
         return jsonify({"response": response}), 200
     
