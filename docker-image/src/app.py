@@ -462,24 +462,115 @@ def instructor_delete_accesscode(code_id):
     db.close()
     return jsonify({'message': 'Deleted'}), 200
 
-@app.route('/instructor/courses/<course_id>/modules', methods=['POST', 'GET'])
-def instructor_modules(course_id):
+@app.route('/instructor/courses/<course_id>/details', methods=['GET'])
+def instructor_course_details(course_id):
     user_id, err = verify_instructor()
     if err:
         return err
+
     db = Session()
     course = get_course_by_id(db, course_id)
     if not course or str(course.instructor_id) != str(user_id):
         db.close()
         return jsonify({'error': 'Forbidden'}), 403
+
+    # Fetch access code and enrollments
+    access_codes = get_access_code_by_course(db, course_id)
+    access_code = access_codes[0].code if access_codes else "N/A"
+    students_enrolled = len(course.enrollments) if course.enrollments else 0
+
+    db.close()
+    return jsonify({
+        'id': str(course.id),
+        'title': course.title,
+        'description': course.description,
+        'code': course.code,
+        'term': course.term,
+        'published': course.published,
+        'lastUpdated': course.last_updated.isoformat(),
+        'accessCode': access_code,
+        'students': students_enrolled
+    }), 200
+
+
+@app.route('/instructor/enrollments/<enrollment_id>', methods=['DELETE'])
+def instructor_unenroll(enrollment_id):
+    user_id, err = verify_instructor()
+    if err:
+        return err
+    db = Session()
+    e = get_enrollment(db, enrollment_id)
+    if not e:
+        db.close()
+        return jsonify({'error': 'Enrollment not found'}), 404
+    course = get_course_by_id(db, e.course_id)
+    if str(course.instructor_id) != str(user_id):
+        db.close()
+        return jsonify({'error': 'Forbidden'}), 403
+    delete_enrollment(db, e.user_id, e.course_id)
+    db.close()
+    return jsonify({'message': 'Student unenrolled'}), 200
+
+
+@app.route('/instructor/courses/<course_id>/students', methods=['GET'])
+def instructor_course_students(course_id):
+    user_id, err = verify_instructor()
+    if err:
+        return err
+
+    db = Session()
+    course = get_course_by_id(db, course_id)
+    if not course or str(course.instructor_id) != str(user_id):
+        db.close()
+        return jsonify({'error': 'Forbidden'}), 403
+
+    enrollments = course.enrollments
+    students = []
+    for e in enrollments:
+        student = get_user_by_id(db, e.user_id)
+        profile = get_student_profile(db, e.user_id)
+        students.append({
+            'id': str(student.id),
+            'email': student.email,
+            'name': profile.name if profile else "Unknown",
+            'enrolledAt': e.enrolled_at.isoformat(),
+            'enrollmentId': str(e.id) 
+        })
+
+    db.close()
+    return jsonify(students), 200
+
+
+
+@app.route('/instructor/courses/<course_id>/modules', methods=['POST', 'GET'])
+def instructor_modules(course_id):
+    user_id, err = verify_instructor()
+    if err:
+        return err
+
+    db = Session()
+    course = get_course_by_id(db, course_id)
+
+    if not course or str(course.instructor_id) != str(user_id):
+        db.close()
+        return jsonify({'error': 'Forbidden'}), 403
+
     if request.method == 'POST':
         data = request.get_json() or {}
         m = create_module(db, course_id, data['title'])
         db.close()
         return jsonify({'id': str(m.id), 'title': m.title}), 201
+
     mods = get_modules_by_course(db, course_id)
     db.close()
+
+    # 🚨 Defensive fallback in case mods is None
+    if not isinstance(mods, list):
+        mods = []
+
     return jsonify([{'id': str(m.id), 'title': m.title} for m in mods]), 200
+
+
 
 @app.route('/instructor/modules/<module_id>', methods=['GET', 'PATCH', 'DELETE'])
 def instructor_manage_module(module_id):
@@ -932,6 +1023,7 @@ def generate_personalized_file_content():
     if profile.get("schedule"):
         persona.append(f'they study best **{profile["schedule"]}**')
     full_persona = ". ".join(persona)
+
 
     faiss_bytes = None
     pkl_bytes = None
