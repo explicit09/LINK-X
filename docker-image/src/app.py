@@ -925,7 +925,6 @@ def generate_personalized_file_content():
     # expertise_summary = expertise_map.get(expertise, expertise_map["beginner"])
 
     persona = []
-
     if name:
         persona.append(f'The user’s name is **{name}**')
     if profile.get("role"):
@@ -942,7 +941,6 @@ def generate_personalized_file_content():
         persona.append(f'they enjoy **{profile["personalization"]}**')
     if profile.get("schedule"):
         persona.append(f'they study best **{profile["schedule"]}**')
-
     full_persona = ". ".join(persona)
 
     faiss_bytes = None
@@ -957,7 +955,7 @@ def generate_personalized_file_content():
                 faiss_bytes = file.index
                 pkl_bytes = file.pkl
         except Exception as e:
-            print(f"Error fetching course for ID {file_id}: {e}")
+            print(f"Error fetching file for ID {file_id}: {e}")
         finally:
             db_session.close()
     try:
