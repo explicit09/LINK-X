@@ -100,14 +100,24 @@ export default function ProfessorDashboard() {
           }
         );
         const data = await res.json();
-        setModules(data);
+  
+        if (Array.isArray(data)) {
+          setModules(data);
+        } else if (Array.isArray(data.modules)) {
+          setModules(data.modules);
+        } else {
+          console.error("Unexpected module format:", data);
+          setModules([]); // fallback
+        }
       } catch (err) {
         console.error("Error fetching modules:", err);
+        setModules([]); // fallback
       }
     };
-
+  
     fetchModules();
   }, [selectedCourse]);
+  
 
   useEffect(() => {
     const fetchEnrolledStudents = async () => {

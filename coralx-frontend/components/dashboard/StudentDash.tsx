@@ -74,18 +74,27 @@ export default function StudentDashboard() {
       if (!selectedCourse) return;
       try {
         const res = await fetch(
-          `http://localhost:8080/instructor/courses/${selectedCourse.id}/modules`,
+          `http://localhost:8080/student/courses/${selectedCourse.id}/modules`,
           {
             credentials: "include",
           }
         );
         const data = await res.json();
-        setModules(data);
+  
+        if (Array.isArray(data)) {
+          setModules(data);
+        } else if (Array.isArray(data.modules)) {
+          setModules(data.modules);
+        } else {
+          console.error("Unexpected module format:", data);
+          setModules([]); // fallback
+        }
       } catch (err) {
         console.error("Error fetching modules:", err);
+        setModules([]); // fallback
       }
     };
-
+  
     fetchModules();
   }, [selectedCourse]);
 
