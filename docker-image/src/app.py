@@ -40,7 +40,7 @@ from src.db.queries import (
     update_personalized_file, delete_personalized_file,
     get_chat_by_id, get_chats_by_student, create_chat, update_chat, delete_chat,
     get_message_by_id, get_messages_by_chat, create_message, delete_messages_after,
-    get_report_by_id, get_reports_by_course, create_report, update_report, delete_report
+    get_report_by_id, create_report, update_report, delete_report
 )
 
 from src.prompts import (
