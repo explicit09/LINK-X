@@ -912,13 +912,8 @@ def generate_personalized_file_content():
     # Read and validate JSON body
     data = request.get_json()
     name = data.get("name")
-    user_message = data.get("message") # message is the topic, which is unlikely to be needed anymore
     profile = data.get("userProfile", {})
-    # raw_expertise = data.get("expertise")
-    course_id = data.get("courseId") # TODO: Use index files from module, not course
-
-    if not user_message:
-        return jsonify({"error": "Message is required"}), 400
+    file_id = data.get("fileId")
 
     # expertise_map = {
     #     "beginner": "They prefer simple, clear explanations suitable for someone new to the topic.",
@@ -954,19 +949,19 @@ def generate_personalized_file_content():
     pkl_bytes = None
 
     # Check for index.faiss and index.pkl bytes on the database
-    if course_id:
+    if file_id:
         db_session = Session()
         try:
-            course = get_course_by_id(db_session, course_id)
-            if course: 
-                faiss_bytes = course.index
-                pkl_bytes = course.pkl
+            file = get_file_by_id(db_session, file_id)
+            if file: 
+                faiss_bytes = file.index
+                pkl_bytes = file.pkl
         except Exception as e:
-            print(f"Error fetching course for ID {course_id}: {e}")
+            print(f"Error fetching course for ID {file_id}: {e}")
         finally:
             db_session.close()
     try:
-        tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{course_id}_")
+        tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{file_id}_")
         tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
         os.makedirs(tmp_idx_dir, exist_ok=True)
 
