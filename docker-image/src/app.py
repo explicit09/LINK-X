@@ -6,6 +6,7 @@ import faiss
 import numpy as np
 import tempfile
 import shutil
+import json
 from datetime import datetime
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
@@ -907,22 +908,11 @@ def generate_personalized_file_content():
     if err:
         return err
     
-    # TODO: Verify the functionality compared to the old /chatwithpersona
-
     # Read and validate JSON body
     data = request.get_json()
     name = data.get("name")
     profile = data.get("userProfile", {})
     file_id = data.get("fileId")
-
-    # expertise_map = {
-    #     "beginner": "They prefer simple, clear explanations suitable for someone new to the topic.",
-    #     "intermediate": "They have some prior experience and prefer moderate technical depth.",
-    #     "advanced": "They want in-depth explanations with technical language.",
-    # }
-
-    # expertise = str(raw_expertise).lower() if raw_expertise else "beginner"
-    # expertise_summary = expertise_map.get(expertise, expertise_map["beginner"])
 
     persona = []
     if name:
@@ -946,7 +936,7 @@ def generate_personalized_file_content():
     faiss_bytes = None
     pkl_bytes = None
 
-    # Check for index.faiss and index.pkl bytes on the database
+    # Fetch FAISS data from DB
     if file_id:
         db_session = Session()
         try:
@@ -970,10 +960,26 @@ def generate_personalized_file_content():
 
         # Generate response using the temp directory
         response = prompt_generate_personalized_file_content(tmp_idx_dir, full_persona)
-        # After generating response, remove temp directory and all files in it
+        # Verify JSON is valid
+        try:
+            response_json = json.loads(response)
+        except (ValueError, AttributeError, IndexError) as e:
+            return jsonify({"error": "Invalid JSON returned from AI response", "details": str(e)}), 400
+
+        # Recursively remove temp directory
         shutil.rmtree(tmp_root)
             
-        # TODO: SAVE PERSOANLIZED CONTENT TO DATABASE
+        # Save personalized file to DB
+        db = Session()
+        try:
+            saved_file = create_personalized_file(
+                db=db,
+                user_id=user_id,
+                original_file_id=file_id,
+                content=response_json
+            )
+        finally:
+            db.close()
 
         return jsonify({"response": response}), 200
     
