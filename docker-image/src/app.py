@@ -1106,14 +1106,14 @@ def instructor_create_or_update_report(course_id):
         course = get_course_by_id(db, course_id)
         if not course or str(course.instructor_id) != str(user_id):
             return jsonify({'error': 'Forbidden'}), 403
-        file_metrics   = get_file_metrics_for_course(db, course_id)
+        file_metrics = get_file_metrics_for_course(db, course_id)
         module_metrics = get_module_metrics_for_course(db, course_id)
-        questions      = get_student_questions_for_course(db, course_id)
-        faqs_obj       = prompt_course_faqs(get_course_title(db, course_id), questions)
+        questions = get_student_questions_for_course(db, course_id)
+        faqs_obj = prompt_course_faqs(get_course_title(db, course_id), questions)
         summary = {
-            'fileMetrics':   file_metrics,
+            'fileMetrics': file_metrics,
             'moduleMetrics': module_metrics,
-            'faqs':          faqs_obj.get('faqs', [])
+            'faqs': faqs_obj.get('faqs', [])
         }
         existing = get_report_by_course(db, course_id)
         if existing:
