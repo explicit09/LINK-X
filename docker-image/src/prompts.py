@@ -1,4 +1,6 @@
 import os
+
+from flask import json
 from openai import OpenAI
 from dotenv import load_dotenv, find_dotenv
 from FAISS_retriever import answer_to_QA, answer_to_QA_all_chunks
@@ -371,3 +373,51 @@ def prompt4_valid_query(user_query, course_outline):
         return False
     else:
         print(f"Unexpected response: {result}")
+
+def prompt_course_faqs(course_title: str, questions: list[str]) -> dict:
+    if not questions:
+        return {"faqs": []}
+
+    max_n = min(10, len(questions))
+    bullet_list = "\n".join(f"- {q}" for q in questions)
+
+    system_query = (
+        f"""
+You are an AI assistant. Below is the complete list of student chats in course '{course_title}'.
+
+Your tasks:
+1. Identify and group questions that have the same meaning even if phrased differently.
+2. Return EXACTLY the top {max_n} most frequently asked questions with their counts.
+3. Do NOT include any questions that were never asked.
+4. If fewer than {max_n} unique questions exist after grouping, return only those.
+5. Return strictly valid JSON in this format and nothing else:
+```
+{{
+  "faqs": [
+    {{ "question": "string", "count": number }},
+    ...
+  ]
+}}
+```
+"""
+    )
+
+    user_query = (
+        f"""
+Course: {course_title}
+
+Questions:
+{bullet_list}
+"""
+    )
+
+    resp = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": system_query},
+            {"role": "user",   "content": user_query}
+        ],
+        temperature=0.0,
+    )
+
+    return json.loads(resp.choices[0].message.content.strip())
