@@ -575,24 +575,18 @@ def instructor_files(module_id):
         for f in files
     ]), 200
 
-@app.route('/courses/<course_id>/upload', methods=['POST'])
-def upload_to_course(course_id):
+@app.route('/instructor/modules/<module_id>/files/upload', methods=['POST'])
+def upload_to_module(module_id):
     db = Session()
     try:
         file = request.files.get('file')
         if not file:
             return jsonify({"error": "No file uploaded"}), 400
 
-        course = get_course_by_id(db, course_id)
-        if not course or not course.modules:
-            return jsonify({"error": "Course or module not found"}), 404
-
-        first_module = course.modules[0]  # assumes modules are ordered
-
         file_data = file.read()
         new_file = create_file(
             db,
-            module_id=first_module.id,
+            module_id=module_id,
             title=request.form.get('title', file.filename),
             filename=file.filename,
             file_type=file.mimetype,
