@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 interface UploadPdfProps {
   onUpload: (file: File) => Promise<void>;
@@ -17,6 +18,15 @@ export default function UploadPdf({
   const inputRef = useRef<HTMLInputElement>(null);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [pdfToUpload, setPdfToUpload] = useState<File | null>(null);
+  const [wasUploading, setWasUploading] = useState(false);
+
+  useEffect(() => {
+    // Detect transition from uploading → not uploading to clear preview
+    if (wasUploading && !uploading) {
+      handleCancelPreview();
+    }
+    setWasUploading(uploading);
+  }, [uploading]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -33,8 +43,7 @@ export default function UploadPdf({
 
   const handleConfirmUpload = async () => {
     if (pdfToUpload) {
-      await onUpload(pdfToUpload);
-      handleCancelPreview();
+      await onUpload(pdfToUpload); // reset handled by useEffect
     }
   };
 
@@ -52,7 +61,14 @@ export default function UploadPdf({
 
       {!previewPdfUrl && (
         <Button onClick={() => inputRef.current?.click()} disabled={uploading}>
-          {uploading ? "Uploading…" : "Choose PDF"}
+          {uploading ? (
+            <>
+              <Loader2 className="animate-spin h-4 w-4 mr-2" />
+              Uploading…
+            </>
+          ) : (
+            "Choose PDF"
+          )}
         </Button>
       )}
 
@@ -70,8 +86,9 @@ export default function UploadPdf({
             <Button
               onClick={handleConfirmUpload}
               disabled={uploading}
-              className="bg-blue-600 text-white hover:bg-blue-500"
+              className="bg-blue-600 text-white hover:bg-blue-500 flex items-center gap-2"
             >
+              {uploading && <Loader2 className="animate-spin h-4 w-4" />}
               {uploading ? "Uploading…" : "Confirm Upload"}
             </Button>
           </div>
@@ -79,7 +96,10 @@ export default function UploadPdf({
       )}
 
       {uploading && !previewPdfUrl && (
-        <p className="text-sm text-blue-600">Uploading and processing…</p>
+        <div className="flex items-center gap-2 text-sm text-blue-600">
+          <Loader2 className="animate-spin h-4 w-4" />
+          Uploading and processing…
+        </div>
       )}
     </div>
   );

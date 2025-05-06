@@ -112,7 +112,7 @@ const CoursesList = ({
                 <Button
                   size="sm"
                   className="bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={() => router.push(`/learn/${course.id}`)}
+                  onClick={() => router.push(`/dashboard`)} //TODO
                 >
                   Learn <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>

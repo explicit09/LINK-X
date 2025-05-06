@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Plus, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 
-import Sidebar from "@/components/link-x/DashSidebar";
+import Sidebar from "@/components/dashboard/DashSidebar";
 import AudioUpload from "@/components/dashboard/AudioUpload";
 import { Button } from "@/components/ui/button";
 import Footer from "@/components/landing/Footer";
@@ -69,10 +69,19 @@ export default function ProfessorDashboard() {
   const [editedCourse, setEditedCourse] = useState<Course | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploadingModuleId, setUploadingModuleId] = useState<string | null>(
+    null
+  );
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ content: string }[]>([]);
-  const [modules, setModules] = useState<{ id: string; title: string }[]>([]);
+  const [modules, setModules] = useState<
+    { id: string; title: string; files: { id: string; title: string }[] }[]
+  >([]);
+  const [loadingFilesModuleId, setLoadingFilesModuleId] = useState<
+    string | null
+  >(null);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [newModuleTitle, setNewModuleTitle] = useState("");
   const [enrolledStudents, setEnrolledStudents] = useState<Student[]>([]);
@@ -100,7 +109,7 @@ export default function ProfessorDashboard() {
           }
         );
         const data = await res.json();
-  
+
         if (Array.isArray(data)) {
           setModules(data);
         } else if (Array.isArray(data.modules)) {
@@ -114,42 +123,44 @@ export default function ProfessorDashboard() {
         setModules([]); // fallback
       }
     };
-  
+
     fetchModules();
   }, [selectedCourse]);
-  
 
   useEffect(() => {
     const fetchEnrolledStudents = async () => {
       if (activeTab !== "people" || !selectedCourse?.id) return;
-
+  
+      setLoadingStudents(true);
+  
       try {
         const res = await fetch(
           `http://localhost:8080/instructor/courses/${selectedCourse.id}/students`,
-          {
-            credentials: "include",
-          }
+          { credentials: "include" }
         );
         if (!res.ok) throw new Error("Failed to fetch students");
+  
         const students = await res.json();
-
         const formatted = students.map((s: any) => ({
           id: s.userId,
           name: s.name,
           email: s.email,
           enrolledAt: s.enrolledAt,
-          enrollmentId: s.enrollmentId, // <-- include this
+          enrollmentId: s.enrollmentId,
         }));
-
+  
         setEnrolledStudents(formatted);
       } catch (err) {
         console.error("Error fetching enrolled students:", err);
         setEnrolledStudents([]);
+      } finally {
+        setLoadingStudents(false);
       }
     };
-
+  
     fetchEnrolledStudents();
   }, [activeTab, selectedCourse]);
+  
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -202,40 +213,70 @@ export default function ProfessorDashboard() {
     file: File,
     moduleId: string
   ) => {
-    const formData = new FormData();
-    formData.append("file", file);
+    try {
+      setUploadingModuleId(moduleId);
 
-    const res = await fetch(
-      `http://localhost:8080/instructor/modules/${moduleId}/files`,
-      {
-        method: "POST",
-        body: formData,
-        credentials: "include",
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(
+        `http://localhost:8080/instructor/modules/${moduleId}/files`,
+        {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        }
+      );
+
+      if (!res.ok) {
+        toast.error("Upload failed");
+        return;
       }
-    );
 
-    if (!res.ok) {
-      toast.error("Upload failed");
-      return;
+      toast.success("Uploaded!");
+
+      // ✅ fetch just this module’s files again
+      const updatedFilesRes = await fetch(
+        `http://localhost:8080/instructor/modules/${moduleId}/files`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!updatedFilesRes.ok) {
+        console.error("Failed to fetch updated files for module");
+        return;
+      }
+
+      const updatedFiles = await updatedFilesRes.json();
+
+      setModuleFiles((prev) => ({
+        ...prev,
+        [moduleId]: updatedFiles,
+      }));
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Upload error");
+    } finally {
+      setUploadingModuleId(null);
     }
-
-    toast.success("Uploaded!");
-    await fetchModulesWithFiles(); // if you're refreshing the modules/files
   };
 
   const fetchModulesWithFiles = async () => {
     if (!selectedCourse) return;
 
-    const res = await fetch(
-      `http://localhost:8080/courses/${selectedCourse.id}/moduleswithfiles`
-    );
-    if (!res.ok) {
-      toast.error("Failed to fetch modules with files");
-      return;
-    }
+    try {
+      const res = await fetch(
+        `http://localhost:8080/courses/${selectedCourse.id}/moduleswithfiles`
+      );
+      if (!res.ok) throw new Error("Failed to fetch");
 
-    const data = await res.json();
-    setModules(data); // assuming you have setModules() state
+      const data = await res.json();
+      setModules(data);
+    } catch (err) {
+      toast.error("Failed to fetch modules with files");
+      console.error(err);
+    }
   };
 
   const handleSearch = async () => {
@@ -476,11 +517,13 @@ export default function ProfessorDashboard() {
 
   const handleToggleModule = async (modId: string) => {
     if (selectedModuleId === modId) {
-      setSelectedModuleId(null); // collapse
+      setSelectedModuleId(null);
     } else {
-      setSelectedModuleId(modId); // expand
+      setSelectedModuleId(modId);
 
       if (!moduleFiles[modId]) {
+        setLoadingFilesModuleId(modId); // start loading
+
         try {
           const res = await fetch(
             `http://localhost:8080/instructor/modules/${modId}/files`,
@@ -489,19 +532,17 @@ export default function ProfessorDashboard() {
             }
           );
 
-          if (!res.ok) throw new Error("Failed to fetch files");
-
           const data = await res.json();
-
           if (Array.isArray(data)) {
             setModuleFiles((prev) => ({ ...prev, [modId]: data }));
           } else {
-            console.error("Unexpected response format:", data);
             setModuleFiles((prev) => ({ ...prev, [modId]: [] }));
           }
         } catch (err) {
           console.error("Fetch module files error:", err);
           setModuleFiles((prev) => ({ ...prev, [modId]: [] }));
+        } finally {
+          setLoadingFilesModuleId(null); // stop loading
         }
       }
     }
@@ -510,7 +551,7 @@ export default function ProfessorDashboard() {
   return (
     <div className="min-h-screen bg-white text-gray-900 flex">
       {/* Sidebar */}
-      <Sidebar onCollapseChange={(value) => setIsCollapsed(value)} />
+      <Sidebar onCollapseChange={(value) => setIsCollapsed(value)} userRole = "instructor" />
 
       {/* Main Content */}
       <div
@@ -748,7 +789,7 @@ export default function ProfessorDashboard() {
                                           mod.id
                                         )
                                       }
-                                      uploading={uploading}
+                                      uploading={uploadingModuleId === mod.id}
                                       moduleId={mod.id}
                                     />
 
@@ -756,8 +797,12 @@ export default function ProfessorDashboard() {
                                       <h5 className="text-sm font-semibold text-gray-700">
                                         Files
                                       </h5>
-                                      {Array.isArray(moduleFiles[mod.id]) &&
-                                      moduleFiles[mod.id].length > 0 ? (
+                                      {loadingFilesModuleId === mod.id ? (
+                                        <p className="text-sm text-blue-600 italic">
+                                          Loading files…
+                                        </p>
+                                      ) : Array.isArray(moduleFiles[mod.id]) &&
+                                        moduleFiles[mod.id].length > 0 ? (
                                         moduleFiles[mod.id].map((file) => (
                                           <div
                                             key={file.id}
@@ -817,12 +862,12 @@ export default function ProfessorDashboard() {
                 {activeTab === "people" && (
                   <section>
                     <h2 className="text-2xl font-bold mb-4">People</h2>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {enrolledStudents.map((student) => (
-                        <Card
-                          key={student.enrollmentId}
-                          className="p-4 flex flex-col justify-between"
-                        >
+                    {loadingStudents ? (
+  <p className="text-sm text-blue-600 italic">Loading students…</p>
+) : (
+  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    {enrolledStudents.map((student) => (
+      <Card key={student.enrollmentId} className="p-4 flex flex-col justify-between">
                           <div>
                             <h3 className="text-lg font-semibold">
                               {student.name}
@@ -882,7 +927,8 @@ export default function ProfessorDashboard() {
                           </div>
                         </Card>
                       ))}
-                    </div>
+                      </div>
+                    )}
                   </section>
                 )}
 
@@ -1069,7 +1115,7 @@ export default function ProfessorDashboard() {
                   >
                     <CourseCard
                       course={course}
-                      uploading={uploading}
+                      uploading={uploadingModuleId === course.id}
                       onEdit={() => setEditingCourse(course)}
                       onPublishToggle={() => handlePublishToggle(course.id)}
                       onUploadPdf={handleUploadPdf}
@@ -1096,7 +1142,7 @@ export default function ProfessorDashboard() {
                     >
                       <CourseCard
                         course={course}
-                        uploading={uploading}
+                        uploading={uploadingModuleId === course.id}
                         onEdit={() => setEditingCourse(course)}
                         onPublishToggle={() => handlePublishToggle(course.id)}
                         onUploadPdf={handleUploadPdf}
@@ -1123,7 +1169,7 @@ export default function ProfessorDashboard() {
                     >
                       <CourseCard
                         course={course}
-                        uploading={uploading}
+                        uploading={uploadingModuleId === course.id}
                         onEdit={() => setEditingCourse(course)}
                         onPublishToggle={() => handlePublishToggle(course.id)}
                         onUploadPdf={handleUploadPdf}
@@ -1137,9 +1183,11 @@ export default function ProfessorDashboard() {
               </TabsContent>
             </Tabs>
           )}
-
-          <Footer />
+          
         </main>
+        <div className="h-1/4">
+          <Footer />
+          </div>
       </div>
 
       {/* Edit Course Dialog */}

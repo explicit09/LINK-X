@@ -41,16 +41,12 @@ export function CourseCard({ course }: CourseCardProps) {
 
       <CardContent>
         <div className="flex items-center gap-2">
-          <Badge
+          {/* <Badge
             variant={course.published ? "default" : "outline"}
             className={course.published ? "purple-gradient" : ""}
           >
             {course.published ? "Published" : "Unpublished"}
-          </Badge>
-          <Badge variant="secondary">
-            <Users className="mr-1 h-3 w-3" />
-            {course.students} Students
-          </Badge>
+          </Badge> */}
         </div>
       </CardContent>
 
