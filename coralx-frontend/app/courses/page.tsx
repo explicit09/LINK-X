@@ -31,7 +31,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900 flex flex-col">
-      <Sidebar onCollapseChange={(value) => setIsCollapsed(value)} />
+      <Sidebar onCollapseChange={(value) => setIsCollapsed(value)} userRole={"student"} />
       <div className={cn("flex-1 transition-all duration-300", isCollapsed ? "ml-14" : "ml-44")}>
         <main className={cn("pt-6 transition-all duration-300", isCollapsed ? "px-6 md:px-8 lg:px-12" : "px-4")}>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
