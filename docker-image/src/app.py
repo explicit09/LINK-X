@@ -1033,8 +1033,8 @@ def generate_personalized_file_content():
     try:
         file = get_file_by_id(db_session, file_id)
         if file: 
-            faiss_bytes = file.index
-            pkl_bytes = file.pkl
+            faiss_bytes = file.index_faiss
+            pkl_bytes = file.index_pkl
     except Exception as e:
         print(f"Error fetching file for ID {file_id}: {e}")
     finally:
