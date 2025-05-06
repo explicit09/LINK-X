@@ -30,9 +30,14 @@ const Avatar = () => (
   </div>
 );
 
+interface Subsection {
+  title: string;
+  fullText: string;
+}
+
 interface Chapter {
   chapterTitle: string;
-  metadata: string[];
+  subsections: Subsection[];
 }
 
 interface OnboardingData {
@@ -58,7 +63,8 @@ interface SidebarProps {
   onLessonSelect?: (title: string, response: string) => void;
   onLoadingStart?: () => void;
   onCollapseChange?: (value: boolean) => void;
-  courseId: string;
+  courseId?: string;
+  pfId?: string;
 }
 
 const Sidebar = ({
@@ -66,7 +72,8 @@ const Sidebar = ({
   onLessonSelect,
   onLoadingStart,
   onCollapseChange,
-  courseId
+  courseId,
+  pfId,
 }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -116,34 +123,58 @@ const Sidebar = ({
   useEffect(() => {
     setMounted(true);
     if (isMobile) setCollapsed(true);
-  
+
     async function fetchChapters() {
       try {
-        const res = await fetch(`http://localhost:8080/courses/${courseId}`, {
+        let url = "";
+        if (pfId) {
+          url = `http://localhost:8080/student/personalized-files/${pfId}`;
+        } else if (courseId) {
+          url = `http://localhost:8080/courses/${courseId}`;
+        } else {
+          console.warn("No courseId or pfId provided.");
+          return;
+        }
+
+        const res = await fetch(url, {
           method: "GET",
           credentials: "include",
         });
-  
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-  
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-  
-        if (data?.content?.chapters) {
-          setChapters(data.content.chapters);
-          console.log("Loaded chapters from DB:", data.content.chapters);
+
+        // Expecting { id, content }
+        const content = data.content || data?.content?.chapters;
+        const parsed =
+          typeof content === "string" ? JSON.parse(content) : content;
+
+        if (parsed?.chapters) {
+          const formattedChapters: Chapter[] = parsed.chapters.map(
+            (ch: any) => ({
+              chapterTitle: ch.chapterTitle,
+              subsections: ch.subsections.map((sub: any) => ({
+                title: sub.title,
+                fullText: sub.fullText,
+              })),
+            })
+          );
+
+          setChapters(formattedChapters);
+          console.log(
+            "Loaded personalized chapters with fullText:",
+            formattedChapters
+          );
         } else {
-          console.warn("No chapters found in course content");
+          console.warn("No chapters found in personalized file content.");
         }
       } catch (err) {
-        console.error("Failed to load course from DB:", err);
+        console.error("Failed to load content:", err);
       }
     }
-  
-    if (courseId) fetchChapters();
-  }, [isMobile, courseId]);
-  
+
+    fetchChapters();
+  }, [isMobile, courseId, pfId]);
 
   const toggleSidebar = () => {
     const newValue = !collapsed;
@@ -151,56 +182,70 @@ const Sidebar = ({
     onCollapseChange?.(newValue);
   };
 
-  const handleChatClick = async (message: string) => {
-    if (!message.trim()) return;
+  const handleChatClick = async (title: string, fullText: string) => {
     onLoadingStart?.();
-
-    const onboarding = await fetchOnboarding();
-    if (!onboarding) return;
-
-    const userProfile = {
-      role: onboarding.job,
-      traits: onboarding.traits,
-      learningStyle: onboarding.learningStyle,
-      depth: onboarding.depth,
-      interests: onboarding.topics,
-      personalization: onboarding.interests,
-      schedule: onboarding.schedule,
-    };
-
-    const payload = {
-      message,
-      name: onboarding.name,
-      expertise: "advanced",
-      userProfile,
-      courseId,
-    };
-
-    try {
-      const response = await fetch("http://localhost:8080/chatwithpersona", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-      console.log("AI response:", data);
-
-      if (data.response) {
-        setMessages((prev) => [
-          ...prev,
-          { role: "user", content: message },
-          { role: "assistant", content: data.response },
-        ]);
-        onLessonSelect?.(message, data.response);
-      }
-    } catch (err) {
-      console.error("Chat request failed:", err);
-    }
+  
+    // OPTIONAL: if you want to send the title to AI for enhancement
+    // const onboarding = await fetchOnboarding();
+    // if (!onboarding) return;
+  
+    // setMessages([...]) if you're using the AI chat
+  
+    // For now, just send the raw content
+    onLessonSelect?.(title, fullText);
   };
+  
+
+  // const handleChatClick = async (message: string) => {
+  //   if (!message.trim()) return;
+  //   onLoadingStart?.();
+
+  //   const onboarding = await fetchOnboarding();
+  //   if (!onboarding) return;
+
+  //   const userProfile = {
+  //     role: onboarding.job,
+  //     traits: onboarding.traits,
+  //     learningStyle: onboarding.learningStyle,
+  //     depth: onboarding.depth,
+  //     interests: onboarding.topics,
+  //     personalization: onboarding.interests,
+  //     schedule: onboarding.schedule,
+  //   };
+
+  //   const payload = {
+  //     message,
+  //     name: onboarding.name,
+  //     expertise: "advanced",
+  //     userProfile,
+  //     courseId,
+  //   };
+
+  //   try {
+  //     const response = await fetch("http://localhost:8080/chatwithpersona", {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       credentials: "include",
+  //       body: JSON.stringify(payload),
+  //     });
+
+  //     const data = await response.json();
+  //     console.log("AI response:", data);
+
+  //     if (data.response) {
+  //       setMessages((prev) => [
+  //         ...prev,
+  //         { role: "user", content: message },
+  //         { role: "assistant", content: data.response },
+  //       ]);
+  //       onLessonSelect?.(message, data.response);
+  //     }
+  //   } catch (err) {
+  //     console.error("Chat request failed:", err);
+  //   }
+  // };
 
   if (!mounted) return null;
 
@@ -265,7 +310,7 @@ const Sidebar = ({
                     {chapter.chapterTitle}
                   </div>
                 )}
-                {chapter.metadata.map((item, itemIdx) => (
+                {chapter.subsections.map((sub, itemIdx) => (
                   <div
                     key={itemIdx}
                     className={cn(
@@ -275,13 +320,13 @@ const Sidebar = ({
                         ? "flex justify-center"
                         : "text-[15px] font-medium text-sidebar-foreground/70"
                     )}
-                    onClick={() => handleChatClick(item)}
+                    onClick={() => handleChatClick(sub.title, sub.fullText)}
                   >
                     {collapsed ? (
                       <div className="w-2 h-2 rounded-full bg-sidebar-foreground/50" />
                     ) : (
                       <span className="whitespace-nowrap overflow-hidden text-ellipsis">
-                        {item}
+                        {sub.title}
                       </span>
                     )}
                   </div>

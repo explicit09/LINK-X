@@ -1085,7 +1085,8 @@ def generate_personalized_file_content():
         finally:
             db.close()
 
-        return jsonify({"response": response}), 200
+        return jsonify({ "id": str(saved_file.id), "content": response_json}), 200
+
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500
