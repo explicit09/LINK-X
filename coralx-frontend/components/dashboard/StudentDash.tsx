@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { CourseCard } from "@/components/dashboard/StudentCourseCard";
+
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -35,6 +37,18 @@ export default function StudentDashboard() {
     filename: string;
   };
 
+  interface OnboardingData {
+    name: string;
+    job: string;
+    traits: string;
+    learningStyle: string;
+    depth: string;
+    topics: string;
+    interests: string;
+    schedule: string;
+    quizzes: boolean;
+  }
+
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [courses, setCourses] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,6 +71,10 @@ export default function StudentDashboard() {
     id: string;
     title: string;
   } | null>(null);
+
+  const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
+  const router = useRouter();
+
 
   useEffect(() => {
     const fetchEnrollments = async () => {
@@ -130,6 +148,34 @@ export default function StudentDashboard() {
     fetchClassmates();
   }, [activeTab, selectedCourse]);
 
+
+  useEffect(() => {
+    fetch("http://localhost:8080/student/profile", {
+      method: "GET",
+      credentials: "include",
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Failed to fetch onboarding");
+        const data = await res.json();
+  
+        setOnboardingData({
+          name: data.name,
+          job: data.onboard_answers?.job || "",
+          traits: data.onboard_answers?.traits || "",
+          learningStyle: data.onboard_answers?.learningStyle || "",
+          depth: data.onboard_answers?.depth || "",
+          topics: data.onboard_answers?.topics || "",
+          interests: data.onboard_answers?.interests || "",
+          schedule: data.onboard_answers?.schedule || "",
+          quizzes: data.want_quizzes || false,
+        });
+      })
+      .catch((err) => {
+        console.error("❌ Error loading onboarding:", err);
+      });
+  }, []);
+  
+
   const filteredCourses = courses
     .filter(
       (course): course is Course =>
@@ -156,51 +202,52 @@ export default function StudentDashboard() {
       console.warn("No file selected for personalization.");
       return;
     }
-
+  
+    if (!onboardingData) {
+      toast.error("Onboarding data is not loaded yet.");
+      return;
+    }
+  
     const payload = {
-      name: "Student",
+      name: onboardingData.name,
       message: "personalize this PDF",
       fileId: previewingFile.id,
       userProfile: {
-        role: "college student",
-        traits: "clear and friendly",
-        learningStyle: "visual",
-        depth: "intermediate",
-        interests: "psychology, neuroscience",
-        personalization: "real-life examples",
-        schedule: "evenings",
+        role: onboardingData.job,
+        traits: onboardingData.traits,
+        learningStyle: onboardingData.learningStyle,
+        depth: onboardingData.depth,
+        interests: onboardingData.interests,
+        personalization: onboardingData.topics,
+        schedule: onboardingData.schedule,
       },
     };
-
-    console.log("Sending personalization payload:", payload);
-
+  
     try {
-      const res = await fetch(
-        "http://localhost:8080/generatepersonalizedfilecontent",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify(payload),
-        }
-      );
-
+      const res = await fetch("http://localhost:8080/generatepersonalizedfilecontent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+  
       const data = await res.json();
-
+  
       if (!res.ok) throw new Error(data.error || "Personalization failed");
-
+  
       toast.success("Personalized content generated!");
-      console.log("Personalized content:", data.response);
-
-      // Optionally display or store the content in your UI
-      // setPersonalizedText(data.response);
+  
+      const pfId = data.id || data.response?.id;
+      if (!pfId) throw new Error("Missing personalized file ID in response");
+  
+      
+      router.push(`/learn/${pfId}`);
     } catch (err) {
       console.error("Personalization failed:", err);
       toast.error("Something went wrong during personalization.");
     }
   };
+  
 
   const handleToggleModule = async (modId: string) => {
     if (selectedModuleId === modId) {

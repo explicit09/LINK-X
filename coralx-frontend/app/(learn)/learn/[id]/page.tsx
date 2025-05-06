@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import Sidebar from "@/components/link-x/LearnSidebar";
@@ -9,19 +9,13 @@ import AIChatbot from "../components/ai-chatbot";
 
 export default function LearnPage() {
   const params = useParams();
-  const [courseId, setCourseId] = useState<string | null>(null);
+  const pfId = typeof params?.id === "string" ? params.id : null;
+
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [lessonTitle, setLessonTitle] = useState<string | null>(null);
   const [aiContent, setAiContent] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-
-  // Safely set courseId once available
-  useEffect(() => {
-    if (params?.id && typeof params.id === "string") {
-      setCourseId(params.id);
-    }
-  }, [params]);
 
   const handleLessonSelect = (title: string, content: string) => {
     setLessonTitle(title);
@@ -29,18 +23,18 @@ export default function LearnPage() {
     setAiContent(content);
   };
 
-  if (!courseId) return null; // or show <Loading />
+  if (!pfId) return <p className="p-4 text-center text-red-500">Missing personalized file ID.</p>;
 
   return (
     <div className="h-screen flex flex-col bg-background">
       <div className="flex flex-1 overflow-hidden bg-background">
         <Sidebar
-          courseId={courseId}
+          pfId={pfId}
           onCollapseChange={setIsCollapsed}
           onLessonSelect={handleLessonSelect}
           onLoadingStart={() => {
             setIsLoading(true);
-            setAiContent(null); // clear old message
+            setAiContent(null);
           }}
         />
 
@@ -51,7 +45,11 @@ export default function LearnPage() {
           )}
         >
           <main className="flex-grow overflow-y-auto p-6 pr-96">
-            <LessonContent title={lessonTitle} content={aiContent} isLoading={isLoading} />
+            <LessonContent
+              title={lessonTitle}
+              content={aiContent}
+              isLoading={isLoading}
+            />
           </main>
 
           <div className="fixed top-0 right-0 h-screen z-40">
