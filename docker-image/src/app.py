@@ -1026,30 +1026,41 @@ def generate_personalized_file_content():
         persona.append(f'they study best **{profile["schedule"]}**')
     full_persona = ". ".join(persona)
 
+    # faiss_bytes = None
+    # pkl_bytes = None
 
-    faiss_bytes = None
-    pkl_bytes = None
+    tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{file_id}_")
+    tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
+    os.makedirs(tmp_idx_dir, exist_ok=True)
 
     # Fetch FAISS data from DB
     db_session = Session()
     try:
         file = get_file_by_id(db_session, file_id)
         if file: 
-            faiss_bytes = file.index_faiss
-            pkl_bytes = file.index_pkl
+            # faiss_bytes = file.index_faiss
+            # pkl_bytes = file.index_pkl
+            file_bytes = file.file_data
     except Exception as e:
         print(f"Error fetching file for ID {file_id}: {e}")
     finally:
         db_session.close()
-    try:
-        tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{file_id}_")
-        tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
-        os.makedirs(tmp_idx_dir, exist_ok=True)
 
-        with open(os.path.join(tmp_idx_dir, "index.faiss"), "wb") as idx_faiss:
-            idx_faiss.write(faiss_bytes)
-        with open(os.path.join(tmp_idx_dir, "index.pkl"), "wb") as idx_pkl:
-            idx_pkl.write(pkl_bytes)
+    try:
+        # tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{file_id}_")
+        # tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
+        # os.makedirs(tmp_idx_dir, exist_ok=True)
+
+        # with open(os.path.join(tmp_idx_dir, "index.faiss"), "wb") as idx_faiss:
+        #     idx_faiss.write(faiss_bytes)
+        # with open(os.path.join(tmp_idx_dir, "index.pkl"), "wb") as idx_pkl:
+        #     idx_pkl.write(pkl_bytes)
+        with open(os.path.join(tmp_idx_dir, "output.pdf"), "wb") as pdf:
+            pdf.write(file_bytes)
+
+        create_database(tmp_idx_dir)
+        generate_citations(tmp_idx_dir)
+        file_cleanup(tmp_idx_dir)
 
         # Generate response using the temp directory
         response = prompt_generate_personalized_file_content(tmp_idx_dir, full_persona)
