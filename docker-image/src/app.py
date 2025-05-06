@@ -1029,17 +1029,16 @@ def generate_personalized_file_content():
     pkl_bytes = None
 
     # Fetch FAISS data from DB
-    if file_id:
-        db_session = Session()
-        try:
-            file = get_file_by_id(db_session, file_id)
-            if file: 
-                faiss_bytes = file.index
-                pkl_bytes = file.pkl
-        except Exception as e:
-            print(f"Error fetching file for ID {file_id}: {e}")
-        finally:
-            db_session.close()
+    db_session = Session()
+    try:
+        file = get_file_by_id(db_session, file_id)
+        if file: 
+            faiss_bytes = file.index_faiss
+            pkl_bytes = file.index_pkl
+    except Exception as e:
+        print(f"Error fetching file for ID {file_id}: {e}")
+    finally:
+        db_session.close()
     try:
         tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{file_id}_")
         tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
