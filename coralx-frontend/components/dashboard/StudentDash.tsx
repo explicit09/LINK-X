@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { LayoutDashboard } from "lucide-react";
 
-import Sidebar from "@/components/link-x/DashSidebar";
+import Sidebar from "@/components/dashboard/DashSidebar";
 import AudioUpload from "@/components/dashboard/AudioUpload";
 import { Button } from "@/components/ui/button";
 import Footer from "@/components/landing/Footer";
@@ -39,11 +39,16 @@ export default function StudentDashboard() {
   const [courses, setCourses] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState("modules");
+  const [activeTab, setActiveTab] = useState<"home" | "modules" | "people">(
+    "home"
+  );
   const [enrolledStudents, setEnrolledStudents] = useState<Student[]>([]);
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
   const [modules, setModules] = useState<{ id: string; title: string }[]>([]);
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
+
+  const [loadingFiles, setLoadingFiles] = useState<string | null>(null); // store module ID being fetched
+  const [loadingPeople, setLoadingPeople] = useState(false);
 
   const [moduleFiles, setModuleFiles] = useState<Record<string, FileSummary[]>>(
     {}
@@ -61,7 +66,7 @@ export default function StudentDashboard() {
         });
         if (!res.ok) throw new Error("Failed to fetch courses");
         const data = await res.json();
-        setCourses(data); 
+        setCourses(data);
       } catch (err) {
         console.error("Error fetching courses:", err);
       }
@@ -80,7 +85,7 @@ export default function StudentDashboard() {
           }
         );
         const data = await res.json();
-  
+
         if (Array.isArray(data)) {
           setModules(data);
         } else if (Array.isArray(data.modules)) {
@@ -94,40 +99,35 @@ export default function StudentDashboard() {
         setModules([]); // fallback
       }
     };
-  
+
     fetchModules();
   }, [selectedCourse]);
 
   useEffect(() => {
-    const fetchEnrolledStudents = async () => {
+    const fetchClassmates = async () => {
       if (activeTab !== "people" || !selectedCourse?.id) return;
-
+      setLoadingPeople(true);
       try {
         const res = await fetch(
-          `http://localhost:8080/instructor/courses/${selectedCourse.id}/students`,
-          {
-            credentials: "include",
-          }
+          `http://localhost:8080/student/courses/${selectedCourse.id}/classmates`,
+          { credentials: "include" }
         );
-        if (!res.ok) throw new Error("Failed to fetch students");
-        const students = await res.json();
-
-        const formatted = students.map((s: any) => ({
-          id: s.userId,
+        if (!res.ok) throw new Error("Failed to fetch classmates");
+        const classmates = await res.json();
+        const formatted = classmates.map((s: any, index: number) => ({
+          id: index.toString(),
           name: s.name,
-          email: s.email,
-          enrolledAt: s.enrolledAt,
-          enrollmentId: s.enrollmentId, // <-- include this
         }));
-
         setEnrolledStudents(formatted);
       } catch (err) {
-        console.error("Error fetching enrolled students:", err);
+        console.error("Error fetching classmates:", err);
         setEnrolledStudents([]);
+      } finally {
+        setLoadingPeople(false);
       }
     };
 
-    fetchEnrolledStudents();
+    fetchClassmates();
   }, [activeTab, selectedCourse]);
 
   const filteredCourses = courses
@@ -209,27 +209,25 @@ export default function StudentDashboard() {
       setSelectedModuleId(modId); // expand
 
       if (!moduleFiles[modId]) {
+        setLoadingFiles(modId); // set which module is loading
         try {
           const res = await fetch(
-            `http://localhost:8080/instructor/modules/${modId}/files`,
-            {
-              credentials: "include",
-            }
+            `http://localhost:8080/student/modules/${modId}/files`,
+            { credentials: "include" }
           );
 
           if (!res.ok) throw new Error("Failed to fetch files");
-
           const data = await res.json();
 
-          if (Array.isArray(data)) {
-            setModuleFiles((prev) => ({ ...prev, [modId]: data }));
-          } else {
-            console.error("Unexpected response format:", data);
-            setModuleFiles((prev) => ({ ...prev, [modId]: [] }));
-          }
+          setModuleFiles((prev) => ({
+            ...prev,
+            [modId]: Array.isArray(data) ? data : [],
+          }));
         } catch (err) {
           console.error("Fetch module files error:", err);
           setModuleFiles((prev) => ({ ...prev, [modId]: [] }));
+        } finally {
+          setLoadingFiles(null);
         }
       }
     }
@@ -237,7 +235,10 @@ export default function StudentDashboard() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900 flex">
-      <Sidebar onCollapseChange={(value) => setIsCollapsed(value)} />
+      <Sidebar
+        onCollapseChange={(value) => setIsCollapsed(value)}
+        userRole="student"
+      />
       <div
         className={cn(
           "flex-1 flex flex-col transition-all duration-300",
@@ -261,6 +262,16 @@ export default function StudentDashboard() {
               <aside className="w-60 border-r border-gray-200 p-6 space-y-6">
                 <div className="text-xl font-bold">{selectedCourse.title}</div>
                 <nav className="flex flex-col space-y-4">
+                  <button
+                    className={`text-left ${
+                      activeTab === "home"
+                        ? "font-semibold text-blue-600 border-l-4 pl-2 border-blue-600"
+                        : "text-gray-700 hover:text-blue-600"
+                    }`}
+                    onClick={() => setActiveTab("home")}
+                  >
+                    Home
+                  </button>
                   <button
                     className={`text-left ${
                       activeTab === "modules"
@@ -291,6 +302,27 @@ export default function StudentDashboard() {
                 </Button>
               </aside>
               <main className="flex-1 p-8">
+                {activeTab === "home" && selectedCourse && (
+                  <section>
+                    <h2 className="text-2xl font-bold mb-4">Home</h2>
+                    <div className="space-y-8">
+                      <Card className="glass-effect border-white/10">
+                        <CardHeader>
+                          <CardTitle>{selectedCourse.title}</CardTitle>
+                          <CardDescription>
+                            {selectedCourse.code} • {selectedCourse.term}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <div>
+                            <strong>Description:</strong>{" "}
+                            {selectedCourse.description}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </section>
+                )}
                 {activeTab === "modules" && (
                   <section>
                     <h2 className="text-2xl font-bold mb-6">Modules</h2>
@@ -314,7 +346,7 @@ export default function StudentDashboard() {
                           {previewingFile.title}
                         </h2>
                         <iframe
-                          src={`http://localhost:8080/instructor/files/${previewingFile.id}/content`}
+                          src={`http://localhost:8080/student/files/${previewingFile.id}/content`}
                           title={previewingFile.title}
                           className="w-full h-[80vh] border rounded-lg shadow-sm"
                         />
@@ -350,29 +382,30 @@ export default function StudentDashboard() {
                                 {/* Expanded Module Section */}
                                 {selectedModuleId === mod.id && (
                                   <div className="mt-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm p-4 space-y-4">
-                                    <div className="border-t pt-3 space-y-2">
-                                      <h5 className="text-sm font-semibold text-gray-700">
-                                        Files
-                                      </h5>
-                                      {Array.isArray(moduleFiles[mod.id]) &&
-                                      moduleFiles[mod.id].length > 0 ? (
-                                        moduleFiles[mod.id].map((file) => (
-                                          <div
-                                            key={file.id}
-                                            onClick={() =>
-                                              setPreviewingFile(file)
-                                            }
-                                            className="cursor-pointer text-blue-600 hover:underline"
-                                          >
-                                            📄 {file.title}
-                                          </div>
-                                        ))
-                                      ) : (
-                                        <p className="text-sm text-gray-500 italic">
-                                          No files uploaded yet.
-                                        </p>
-                                      )}
-                                    </div>
+                                    <h5 className="text-sm font-semibold text-gray-700">
+                                      Files
+                                    </h5>
+                                    {loadingFiles === mod.id ? (
+                                      <p className="text-sm text-blue-500 italic">
+                                        Loading files...
+                                      </p>
+                                    ) : moduleFiles[mod.id]?.length > 0 ? (
+                                      moduleFiles[mod.id].map((file) => (
+                                        <div
+                                          key={file.id}
+                                          onClick={() =>
+                                            setPreviewingFile(file)
+                                          }
+                                          className="cursor-pointer text-blue-600 hover:underline"
+                                        >
+                                          📄 {file.title}
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <p className="text-sm text-gray-500 italic">
+                                        No files uploaded yet.
+                                      </p>
+                                    )}
                                   </div>
                                 )}
                               </li>
@@ -388,19 +421,26 @@ export default function StudentDashboard() {
                   <section>
                     <h2 className="text-2xl font-bold mb-4">People</h2>
                     <div className="space-y-4">
-                      {enrolledStudents.map((student) => (
-                        <div
-                          key={student.enrollmentId}
-                          className="p-4 border rounded-lg shadow-sm bg-white"
-                        >
-                          <div className="text-lg font-semibold">
-                            {student.name}
+                      {loadingPeople ? (
+                        <p className="text-blue-500 italic">
+                          Loading classmates...
+                        </p>
+                      ) : enrolledStudents.length > 0 ? (
+                        enrolledStudents.map((student) => (
+                          <div
+                            key={student.id}
+                            className="p-4 border rounded-lg shadow-sm bg-white"
+                          >
+                            <div className="text-lg font-semibold">
+                              {student.name}
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-600">
-                            {student.email}
-                          </div>
-                        </div>
-                      ))}
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">
+                          No classmates found.
+                        </p>
+                      )}
                     </div>
                   </section>
                 )}

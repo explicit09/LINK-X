@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import Sidebar from "@/components/link-x/DashSidebar";
+import Sidebar from "@/components/dashboard/DashSidebar";
 import StatisticsCard from "@/components/dashboard/StatisticsCard";
 import MarketTrends from "@/components/dashboard/MarketTrends";
 import CoursesList from "@/components/dashboard/CoursesList";

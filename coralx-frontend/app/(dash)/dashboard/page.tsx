@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import Sidebar from "@/components/link-x/DashSidebar";
+import Sidebar from "@/components/dashboard/DashSidebar";
 import AudioUpload from "@/components/dashboard/AudioUpload";
 import Footer from "@/components/landing/Footer";
 import ProfessorDashboard from "@/components/dashboard/ProfessorDash"; // 🚨 make sure path is correct
@@ -47,7 +47,7 @@ export default function Dashboard() {
   // Otherwise, default to Student Dashboard
   return (
     <div className="min-h-screen bg-white text-gray-900 flex">
-      <Sidebar onCollapseChange={(value) => setIsCollapsed(value)} />
+      <Sidebar userRole={role} onCollapseChange={setIsCollapsed}/>
       <div className={cn("flex-1 transition-all duration-300", isCollapsed ? "ml-14" : "ml-44")}>
         <main className={cn("pt-6 transition-all duration-300", isCollapsed ? "px-6 md:px-8 lg:px-12" : "px-4")}>
           <h1 className="text-4xl font-bold mb-4 text-blue-600">Learning Dashboard</h1>
