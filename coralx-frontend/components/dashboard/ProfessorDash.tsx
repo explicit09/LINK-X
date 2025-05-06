@@ -1137,9 +1137,11 @@ export default function ProfessorDashboard() {
               </TabsContent>
             </Tabs>
           )}
-
-          <Footer />
+          
         </main>
+        <div className="h-1/4">
+          <Footer />
+          </div>
       </div>
 
       {/* Edit Course Dialog */}
