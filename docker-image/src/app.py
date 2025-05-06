@@ -639,11 +639,13 @@ def instructor_files(module_id):
             update_file(db, new_file.id, transcription=transcription)
 
         file_idx, file_pkl = rebuild_file_index(db, new_file.id)
+        app.logger.debug("FILE INDEX sizes:", len(file_idx), len(file_pkl))
         update_file(db, new_file.id,
                     index_faiss=file_idx,
                     index_pkl=file_pkl)
         
         idx_bytes, pkl_bytes = rebuild_course_index(db, course.id)
+        app.logger.debug("COURSE INDEX sizes:", len(idx_bytes), len(pkl_bytes))
         update_course(
             db,
             course_id=course.id,
