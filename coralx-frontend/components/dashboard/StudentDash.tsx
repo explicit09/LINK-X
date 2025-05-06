@@ -60,9 +60,11 @@ export default function StudentDashboard() {
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
   const [modules, setModules] = useState<{ id: string; title: string }[]>([]);
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
-
+  const [abortController, setAbortController] =
+    useState<AbortController | null>(null);
   const [loadingFiles, setLoadingFiles] = useState<string | null>(null); // store module ID being fetched
   const [loadingPeople, setLoadingPeople] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const [moduleFiles, setModuleFiles] = useState<Record<string, FileSummary[]>>(
     {}
@@ -72,9 +74,10 @@ export default function StudentDashboard() {
     title: string;
   } | null>(null);
 
-  const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
+  const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(
+    null
+  );
   const router = useRouter();
-
 
   useEffect(() => {
     const fetchEnrollments = async () => {
@@ -148,7 +151,6 @@ export default function StudentDashboard() {
     fetchClassmates();
   }, [activeTab, selectedCourse]);
 
-
   useEffect(() => {
     fetch("http://localhost:8080/student/profile", {
       method: "GET",
@@ -157,7 +159,7 @@ export default function StudentDashboard() {
       .then(async (res) => {
         if (!res.ok) throw new Error("Failed to fetch onboarding");
         const data = await res.json();
-  
+
         setOnboardingData({
           name: data.name,
           job: data.onboard_answers?.job || "",
@@ -174,7 +176,6 @@ export default function StudentDashboard() {
         console.error("❌ Error loading onboarding:", err);
       });
   }, []);
-  
 
   const filteredCourses = courses
     .filter(
@@ -198,56 +199,81 @@ export default function StudentDashboard() {
   };
 
   const handlePersonalize = async () => {
-    if (!previewingFile) {
-      console.warn("No file selected for personalization.");
-      return;
-    }
-  
-    if (!onboardingData) {
-      toast.error("Onboarding data is not loaded yet.");
-      return;
-    }
-  
-    const payload = {
-      name: onboardingData.name,
-      message: "personalize this PDF",
-      fileId: previewingFile.id,
-      userProfile: {
-        role: onboardingData.job,
-        traits: onboardingData.traits,
-        learningStyle: onboardingData.learningStyle,
-        depth: onboardingData.depth,
-        interests: onboardingData.interests,
-        personalization: onboardingData.topics,
-        schedule: onboardingData.schedule,
-      },
-    };
-  
+    if (!previewingFile || !onboardingData) return;
+
+    const controller = new AbortController();
+    setAbortController(controller);
+    setIsGenerating(true);
+
     try {
-      const res = await fetch("http://localhost:8080/generatepersonalizedfilecontent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-  
+      // Check for existing personalized file
+      const checkRes = await fetch(
+        "http://localhost:8080/student/personalized-files",
+        {
+          credentials: "include",
+          signal: controller.signal,
+        }
+      );
+
+      if (!checkRes.ok) throw new Error("Failed to check personalized files");
+
+      const existingFiles = await checkRes.json();
+      const match = existingFiles.find(
+        (f: any) => f.originalFileId === previewingFile.id
+      );
+
+      if (match) {
+        setIsGenerating(false);
+        setAbortController(null);
+        router.push(`/learn/${match.id}`);
+        return;
+      }
+
+      // No match — send personalization request
+      const payload = {
+        name: onboardingData.name,
+        message: "personalize this PDF",
+        fileId: previewingFile.id,
+        userProfile: {
+          role: onboardingData.job,
+          traits: onboardingData.traits,
+          learningStyle: onboardingData.learningStyle,
+          depth: onboardingData.depth,
+          interests: onboardingData.interests,
+          personalization: onboardingData.topics,
+          schedule: onboardingData.schedule,
+        },
+      };
+
+      const res = await fetch(
+        "http://localhost:8080/generatepersonalizedfilecontent",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        }
+      );
+
       const data = await res.json();
-  
       if (!res.ok) throw new Error(data.error || "Personalization failed");
-  
+
       toast.success("Personalized content generated!");
-  
-      const pfId = data.id || data.response?.id;
-      if (!pfId) throw new Error("Missing personalized file ID in response");
-  
-      
-      router.push(`/learn/${pfId}`);
-    } catch (err) {
-      console.error("Personalization failed:", err);
-      toast.error("Something went wrong during personalization.");
+      router.push(`/learn/${data.id}`);
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        console.warn("❌ Personalization aborted by user.");
+        toast.info("Personalization cancelled.");
+      } else {
+        console.error("Personalization failed:", err);
+        toast.error("Something went wrong during personalization.");
+      }
+    } finally {
+      setIsGenerating(false);
+      setAbortController(null);
     }
   };
-  
 
   const handleToggleModule = async (modId: string) => {
     if (selectedModuleId === modId) {
@@ -522,12 +548,30 @@ export default function StudentDashboard() {
               </TabsContent>
             </Tabs>
           )}
-          
         </main>
         <div className="h-1/4">
           <Footer />
-          </div>
+        </div>
       </div>
+      {isGenerating && (
+        <div className="fixed inset-0 bg-white bg-opacity-90 z-50 flex flex-col items-center justify-center">
+          <button
+            className="absolute top-6 right-6 text-gray-500 hover:text-gray-800 text-3xl"
+            onClick={() => {
+              abortController?.abort(); // Cancel the request
+              setIsGenerating(false); // Hide the loader
+            }}
+          >
+            ×
+          </button>
+          <h2 className="text-xl font-semibold text-blue-700 mb-4">
+            Loading personalized content...
+          </h2>
+          <div className="w-1/2 bg-blue-100 rounded-full h-4 overflow-hidden">
+            <div className="bg-blue-600 h-full animate-pulse w-full"></div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
