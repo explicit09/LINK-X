@@ -41,9 +41,11 @@ const Avatar = () => (
 interface SidebarProps {
   className?: string;
   onCollapseChange?: (value: boolean) => void;
+  userRole: "student" | "instructor" |"admin";
 }
 
-const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
+
+const Sidebar = ({ className, onCollapseChange, userRole }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
@@ -72,32 +74,42 @@ const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
     if (onCollapseChange) onCollapseChange(newValue);
   };
 
-  const navItems = [
-    {
-      name: "Home",
-      path: "/",
-      icon: Home,
-      active: pathname === "/",
-    },
-    {
-      name: "Dashboard",
-      path: "/dashboard",
-      icon: BookOpen,
-      active: pathname === "/dashboard",
-    },
-    {
-      name: "Courses",
-      path: "/courses",
-      icon: GraduationCap,
-      active: pathname === "/courses",
-    },
-    {
-      name: "Analytics",
-      path: "/analytics",
-      icon: BarChart3,
-      active: pathname === "/analytics",
-    },
-  ];
+  const navItems =
+  userRole === "instructor"
+    ? [
+        {
+          name: "Dashboard",
+          path: "/dashboard",
+          icon: BookOpen,
+          active: pathname === "/dashboard",
+        },
+        {
+          name: "Analytics",
+          path: "/analytics",
+          icon: BarChart3,
+          active: pathname === "/analytics",
+        },
+      ]
+    : [
+        {
+          name: "Dashboard",
+          path: "/dashboard",
+          icon: BookOpen,
+          active: pathname === "/dashboard",
+        },
+        {
+          name: "Courses",
+          path: "/courses",
+          icon: GraduationCap,
+          active: pathname === "/courses",
+        },
+      ];
+// {
+    //   name: "Home",
+    //   path: "/",
+    //   icon: Home,
+    //   active: pathname === "/",
+    // },
 
   // Don't render anything during first mount to avoid layout shifts
   if (!mounted) return null;
@@ -211,21 +223,6 @@ const Sidebar = ({ className, onCollapseChange }: SidebarProps) => {
         {/* Footer Actions */}
         <div className="px-2 pt-4 pb-2 border-t border-sidebar-border/30">
           <div className="flex flex-col gap-3">
-            {/* Notifications */}
-            <Button
-              variant="outline"
-              size={collapsed ? "icon" : "default"}
-              className={cn(
-                "w-full bg-sidebar-accent hover:bg-sidebar-accent/70 border-sidebar-border/50 text-sidebar-foreground/70 hover:text-sidebar-foreground",
-                collapsed ? "justify-center" : "justify-start"
-              )}
-            >
-              <Bell className="h-5 w-5 flex-shrink-0" />
-              {!collapsed && (
-                <span className="ml-2 text-sm">Notifications</span>
-              )}
-            </Button>
-
             {/* Settings */}
             <Link href="/settings" passHref>
               <Button
