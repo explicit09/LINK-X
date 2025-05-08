@@ -86,7 +86,7 @@ export default function OnboardingPage() {
           </h1>
 
           <label className="block mt-4 mb-2 text-gray-700">
-            What should Link‑X call you?
+            What should Learn‑X call you?
           </label>
           <Input
             className="bg-white border-gray-300 shadow-sm"
@@ -105,7 +105,7 @@ export default function OnboardingPage() {
           />
 
           <label className="block mt-4 mb-2 text-gray-700">
-            What traits should Link‑X have?
+            What traits should Learn‑X have?
           </label>
           <Input
             className="bg-white border-gray-300 shadow-sm"
