@@ -49,6 +49,14 @@ export default function StudentDashboard() {
     quizzes: boolean;
   }
 
+  type Course = {
+    id: string;
+    title: string;
+    code: string;
+    term?: string;
+    description?: string;
+  };
+
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [courses, setCourses] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
