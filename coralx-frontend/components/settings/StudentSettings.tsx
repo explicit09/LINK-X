@@ -334,7 +334,7 @@ const StudentSettings = () => {
                   <CardDescription>Customize how the AI responds to you.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Label htmlFor="onboardingName">What should we call you?</Label>
+                  <Label htmlFor="onboardingName">What should Learn-X call you?</Label>
                   <Input
                     id="onboardingName"
                     type="text"
@@ -352,7 +352,7 @@ const StudentSettings = () => {
                     onChange={e => handleChange(e.target.value, "job")}
                   />
 
-                  <Label htmlFor="traits">Assistant’s tone?</Label>
+                  <Label htmlFor="traits">What traits should Learn-X have?</Label>
                   <Input
                     id="traits"
                     type="text"
@@ -402,7 +402,7 @@ const StudentSettings = () => {
                     onChange={e => handleChange(e.target.value, "topics")}
                   />
 
-                  <Label htmlFor="interests">Personalization Preferences</Label>
+                  <Label htmlFor="interests">Interests, Preferences</Label>
                   <Input
                     id="interests"
                     type="text"
