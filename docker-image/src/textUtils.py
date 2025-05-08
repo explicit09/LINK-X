@@ -34,7 +34,7 @@ def clean_extracted_text(text: str) -> str:
 
     return text.strip()
 
-def split_text(text: str, max_tokens: int = 500, overlap: int = 50) -> List[str]:
+def split_text(text: str, max_tokens: int = 300, overlap: int = 50) -> List[str]:
     enc = tiktoken.get_encoding("cl100k_base")
     token_ids = enc.encode(text)
     chunks = []

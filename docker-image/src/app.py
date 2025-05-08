@@ -653,6 +653,7 @@ def instructor_files(module_id):
             index_pkl=pkl_bytes
         )
         db.close()
+        store_file_embeddings(db, str(new_file.id))
         return jsonify({
             'id':            str(new_file.id),
             'filename':      new_file.filename,
@@ -1075,6 +1076,7 @@ def generate_personalized_file_content():
             
         # Save personalized file to DB
         db = Session()
+        print("Saving personalized file with original_file_id:", file_id)
         try:
             saved_file = create_personalized_file(
                 db=db,
@@ -1090,18 +1092,29 @@ def generate_personalized_file_content():
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
+    
 @app.route('/student/personalized-files/<pf_id>', methods=['GET'])
-def student_get_pfile(pf_id):
+def get_student_personalized_file(pf_id):
     user_id, err = verify_student()
     if err:
         return err
+
     db = Session()
     pf = get_personalized_file_by_id(db, pf_id)
-    db.close()
+
     if not pf or str(pf.user_id) != str(user_id):
-        return jsonify({'error': 'Forbidden'}), 403
-    return jsonify({'id': str(pf.id), 'content': pf.content}), 200
+        db.close()
+        return jsonify({'error': 'Not found or unauthorized'}), 404
+
+    response = {
+        'id': str(pf.id),
+        'originalFileId': str(pf.original_file_id) if pf.original_file_id else None,
+        'createdAt': pf.created_at.isoformat(),
+        'content': pf.content  
+    }
+
+    db.close()
+    return jsonify(response), 200
 
 @app.route('/student/chats', methods=['GET', 'POST'])
 def student_chats():
@@ -1272,111 +1285,185 @@ def instructor_delete_report(report_id):
 
 @app.route('/ai-chat', methods=['POST'])
 def ai_chat():
-    # 1. Verify student session
-    user_id, err = verify_student()
-    if err:
-        return err
+    try:
+        # 1. Verify student session
+        user_id, err = verify_student()
+        if err:
+            return err
 
-    # 2. Parse request
-    data = request.get_json() or {}
-    chat_id      = data.get('id')
-    user_message = data.get('userMessage') or data.get('message')
-    history      = data.get('messages', [])
+        # 2. Parse request
+        data = request.get_json() or {}
+        chat_id      = data.get('id')
+        file_id      = data.get('fileId')  # <- For first message
+        user_message = data.get('userMessage') or data.get('message')
+        history      = data.get('messages', [])
 
-    if not user_message:
-        return jsonify({'error': 'User message is required'}), 400
+        if not user_message:
+            return jsonify({'error': 'User message is required'}), 400
 
-    db = Session()
+        db = Session()
+        course_id = None
+        f = get_file_by_id(db, file_id)
+        
+      # 3. Get or create Chat
+        if chat_id:
+            chat = get_chat_by_id(db, chat_id)
+            if not chat or str(chat.user_id) != str(user_id):
+                db.close()
+                return jsonify({'error': 'Forbidden'}), 403
+        else:
+            if not file_id:
+                db.close()
+                return jsonify({'error': 'Missing fileId for new chat'}), 400
 
-    # 3. Get or create Chat
-    if chat_id:
-        chat = get_chat_by_id(db, chat_id)
-        if not chat or str(chat.user_id) != str(user_id):
+            # Look up the original file_id from the PersonalizedFile
+            files = get_personalized_files_by_student(db, user_id)
+            personalized_file = next(
+                (pf for pf in files if str(pf.original_file_id) == str(file_id)),
+                None
+            )
+            print("Personalized File ID:")
+            print(personalized_file.id)
+            if not personalized_file:
+                db.close()
+                return jsonify({'error': 'No personalized file found for this original fileId'}), 404
+
+            chat = create_chat(db, user_id, file_id, title='New Chat')
+            chat_id = str(chat.id)
+
+            if f:
+                f.chat_count += 1
+                db.commit()
+
+        if not f or not f.module:
             db.close()
-            return jsonify({'error': 'Forbidden'}), 403
-    else:
-        chat = create_chat(db, user_id, None, title='New Chat')
-        chat_id = str(chat.id)
-        if chat.file_id:
-            f = get_file_by_id(db, chat.file_id)
-            f.chat_count += 1
-            db.commit()
+            return jsonify({'error': 'File or module not found'}), 404
 
-    # 4. Save incoming user message
-    create_message(db, chat_id, role='user', content=user_message)
+        course_id = f.module.course_id
+        print(course_id)
+        # 4. Embed query and retrieve top 5 chunks
+        vector_list = openai_embed_text([user_message])[0].tolist()
+        pgvector_str = f"[{','.join(map(str, vector_list))}]"
 
-    # 5. Build persona prompt from StudentProfile
-    sp = get_student_profile(db, user_id)
-    if not sp:
-        db.close()
-        return jsonify({'error': 'Student profile not found'}), 404
+        sql = text("""
+            SELECT content
+            FROM "FileChunk"
+            WHERE course_id = :cid
+            ORDER BY embedding <-> :query_vec
+            LIMIT 3
+        """)
+        rows = db.execute(sql, {"cid": course_id, "query_vec": pgvector_str}).fetchall()
+        retrieved_chunks = [row[0] for row in rows if row[0]]
 
-    answers = sp.onboard_answers or {}
-    name           = sp.name
-    job            = answers.get('job')
-    traits         = answers.get('traits')
-    learning_style = answers.get('learningStyle')
-    depth          = answers.get('depth')
-    topics         = answers.get('topics')
-    interests      = answers.get('interests')
-    schedule       = answers.get('schedule')
+        # 5. Build messages for OpenAI
+        messages = [
+                {
+                "role": "system",
+                "content": (
+                    "You are a helpful and knowledgeable AI tutor assisting a student. "
+                    "You must use the student's background and interests to personalize each explanation and response. "
+                    "If course content is relevant to the user’s message, you must use it to answer. "
+                    "If the question is relevant to course material, but not specifically included, you can use your greater knowledge outside of course content. "
+                    "If it is not relevant, do not fabricate an answer. Instead, respond with:\n\n"
+                    "\"I'm here to help with this course, but that question isn't related to the material we've covered.\"\n\n"
+                    "Avoid speculation or answering based on general knowledge if the topic isn't in the course context."
+                )
+            }   
+        ]
 
-    persona_bits = []
-    if name:           persona_bits.append(f"Name: {name}")
-    if job:            persona_bits.append(f"Occupation: {job}")
-    if traits:         persona_bits.append(f"Preferred tone: {traits}")
-    if learning_style: persona_bits.append(f"Learning style: {learning_style}")
-    if depth:          persona_bits.append(f"Depth: {depth}")
-    if topics:         persona_bits.append(f"Topics: {topics}")
-    if interests:      persona_bits.append(f"Interests: {interests}")
-    if schedule:       persona_bits.append(f"Schedule: {schedule}")
-    persona_string = " • ".join(persona_bits)
+        if retrieved_chunks:
+            context_string = "\n\n".join(
+                [f"Chunk {i+1}:\n{chunk.strip()}" for i, chunk in enumerate(retrieved_chunks)]
+            )
+            material_prompt = {
+                "role": "system",
+                "content": (
+                    "The following excerpts are from course materials. You must use them to answer the student's question if relevant:\n\n"
+                    f"{context_string}"
+                )
+            }
+            messages.append(material_prompt)
 
-    expertise_map = {
-        'beginner':     'They prefer simple, clear explanations.',
-        'intermediate': 'They want moderate technical depth.',
-        'advanced':     'They want in-depth, technical explanations.',
-    }
-    expertise_summary = expertise_map.get(
-        (depth or '').lower(),
-        expertise_map['beginner']
-    )
+        # Add chat history
+        for m in history:
+            if m.get("role") and m.get("content"):
+                messages.append({
+                    "role": m["role"],
+                    "content": m["content"]
+                })
 
-    # 6. Compose system + persona messages
-    system_msg = {
-        'role': 'system',
-        'content': (
-            'You are a friendly AI tutor. Use the user’s background to give examples.'
+        messages.append({"role": "user", "content": user_message})
+
+         # 5. Build persona prompt from StudentProfile
+        sp = get_student_profile(db, user_id)
+        if not sp:
+            db.close()
+            return jsonify({'error': 'Student profile not found'}), 404
+
+        answers = sp.onboard_answers or {}
+        name           = sp.name
+        job            = answers.get('job')
+        traits         = answers.get('traits')
+        learning_style = answers.get('learningStyle')
+        depth          = answers.get('depth')
+        topics         = answers.get('topics')
+        interests      = answers.get('interests')
+        schedule       = answers.get('schedule')
+
+        persona_bits = []
+        if name:           persona_bits.append(f"Name: {name}")
+        if job:            persona_bits.append(f"Occupation: {job}")
+        if traits:         persona_bits.append(f"Preferred tone: {traits}")
+        if learning_style: persona_bits.append(f"Learning style: {learning_style}")
+        if depth:          persona_bits.append(f"Depth: {depth}")
+        if topics:         persona_bits.append(f"Topics: {topics}")
+        if interests:      persona_bits.append(f"Interests: {interests}")
+        if schedule:       persona_bits.append(f"Schedule: {schedule}")
+        persona_string = " • ".join(persona_bits)
+
+        expertise_map = {
+            'beginner':     'They prefer simple, clear explanations.',
+            'intermediate': 'They want moderate technical depth.',
+            'advanced':     'They want in-depth, technical explanations.',
+        }
+        expertise_summary = expertise_map.get(
+            (depth or '').lower(),
+            expertise_map['beginner']
         )
-    }
-    persona_msg = {
-        'role': 'system',
-        'content': f"{persona_string}. {expertise_summary}"
-    }
 
-    # 7. Build chat stack
-    messages = [system_msg, persona_msg]
-    for m in history:
-        messages.append({'role': m.get('role'), 'content': m.get('content')})
-    messages.append({'role': 'user', 'content': user_message})
+        persona_msg = {
+            'role': 'system',
+            'content': f"{persona_string}. {expertise_summary}"
+        }
 
-    # 8. Call OpenAI
-    client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-    resp = client.chat.completions.create(
-        model='gpt-4o',
-        messages=messages,
-        max_tokens=300,
-        temperature=0.7,
-    )
-    assistant_content = resp.choices[0].message.content.strip()
+        messages.append(persona_msg)
 
-    # 9. Persist assistant reply
-    create_message(db, chat_id, role='assistant', content=assistant_content)
+        print(messages)
 
-    db.close()
+        # 6. Call OpenAI
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        resp = client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+            temperature=0.5,
+            max_tokens=300,
+        )
 
-    # 10. Return assistant response and chatId
-    return jsonify({'assistant': assistant_content, 'chatId': chat_id}), 200
+        assistant_reply = resp.choices[0].message.content.strip()
+
+        # 7. Save assistant reply (optional)
+        # create_message(db, chat_id, role="assistant", content=assistant_reply)
+
+        db.close()
+
+        # 8. Return result
+        return jsonify({"assistant": assistant_reply, "chatId": chat_id}), 200
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Internal server error", "details": str(e)}), 500
+
 
 @app.route('/courses/<course_id>/citations', methods=['GET'])
 def citations_route(course_id):

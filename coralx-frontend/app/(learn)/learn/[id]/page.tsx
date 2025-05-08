@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import Sidebar from "@/components/link-x/LearnSidebar";
@@ -11,7 +11,7 @@ export default function LearnPage() {
   const params = useParams();
   const pfId = typeof params?.id === "string" ? params.id : null;
 
-
+  const [fileId, setFileId] = useState<string | null>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [lessonTitle, setLessonTitle] = useState<string | null>(null);
   const [aiContent, setAiContent] = useState<string | null>(null);
@@ -23,7 +23,38 @@ export default function LearnPage() {
     setAiContent(content);
   };
 
-  if (!pfId) return <p className="p-4 text-center text-red-500">Missing personalized file ID.</p>;
+  useEffect(() => {
+    if (!pfId) return;
+  
+    const fetchOriginalFileId = async () => {
+      try {
+        const res = await fetch(`http://localhost:8080/student/personalized-files/${pfId}`, {
+          credentials: "include",
+        });
+  
+        if (!res.ok) {
+          const text = await res.text(); // <-- show error message
+          throw new Error(`Failed to fetch personalized file: ${text}`);
+        }
+  
+        const data = await res.json();
+  
+        if (data.originalFileId) {
+          setFileId(data.originalFileId);
+        } else {
+          console.warn("No original file linked to this personalized file.");
+        }
+      } catch (err) {
+        console.error("Error fetching original file ID:", err);
+      }
+    };
+  
+    fetchOriginalFileId();
+  }, [pfId]);
+
+  if (!pfId) {
+    return <p className="p-4 text-center text-red-500">Missing personalized file ID.</p>;
+  }
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -52,9 +83,11 @@ export default function LearnPage() {
             />
           </main>
 
-          <div className="fixed top-0 right-0 h-screen z-40">
-            <AIChatbot />
-          </div>
+          {fileId && (
+            <div className="fixed top-0 right-0 h-screen z-40">
+              <AIChatbot fileId={fileId} />
+            </div>
+          )}
         </div>
       </div>
     </div>
