@@ -1,30 +1,43 @@
 
 <p align="center">
-  An AI-Powered Personalized-Learning Platform Built with a Next.js Frontend and a Flask Backend.
+  An AI-Powered Personalized-Learning Platform.
+
+  Learn-X is a project developed to solve a common issue in higher education: learning materials like slides, PDFs, and lectures are not one-size-fits-all. Every student learns differently, and Learn-X bridges that gap by using AI to personalize content based on each student’s unique learning persona.
+
 </p>
 
-<br/>
+## Key Features
+- 🔐 **Persona-Based Personalization**: Students receive customized content tailored to their learning style, experience, and preferences.
+- 🧑‍🏫 **Instructor Dashboard**: Professors can upload files, organize modules, and monitor anonymized engagement analytics.
+- 🤖 **AI Chatbot Assistance**: GPT-4o-powered chatbot allows students to ask follow-up questions relevant to course material.
+- 📂 **RAG System**: Content is chunked and embedded using FAISS, then retrieved for AI responses with high relevance.
+- 📊 **Analytics & Engagement**: Anonymous tracking gives professors insight into student usage and behavior patterns.
 
-## Model Providers
-
-This platform uses OpenAI `gpt-4o` as the default.
-
-## Features
-- [Next.js](https://nextjs.org) App Router
-  - Advanced routing for seamless navigation and performance
-  - React Server Components (RSCs) and Server Actions for server-side rendering and increased performance
-- [AI SDK](https://sdk.vercel.ai/docs)
-  - Unified API for generating text, structured objects, and tool calls with LLMs
-  - Hooks for building dynamic chat and generative user interfaces
-  - Supports OpenAI (default), Anthropic, Cohere, and other model providers
+## Tech Stack
+| Component      | Technology                        |
+|----------------|-----------------------------------|
+| Frontend       | Next.js (in `coralx-frontend`)    |
+| Backend        | Flask (in `docker-image`)         |
+| AI Integration | OpenAI GPT-4o                     |
+| Retrieval      | FAISS (vector database)           |
+| Primary DB     | PostgreSQL  (hosted on NeonDB)    |
+| Authentication | Firebase                          |
+| Containerization | Docker, Docker Compose          |
 
 ## Running locally
 
-You will need to use the environment variables [defined in `.env.example`](.env.example) to run Next.js AI Chatbot. It's recommended you use [Vercel Environment Variables](https://vercel.com/docs/projects/environment-variables) for this, but a `.env` file is all that is necessary.
+You will need to use the environment variables to use the database & AI integrations.
+Create the files: `.env.local` in `coralx-frontend/`, and `.env ` in `docker-image/src` with the following:
+ ```
+ OPENAI_API_KEY=your_api_key_here
+
+ AUTH_SECRET=your_auth_secret_here
+
+ POSTGRES_URL=your_postgres_url_here
+ ```
 
 > Note: You should not commit your `.env` file or it will expose secrets that will allow others to control access to your various OpenAI and authentication provider accounts.
 
-1. Install Vercel CLI: `npm i -g vercel`
 ### Before running frontend:
 ```bash
 cd coralx-frontend
@@ -41,19 +54,19 @@ bash run_frontend.sh
 
 The frontend should now be running on [localhost:3000](http://localhost:3000/).
 
-
-### To run backend container:
+### To run backend:
 ```bash
 cd <project root directory>
 
 docker-compose up --build
 ```
+This starts the Flask API server and installs all dependencies inside a Docker container.
 
-### To open new interactive shell in backend container (for testing FAISS):
+### To open a new interactive shell in the backend container (for testing FAISS):
 ```bash
 docker exec -it backend /bin/bash
 ```
-## FAISS database generation & RAG testing
+## FAISS & RAG testing
 
 You will need to run the docker container and open a new interactive shell (shown above)
 
@@ -107,8 +120,6 @@ A sophisticated document processing and retrieval system that leverages FAISS (F
 
 This project implements a document processing pipeline that converts PDF documents into a searchable vector database.
 ## System Architecture
-
-![System Architecture](additional_files/system_architecture.png)
 
 ### 1. Document Processing Pipeline (`FAISS_db_generation.py`)
 - **Data Collection & Processing** (`FAISS_db_generation.py`: `create_db(<path_to_working_dir>)`)
