@@ -98,7 +98,13 @@ file_cleanup("<path_to_working_dir>")
 ### 2. FAISS index retrieval and RAG
 > Note: Step 1. should be complete for the desired pdf before Step 2.
 ```bash
-# WIP
+python -i FAISS_retriever.py
+
+# To generate an answer based on the top 5 most relevant chunks
+answer_to_qa("<query>", <path_to_working_dir>)
+
+# To generate an answer based on **ALL** chunks
+answer_to_QA_all_chunks("<query>", <path_to_working_dir>)
 ```
 
 ### 3. Launch the Web Interface for testing RAG
@@ -112,9 +118,9 @@ bash run_streamlit_ui.sh <path_to_working_dir>
   - Receive AI-generated answers
   - View source citations for all responses
 
-# PYTHON/RAG NOTES: Question-Answering System
+# PYTHON/RAG NOTES: Course Generation & Question-Answering System
 
-A sophisticated document processing and retrieval system that leverages FAISS (Facebook AI Similarity Search) and OpenAI embeddings to create an interactive question-answering interface for provided documents.
+A sophisticated document processing and retrieval system that leverages FAISS (Facebook AI Similarity Search) and OpenAI embeddings to generate personalized course content provide an interactive question-answering interface for course documents.
 
 ## Overview
 
