@@ -1,10 +1,7 @@
+<p align="center"><strong>Learn-X</strong>: An AI-Powered Personalized Learning Platform</p>
 
-<p align="center">
-  An AI-Powered Personalized-Learning Platform.
+Learn-X is a project developed to solve a common issue in higher education: learning materials like slides, PDFs, and lectures are not one-size-fits-all. Every student learns differently, and Learn-X bridges that gap by using AI to personalize content based on each student’s unique learning persona.
 
-  Learn-X is a project developed to solve a common issue in higher education: learning materials like slides, PDFs, and lectures are not one-size-fits-all. Every student learns differently, and Learn-X bridges that gap by using AI to personalize content based on each student’s unique learning persona.
-
-</p>
 
 ## Key Features
 - 🔐 **Persona-Based Personalization**: Students receive customized content tailored to their learning style, experience, and preferences.
@@ -27,8 +24,12 @@
 ## Running locally
 
 You will need to use the environment variables to use the database & AI integrations.
-Create the files: `.env.local` in `coralx-frontend/`, and `.env ` in `docker-image/src` with the following:
- ```
+Create these two files:
+- `coralx-frontend/.env.local`
+- `docker-image/src/.env`
+
+both should include the following:
+ ```env
  OPENAI_API_KEY=your_api_key_here
 
  AUTH_SECRET=your_auth_secret_here
@@ -66,11 +67,42 @@ This starts the Flask API server and installs all dependencies inside a Docker c
 ```bash
 docker exec -it backend /bin/bash
 ```
-## FAISS & RAG testing
+
+# Backend AI Pipeline (Document Processing + Question Answering)
+
+A sophisticated document processing and retrieval system that leverages FAISS (Facebook AI Similarity Search) and OpenAI embeddings to generate personalized course content provide an interactive question-answering interface for course documents.
+
+## Overview
+
+The backend implements a Retrieval-Augmented Generation (RAG) pipeline powered by FAISS and OpenAI's GPT-4o-mini. This enables semantic search over course materials and personalized responses to student questions.
+
+## System Architecture
+
+### 1. Generate FAISS Vector Database (`FAISS_db_generation.py`)
+- **Data Collection & Processing** (`FAISS_db_generation.py`: `create_db(<path_to_working_dir>)`)
+  - Loads all documents in the provided path
+  - Splits documents into smaller chunks
+  - Creates embeddings using OpenAI's model: Ada-002
+  - Stores vectors in FAISS database: FlatL2-index
+
+- **Citation Management** (`docker-image/src/FAISS_db_generation.py`: `generate_citations(<path_to_working_dir>)` & `replace_sources(<path_to_working_dir>)`)
+  - Generates APA citations using LLM: GPT-4o-mini
+  - Updates vector storage with proper citations
+
+### 2. Query the Knowledge Base
+- **Query Processing** (`docker-image/src/FAISS_retriever.py`)
+  - Processes user queries
+  - Creates query embeddings: Ada-002
+  - Checks similarity with stored vectors: Euclidean-distance
+  - Selects top k most similar chunks
+  - Generates context-aware prompts: GPT-4o-mini
+  - Uses LLM to generate answers: GPT-4o-mini
+
+## Testing the FAISS & RAG Pipeline
 
 You will need to run the docker container and open a new interactive shell (shown above)
 
-From the shell, enter the src folder:
+From the shell in the container, enter the src folder:
 
 ```bash
 cd src
@@ -84,14 +116,12 @@ generate_citations("<path_to_working_dir>")
 file_cleanup("<path_to_working_dir>")
 ```
 - `create_database()`
-  - Loads specified PDF document
-  - Splits text into manageable chunks
-  - Creates FAISS vector embeddings using OpenAI
+  - Loads documents from `<path_to_working_dir>`
+  - Splits text into chunks and creates FAISS vector embeddings using OpenA
   - Saves files `index.faiss` and `index.pkl` in `<path_to_working_dir>` within the container
 - `generate_citations()`
   - Generates APA citations using LLM: GPT-4o-mini
-  - Saves citations to `<path_to_working_dir>/citations.csv` within the container
-  - Updates vector storage with proper citations
+  - Saves `citations.csv` in `<path_to_working_dir>` within the container
 - `file_cleanup()`
   - Recursively removes all files except for `index.faiss` & `index.pkl` from `<path_to_working_dir>`
 
@@ -106,7 +136,7 @@ answer_to_qa("<query>", <path_to_working_dir>)
 # To generate an answer based on **ALL** chunks
 answer_to_QA_all_chunks("<query>", <path_to_working_dir>)
 ```
-
+- Outputs an answer based on the supplied Vector DB
 ### 3. Launch the Web Interface for testing RAG
 > Note: Step 1. should be complete for the desired pdf before Step 3.
 ```bash
@@ -116,86 +146,3 @@ bash run_streamlit_ui.sh <path_to_working_dir>
 - From here, you can:
   - Ask questions about the supplied content
   - Receive AI-generated answers
-  - View source citations for all responses
-
-# PYTHON/RAG NOTES: Course Generation & Question-Answering System
-
-A sophisticated document processing and retrieval system that leverages FAISS (Facebook AI Similarity Search) and OpenAI embeddings to generate personalized course content provide an interactive question-answering interface for course documents.
-
-## Overview
-
-This project implements a document processing pipeline that converts PDF documents into a searchable vector database.
-## System Architecture
-
-### 1. Document Processing Pipeline (`FAISS_db_generation.py`)
-- **Data Collection & Processing** (`FAISS_db_generation.py`: `create_db(<path_to_working_dir>)`)
-  - Loads all documents in the provided path
-  - Splits documents into smaller chunks
-  - Creates embeddings using OpenAI's model: Ada-002
-  - Stores vectors in FAISS database: FlatL2-index
-
-- **Citation Management** (`docker-image/src/FAISS_db_generation.py`: `generate_citations(<path_to_working_dir>)` & `replace_sources(<path_to_working_dir>)`)
-  - Generates APA citations using LLM: GPT-4o-mini
-  - Updates vector storage with proper citations
-
-### 2. Query Processing Pipeline
-- **Query Processing** (`docker-image/src/FAISS_retriever.py`)
-  - Processes user queries
-  - Creates query embeddings: Ada-002
-  - Checks similarity with stored vectors: Euclidean-distance
-  - Selects top k most similar chunks
-  - Generates context-aware prompts: GPT-4o-mini
-  - Uses LLM to generate answers with citations: GPT-4o-mini
-
-## Prerequisites
-
-- Python 3.10.11
-- OpenAI API key
-- Required Python packages:
-  ```
-  langchain
-  langchain-openai
-  openai
-  python-dotenv
-  faiss-cpu
-  chromadb
-  PyPDF2
-  python-magic
-  python-magic-bin
-  textract
-  tiktoken
-  transformers
-  sentence-transformers
-  pandas
-  numpy
-  ragas
-  datasets
-  nest-asyncio
-  streamlit
-  tqdm
-  ```
-
-## Installation
-
-1. Clone the repository
-2. Install required packages:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Create the file `.env.local` in the `coralx-frontend/` with the following:
-   ```
-   OPENAI_API_KEY=your_api_key_here
-   AUTH_SECRET=your_auth_secret_here
-   POSTGRES_URL=your_postgres_url_here
-   ```
-4. Create the file `.env ` in `docker-image/src` with the following:
-   ```
-   OPENAI_API_KEY=your_api_key_here
-   AUTH_SECRET=your_auth_secret_here
-   POSTGRES_URL=your_postgres_url_here
-   ```
-## Acknowledgments
-
-- LangChain for the document processing framework
-- OpenAI for embeddings and GPT-4
-- Facebook Research for FAISS
