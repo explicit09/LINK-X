@@ -11,15 +11,15 @@ Learn-X is a project developed to solve a common issue in higher education: lear
 - 📊 **Analytics & Engagement**: Anonymous tracking gives professors insight into student usage and behavior patterns.
 
 ## Tech Stack
-| Component      | Technology                        |
-|----------------|-----------------------------------|
-| Frontend       | Next.js (in `coralx-frontend`)    |
-| Backend        | Flask (in `docker-image`)         |
-| AI Integration | OpenAI GPT-4o                     |
-| Retrieval      | FAISS (vector database)           |
-| Primary DB     | PostgreSQL  (hosted on NeonDB)    |
-| Authentication | Firebase                          |
-| Containerization | Docker, Docker Compose          |
+| Component        | Technology                        |
+|------------------|-----------------------------------|
+| Frontend         | Next.js                           |
+| Backend          | Python, Flask                     |
+| AI Integration   | OpenAI (GPT-4o). Retrieval-Augmented Generation (RAG) |
+| Embedding Store  | FAISS, Pgvector                   |
+| Primary DB       | PostgreSQL  (hosted on NeonDB)    |
+| Authentication   | Firebase                          |
+| Containerization | Docker                            |
 
 ## Running locally
 
@@ -146,3 +146,13 @@ bash run_streamlit_ui.sh <path_to_working_dir>
 - From here, you can:
   - Ask questions about the supplied content
   - Receive AI-generated answers
+
+## Development Tools
+| Area             | Tool / Platform                   |
+|------------------|-----------------------------------|
+| Version Control  | Git, GitHub, GitLab               |
+| Package Manager  | pnpm (frontend), pip (backend)    |
+| Environment Mgmt | dotenv                            |
+| Container Dev    | Docker, Docker Compose            |
+| DB Hosting       | [NeonDB](https://neon.tech), [Firebase Console](https://firebase.google.com) |
+| UI Prototyping   | [v0](https://v0.dev), [Loveable](https://lovable.dev) |
