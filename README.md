@@ -137,7 +137,7 @@ answer_to_qa("<query>", <path_to_working_dir>)
 answer_to_QA_all_chunks("<query>", <path_to_working_dir>)
 ```
 - Outputs an answer based on the supplied Vector DB
-### 3. Launch the Web Interface for testing RAG
+### 3. Launch the Web Interface for testing RAG (Optional)
 > Note: Step 1. should be complete for the desired pdf before Step 3.
 ```bash
 bash run_streamlit_ui.sh <path_to_working_dir>
