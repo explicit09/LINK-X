@@ -638,18 +638,22 @@ def instructor_files(module_id):
         )
         if transcription is not None:
             update_file(db, new_file.id, transcription=transcription)
-
+        
         # Create temporary directory and write uploaded file
         tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{new_file.id}_")
         tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
         os.makedirs(tmp_idx_dir, exist_ok=True)
-
-        # Extract file extension
-        ext = os.path.splittext(fobj.filename)[1]
-
-        input_filename = f"uploaded{ext}"
-        with open(os.path.join(tmp_idx_dir, input_filename), "wb") as out:
-            out.write(file_bytes)
+        # If transcription, use transcribed text, otherwise use uploaded file
+        if transcription is not None:
+            input_filename = "transcription.txt"
+            with open(os.path.join(tmp_idx_dir, input_filename), "w", encoding="utf-8") as txt:
+                txt.write(transcription)
+        else:
+            # Extract file extension
+            ext = os.path.splittext(fobj.filename)[1]
+            input_filename = f"uploaded{ext}"
+            with open(os.path.join(tmp_idx_dir, input_filename), "wb") as out:
+                out.write(file_bytes)
 
         # Generate FAISS index files
         create_database(tmp_idx_dir)
