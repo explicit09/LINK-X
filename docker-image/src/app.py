@@ -613,6 +613,7 @@ def instructor_files(module_id):
     if str(course.instructor_id) != str(user_id):
         db.close()
         return jsonify({'error': 'Forbidden'}), 403
+    # POST: Upload file in module
     if request.method == 'POST':
         fobj = request.files.get('file')
         if not fobj:
@@ -638,12 +639,38 @@ def instructor_files(module_id):
         if transcription is not None:
             update_file(db, new_file.id, transcription=transcription)
 
-        file_idx, file_pkl = rebuild_file_index(db, new_file.id)
+        # Create temporary directory and write uploaded file
+        tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{new_file.id}_")
+        tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
+        os.makedirs(tmp_idx_dir, exist_ok=True)
+
+        file_bytes = new_file.file_data
+        with open(os.path.join(tmp_idx_dir, "output.pdf"), "wb") as pdf:
+            pdf.write(file_bytes)
+
+        # Generate FAISS index files
+        create_database(tmp_idx_dir)
+        generate_citations(tmp_idx_dir)
+        file_cleanup(tmp_idx_dir)
+
+        # Read generated index files
+        try:
+            with open(os.path.join(tmp_idx_dir, "index.faiss"), "rb") as fidx:
+                file_idx = fidx.read()
+            with open(os.path.join(tmp_idx_dir, "index.pkl"), "rb") as fpkl:
+                file_pkl = fpkl.read()
+        except Exception as e:
+            shutil.rmtree(tmp_root)
+            db.close
+            return jsonify({'error': f'Failed to read index files: {e}'}), 500
+        
+        # Store index in DB
         app.logger.debug("FILE INDEX sizes:", len(file_idx), len(file_pkl))
         update_file(db, new_file.id,
                     index_faiss=file_idx,
-                    index_pkl=file_pkl)
+                    index_pkl=file_pkl)        
         
+        # Rebuild course-level index
         idx_bytes, pkl_bytes = rebuild_course_index(db, course.id)
         app.logger.debug("COURSE INDEX sizes:", len(idx_bytes), len(pkl_bytes))
         update_course(
@@ -652,15 +679,22 @@ def instructor_files(module_id):
             index_faiss=idx_bytes,
             index_pkl=pkl_bytes
         )
-        db.close()
         store_file_embeddings(db, str(new_file.id))
+
+        # Cleanup
+        shutil.rmtree(tmp_root)
+        db.close()
+
         return jsonify({
             'id':            str(new_file.id),
             'filename':      new_file.filename,
             'transcription': transcription
         }), 201
+
+    # GET: Return file list
     files = get_files_by_module(db, module_id)
     db.close()
+
     return jsonify([
         {
             'id':       str(f.id),
@@ -1027,41 +1061,28 @@ def generate_personalized_file_content():
         persona.append(f'they study best **{profile["schedule"]}**')
     full_persona = ". ".join(persona)
 
-    # faiss_bytes = None
-    # pkl_bytes = None
-
-    tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{file_id}_")
-    tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
-    os.makedirs(tmp_idx_dir, exist_ok=True)
-
     # Fetch FAISS data from DB
     db_session = Session()
     try:
         file = get_file_by_id(db_session, file_id)
-        if file: 
-            # faiss_bytes = file.index_faiss
-            # pkl_bytes = file.index_pkl
-            file_bytes = file.file_data
+        if file:
+            # Create temp directory
+            tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{file_id}_")
+            tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
+            os.makedirs(tmp_idx_dir, exist_ok=True) 
+            
+            faiss_bytes = file.index_faiss
+            pkl_bytes = file.index_pkl
     except Exception as e:
         print(f"Error fetching file for ID {file_id}: {e}")
     finally:
         db_session.close()
 
     try:
-        # tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{file_id}_")
-        # tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
-        # os.makedirs(tmp_idx_dir, exist_ok=True)
-
-        # with open(os.path.join(tmp_idx_dir, "index.faiss"), "wb") as idx_faiss:
-        #     idx_faiss.write(faiss_bytes)
-        # with open(os.path.join(tmp_idx_dir, "index.pkl"), "wb") as idx_pkl:
-        #     idx_pkl.write(pkl_bytes)
-        with open(os.path.join(tmp_idx_dir, "output.pdf"), "wb") as pdf:
-            pdf.write(file_bytes)
-
-        create_database(tmp_idx_dir)
-        generate_citations(tmp_idx_dir)
-        file_cleanup(tmp_idx_dir)
+        with open(os.path.join(tmp_idx_dir, "index.faiss"), "wb") as idx_faiss:
+            idx_faiss.write(faiss_bytes)
+        with open(os.path.join(tmp_idx_dir, "index.pkl"), "wb") as idx_pkl:
+            idx_pkl.write(pkl_bytes)
 
         # Generate response using the temp directory
         response = prompt_generate_personalized_file_content(tmp_idx_dir, full_persona)
@@ -1088,7 +1109,6 @@ def generate_personalized_file_content():
             db.close()
 
         return jsonify({ "id": str(saved_file.id), "content": response_json}), 200
-
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500
