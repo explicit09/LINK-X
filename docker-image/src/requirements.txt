@@ -20,3 +20,6 @@ textract
 tiktoken
 pgvector
 pytest
+unstructured[pdf, docx, pptx]
+python-docx
+python-pptx
