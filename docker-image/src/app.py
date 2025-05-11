@@ -626,15 +626,15 @@ def instructor_files(module_id):
                 fobj.stream.seek(0)
             except Exception as e:
                 app.logger.error(f"Transcription failed: {e}")
-        data = fobj.read()
+        file_bytes = fobj.read()
         new_file = create_file(
             db,
             module_id=module_id,
             title=request.form.get('title', fobj.filename),
             filename=fobj.filename,
             file_type=fobj.mimetype,
-            file_size=len(data),
-            file_data=data
+            file_size=len(file_bytes),
+            file_data=file_bytes
         )
         if transcription is not None:
             update_file(db, new_file.id, transcription=transcription)
@@ -644,9 +644,12 @@ def instructor_files(module_id):
         tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
         os.makedirs(tmp_idx_dir, exist_ok=True)
 
-        file_bytes = new_file.file_data
-        with open(os.path.join(tmp_idx_dir, "output.pdf"), "wb") as pdf:
-            pdf.write(file_bytes)
+        # Extract file extension
+        ext = os.path.splittext(fobj.filename)[1]
+
+        input_filename = f"uploaded{ext}"
+        with open(os.path.join(tmp_idx_dir, input_filename), "wb") as out:
+            out.write(file_bytes)
 
         # Generate FAISS index files
         create_database(tmp_idx_dir)
