@@ -1,17 +1,12 @@
-import os, sys
-import pandas as pd
-import openai
-import glob
+import os
+import sys
 from dotenv import load_dotenv, find_dotenv
 from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import (
-    PyPDFLoader,
-    TextLoader,
-    UnstructuredWordDocumentLoader,
-    UnstructuredPowerPointLoader
-)
+from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
+import pandas as pd
+import openai
 
 # Load environment variables from .env file
 load_dotenv(find_dotenv())
@@ -22,32 +17,14 @@ def create_database(course_dir):
         print(f"The provided path is not a valid directory: {course_dir}")
         sys.exit(1)
 
-
-    loader_mapping = {
-        ".pdf": PyPDFLoader,
-        ".txt": TextLoader,
-        ".docx": UnstructuredWordDocumentLoader,
-        ".pptx": UnstructuredPowerPointLoader
-    }
-
-    all_documents = []
-    for ext, loader_cls in loader_mapping.items():
-        pattern = os.path.join(course_dir, f"**/*{ext}")
-        for file_path in glob.glob(pattern, recursive=True):
-            try:
-                loader = loader_cls(file_path)
-                docs = loader.load()
-                all_documents.extend(docs)
-            except Exception as e:
-                print(f"Failed to load {file_path}: {e}")
-        
-        if not all_documents:
-            print("No supported documents found.")
-            return
+    # PDF Loading and Text Extraction
+    # TODO Load non-pdf content as well
+    loader = DirectoryLoader(course_dir, glob="**/*.pdf", loader_cls=PyPDFLoader)
+    documents = loader.load() # load the pdf and extract text using PyPDFLoader
 
     # Splitting the text into chunks
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200) # Divide into 1000 char chunks w/ 200 char overlap to retain context across chunks
-    texts = text_splitter.split_documents(all_documents) # contains the document chunks
+    texts = text_splitter.split_documents(documents) # contains the document chunks
     print(f"Number of text chunks: {len(texts)}")
 
     # FAISS Vector Store Creation
