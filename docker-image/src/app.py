@@ -650,7 +650,7 @@ def instructor_files(module_id):
                 txt.write(transcription)
         else:
             # Extract file extension
-            ext = os.path.splittext(fobj.filename)[1]
+            ext = os.path.splitext(fobj.filename)[1]
             input_filename = f"uploaded{ext}"
             with open(os.path.join(tmp_idx_dir, input_filename), "wb") as out:
                 out.write(file_bytes)
