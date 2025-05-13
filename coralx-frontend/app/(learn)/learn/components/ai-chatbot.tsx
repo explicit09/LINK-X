@@ -57,7 +57,7 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
 
       if (savedChatId) {
         setChatId(savedChatId);
-        fetch(`http://localhost:8080/messages/${savedChatId}`, {
+        fetch(`http://localhost:8080/student/chats/${savedChatId}/messages`, {
           method: "GET",
           credentials: "include",
         })
