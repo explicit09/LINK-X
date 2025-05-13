@@ -620,12 +620,14 @@ def instructor_files(module_id):
             db.close()
             return jsonify({'error': 'Missing file'}), 400
         transcription = None
-        if fobj.mimetype.startswith('audio/'):
-            try:
-                transcription = transcribe_audio(fobj)
-                fobj.stream.seek(0)
-            except Exception as e:
-                app.logger.error(f"Transcription failed: {e}")
+        mimetype = fobj.mimetype or ""
+        print(f"📎 Uploaded file mimetype: {mimetype}")
+
+        if mimetype.startswith("audio/") or mimetype in ["application/octet-stream", "video/mp4"]:
+            print("🧠 Attempting transcription...")
+            transcription = transcribe_audio(fobj)
+            fobj.stream.seek(0)
+
         file_bytes = fobj.read()
         new_file = create_file(
             db,
@@ -668,7 +670,7 @@ def instructor_files(module_id):
                 file_pkl = fpkl.read()
         except Exception as e:
             shutil.rmtree(tmp_root)
-            db.close
+            db.close()
             return jsonify({'error': f'Failed to read index files: {e}'}), 500
         
         # Store index in DB
@@ -689,6 +691,7 @@ def instructor_files(module_id):
         store_file_embeddings(db, str(new_file.id))
 
         # Cleanup
+        
         shutil.rmtree(tmp_root)
         db.close()
 
@@ -1331,6 +1334,7 @@ def ai_chat():
         db = Session()
         course_id = None
         f = get_file_by_id(db, file_id)
+        print(f"Saving to chat ID: {chat_id}")
         
       # 3. Get or create Chat
         if chat_id:
