@@ -22,18 +22,28 @@ export async function fetchWithAuth(endpoint: string, options: RequestInit = {})
   };
 
   try {
+    console.log(`Making request to: ${API_URL}${endpoint}`);
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
       headers,
       credentials: 'include',
+      mode: 'cors',
     });
 
     if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`HTTP error! status: ${response.status}, message: ${error}`);
+      let errorMessage = '';
+      try {
+        const errorData = await response.text();
+        errorMessage = errorData;
+      } catch (e) {
+        errorMessage = 'Unknown error';
+      }
+      console.error(`API error: ${response.status}`, errorMessage);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorMessage}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    return data;
   } catch (error) {
     console.error('API request failed:', error);
     throw error;

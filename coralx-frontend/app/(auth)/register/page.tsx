@@ -20,7 +20,7 @@ import { auth } from "@/firebaseconfig";
 
 export default function Page() {
   const router = useRouter();
-  const API = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"student" | "instructor">("student");
@@ -58,6 +58,7 @@ export default function Page() {
     setState("in_progress");
 
     try {
+      // Step 1: Create Firebase user
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.get("email") as string,
@@ -67,63 +68,110 @@ export default function Page() {
       const token = await userCredential.user.getIdToken();
       localStorage.setItem("token", token);
 
+      // Step 2: Determine signup URL based on role
       let signupUrl = "";
-      if (role == "student") {
-        signupUrl = "http://localhost:8080/register/student";
-      } else if (role == "instructor") {
-        signupUrl = "http://localhost:8080/register/instructor";
+      if (role === "student") {
+        signupUrl = `${API_URL}/register/student`;
+      } else if (role === "instructor") {
+        signupUrl = `${API_URL}/register/instructor`;
       } else {
         setState("invalid_data");
         toast.error("Please select Student or Educator.");
         return;
       }
 
+      // Step 3: Prepare data for backend
       const bodyData: any = {
-        email: formData.get("email"),
-        password: formData.get("password"),
+        email: String(formData.get("email")),
+        password: String(formData.get("password")),
         idToken: token,
       };
 
-      // if instructor, include name + university
+      // Add instructor-specific fields if needed
       if (role === "instructor") {
-        bodyData.name = formData.get("name");
-        bodyData.university = formData.get("university");
+        bodyData.name = String(formData.get("name") || "");
+        bodyData.university = String(formData.get("university") || "");
       }
 
-      const postgresResponse = await fetch(signupUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bodyData),
-      });
+      console.log('Sending registration data:', JSON.stringify(bodyData, null, 2));
+      
+      // Step 4: Register user in backend database
+      try {
+        const postgresResponse = await fetch(signupUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bodyData),
+          credentials: 'include',
+          mode: 'cors',
+        });
 
-      if (!postgresResponse.ok) {
-        const errorData = await postgresResponse.json();
-        console.error("Postgres user creation error:", errorData.error);
+        if (!postgresResponse.ok) {
+          let errorMessage = 'Failed to create user record';
+          try {
+            const errorData = await postgresResponse.json();
+            console.error("Postgres user creation error:", errorData.error || errorData.message || errorData);
+            errorMessage = errorData.error || errorData.message || 'Invalid data format';
+            
+            // Handle specific backend validation errors
+            if (errorMessage.includes('pattern') || errorMessage.includes('validation')) {
+              setState("invalid_data");
+              toast.error(`Validation error: ${errorMessage}`);
+            } else {
+              setState("failed");
+              toast.error(`Registration failed: ${errorMessage}`);
+            }
+          } catch (e) {
+            console.error("Error parsing backend response:", e);
+            setState("failed");
+            toast.error("Failed to create user record");
+          }
+          return;
+        }
+        
+        console.log("User created successfully in database");
+        
+        // Step 5: Create session login
+        try {
+          const loginResponse = await fetch(`${API_URL}/sessionLogin`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ idToken: token }),
+          });
+
+          if (!loginResponse.ok) {
+            let errorMessage = 'Failed to set session cookie';
+            try {
+              const errorData = await loginResponse.json();
+              console.error("Session login error:", errorData.error || errorData.message || errorData);
+              errorMessage = errorData.error || errorData.message || 'Session login failed';
+              setState("failed");
+              toast.error(`Session error: ${errorMessage}`);
+            } catch (e) {
+              console.error("Error parsing login response:", e);
+              setState("failed");
+              toast.error("Failed to set session cookie");
+            }
+            return;
+          }
+          
+          // Success path
+          setState("success");
+          router.push("/onboarding");
+        } catch (sessionError) {
+          console.error("Session creation error:", sessionError);
+          setState("failed");
+          toast.error("Failed to create session");
+          return;
+        }
+      } catch (dbError) {
+        console.error("Database registration error:", dbError);
         setState("failed");
-        toast.error("Failed to create Postgres user record");
+        toast.error("Failed to register in database");
         return;
       }
-      console.log("success")
-
-      const loginResponse = await fetch("http://localhost:8080/sessionLogin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ idToken: token }),
-      });
-
-      if (!loginResponse.ok) {
-        const errorData = await loginResponse.json();
-        console.error("Session login error:", errorData.error);
-        setState("failed");
-        toast.error("Failed to set session cookie.");
-        return;
-      }
-
-      setState("success");
-      router.push("/onboarding");
     } catch (error: any) {
-      console.error("Registration Error:", error.message);
+      console.error("Firebase Registration Error:", error.message);
       if (error.code === "auth/email-already-in-use") {
         setState("user_exists");
         toast.error("Email is already registered!");
@@ -132,7 +180,7 @@ export default function Page() {
         toast.error("Password is too weak!");
       } else {
         setState("failed");
-        toast.error("Failed to create account.");
+        toast.error("Failed to create account: " + error.message);
       }
     }
   };
