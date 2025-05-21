@@ -14,7 +14,7 @@ import { auth } from "@/firebaseconfig";
 
 export default function Page() {
   const router = useRouter();
-  const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080"; // Fallback
+  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
   const [email, setEmail] = useState("");
   const [isSuccessful, setIsSuccessful] = useState(false);
@@ -53,8 +53,15 @@ export default function Page() {
       });
 
       if (!sessionRes.ok) {
-        const errorText = await sessionRes.text();
-        console.error("Session login error:", errorText);
+        // Attempt to parse JSON; fall back to plain text otherwise.
+        let errorPayload: any = {};
+        try {
+          errorPayload = await sessionRes.clone().json();
+        } catch (_) {
+          errorPayload.error = await sessionRes.text();
+        }
+
+        console.error("Session login error:", errorPayload.error || errorPayload.message || errorPayload);
         setState("failed");
         toast.error("Session setup failed. Please try again.");
         return;
