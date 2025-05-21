@@ -12,7 +12,8 @@ services:
       - ./docker-image/src:/app/src
       - ./data/learning_pdfs:/app/src/learning_pdfs
       - ./data/faiss_generated:/app/src/faiss_generated
+      - ./docker-image/src/firebaseKey.json:/app/src/firebaseKey.json
     ports:
       - "8080:8080"
       - "8501:8501"
-    command: ["/run_migrations.sh", "gunicorn", "--bind", ":8080", "--workers", "1", "--threads", "8", "--timeout", "0", "src.app:app"]
+    command: ["bash", "-c", "cd /app && pip install -r /app/src/requirements-migration.txt && python /app/src/run_migrations.py && gunicorn --bind :8080 --workers 1 --threads 8 --timeout 0 src.app:app"]
