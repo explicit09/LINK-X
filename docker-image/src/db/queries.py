@@ -75,6 +75,8 @@ def update_user(db: Session, user_id: str, **kwargs):
         user.email = kwargs['email']
     if 'password' in kwargs:
         user.password = generate_password_hash(kwargs['password'])
+    if 'firebase_uid' in kwargs:
+        user.firebase_uid = kwargs['firebase_uid']
     db.commit()
     db.refresh(user)
     return user
