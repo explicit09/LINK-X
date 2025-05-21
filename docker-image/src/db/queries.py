@@ -41,11 +41,23 @@ def get_user_by_firebase_uid(db: Session, firebase_uid: str):
 
 
 def create_user(db: Session, email: str, password: str, firebase_uid: str, role_type: str):
-    user = User(
-        email=email,
-        password=generate_password_hash(password),
-        firebase_uid=firebase_uid
-    )
+    # Create user object with only the columns that exist in the database
+    # The password column might not exist in the Neon PostgreSQL database
+    try:
+        user = User(
+            email=email,
+            password=generate_password_hash(password),
+            firebase_uid=firebase_uid
+        )
+    except Exception as e:
+        # If there's an error (likely due to missing password column), try without password
+        if 'password' in str(e).lower():
+            user = User(
+                email=email,
+                firebase_uid=firebase_uid
+            )
+        else:
+            raise e
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -63,6 +75,8 @@ def update_user(db: Session, user_id: str, **kwargs):
         user.email = kwargs['email']
     if 'password' in kwargs:
         user.password = generate_password_hash(kwargs['password'])
+    if 'firebase_uid' in kwargs:
+        user.firebase_uid = kwargs['firebase_uid']
     db.commit()
     db.refresh(user)
     return user
@@ -256,25 +270,28 @@ def get_courses_by_student_id(db: Session, user_id: str):
     return db.execute(stmt).scalars().all()
 
 
-def create_course(db: Session, title: str, description: str, instructor_id: str,
-                  code: str = None, term: str = None,
+def create_course(db: Session, title: str, description: str, creator_id: str,
+                  instructor_id: str = None, code: str = None, term: str = None,
                   published: bool = False, index_pkl: bytes = None, index_faiss: bytes = None):
-    if isinstance(instructor_id, str):
+    if isinstance(creator_id, str):
+        creator_id = uuid.UUID(creator_id)
+    if instructor_id and isinstance(instructor_id, str):
         instructor_id = uuid.UUID(instructor_id)
-    c = Course(
+    course = Course(
         title=title,
         description=description,
+        instructor_id=instructor_id,
+        creator_id=creator_id,
         code=code,
         term=term,
         published=published,
-        instructor_id=instructor_id,
         index_pkl=index_pkl,
-        index_faiss=index_faiss,
+        index_faiss=index_faiss
     )
-    db.add(c)
+    db.add(course)
     db.commit()
-    db.refresh(c)
-    return c
+    db.refresh(course)
+    return course
 
 
 
