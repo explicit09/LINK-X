@@ -106,25 +106,37 @@ export default function Page() {
         });
 
         if (!postgresResponse.ok) {
-          let errorMessage = 'Failed to create user record';
-          try {
-            const errorData = await postgresResponse.json();
-            console.error("Postgres user creation error:", errorData.error || errorData.message || errorData);
-            errorMessage = errorData.error || errorData.message || 'Invalid data format';
-            
-            // Handle specific backend validation errors
-            if (errorMessage.includes('pattern') || errorMessage.includes('validation')) {
-              setState("invalid_data");
-              toast.error(`Validation error: ${errorMessage}`);
-            } else {
-              setState("failed");
-              toast.error(`Registration failed: ${errorMessage}`);
-            }
-          } catch (e) {
-            console.error("Error parsing backend response:", e);
-            setState("failed");
-            toast.error("Failed to create user record");
+          if (postgresResponse.status === 409) {
+            // Duplicate email detected from backend
+            setState("user_exists");
+            toast.error("Email is already registered!");
+            return;
           }
+
+          let errorMessage = 'Failed to create user record';
+          let errorPayload: any = {};
+          try {
+            errorPayload = await postgresResponse.clone().json();
+          } catch (_) {
+            errorPayload.error = await postgresResponse.text();
+          }
+
+          console.error(
+            "Postgres user creation error:",
+            errorPayload.error || errorPayload.message || errorPayload,
+          );
+
+          errorMessage = errorPayload.error || errorPayload.message || 'Invalid data format';
+
+          // Handle specific backend validation errors
+          if (errorMessage.includes('pattern') || errorMessage.includes('validation')) {
+            setState("invalid_data");
+            toast.error(`Validation error: ${errorMessage}`);
+          } else {
+            setState("failed");
+            toast.error(`Registration failed: ${errorMessage}`);
+          }
+
           return;
         }
         
@@ -141,17 +153,17 @@ export default function Page() {
 
           if (!loginResponse.ok) {
             let errorMessage = 'Failed to set session cookie';
+            let loginPayload: any = {};
             try {
-              const errorData = await loginResponse.json();
-              console.error("Session login error:", errorData.error || errorData.message || errorData);
-              errorMessage = errorData.error || errorData.message || 'Session login failed';
-              setState("failed");
-              toast.error(`Session error: ${errorMessage}`);
-            } catch (e) {
-              console.error("Error parsing login response:", e);
-              setState("failed");
-              toast.error("Failed to set session cookie");
+              loginPayload = await loginResponse.clone().json();
+            } catch (_) {
+              loginPayload.error = await loginResponse.text();
             }
+
+            console.error("Session login error:", loginPayload.error || loginPayload.message || loginPayload);
+            errorMessage = loginPayload.error || loginPayload.message || 'Session login failed';
+            setState("failed");
+            toast.error(`Session error: ${errorMessage}`);
             return;
           }
           
