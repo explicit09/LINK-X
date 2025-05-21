@@ -71,6 +71,31 @@ engine = create_engine(POSTGRES_URL)
 Session = sessionmaker(bind=engine, expire_on_commit=False)
 Base.metadata.create_all(engine)
 
+# ---------------------------------------------------------------------------
+# Legacy-schema safeguard: some deployments created the "User" table without
+# a **password** column (we now rely on Firebase).  SQLAlchemy includes that
+# column in all generated SELECTs, so its absence causes 500 errors like:
+#   column User.password does not exist
+# We detect this at start-up and patch the table in-place if needed.
+# ---------------------------------------------------------------------------
+from sqlalchemy import inspect
+
+insp = inspect(engine)
+user_columns = [c['name'] for c in insp.get_columns('User')]
+if 'password' not in user_columns:
+    # Add column as nullable TEXT so legacy rows are still valid.
+    with engine.connect() as conn:
+        conn.execute(text('ALTER TABLE "User" ADD COLUMN password TEXT'))
+        conn.commit()
+
+# Older deployments might also miss the firebase_uid column which is required
+# for linking Postgres rows to Firebase users.  If it's missing we add it as a
+# nullable TEXT column as well.
+if 'firebase_uid' not in user_columns:
+    with engine.connect() as conn:
+        conn.execute(text('ALTER TABLE "User" ADD COLUMN firebase_uid TEXT'))
+        conn.commit()
+
 def get_user_session():
     token = request.cookies.get('session')
     if not token:
