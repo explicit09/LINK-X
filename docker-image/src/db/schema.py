@@ -89,8 +89,12 @@ class Course(Base):
     index_pkl = Column(BYTEA)
     index_faiss = Column(BYTEA)
     instructor_id = Column(UUID(as_uuid=True),
-                           ForeignKey('InstructorProfile.user_id', ondelete='CASCADE'),
-                           nullable=False)
+                           ForeignKey('InstructorProfile.user_id', ondelete='SET NULL'),
+                           nullable=True)
+    creator_id = Column(UUID(as_uuid=True),
+                       ForeignKey('User.id', ondelete='SET NULL'),
+                       nullable=True)
+    creator = relationship('User')
 
     instructor_profile = relationship('InstructorProfile', back_populates='courses')
     modules = relationship('Module', back_populates='course')

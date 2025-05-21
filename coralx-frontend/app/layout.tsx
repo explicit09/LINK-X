@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
-import { Toaster } from "sonner";
-import { ThemeProvider } from "@/components/theme-provider";
-import { AuthProvider } from "./(auth)/AuthContext"; 
-import "./globals.css";
+import ClientLayout from "./client-layout";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chat.vercel.ai"),
@@ -36,31 +33,8 @@ const THEME_COLOR_SCRIPT = `\
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: THEME_COLOR_SCRIPT,
-          }}
-        />
-      </head>
-      <body className="antialiased">
-        <AuthProvider> {/*Firebase*/}
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <Toaster position="top-center" />
-            {children} {/*Firebase*/}
-          </ThemeProvider>
-        </AuthProvider>
-      </body>
-    </html>
-  );
+}) {
+  return <ClientLayout>{children}</ClientLayout>;
 }

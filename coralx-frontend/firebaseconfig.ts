@@ -1,20 +1,26 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
-// Firebase configuration
+// Firebase configuration from environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyB4zfj9OQ5BZW6JhJm9wMpvyLyyAbX4HZ4",
-  authDomain: "link-x-7826d.firebaseapp.com",
-  projectId: "link-x-7826d",
-  storageBucket: "link-x-7826d.appspot.com",
-  messagingSenderId: "165077425581",
-  appId: "1:165077425581:web:1c7178bdca665221f6d524"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase only if it hasn't been initialized yet
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-// Export Firebase Auth
-export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
-export default app;
+// Initialize auth
+const auth = getAuth(app);
+
+// Configure Google provider
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
+
+export { auth, googleProvider, app as default };
