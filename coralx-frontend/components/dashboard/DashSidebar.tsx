@@ -245,6 +245,13 @@ const Sidebar = ({ className, onCollapseChange, userRole }: SidebarProps) => {
               onClick={async () => {
                 try {
                   await signOut(auth);
+                  const API =
+                    process.env.NEXT_PUBLIC_API_BASE_URL ||
+                    "http://localhost:8080";
+                  await fetch(`${API}/sessionLogout`, {
+                    method: "POST",
+                    credentials: "include",
+                  });
                   router.push("/");
                 } catch (error) {
                   console.error("Error signing out:", error);
