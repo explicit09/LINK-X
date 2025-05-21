@@ -157,10 +157,44 @@ CREATE TABLE IF NOT EXISTS "News" (
   "link" VARCHAR(120) NOT NULL
 );
 
-ALTER TABLE "Module" ADD COLUMN ordering integer NOT NULL DEFAULT 0;
-ALTER TABLE "File" ADD COLUMN index_pkl bytea;
-ALTER TABLE "File" ADD COLUMN index_faiss bytea;
-ALTER TABLE "File" ADD COLUMN ordering integer NOT NULL DEFAULT 0;
-ALTER TABLE "File" ADD COLUMN view_count_raw INTEGER NOT NULL DEFAULT 0,
-ALTER TABLE "File" ADD COLUMN view_count_personalized INTEGER NOT NULL DEFAULT 0,
-ALTER TABLE "File" ADD COLUMN chat_count INTEGER NOT NULL DEFAULT 0;
+DO $$ BEGIN
+  ALTER TABLE "Module" ADD COLUMN ordering integer NOT NULL DEFAULT 0;
+EXCEPTION
+  WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "File" ADD COLUMN index_pkl bytea;
+EXCEPTION
+  WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "File" ADD COLUMN index_faiss bytea;
+EXCEPTION
+  WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "File" ADD COLUMN ordering integer NOT NULL DEFAULT 0;
+EXCEPTION
+  WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "File" ADD COLUMN view_count_raw INTEGER NOT NULL DEFAULT 0;
+EXCEPTION
+  WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "File" ADD COLUMN view_count_personalized INTEGER NOT NULL DEFAULT 0;
+EXCEPTION
+  WHEN duplicate_column THEN null;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE "File" ADD COLUMN chat_count INTEGER NOT NULL DEFAULT 0;
+EXCEPTION
+  WHEN duplicate_column THEN null;
+END $$;

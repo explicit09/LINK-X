@@ -117,6 +117,10 @@ def me_get():
     firebase_uid = session['uid']
     db = Session()
     user = get_user_by_firebase_uid(db, firebase_uid)
+    if not user:
+        app.logger.error(f"User with firebase_uid {firebase_uid} not found in local DB.")
+        db.close()
+        return jsonify({'error': 'User not found in local database'}), 404
     role = get_role_by_user_id(db, user.id)
     profile_data = None
     if role.role_type == 'instructor':
@@ -254,6 +258,19 @@ def register_instructor():
         return jsonify({'error':'Email, password, and name required'}), 400
 
     db = Session()
+    existing_user = get_user_by_firebase_uid(db, firebase_uid)
+    if not existing_user:
+        existing_user = get_user_by_email(db, email)
+
+    if existing_user:
+        app.logger.warning(f"User with email {email} or firebase_uid {firebase_uid} already exists in local DB during registration attempt.")
+        if existing_user.firebase_uid != firebase_uid:
+            update_user(db, existing_user.id, firebase_uid=firebase_uid)
+        # Ensure role is correct - for now, assume if user exists, role is acceptable or handled by linking.
+        # More complex role conflict logic could be added here.
+        db.close()
+        return jsonify({'id': str(existing_user.id), 'email': existing_user.email, 'message': 'User already registered and linked.'}), 200
+
     user = create_user(db, email, pwd, firebase_uid, 'instructor')
     create_instructor_profile(db, user.id, name, university)
     db.close()
@@ -279,7 +296,23 @@ def register_student():
         return jsonify({'error':'Email and password required'}), 400
 
     db = Session()
+    existing_user = get_user_by_firebase_uid(db, firebase_uid)
+    if not existing_user:
+        existing_user = get_user_by_email(db, email)
+
+    if existing_user:
+        app.logger.warning(f"User with email {email} or firebase_uid {firebase_uid} already exists in local DB during registration attempt.")
+        if existing_user.firebase_uid != firebase_uid:
+            update_user(db, existing_user.id, firebase_uid=firebase_uid)
+        # Ensure role is correct - for now, assume if user exists, role is acceptable or handled by linking.
+        # More complex role conflict logic could be added here.
+        db.close()
+        return jsonify({'id': str(existing_user.id), 'email': existing_user.email, 'message': 'User already registered and linked.'}), 200
+
     user = create_user(db, email, pwd, firebase_uid, 'student')
+    # Assuming create_student_profile should be called here if it's part of new student registration.
+    # Based on the instructor route, a profile is created. If students also have a default profile, it should be created here.
+    # For now, sticking to the direct task of user registration/linking.
     db.close()
 
     return jsonify({'id': str(user.id), 'email': user.email}), 201
@@ -357,6 +390,84 @@ def student_courses():
     for c in courses
 ]), 200
 
+@app.route('/student/courses', methods=['POST', 'GET'])
+def student_create_courses():
+    user_id, err = verify_student()
+    if err: 
+        return err
+        
+    db = Session()
+    if request.method == 'POST':
+        data = request.get_json() or {}
+        title = data.get('title')
+        if not title:
+            db.close()
+            return jsonify({'error': 'Title is required'}), 400
+            
+        description = data.get('description', '')
+        code = data.get('code', '')
+        term = data.get('term', '')
+        published = data.get('published', False)
+        
+        try:
+            # Create course without an instructor
+            course = create_course(
+                db=db,
+                title=title,
+                description=description,
+                creator_id=user_id,
+                code=code,
+                term=term,
+                published=published
+            )
+            
+            # Create an access code for the course
+            access_code = uuid.uuid4().hex[:8]
+            create_access_code(db, course_id=course.id, code=access_code)
+            
+            # Enroll the student in their own course
+            create_enrollment(db, user_id=user_id, course_id=course.id)
+            
+            db.commit()
+            return jsonify({
+                'id': str(course.id),
+                'title': course.title,
+                'accessCode': access_code
+            }), 201
+            
+        except Exception as e:
+            db.rollback()
+            return jsonify({'error': str(e)}), 500
+        finally:
+            db.close()
+            
+    # GET: Return courses created by this student
+    try:
+        # Get all courses where creator_id matches the student's user_id
+        stmt = text("""
+            SELECT c.* FROM "Course" c
+            WHERE c.creator_id = :user_id
+            ORDER BY c.created_at DESC
+        """)
+        result = db.execute(stmt, {'user_id': user_id})
+        courses = result.mappings().all()
+        
+        return jsonify([{
+            'id': str(course['id']),
+            'title': course['title'],
+            'description': course['description'],
+            'code': course['code'],
+            'term': course['term'],
+            'published': course['published'],
+            'created_at': course['created_at'].isoformat() if course['created_at'] else None,
+            'last_updated': course['last_updated'].isoformat() if course['last_updated'] else None
+        } for course in courses]), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
 @app.route('/instructor/courses', methods=['POST', 'GET'])
 def instructor_courses():
     user_id, err = verify_instructor()
@@ -370,12 +481,12 @@ def instructor_courses():
         code = data.get('code')          
         term = data.get('term')  
         published = data.get('published', False)        
-
     
         c = create_course(
             db,
             title=title,
             description=description,
+            creator_id=user_id,
             instructor_id=user_id,
             code=code,
             term=term,
@@ -403,6 +514,387 @@ def instructor_courses():
     }
     for c in courses
 ]), 200
+
+@app.route('/student/courses/<course_id>', methods=['GET', 'PATCH', 'DELETE'])
+def student_manage_course(course_id):
+    user_id, err = verify_student()
+    if err:
+        return err
+        
+    db = Session()
+    try:
+        # Get the course and verify ownership
+        course = get_course_by_id(db, course_id)
+        if not course or str(course.creator_id) != str(user_id):
+            db.close()
+            return jsonify({'error': 'Course not found or access denied'}), 404
+            
+        if request.method == 'GET':
+            # Return course details
+            return jsonify({
+                'id': str(course.id),
+                'title': course.title,
+                'description': course.description,
+                'code': course.code,
+                'term': course.term,
+                'published': course.published,
+                'created_at': course.created_at.isoformat() if course.created_at else None,
+                'last_updated': course.last_updated.isoformat() if course.last_updated else None
+            }), 200
+            
+        elif request.method == 'PATCH':
+            # Update course details
+            data = request.get_json() or {}
+            
+            # Only allow certain fields to be updated
+            allowed_fields = ['title', 'description', 'code', 'term', 'published']
+            update_data = {k: v for k, v in data.items() if k in allowed_fields}
+            
+            if not update_data:
+                db.close()
+                return jsonify({'error': 'No valid fields to update'}), 400
+                
+            updated_course = update_course(db, course_id, **update_data)
+            db.commit()
+            return jsonify({
+                'id': str(updated_course.id),
+                'message': 'Course updated successfully'
+            }), 200
+            
+        elif request.method == 'DELETE':
+            # Delete the course
+            delete_course(db, course_id)
+            db.commit()
+            return jsonify({'message': 'Course deleted successfully'}), 200
+            
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/student/courses/<course_id>/modules', methods=['POST', 'GET'])
+def student_manage_modules(course_id):
+    user_id, err = verify_student()
+    if err:
+        return err
+        
+    db = Session()
+    try:
+        # Verify the course exists and is owned by the student
+        course = get_course_by_id(db, course_id)
+        if not course or str(course.creator_id) != str(user_id):
+            db.close()
+            return jsonify({'error': 'Course not found or access denied'}), 404
+            
+        if request.method == 'POST':
+            # Create a new module
+            data = request.get_json() or {}
+            title = data.get('title')
+            
+            if not title:
+                db.close()
+                return jsonify({'error': 'Module title is required'}), 400
+                
+            # Create the module
+            module = create_module(db, course_id=course_id, title=title)
+            db.commit()
+            
+            return jsonify({
+                'id': str(module.id),
+                'title': module.title,
+                'course_id': str(module.course_id),
+                'ordering': module.ordering
+            }), 201
+            
+        elif request.method == 'GET':
+            # List all modules for the course
+            modules = get_modules_by_course(db, course_id)
+            
+            return jsonify([{
+                'id': str(m.id),
+                'title': m.title,
+                'ordering': m.ordering,
+                'course_id': str(m.course_id)
+            } for m in modules]), 200
+            
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/student/modules/<module_id>', methods=['GET', 'PATCH', 'DELETE'])
+def student_manage_single_module(module_id):
+    user_id, err = verify_student()
+    if err:
+        return err
+        
+    db = Session()
+    try:
+        # Get the module and verify ownership through the course
+        module = get_module_by_id(db, module_id)
+        if not module:
+            db.close()
+            return jsonify({'error': 'Module not found'}), 404
+            
+        # Verify the course is owned by the student
+        course = get_course_by_id(db, module.course_id)
+        if not course or str(course.creator_id) != str(user_id):
+            db.close()
+            return jsonify({'error': 'Access denied'}), 403
+            
+        if request.method == 'GET':
+            # Return module details
+            return jsonify({
+                'id': str(module.id),
+                'title': module.title,
+                'course_id': str(module.course_id),
+                'ordering': module.ordering
+            }), 200
+            
+        elif request.method == 'PATCH':
+            # Update module details
+            data = request.get_json() or {}
+            
+            # Only allow certain fields to be updated
+            allowed_fields = ['title', 'ordering']
+            update_data = {k: v for k, v in data.items() if k in allowed_fields}
+            
+            if not update_data:
+                db.close()
+                return jsonify({'error': 'No valid fields to update'}), 400
+                
+            updated_module = update_module(db, module_id, **update_data)
+            db.commit()
+            
+            return jsonify({
+                'id': str(updated_module.id),
+                'title': updated_module.title,
+                'ordering': updated_module.ordering,
+                'course_id': str(updated_module.course_id)
+            }), 200
+            
+        elif request.method == 'DELETE':
+            # Delete the module
+            delete_module(db, module_id)
+            db.commit()
+            return jsonify({'message': 'Module deleted successfully'}), 200
+            
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/student/modules/<module_id>/files', methods=['POST', 'GET'])
+def student_manage_module_files(module_id):
+    user_id, err = verify_student()
+    if err:
+        return err
+        
+    db = Session()
+    try:
+        # Get the module and verify ownership through the course
+        module = get_module_by_id(db, module_id)
+        if not module:
+            db.close()
+            return jsonify({'error': 'Module not found'}), 404
+            
+        # Verify the course is owned by the student
+        course = get_course_by_id(db, module.course_id)
+        if not course or str(course.creator_id) != str(user_id):
+            db.close()
+            return jsonify({'error': 'Access denied'}), 403
+            
+        if request.method == 'POST':
+            # Handle file upload
+            if 'file' not in request.files:
+                db.close()
+                return jsonify({'error': 'No file part'}), 400
+                
+            fobj = request.files['file']
+            if fobj.filename == '':
+                db.close()
+                return jsonify({'error': 'No selected file'}), 400
+                
+            # Process file upload similar to instructor_files
+            transcription = None
+            mimetype = fobj.mimetype or ""
+            
+            # Handle audio transcription if needed
+            if mimetype.startswith("audio/") or mimetype in ["application/octet-stream", "video/mp4"]:
+                transcription = transcribe_audio(fobj)
+                fobj.stream.seek(0)
+                
+            file_bytes = fobj.read()
+            
+            # Create file record
+            new_file = create_file(
+                db=db,
+                module_id=module_id,
+                title=request.form.get('title', fobj.filename),
+                filename=fobj.filename,
+                file_type=fobj.mimetype,
+                file_size=len(file_bytes),
+                file_data=file_bytes
+            )
+            
+            if transcription is not None:
+                update_file(db, new_file.id, transcription=transcription)
+                
+            # Process file for search indexing
+            tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{new_file.id}_")
+            tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
+            os.makedirs(tmp_idx_dir, exist_ok=True)
+            
+            try:
+                if transcription is not None:
+                    input_filename = "transcription.txt"
+                    with open(os.path.join(tmp_idx_dir, input_filename), "w", encoding="utf-8") as txt:
+                        txt.write(transcription)
+                else:
+                    ext = os.path.splitext(fobj.filename)[1]
+                    input_filename = f"uploaded{ext}"
+                    with open(os.path.join(tmp_idx_dir, input_filename), "wb") as out:
+                        out.write(file_bytes)
+                
+                # Generate FAISS index files
+                create_database(tmp_idx_dir)
+                generate_citations(tmp_idx_dir)
+                file_cleanup(tmp_idx_dir)
+                
+                # Read generated index files
+                with open(os.path.join(tmp_idx_dir, "index.faiss"), "rb") as fidx:
+                    file_idx = fidx.read()
+                with open(os.path.join(tmp_idx_dir, "index.pkl"), "rb") as fpkl:
+                    file_pkl = fpkl.read()
+                    
+                # Store index in DB
+                update_file(db, new_file.id,
+                          index_faiss=file_idx,
+                          index_pkl=file_pkl)
+                
+                # Rebuild course-level index
+                idx_bytes, pkl_bytes = rebuild_course_index(db, course.id)
+                update_course(
+                    db,
+                    course_id=course.id,
+                    index_faiss=idx_bytes,
+                    index_pkl=pkl_bytes
+                )
+                store_file_embeddings(db, str(new_file.id))
+                
+            except Exception as e:
+                app.logger.error(f"Error processing file: {str(e)}")
+                return jsonify({'error': f'Failed to process file: {str(e)}'}), 500
+                
+            finally:
+                if os.path.exists(tmp_root):
+                    shutil.rmtree(tmp_root)
+            
+            db.commit()
+            return jsonify({
+                'id': str(new_file.id),
+                'title': new_file.title,
+                'filename': new_file.filename,
+                'file_type': new_file.file_type,
+                'file_size': new_file.file_size,
+                'transcription': transcription
+            }), 201
+            
+        elif request.method == 'GET':
+            # List all files in the module
+            files = get_files_by_module(db, module_id)
+            
+            return jsonify([{
+                'id': str(f.id),
+                'title': f.title,
+                'filename': f.filename,
+                'file_type': f.file_type,
+                'file_size': f.file_size,
+                'created_at': f.created_at.isoformat() if f.created_at else None
+            } for f in files]), 200
+            
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/student/files/<file_id>', methods=['GET', 'DELETE'])
+def student_manage_file(file_id):
+    user_id, err = verify_student()
+    if err:
+        return err
+        
+    db = Session()
+    try:
+        # Get the file and verify ownership through the module and course
+        file = get_file_by_id(db, file_id)
+        if not file:
+            db.close()
+            return jsonify({'error': 'File not found'}), 404
+            
+        # Get the module and verify ownership through the course
+        module = get_module_by_id(db, file.module_id)
+        if not module:
+            db.close()
+            return jsonify({'error': 'Module not found'}), 404
+            
+        # Verify the course is owned by the student
+        course = get_course_by_id(db, module.course_id)
+        if not course or str(course.creator_id) != str(user_id):
+            db.close()
+            return jsonify({'error': 'Access denied'}), 403
+            
+        if request.method == 'GET':
+            # Check if we should return file content or just metadata
+            if 'download' in request.args and request.args['download'].lower() == 'true':
+                # Return the actual file for download
+                return Response(
+                    file.file_data,
+                    mimetype=file.file_type,
+                    headers={
+                        'Content-Disposition': f'attachment; filename="{file.filename}"',
+                        'Content-Length': len(file.file_data)
+                    }
+                )
+            else:
+                # Return file details
+                return jsonify({
+                    'id': str(file.id),
+                    'title': file.title,
+                    'filename': file.filename,
+                    'file_type': file.file_type,
+                    'file_size': file.file_size,
+                    'module_id': str(file.module_id),
+                    'created_at': file.created_at.isoformat() if file.created_at else None,
+                    'transcription': file.transcription
+                }), 200
+            
+        elif request.method == 'DELETE':
+            # Delete the file
+            delete_file(db, file_id)
+            db.commit()
+            
+            # Rebuild course index after file deletion
+            if course.id:
+                idx_bytes, pkl_bytes = rebuild_course_index(db, course.id)
+                update_course(
+                    db,
+                    course_id=course.id,
+                    index_faiss=idx_bytes,
+                    index_pkl=pkl_bytes
+                )
+            
+            return jsonify({'message': 'File deleted successfully'}), 200
+            
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
 
 @app.route('/instructor/courses/<course_id>', methods=['GET','PATCH','DELETE'])
 def instructor_manage_course(course_id):

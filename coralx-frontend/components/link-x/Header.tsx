@@ -16,9 +16,15 @@ const Header = ({ showAuthButton = true, isLoggedIn }: HeaderProps) => {
   const router = useRouter();
   const { user } = useAuth();
 
+  const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+
   const handleSignOut = async () => {
     try {
       await signOut(auth);
+      await fetch(`${API}/sessionLogout`, {
+        method: "POST",
+        credentials: "include",
+      });
       router.push("/");
     } catch (error) {
       console.error("Error signing out:", error);
