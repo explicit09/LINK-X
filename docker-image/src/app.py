@@ -1513,21 +1513,21 @@ def generate_personalized_file_content():
 
     persona = []
     if name:
-        persona.append(f'The user’s name is **{name}**')
-    if profile.get("role"):
-        persona.append(f'they are a **{profile["role"]}**')
-    if profile.get("traits"):
-        persona.append(f'they like their assistant to be **{profile["traits"]}**')
-    if profile.get("learningStyle"):
-        persona.append(f'their preferred learning style is **{profile["learningStyle"]}**')
-    if profile.get("depth"):
-        persona.append(f'they prefer **{profile["depth"]}-level** explanations')
-    if profile.get("interests"):
-        persona.append(f'they’re interested in **{profile["interests"]}**')
-    if profile.get("personalization"):
-        persona.append(f'they enjoy **{profile["personalization"]}**')
-    if profile.get("schedule"):
-        persona.append(f'they study best **{profile["schedule"]}**')
+        persona.append(f"The user's name is **{name}**")
+    if profile.get('role'):
+        persona.append(f"they are a **{profile['role']}**")
+    if profile.get('traits'):
+        persona.append(f"they like their assistant to be **{profile['traits']}**")
+    if profile.get('learningStyle'):
+        persona.append(f"their preferred learning style is **{profile['learningStyle']}**")
+    if profile.get('depth'):
+        persona.append(f"they prefer **{profile['depth']}-level** explanations")
+    if profile.get('interests'):
+        persona.append(f"they're interested in **{profile['interests']}**")
+    if profile.get('personalization'):
+        persona.append(f"they enjoy **{profile['personalization']}**")
+    if profile.get('schedule'):
+        persona.append(f"they study best **{profile['schedule']}**")
     full_persona = ". ".join(persona)
 
     # Fetch FAISS data from DB
@@ -1854,7 +1854,7 @@ def ai_chat():
                 "content": (
                     "You are a helpful and knowledgeable AI tutor assisting a student. "
                     "You must use the student's background and interests to personalize each explanation and response. "
-                    "If course content is relevant to the user’s message, you must use it to answer. "
+                    "If course content is relevant to the user's message, you must use it to answer. "
                     "If the question is relevant to course material, but not specifically included, you can use your greater knowledge outside of course content. "
                     "If it is not relevant, do not fabricate an answer. Instead, respond with:\n\n"
                     "\"I'm here to help with this course, but that question isn't related to the material we've covered.\"\n\n"
@@ -2257,6 +2257,36 @@ def instructor_course_faqs(course_id):
         db.close()
     faqs_payload = prompt_course_faqs(title, questions)
     return jsonify(faqs_payload), 200
+
+# ---------------------------------------------------------------------------
+# Global error handler: ensures **all** uncaught exceptions respond with a JSON
+# payload instead of the default HTML error page.  This prevents client-side
+# `response.json()` calls from throwing a `SyntaxError` and provides clearer
+# diagnostics in the browser/dev-tools network tab.
+# ---------------------------------------------------------------------------
+from werkzeug.exceptions import HTTPException
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(err):  # noqa: D401 – simple handler name
+    """Return JSON for any uncaught exception.
+
+    If the error is an instance of :class:`HTTPException` we keep its status
+    code, otherwise we default to **500**.  The error message is stringified
+    so that internal errors still surface something useful to the frontend
+    without leaking full tracebacks.
+    """
+
+    status_code = err.code if isinstance(err, HTTPException) else 500
+
+    # Log full traceback to the server console for debugging/monitoring.
+    import traceback, sys  # local import to avoid polluting global namespace
+
+    traceback.print_exc(file=sys.stderr)
+
+    return jsonify({
+        'error': str(err),
+    }), status_code
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8080))

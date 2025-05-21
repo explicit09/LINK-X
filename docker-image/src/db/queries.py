@@ -41,29 +41,64 @@ def get_user_by_firebase_uid(db: Session, firebase_uid: str):
 
 
 def create_user(db: Session, email: str, password: str, firebase_uid: str, role_type: str):
-    # Create user object with only the columns that exist in the database
-    # The password column might not exist in the Neon PostgreSQL database
+    """Create a new user and associated Role row.
+
+    This helper now provides **robust** error handling for two common
+    scenarios that previously resulted in an unhelpful 500 response:
+
+    1.  Duplicate e-mail addresses – we check for an existing record **before**
+        inserting and raise ``ValueError`` for the caller to translate into a
+        409/400 style API response.
+    2.  Other integrity errors (e.g. race condition duplicates).  We roll the
+        transaction back and re-raise a ``ValueError`` so the API layer can
+        surface a clean JSON error payload instead of a stack-trace.
+    """
+
+    # --- 1. Defensive check for existing e-mail ---------------------------------
+    if get_user_by_email(db, email):
+        raise ValueError("Email already exists")
+
+    # --- 2. Build the User ORM object -------------------------------------------
     try:
         user = User(
             email=email,
             password=generate_password_hash(password),
-            firebase_uid=firebase_uid
+            firebase_uid=firebase_uid,
         )
     except Exception as e:
-        # If there's an error (likely due to missing password column), try without password
-        if 'password' in str(e).lower():
+        # Fallback for deployments where the password column might have been
+        # removed (historical schema change).
+        if "password" in str(e).lower():
             user = User(
                 email=email,
-                firebase_uid=firebase_uid
+                firebase_uid=firebase_uid,
             )
         else:
             raise e
+
     db.add(user)
-    db.commit()
+
+    # --- 3. Commit & create Role -------------------------------------------------
+    try:
+        db.commit()
+    except Exception as e:
+        # Handle late-detected duplicate e-mails or other integrity issues.
+        db.rollback()
+        if "duplicate" in str(e).lower() or "unique" in str(e).lower():
+            raise ValueError("Email already exists")
+        raise
+
     db.refresh(user)
+
     role = Role(user_id=user.id, role_type=role_type)
     db.add(role)
-    db.commit()
+
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise
+
     return user
 
 
