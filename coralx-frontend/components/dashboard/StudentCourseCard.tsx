@@ -26,31 +26,30 @@ interface CourseCardProps {
 
 export function CourseCard({ course, onClick }: CourseCardProps) {
   return (
-    <Card 
-      className="flex flex-col justify-between h-full overflow-hidden rounded-xl shadow-md bg-white hover:shadow-lg transition-shadow cursor-pointer"
-      onClick={onClick}
-    >
+    <Card className="flex flex-col justify-between h-full overflow-hidden rounded-xl shadow-md bg-white hover:shadow-lg transition-shadow">
       <CardHeader className="pb-2">
-        <div className="space-y-1">
-          <CardTitle className="flex items-center gap-2 min-h-[48px]">
-            <Book className="h-5 w-5 text-primary" />
-            <span className="line-clamp-2 leading-snug">{course.title}</span>
-          </CardTitle>
-
-          <CardDescription>
-            {course.code} • {course.term}
-          </CardDescription>
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-2 min-h-[48px]">
+              <Book className="h-5 w-5 text-primary" />
+              <span className="line-clamp-2 leading-snug">{course.title}</span>
+            </CardTitle>
+            <CardDescription>
+              {course.code} • {course.term || 'No Term'}
+            </CardDescription>
+          </div>
         </div>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="space-y-2">
         <div className="flex items-center gap-2">
-          {/* <Badge
-            variant={course.published ? "default" : "outline"}
-            className={course.published ? "purple-gradient" : ""}
-          >
+          <Badge variant={course.published ? "default" : "outline"} className={course.published ? "purple-gradient" : ""}>
             {course.published ? "Published" : "Unpublished"}
-          </Badge> */}
+          </Badge>
+          <Badge variant="secondary">
+            <Users className="h-3 w-3 mr-1" />
+            {course.students || 0} Students
+          </Badge>
         </div>
       </CardContent>
 
