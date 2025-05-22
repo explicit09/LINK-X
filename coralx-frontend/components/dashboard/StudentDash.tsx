@@ -64,8 +64,8 @@ export default function StudentDashboard() {
 
   // UI State
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState<'enrolled' | 'created'>('enrolled');
-  const [activeTabContent, setActiveTabContent] = useState<"home" | "modules" | "people" | "settings">('home');
+  const [dashboardTab, setDashboardTab] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<"home" | "modules" | "people" | "settings">("home");
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -199,7 +199,7 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     const fetchClassmates = async () => {
-      if (activeTabContent !== "people" || !selectedCourse?.id) return;
+      if (activeTab !== "people" || !selectedCourse?.id) return;
       setLoadingPeople(true);
       try {
         const res = await fetch(
@@ -222,7 +222,7 @@ export default function StudentDashboard() {
     };
 
     fetchClassmates();
-  }, [activeTabContent, selectedCourse]);
+  }, [activeTab, selectedCourse]);
 
   useEffect(() => {
     fetch("http://localhost:8080/student/profile", {
@@ -251,26 +251,20 @@ export default function StudentDashboard() {
   }, []);
 
   const filteredEnrolledCourses = useMemo(() => 
-    enrolledCourses.filter((course: any) => {
-      const query = searchQuery.toLowerCase();
-      return (
-        course.title?.toLowerCase().includes(query) ||
-        (course.code && course.code.toLowerCase().includes(query))
-      );
-    }),
-    [enrolledCourses, searchQuery]
-  );
+    enrolledCourses.filter(course => 
+      course.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.term?.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+  [enrolledCourses, searchQuery]);
 
-  const filteredCreatedCourses = useMemo(() =>
-    createdCourses.filter((course: any) => {
-      const query = searchQuery.toLowerCase();
-      return (
-        course.title?.toLowerCase().includes(query) ||
-        (course.code && course.code.toLowerCase().includes(query))
-      );
-    }),
-    [createdCourses, searchQuery]
-  );
+  const filteredCreatedCourses = useMemo(() => 
+    createdCourses.filter(course => 
+      course.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.term?.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+  [createdCourses, searchQuery]);
 
   const handleCourseClick = (course: any) => {
     setSelectedCourse(course);
@@ -314,7 +308,7 @@ export default function StudentDashboard() {
       
       // Navigate to the course view
       setSelectedCourse(newCourse);
-      setActiveTabContent("home");
+      setActiveTab("home");
     } catch (err) {
       console.error('Create course error:', err);
       sonnerToast.error(err instanceof Error ? err.message : 'Failed to create course');
@@ -827,7 +821,7 @@ export default function StudentDashboard() {
                 </div>
               </div>
               
-              <Tabs defaultValue="home" value={activeTabContent} onValueChange={(value) => setActiveTabContent(value as "home" | "modules" | "people" | "settings")}>
+              <Tabs defaultValue="home" value={activeTab} onValueChange={(value) => setActiveTab(value as "home" | "modules" | "people" | "settings")}>
                 <TabsList>
                   <TabsTrigger value="home">Home</TabsTrigger>
                   <TabsTrigger value="modules">Modules</TabsTrigger>
@@ -1293,18 +1287,24 @@ export default function StudentDashboard() {
               </Tabs>
             </div>
           ) : (
-            <Tabs defaultValue="enrolled" className="space-y-4">
+            <Tabs defaultValue="all" className="space-y-4">
               <div className="flex items-center justify-between">
                 <TabsList className="bg-muted">
                   <TabsTrigger 
+                    value="all"
+                    onClick={() => setDashboardTab('all')}
+                  >
+                    All Courses
+                  </TabsTrigger>
+                  <TabsTrigger 
                     value="enrolled"
-                    onClick={() => setActiveTab('enrolled')}
+                    onClick={() => setDashboardTab('enrolled')}
                   >
                     Enrolled Courses
                   </TabsTrigger>
                   <TabsTrigger 
                     value="created"
-                    onClick={() => setActiveTab('created')}
+                    onClick={() => setDashboardTab('created')}
                   >
                     Created Courses
                   </TabsTrigger>
@@ -1317,6 +1317,43 @@ export default function StudentDashboard() {
                 />
               </div>
 
+              <TabsContent
+                value="all"
+                className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-stretch"
+              >
+                {(filteredEnrolledCourses && filteredCreatedCourses && [...filteredEnrolledCourses, ...filteredCreatedCourses].length > 0) ? (
+                  [...(filteredEnrolledCourses || []), ...(filteredCreatedCourses || [])]
+                    // Remove duplicates (in case a course is both enrolled and created)
+                    .filter((course, index, self) => 
+                      course && course.id && index === self.findIndex(c => c && c.id === course.id)
+                    )
+                    .map((course: any) => (
+                      <div
+                        key={course.id}
+                        onClick={() => handleCourseClick(course)}
+                        className="cursor-pointer"
+                      >
+                        <CourseCard
+                          course={{
+                            id: course.id,
+                            title: course.title || 'Untitled Course',
+                            code: course.code || 'No Code',
+                            term: course.term || 'No Term',
+                            students: course.students || 0,
+                            published: course.published || false,
+                            lastUpdated: course.lastUpdated || new Date().toISOString()
+                          }}
+                          onClick={() => handleCourseClick(course)}
+                        />
+                      </div>
+                    ))
+                ) : (
+                  <div className="col-span-3 text-center py-10">
+                    <p className="text-gray-500">No courses found. Join a course using an access code or create your own.</p>
+                  </div>
+                )}
+              </TabsContent>
+              
               <TabsContent
                 value="enrolled"
                 className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-stretch"
