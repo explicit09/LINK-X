@@ -213,7 +213,30 @@ export default function ProfessorDashboard() {
     }
   };
 
-  const handleUploadPdf = async (
+  // Create a wrapper function that matches the expected signature in CourseCard
+  const handleUploadPdfWrapper = async (courseId: string, file: File) => {
+    // Find the active module ID for this course
+    // If we have a selected module, use that, otherwise find the first module for this course
+    let activeModuleId: string | null = selectedModuleId;
+    
+    if (!activeModuleId) {
+      // Find the first module that belongs to this course
+      // We need to use type assertion since the modules type doesn't include course_id
+      const moduleForCourse = modules.find(m => (m as any).course_id === courseId);
+      activeModuleId = moduleForCourse?.id || null;
+    }
+    
+    if (!activeModuleId) {
+      toast.error("No active module found for this course");
+      return;
+    }
+    
+    // Call the actual implementation with the module ID
+    await handleUploadPdfImpl(courseId, file, activeModuleId);
+  };
+  
+  // The actual implementation that handles the upload
+  const handleUploadPdfImpl = async (
     courseId: string,
     file: File,
     moduleId: string
@@ -879,7 +902,7 @@ export default function ProfessorDashboard() {
                                   <div className="mt-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm p-4 space-y-4">
                                     <UploadPdf
                                       onUpload={(file) =>
-                                        handleUploadPdf(
+                                        handleUploadPdfImpl(
                                           selectedCourse.id,
                                           file,
                                           mod.id
@@ -1253,7 +1276,7 @@ export default function ProfessorDashboard() {
                       uploading={uploadingModuleId === course.id}
                       onEdit={() => setEditingCourse(course)}
                       onPublishToggle={() => handlePublishToggle(course.id)}
-                      onUploadPdf={handleUploadPdf}
+                      onUploadPdf={handleUploadPdfWrapper}
                       showUploadButton={
                         selectedCourse?.id === course.id &&
                         activeTab === "modules"
@@ -1280,7 +1303,7 @@ export default function ProfessorDashboard() {
                         uploading={uploadingModuleId === course.id}
                         onEdit={() => setEditingCourse(course)}
                         onPublishToggle={() => handlePublishToggle(course.id)}
-                        onUploadPdf={handleUploadPdf}
+                        onUploadPdf={handleUploadPdfWrapper}
                         showUploadButton={
                           selectedCourse?.id === course.id &&
                           activeTab === "modules"
@@ -1307,7 +1330,7 @@ export default function ProfessorDashboard() {
                         uploading={uploadingModuleId === course.id}
                         onEdit={() => setEditingCourse(course)}
                         onPublishToggle={() => handlePublishToggle(course.id)}
-                        onUploadPdf={handleUploadPdf}
+                        onUploadPdf={handleUploadPdfWrapper}
                         showUploadButton={
                           selectedCourse?.id === course.id &&
                           activeTab === "modules"

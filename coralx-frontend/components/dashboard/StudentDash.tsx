@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo, useCallback, ChangeEvent } from "react";
-import { LayoutDashboard, Upload, Plus, Trash2 } from "lucide-react";
+import { LayoutDashboard, Upload, Plus, Trash2, Loader2 } from "lucide-react";
 
 import Sidebar from "@/components/dashboard/DashSidebar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
@@ -11,7 +11,7 @@ import AudioUpload from "@/components/dashboard/AudioUpload";
 import { Button } from "@/components/ui/button";
 import Footer from "@/components/landing/Footer";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
+import { toast as sonnerToast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { CourseCard } from "@/components/dashboard/StudentCourseCard";
@@ -126,7 +126,7 @@ export default function StudentDashboard() {
       setCreatedCourses(Array.isArray(createdData) ? createdData : []);
     } catch (err) {
       console.error("Error fetching courses:", err);
-      toast.error("Failed to load courses");
+      sonnerToast.error("Failed to load courses");
     }
   }, []);
 
@@ -135,33 +135,67 @@ export default function StudentDashboard() {
   }, [fetchEnrollments]);
 
   useEffect(() => {
-    const fetchModules = async () => {
-      if (!selectedCourse) return;
-      try {
-        const res = await fetch(
-          `http://localhost:8080/student/courses/${selectedCourse.id}/modules`,
-          {
-            credentials: "include",
-          }
-        );
-        const data = await res.json();
+    fetchEnrollments();
+  }, [fetchEnrollments]);
 
-        if (Array.isArray(data)) {
-          setModules(data);
-        } else if (Array.isArray(data.modules)) {
-          setModules(data.modules);
-        } else {
-          console.error("Unexpected module format:", data);
-          setModules([]); // fallback
+  // Fetch files for a specific module
+  const fetchModuleFiles = useCallback(async (moduleId: string) => {
+    try {
+      const res = await fetch(
+        `http://localhost:8080/student/modules/${moduleId}/files`,
+        {
+          credentials: "include",
         }
-      } catch (err) {
-        console.error("Error fetching modules:", err);
-        setModules([]); // fallback
+      );
+      
+      if (!res.ok) {
+        throw new Error(`Failed to fetch module files: ${res.statusText}`);
       }
-    };
+      
+      const data = await res.json();
+      
+      // Update module files state
+      setModuleFiles(prev => ({
+        ...prev,
+        [moduleId]: data
+      }));
+    } catch (err) {
+      console.error(`Error fetching files for module ${moduleId}:`, err);
+    }
+  }, []);
 
+  // Fetch modules for the selected course
+  const fetchModules = useCallback(async () => {
+    if (!selectedCourse) return;
+    
+    try {
+      const res = await fetch(
+        `http://localhost:8080/student/courses/${selectedCourse.id}/modules`,
+        {
+          credentials: "include",
+        }
+      );
+      
+      if (!res.ok) {
+        throw new Error(`Failed to fetch modules: ${res.statusText}`);
+      }
+      
+      const data = await res.json();
+      setModules(data);
+      
+      // Fetch files for each module
+      data.forEach((module: any) => {
+        fetchModuleFiles(module.id);
+      });
+    } catch (err) {
+      console.error("Error fetching modules:", err);
+      sonnerToast.error("Failed to load modules");
+    }
+  }, [selectedCourse, fetchModuleFiles]);
+
+  useEffect(() => {
     fetchModules();
-  }, [selectedCourse]);
+  }, [selectedCourse, fetchModuleFiles]);
 
   useEffect(() => {
     const fetchClassmates = async () => {
@@ -248,7 +282,7 @@ export default function StudentDashboard() {
 
   const handleCreateCourse = useCallback(async (courseData: any) => {
     if (!courseData.title.trim()) {
-      toast.error('Please enter a course title');
+      sonnerToast.error('Please enter a course title');
       return;
     }
 
@@ -276,14 +310,14 @@ export default function StudentDashboard() {
       setCreatedCourses(prev => [...prev, newCourse]);
       setIsCreateDialogOpen(false);
       setIsCreatingCourse(false);
-      toast.success('Course created successfully!');
+      sonnerToast.success('Course created successfully!');
       
       // Navigate to the course view
       setSelectedCourse(newCourse);
       setActiveTabContent("home");
     } catch (err) {
       console.error('Create course error:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to create course');
+      sonnerToast.error(err instanceof Error ? err.message : 'Failed to create course');
       setIsCreatingCourse(false);
     }
   }, []);
@@ -349,15 +383,15 @@ export default function StudentDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Personalization failed");
 
-      toast.success("Personalized content generated!");
+      sonnerToast.success("Personalized content generated!");
       router.push(`/learn/${data.id}`);
     } catch (err: any) {
       if (err.name === "AbortError") {
         console.warn("❌ Personalization aborted by user.");
-        toast.info("Personalization cancelled.");
+        sonnerToast.info("Personalization cancelled.");
       } else {
         console.error("Personalization failed:", err);
-        toast.error("Something went wrong during personalization.");
+        sonnerToast.error("Something went wrong during personalization.");
       }
     } finally {
       setIsGenerating(false);
@@ -389,7 +423,7 @@ export default function StudentDashboard() {
           }));
         } catch (err) {
           console.error("Error fetching files:", err);
-          toast.error("Failed to load module files");
+          sonnerToast.error("Failed to load module files");
           setModuleFiles(prev => ({
             ...prev,
             [modId]: []
@@ -424,14 +458,21 @@ export default function StudentDashboard() {
       const newModule = await response.json();
       setModules(prev => [...prev, newModule]);
       setNewModuleTitle('');
-      toast.success('Module created successfully!');
+      sonnerToast.success('Module created successfully!');
     } catch (err) {
       console.error('Create module error:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to create module');
+      sonnerToast.error(err instanceof Error ? err.message : 'Failed to create module');
     }
   }, [newModuleTitle, selectedCourse]);
 
   // File upload function
+  // Define the FileSummary interface with additional properties for upload status
+  interface ExtendedFileSummary extends FileSummary {
+    isUploading?: boolean;
+    uploadFailed?: boolean;
+    processingMessage?: string;
+  }
+
   const handleUploadFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>, moduleId: string, fileType: 'pdf' | 'audio') => {
     const file = e.target.files?.[0];
     if (!file || !selectedCourse) return;
@@ -447,13 +488,17 @@ export default function StudentDashboard() {
       setUploadingAudioModuleId(moduleId);
     }
 
+    // Create a unique ID for the temporary file
+    const tempFileId = `temp-${Date.now()}`;
+    
     try {
       // First add a temporary file entry to the UI for immediate feedback
-      const tempFile = {
-        id: `temp-${Date.now()}`,
+      const tempFile: ExtendedFileSummary = {
+        id: tempFileId,
         title: file.name,
         filename: file.name,
-        isUploading: true
+        isUploading: true,
+        processingMessage: 'Uploading file...'
       };
       
       // Add the temporary file to the UI
@@ -462,51 +507,112 @@ export default function StudentDashboard() {
         [moduleId]: [...(prev[moduleId] || []), tempFile]
       }));
 
-      // Upload the file
-      const response = await fetch(`http://localhost:8080/student/modules/${moduleId}/files`, {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      });
+      // Update processing message after 3 seconds
+      const messageTimer = setTimeout(() => {
+        setModuleFiles(prev => {
+          const newModuleFiles = { ...prev };
+          if (!newModuleFiles[moduleId]) return prev;
+          
+          const moduleFilesList = [...newModuleFiles[moduleId]];
+          const tempIndex = moduleFilesList.findIndex(f => f.id === tempFileId);
+          
+          if (tempIndex !== -1 && (moduleFilesList[tempIndex] as ExtendedFileSummary).isUploading) {
+            moduleFilesList[tempIndex] = {
+              ...moduleFilesList[tempIndex],
+              processingMessage: 'Processing file with AI (this may take a minute)...'
+            } as ExtendedFileSummary;
+            newModuleFiles[moduleId] = moduleFilesList;
+          }
+          
+          return newModuleFiles;
+        });
+      }, 3000);
 
-      if (!response.ok) {
-        // Remove the temporary file if upload failed
-        setModuleFiles(prev => ({
-          ...prev,
-          [moduleId]: (prev[moduleId] || []).filter(f => f.id !== tempFile.id)
-        }));
-        throw new Error(await response.text());
-      }
-
-      // Get the uploaded file data
-      const uploadedFile = await response.json();
-      toast.success(`${fileType.toUpperCase()} uploaded successfully!`);
+      // Set up a timeout for the fetch request (2 minutes)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000);
       
-      // Fetch updated files for this module
-      const updatedFilesRes = await fetch(
+      // Make the API call to upload the file
+      const response = await fetch(
         `http://localhost:8080/student/modules/${moduleId}/files`,
         {
-          credentials: "include",
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+          signal: controller.signal
         }
       );
-
-      if (!updatedFilesRes.ok) {
-        console.error("Failed to fetch updated files for module");
-        return;
-      }
-
-      const updatedFiles = await updatedFilesRes.json();
       
-      // Update module files with the refreshed list
-      setModuleFiles(prev => ({
-        ...prev,
-        [moduleId]: updatedFiles
-      }));
-
-    } catch (err) {
-      console.error(`Upload ${fileType} error:`, err);
-      toast.error("Failed to upload file. There might be an issue with the API key on the server.");
+      // Clear the timeout since the request completed
+      clearTimeout(timeoutId);
+      clearTimeout(messageTimer);
+      
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+      
+      // Get the response data
+      const data = await response.json();
+      
+      // Replace the temporary file with the actual file
+      setModuleFiles(prev => {
+        const newModuleFiles = { ...prev };
+        if (!newModuleFiles[moduleId]) return prev;
+        
+        const moduleFilesList = [...newModuleFiles[moduleId]];
+        const tempIndex = moduleFilesList.findIndex(f => f.id === tempFileId);
+        
+        if (tempIndex !== -1) {
+          // Replace the temp file with the real one
+          moduleFilesList[tempIndex] = {
+            ...data,
+            isUploading: false
+          } as ExtendedFileSummary;
+          newModuleFiles[moduleId] = moduleFilesList;
+        }
+        
+        return newModuleFiles;
+      });
+      
+      // Show success message
+      sonnerToast.success(`${file.name} uploaded successfully`);
+      
+      // Refresh the module files to ensure we have the latest data
+      fetchModuleFiles(moduleId);
+      
+    } catch (error: any) {
+      console.error('Error uploading file:', error);
+      
+      // Update the temporary file to show the error
+      setModuleFiles(prev => {
+        const newModuleFiles = { ...prev };
+        if (!newModuleFiles[moduleId]) return prev;
+        
+        const moduleFilesList = [...newModuleFiles[moduleId]];
+        const tempIndex = moduleFilesList.findIndex(f => f.id === tempFileId);
+        
+        if (tempIndex !== -1) {
+          // Mark the temp file as failed
+          moduleFilesList[tempIndex] = {
+            ...moduleFilesList[tempIndex],
+            isUploading: false,
+            uploadFailed: true
+          } as ExtendedFileSummary;
+          newModuleFiles[moduleId] = moduleFilesList;
+        }
+        
+        return newModuleFiles;
+      });
+      
+      // Show appropriate error message
+      const errorMessage = error.name === 'AbortError'
+        ? `Upload of ${file.name} is taking too long. The file may still be processing in the background.`
+        : `Failed to upload ${file.name}. Please try again.`;
+      
+      sonnerToast.error(errorMessage);
+      
     } finally {
+      // Clear loading state
       if (fileType === 'pdf') {
         setUploadingModuleId(null);
       } else {
@@ -515,8 +621,7 @@ export default function StudentDashboard() {
       // Reset the file input
       e.target.value = '';
     }
-  }, [selectedCourse]);
-
+  }, [selectedCourse, fetchModuleFiles]);
   // File view function
   const handleViewFile = useCallback((file: FileSummary) => {
     setPreviewingFile(file);
@@ -563,10 +668,10 @@ export default function StudentDashboard() {
       setEditedCourse(null);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-      toast.success("Course updated successfully");
+      sonnerToast.success("Course updated successfully");
     } catch (error) {
       console.error("Failed to update course:", error);
-      toast.error("Failed to update course");
+      sonnerToast.error("Failed to update course");
     }
   }, [selectedCourse]);
 
@@ -603,10 +708,10 @@ export default function StudentDashboard() {
       );
 
       setSelectedCourse({ ...selectedCourse, published: newPublishedState });
-      toast.success(`Course ${newPublishedState ? 'published' : 'unpublished'} successfully`);
+      sonnerToast.success(`Course ${newPublishedState ? 'published' : 'unpublished'} successfully`);
     } catch (error) {
       console.error("Failed to toggle publish state:", error);
-      toast.error("Failed to update course");
+      sonnerToast.error("Failed to update course");
     }
   }, [selectedCourse]);
 
@@ -625,10 +730,10 @@ export default function StudentDashboard() {
 
       setCreatedCourses((prev) => prev.filter((c) => c.id !== courseToDelete.id));
       setSelectedCourse(null); // Navigate back to dashboard view
-      toast.success("Course deleted successfully");
+      sonnerToast.success("Course deleted successfully");
     } catch (err) {
       console.error("Delete failed:", err);
-      toast.error("Failed to delete course");
+      sonnerToast.error("Failed to delete course");
     } finally {
       setConfirmingDelete(false);
     }
@@ -713,25 +818,27 @@ export default function StudentDashboard() {
                         <strong>Description:</strong>{" "}
                         {selectedCourse.description || 'No description available'}
                       </div>
-                      <div>
-                        <strong>Access Code:</strong>{" "}
-                        {selectedCourse.accessCode || 'No access code available'}
-                      </div>
-                      <div>
-                        <strong>Students Enrolled:</strong>{" "}
-                        {selectedCourse.students || 0}
-                      </div>
-                      <div>
-                        <strong>Status:</strong>{" "}
-                        {selectedCourse.published ? "Published" : "Unpublished"}
-                      </div>
-                      <div>
-                        <strong>Created By:</strong>{" "}
-                        {selectedCourse.creatorName || selectedCourse.creator || 'Unknown'}
-                      </div>
-                      <div>
-                        <strong>Last Updated:</strong>{" "}
-                        {selectedCourse.lastUpdated ? new Date(selectedCourse.lastUpdated).toLocaleDateString() : 'Unknown'}
+                      <div className="flex flex-col space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-medium">Access Code</h3>
+                          <span className="text-gray-600">{(selectedCourse as any).accessCode || 'N/A'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-medium">Students Enrolled</h3>
+                          <span className="text-gray-600">{(selectedCourse as any).students?.length || 0}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-medium">Status</h3>
+                          <span className="text-gray-600">{selectedCourse.published ? 'Published' : 'Unpublished'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-medium">Instructor</h3>
+                          <span className="text-gray-600">{(selectedCourse as any).creatorName || (selectedCourse as any).creator?.name || 'Unknown'}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-medium">Last Updated</h3>
+                          <span className="text-gray-600">{(selectedCourse as any).lastUpdated ? new Date((selectedCourse as any).lastUpdated).toLocaleDateString() : 'N/A'}</span>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -861,7 +968,7 @@ export default function StudentDashboard() {
                                       {moduleFiles[module.id].map((file: any) => (
                                         <div
                                           key={file.id}
-                                          className={`flex items-center p-2 border rounded-md ${file.isUploading ? 'bg-blue-50' : 'hover:bg-blue-50 cursor-pointer'}`}
+                                          className={`flex items-center p-2 border rounded-md ${file.isUploading ? 'bg-blue-50' : 'hover:bg-gray-50 cursor-pointer'}`}
                                           onClick={() => !file.isUploading && handleViewFile(file)}
                                         >
                                           <div className="mr-2">
@@ -872,8 +979,13 @@ export default function StudentDashboard() {
                                           </div>
                                           <div className="flex-1 truncate flex items-center">
                                             <span>{file.title || file.filename}</span>
-                                            {file.isUploading && (
-                                              <span className="ml-2 text-xs text-blue-600 animate-pulse">Uploading...</span>
+                                            {(file as ExtendedFileSummary).isUploading && (
+                                              <div className="flex items-center">
+                                                <Loader2 className="h-3 w-3 animate-spin ml-2 text-blue-500" />
+                                                <span className="ml-2 text-xs text-gray-500">
+                                                  {(file as ExtendedFileSummary).processingMessage || 'Uploading...'}
+                                                </span>
+                                              </div>
                                             )}
                                           </div>
                                         </div>
