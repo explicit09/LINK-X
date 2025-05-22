@@ -448,6 +448,21 @@ export default function StudentDashboard() {
     }
 
     try {
+      // First add a temporary file entry to the UI for immediate feedback
+      const tempFile = {
+        id: `temp-${Date.now()}`,
+        title: file.name,
+        filename: file.name,
+        isUploading: true
+      };
+      
+      // Add the temporary file to the UI
+      setModuleFiles(prev => ({
+        ...prev,
+        [moduleId]: [...(prev[moduleId] || []), tempFile]
+      }));
+
+      // Upload the file
       const response = await fetch(`http://localhost:8080/student/modules/${moduleId}/files`, {
         method: 'POST',
         credentials: 'include',
@@ -455,9 +470,16 @@ export default function StudentDashboard() {
       });
 
       if (!response.ok) {
+        // Remove the temporary file if upload failed
+        setModuleFiles(prev => ({
+          ...prev,
+          [moduleId]: (prev[moduleId] || []).filter(f => f.id !== tempFile.id)
+        }));
         throw new Error(await response.text());
       }
 
+      // Get the uploaded file data
+      const uploadedFile = await response.json();
       toast.success(`${fileType.toUpperCase()} uploaded successfully!`);
       
       // Fetch updated files for this module
@@ -481,10 +503,9 @@ export default function StudentDashboard() {
         [moduleId]: updatedFiles
       }));
 
-
     } catch (err) {
       console.error(`Upload ${fileType} error:`, err);
-      toast.error(err instanceof Error ? err.message : `Failed to upload ${fileType}`);
+      toast.error("Failed to upload file. There might be an issue with the API key on the server.");
     } finally {
       if (fileType === 'pdf') {
         setUploadingModuleId(null);
@@ -837,19 +858,23 @@ export default function StudentDashboard() {
                                     <p className="text-sm text-blue-600 italic">Loading files…</p>
                                   ) : moduleFiles[module.id]?.length > 0 ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                      {moduleFiles[module.id].map((file: FileSummary) => (
+                                      {moduleFiles[module.id].map((file: any) => (
                                         <div
                                           key={file.id}
-                                          className="flex items-center p-2 border rounded-md hover:bg-blue-50 cursor-pointer"
-                                          onClick={() => handleViewFile(file)}
+                                          className={`flex items-center p-2 border rounded-md ${file.isUploading ? 'bg-blue-50' : 'hover:bg-blue-50 cursor-pointer'}`}
+                                          onClick={() => !file.isUploading && handleViewFile(file)}
                                         >
                                           <div className="mr-2">
-                                            {file.filename?.toLowerCase().endsWith('.pdf') ? '📄' : 
+                                            {file.isUploading ? '⏳' : 
+                                             file.filename?.toLowerCase().endsWith('.pdf') ? '📄' : 
                                              file.filename?.toLowerCase().match(/\.(mp3|wav|m4a|aac)$/) ? '🔊' : 
                                              file.filename?.toLowerCase().match(/\.(ppt|pptx)$/) ? '📊' : '📁'}
                                           </div>
-                                          <div className="flex-1 truncate">
-                                            {file.title || file.filename}
+                                          <div className="flex-1 truncate flex items-center">
+                                            <span>{file.title || file.filename}</span>
+                                            {file.isUploading && (
+                                              <span className="ml-2 text-xs text-blue-600 animate-pulse">Uploading...</span>
+                                            )}
                                           </div>
                                         </div>
                                       ))}
@@ -891,14 +916,14 @@ export default function StudentDashboard() {
                           <audio
                             controls
                             className="w-full"
-                            src={`http://localhost:8080/student/modules/files/${previewingFile.id}/content`}
+                            src={`http://localhost:8080/student/files/${previewingFile.id}/content`}
                           >
                             Your browser does not support the audio element.
                           </audio>
                         </div>
                       ) : (
                         <iframe
-                          src={`http://localhost:8080/student/modules/files/${previewingFile.id}/content`}
+                          src={`http://localhost:8080/student/files/${previewingFile.id}/content`}
                           title={previewingFile.title || previewingFile.filename}
                           className="w-full h-[80vh] border rounded-lg shadow-sm"
                         />
