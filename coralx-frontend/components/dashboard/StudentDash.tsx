@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo, useCallback, ChangeEvent } from "
 import { LayoutDashboard, Upload, Plus } from "lucide-react";
 
 import Sidebar from "@/components/dashboard/DashSidebar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import AudioUpload from "@/components/dashboard/AudioUpload";
@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { CourseCard } from "@/components/dashboard/StudentCourseCard";
+import { CourseForm } from "@/components/dashboard/CourseForm";
 
 import { useRouter } from "next/navigation";
 import {
@@ -70,12 +71,11 @@ export default function StudentDashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [loadingFiles, setLoadingFiles] = useState<string | null>(null);
   const [loadingPeople, setLoadingPeople] = useState(false);
   
   // Form State
-  const [newCourseTitle, setNewCourseTitle] = useState('');
-  const [newCourseDescription, setNewCourseDescription] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   
   // Data State
@@ -240,8 +240,8 @@ export default function StudentDashboard() {
     setSelectedCourse(null);
   };
 
-  const handleCreateCourse = useCallback(async () => {
-    if (!newCourseTitle.trim()) {
+  const handleCreateCourse = useCallback(async (courseData: any) => {
+    if (!courseData.title.trim()) {
       toast.error('Please enter a course title');
       return;
     }
@@ -255,8 +255,10 @@ export default function StudentDashboard() {
         },
         credentials: 'include',
         body: JSON.stringify({
-          title: newCourseTitle,
-          description: newCourseDescription,
+          title: courseData.title,
+          description: courseData.description,
+          code: courseData.code,
+          term: courseData.term
         }),
       });
 
@@ -266,15 +268,15 @@ export default function StudentDashboard() {
 
       const newCourse = await response.json();
       setCreatedCourses(prev => [...prev, newCourse]);
-      setNewCourseTitle('');
-      setNewCourseDescription('');
+      setIsCreateDialogOpen(false);
       setIsCreatingCourse(false);
       toast.success('Course created successfully!');
     } catch (err) {
       console.error('Create course error:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to create course');
+      setIsCreatingCourse(false);
     }
-  }, [newCourseTitle, newCourseDescription]);
+  }, []);
 
   const handlePersonalize = useCallback(async () => {
     if (!previewingFile || !onboardingData) return;
@@ -390,18 +392,17 @@ export default function StudentDashboard() {
   }, [selectedModuleId, moduleFiles]);
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 flex flex-col">
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar
-          onCollapseChange={(value) => setIsCollapsed(value)}
-          userRole="student"
-        />
-        <div
-          className={`transition-all duration-300 flex-1 flex flex-col overflow-auto ${
-            isCollapsed ? "ml-20" : "ml-60"
-          }`}
-        >
-          <main className="flex-1 p-6 md:p-10 space-y-8">
+    <div className="min-h-screen bg-white text-gray-900 flex">
+      <Sidebar
+        onCollapseChange={(value) => setIsCollapsed(value)}
+        userRole="student"
+      />
+      <div
+        className={`transition-all duration-300 ${
+          isCollapsed ? "ml-20" : "ml-60"
+        } flex-1 flex flex-col min-h-screen`}
+      >
+        <main className="flex-1 p-6 md:p-10 space-y-8">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <h2 className="text-3xl font-bold text-gradient">
@@ -409,64 +410,123 @@ export default function StudentDashboard() {
               </h2>
               <p className="text-gray-600">Manage your courses and learning materials</p>
             </div>
-            <Dialog>
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2">
-                  <Plus size={18} />
+                <Button className="purple-gradient">
+                  <Plus className="mr-2 h-4 w-4" />
                   Create Course
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
+              <DialogContent className="sm:max-w-[600px] bg-white shadow-lg rounded-xl border border-gray-200">
                 <DialogHeader>
                   <DialogTitle>Create New Course</DialogTitle>
+                  <DialogDescription>
+                    Fill in the details below to create your course.
+                  </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="course-title">Course Title</Label>
-                    <Input
-                      id="course-title"
-                      value={newCourseTitle}
-                      onChange={(e) => setNewCourseTitle(e.target.value)}
-                      placeholder="Enter course title"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="course-description">Description (Optional)</Label>
-                    <Textarea
-                      id="course-description"
-                      value={newCourseDescription}
-                      onChange={(e) => setNewCourseDescription(e.target.value)}
-                      placeholder="Enter course description"
-                      rows={4}
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setNewCourseTitle('');
-                      setNewCourseDescription('');
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleCreateCourse}
-                    disabled={!newCourseTitle.trim() || isCreatingCourse}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    {isCreatingCourse ? 'Creating...' : 'Create Course'}
-                  </Button>
-                </div>
+                <CourseForm
+                  onSubmit={handleCreateCourse}
+                  onCancel={() => setIsCreateDialogOpen(false)}
+                />
               </DialogContent>
             </Dialog>
           </div>
+          
+          {/* Course Display - Matching Professor Dashboard Style */}
+          {!selectedCourse && (
+            <Tabs defaultValue="enrolled" className="space-y-4">
+              <div className="flex items-center justify-between">
+                <TabsList className="bg-muted">
+                  <TabsTrigger 
+                    value="enrolled"
+                    onClick={() => setActiveTab('enrolled')}
+                  >
+                    Enrolled Courses
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="created"
+                    onClick={() => setActiveTab('created')}
+                  >
+                    Created Courses
+                  </TabsTrigger>
+                </TabsList>
+                <Input
+                  placeholder="Search courses..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-72 bg-muted border-border"
+                />
+              </div>
+
+              <TabsContent
+                value="enrolled"
+                className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-stretch"
+              >
+                {filteredEnrolledCourses.length > 0 ? (
+                  filteredEnrolledCourses.map((course: any) => (
+                    <div
+                      key={course.id}
+                      onClick={() => handleCourseClick(course)}
+                      className="cursor-pointer"
+                    >
+                      <CourseCard
+                        course={{
+                          id: course.id,
+                          title: course.title || 'Untitled Course',
+                          code: course.code || 'No Code',
+                          term: course.term || 'No Term',
+                          students: course.students || 0,
+                          published: course.published || false,
+                          lastUpdated: course.lastUpdated || new Date().toISOString()
+                        }}
+                        onClick={() => handleCourseClick(course)}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-3 text-center py-10">
+                    <p className="text-gray-500">No enrolled courses found. Join a course using an access code.</p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent
+                value="created"
+                className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-stretch"
+              >
+                {filteredCreatedCourses.length > 0 ? (
+                  filteredCreatedCourses.map((course: any) => (
+                    <div
+                      key={course.id}
+                      onClick={() => handleCourseClick(course)}
+                      className="cursor-pointer"
+                    >
+                      <CourseCard
+                        course={{
+                          id: course.id,
+                          title: course.title || 'Untitled Course',
+                          code: course.code || 'No Code',
+                          term: course.term || 'No Term',
+                          students: course.students || 0,
+                          published: course.published || false,
+                          lastUpdated: course.lastUpdated || new Date().toISOString()
+                        }}
+                        onClick={() => handleCourseClick(course)}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-3 text-center py-10">
+                    <p className="text-gray-500">No created courses found. Create your first course!</p>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          )}
           </main>
+        <div className="h-1/4">
+          <Footer />
         </div>
-      </div>
-      <div className="mt-auto">
-        <Footer />
       </div>
       {isGenerating && (
         <div className="fixed inset-0 bg-white bg-opacity-90 z-50 flex flex-col items-center justify-center">
