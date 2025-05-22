@@ -1,9 +1,10 @@
 'use client';
 import { ChevronUp } from 'lucide-react';
 import Image from 'next/image';
-import type { User } from 'next-auth';
-import { signOut } from 'next-auth/react';
+import { signOut } from 'firebase/auth';
+import type { User as FirebaseUser } from 'firebase/auth';
 import { useTheme } from 'next-themes';
+import { auth } from '@/firebaseconfig';
 
 import {
   DropdownMenu,
@@ -18,7 +19,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 
-export function SidebarUserNav({ user }: { user: User }) {
+export function SidebarUserNav({ user }: { user: FirebaseUser }) {
   const { setTheme, theme } = useTheme();
 
   return (
@@ -53,10 +54,17 @@ export function SidebarUserNav({ user }: { user: User }) {
               <button
                 type="button"
                 className="w-full cursor-pointer"
-                onClick={() => {
-                  signOut({
-                    redirectTo: '/',
-                  });
+                onClick={async () => {
+                  try {
+                    await signOut(auth);
+                    await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/sessionLogout`, {
+                      method: 'POST',
+                      credentials: 'include',
+                    });
+                    window.location.href = '/';
+                  } catch (err) {
+                    console.error('Sign-out failed:', err);
+                  }
                 }}
               >
                 Sign out
