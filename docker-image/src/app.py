@@ -865,6 +865,9 @@ def student_manage_file(file_id):
                 )
             else:
                 # Return file details
+                # Check if file has embeddings (FAISS index and pickle data)
+                has_embeddings = file.index_faiss is not None and file.index_pkl is not None
+                
                 return jsonify({
                     'id': str(file.id),
                     'title': file.title,
@@ -873,7 +876,8 @@ def student_manage_file(file_id):
                     'file_size': file.file_size,
                     'module_id': str(file.module_id),
                     'created_at': file.created_at.isoformat() if file.created_at else None,
-                    'transcription': file.transcription
+                    'transcription': file.transcription,
+                    'has_embeddings': has_embeddings
                 }), 200
             
         elif request.method == 'DELETE':
