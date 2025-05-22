@@ -21,11 +21,15 @@ interface CourseCardProps {
     published: boolean;
     lastUpdated: string;
   };
+  onClick?: () => void;
 }
 
-export function CourseCard({ course }: CourseCardProps) {
+export function CourseCard({ course, onClick }: CourseCardProps) {
   return (
-    <Card className="flex flex-col justify-between h-full overflow-hidden rounded-xl shadow-md bg-white">
+    <Card 
+      className="flex flex-col justify-between h-full overflow-hidden rounded-xl shadow-md bg-white hover:shadow-lg transition-shadow cursor-pointer"
+      onClick={onClick}
+    >
       <CardHeader className="pb-2">
         <div className="space-y-1">
           <CardTitle className="flex items-center gap-2 min-h-[48px]">
@@ -55,6 +59,10 @@ export function CourseCard({ course }: CourseCardProps) {
           <Button
             variant="ghost"
             size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onClick) onClick();
+            }}
             className="h-7 px-2 text-xs hover:text-primary"
           >
             View Course
