@@ -374,7 +374,7 @@ export default function ProfessorDashboard() {
       course.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleCreateCourse = async (newCourse: any) => {
+  const handleCreateCourse = async (courseData: any) => {
     try {
       // First check if instructor profile exists
       const profileCheckRes = await fetch("http://localhost:8080/instructor/profile", {
@@ -385,11 +385,11 @@ export default function ProfessorDashboard() {
       
       // Create the course payload
       const coursePayload = {
-        title: newCourse.title,
-        description: newCourse.description,
-        code: newCourse.code,
-        term: newCourse.term,
-        published: newCourse.published ?? false,
+        title: courseData.title,
+        description: courseData.description,
+        code: courseData.code,
+        term: courseData.term,
+        published: courseData.published ?? false,
         // Skip instructor_id if profile doesn't exist
         useCreatorAsInstructor: !hasProfile
       };
@@ -402,60 +402,9 @@ export default function ProfessorDashboard() {
         credentials: "include",
         body: JSON.stringify(coursePayload),
       });
-
+      
       if (!res.ok) {
-        const errorText = await res.text();
         let errorMessage = "Failed to create course";
-        
-        try {
-          // Try to parse as JSON
-          const errorJson = JSON.parse(errorText);
-          if (errorJson.error) {
-            // Extract a more user-friendly message from the database error
-            if (errorJson.error.includes("violates foreign key constraint") && 
-                errorJson.error.includes("InstructorProfile")) {
-              errorMessage = "Creating course without instructor profile...";
-              
-              // Try again with a modified payload that skips the instructor_id
-              const retryPayload = {
-                ...coursePayload,
-                useCreatorAsInstructor: true
-              };
-              
-              const retryRes = await fetch("http://localhost:8080/instructor/courses", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                credentials: "include",
-                body: JSON.stringify(retryPayload),
-              });
-              
-              if (retryRes.ok) {
-                // Success on retry!
-                const updatedRes = await fetch("http://localhost:8080/instructor/courses", {
-                  credentials: "include",
-                });
-                if (updatedRes.ok) {
-                  const updatedCourses = await updatedRes.json();
-                  setCourses(updatedCourses);
-                  toast.success("Course created successfully");
-                  setIsCreateDialogOpen(false);
-                  return;
-                }
-              } else {
-                errorMessage = "Failed to create course. Please try again later.";
-              }
-            } else {
-              errorMessage = "Database error: " + errorJson.error.split('\n')[0];
-            }
-          }
-        } catch (e) {
-          // If not JSON, use the text directly
-          errorMessage = errorText || errorMessage;
-        }
-        
-        throw new Error(errorMessage);
       }
 
       // 🔄 Re-fetch all courses after successful creation
@@ -469,8 +418,18 @@ export default function ProfessorDashboard() {
 
       const updatedCourses = await updatedRes.json();
       setCourses(updatedCourses);
+      
+      // Get the newly created course (should be the last one in the list)
+      const createdCourse = updatedCourses.find((c: any) => c.title === courseData.title && c.code === courseData.code);
+      
       toast.success("Course created successfully");
       setIsCreateDialogOpen(false);
+      
+      // Navigate to the course view
+      if (createdCourse) {
+        setSelectedCourse(createdCourse);
+        setActiveTab("home");
+      }
     } catch (error) {
       console.error("Failed to create course:", error);
       toast.error(error instanceof Error ? error.message : "Failed to create course");

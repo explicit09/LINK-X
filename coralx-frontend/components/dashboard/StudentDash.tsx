@@ -271,6 +271,10 @@ export default function StudentDashboard() {
       setIsCreateDialogOpen(false);
       setIsCreatingCourse(false);
       toast.success('Course created successfully!');
+      
+      // Navigate to the course view
+      setSelectedCourse(newCourse);
+      setActiveTabContent("home");
     } catch (err) {
       console.error('Create course error:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to create course');
@@ -433,7 +437,112 @@ export default function StudentDashboard() {
           </div>
           
           {/* Course Display - Matching Professor Dashboard Style */}
-          {!selectedCourse && (
+          {selectedCourse ? (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleBackToDashboard}
+                    className="flex items-center space-x-1"
+                  >
+                    <span>←</span>
+                    <span>Back to Dashboard</span>
+                  </Button>
+                  <h2 className="text-2xl font-bold">{selectedCourse.title}</h2>
+                </div>
+              </div>
+              
+              <Tabs defaultValue="home" value={activeTabContent} onValueChange={(value) => setActiveTabContent(value as "home" | "modules" | "people")}>
+                <TabsList>
+                  <TabsTrigger value="home">Home</TabsTrigger>
+                  <TabsTrigger value="modules">Modules</TabsTrigger>
+                  <TabsTrigger value="people">People</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="home" className="space-y-4 mt-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Course Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <h3 className="font-medium">Course Code</h3>
+                        <p>{selectedCourse.code || 'No code assigned'}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-medium">Term</h3>
+                        <p>{selectedCourse.term || 'No term assigned'}</p>
+                      </div>
+                      <div>
+                        <h3 className="font-medium">Description</h3>
+                        <p>{selectedCourse.description || 'No description available'}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+                
+                <TabsContent value="modules" className="space-y-4 mt-6">
+                  {modules.length > 0 ? (
+                    modules.map((module) => (
+                      <Card key={module.id} className="overflow-hidden">
+                        <CardHeader className="cursor-pointer" onClick={() => handleToggleModule(module.id)}>
+                          <CardTitle className="flex items-center justify-between">
+                            <span>{module.title}</span>
+                            <span>{selectedModuleId === module.id ? '▼' : '▶'}</span>
+                          </CardTitle>
+                        </CardHeader>
+                        {selectedModuleId === module.id && (
+                          <CardContent>
+                            {loadingFiles === module.id ? (
+                              <div className="py-4 text-center">Loading files...</div>
+                            ) : moduleFiles[module.id]?.length > 0 ? (
+                              <div className="space-y-2">
+                                {moduleFiles[module.id].map((file: FileSummary) => (
+                                  <div key={file.id} className="p-2 border rounded hover:bg-gray-50 cursor-pointer">
+                                    {file.title || file.filename}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="py-4 text-center text-gray-500">No files in this module</div>
+                            )}
+                          </CardContent>
+                        )}
+                      </Card>
+                    ))
+                  ) : (
+                    <div className="text-center py-10">
+                      <p className="text-gray-500">No modules available for this course yet.</p>
+                    </div>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="people" className="space-y-4 mt-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Classmates</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {loadingPeople ? (
+                        <div className="py-4 text-center">Loading classmates...</div>
+                      ) : enrolledStudents.length > 0 ? (
+                        <div className="space-y-2">
+                          {enrolledStudents.map((student) => (
+                            <div key={student.id} className="p-2 border rounded">
+                              {student.name}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-4 text-center text-gray-500">No classmates found</div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </div>
+          ) : (
             <Tabs defaultValue="enrolled" className="space-y-4">
               <div className="flex items-center justify-between">
                 <TabsList className="bg-muted">
