@@ -325,11 +325,11 @@ export default function StudentDashboard() {
   const handlePersonalize = useCallback(async () => {
     if (!previewingFile || !onboardingData) return;
 
-    try {
-      setIsGenerating(true);
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
+    setIsGenerating(true);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
+    try {
       // First check if we already have a personalized version of this file
       const checkRes = await fetch(
         `http://localhost:8080/student/personalized-files`,
@@ -339,7 +339,9 @@ export default function StudentDashboard() {
         }
       );
 
-      if (!checkRes.ok) throw new Error("Failed to check personalized files");
+      if (!checkRes.ok) {
+        throw new Error("Failed to check personalized files");
+      }
 
       const existingFiles = await checkRes.json();
       const match = existingFiles.find(
@@ -350,6 +352,31 @@ export default function StudentDashboard() {
         setIsGenerating(false);
         abortControllerRef.current = null;
         router.push(`/learn/${match.id}`);
+        return;
+      }
+
+      // Check if the file has been processed with AI embeddings
+      const fileCheckRes = await fetch(
+        `http://localhost:8080/student/files/${previewingFile.id}`,
+        {
+          credentials: "include",
+          signal: controller.signal,
+        }
+      );
+
+      if (!fileCheckRes.ok) {
+        throw new Error("Failed to check file status");
+      }
+
+      const fileData = await fileCheckRes.json();
+      
+      // If the file doesn't have embeddings yet, show a message
+      if (!fileData.has_embeddings) {
+        sonnerToast.error(
+          "This file is still being processed. Please wait a few moments and try again."
+        );
+        setIsGenerating(false);
+        abortControllerRef.current = null;
         return;
       }
 
@@ -380,9 +407,12 @@ export default function StudentDashboard() {
         }
       );
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Personalization failed");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Personalization failed");
+      }
 
+      const data = await res.json();
       sonnerToast.success("Personalized content generated!");
       router.push(`/learn/${data.id}`);
     } catch (err: any) {
@@ -391,7 +421,7 @@ export default function StudentDashboard() {
         sonnerToast.info("Personalization cancelled.");
       } else {
         console.error("Personalization failed:", err);
-        sonnerToast.error("Something went wrong during personalization.");
+        sonnerToast.error(err.message || "Something went wrong during personalization.");
       }
     } finally {
       setIsGenerating(false);
@@ -1017,6 +1047,25 @@ export default function StudentDashboard() {
                         >
                           ← Back to Modules
                         </Button>
+                        
+                        {/* Only show personalize button for PDFs, not audio files */}
+                        {!previewingFile.filename?.toLowerCase().match(/\.(mp3|wav|m4a|aac)$/) && (
+                          <Button
+                            variant="default"
+                            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
+                            onClick={handlePersonalize}
+                            disabled={isGenerating}
+                          >
+                            {isGenerating ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Personalizing...
+                              </>
+                            ) : (
+                              <>Personalize Content</>
+                            )}
+                          </Button>
+                        )}
                       </div>
 
                       <h2 className="text-2xl font-bold text-gray-900">
