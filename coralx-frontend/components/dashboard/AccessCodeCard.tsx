@@ -27,10 +27,13 @@ export default function AccessCodePopup({ open, onClose, onSuccess }: Props) {
     }
   }, [open]);
 
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const handleSubmit = async () => {
     if (!accessCode.trim()) return;
 
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       const res = await fetch("http://localhost:8080/student/enrollments", {
         method: "POST",
@@ -46,10 +49,11 @@ export default function AccessCodePopup({ open, onClose, onSuccess }: Props) {
         onSuccess?.();  // ✅ Call onSuccess if provided
       } else {
         console.error(data.error || "Failed to enroll.");
+        setErrorMessage(data.error || "Failed to enroll. Please try again.");
       }
     } catch (err) {
       console.error("Enrollment error:", err);
-      alert("Network error or server is down.");
+      setErrorMessage("Network error or server is down. Please try again later.");
     } finally {
       setIsLoading(false);
     }
@@ -84,9 +88,17 @@ export default function AccessCodePopup({ open, onClose, onSuccess }: Props) {
                 type="text"
                 placeholder="Enter code..."
                 value={accessCode}
-                onChange={(e) => setAccessCode(e.target.value)}
-                className="text-lg"
+                onChange={(e) => {
+                  setAccessCode(e.target.value);
+                  if (errorMessage) setErrorMessage(null);
+                }}
+                className={`text-lg ${errorMessage ? 'border-red-500' : ''}`}
               />
+              {errorMessage && (
+                <div className="text-red-500 text-sm mt-1">
+                  {errorMessage}
+                </div>
+              )}
               <Button
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={handleSubmit}
