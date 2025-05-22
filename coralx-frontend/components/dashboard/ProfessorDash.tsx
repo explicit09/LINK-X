@@ -213,7 +213,30 @@ export default function ProfessorDashboard() {
     }
   };
 
-  const handleUploadPdf = async (
+  // Create a wrapper function that matches the expected signature in CourseCard
+  const handleUploadPdfWrapper = async (courseId: string, file: File) => {
+    // Find the active module ID for this course
+    // If we have a selected module, use that, otherwise find the first module for this course
+    let activeModuleId: string | null = selectedModuleId;
+    
+    if (!activeModuleId) {
+      // Find the first module that belongs to this course
+      // We need to use type assertion since the modules type doesn't include course_id
+      const moduleForCourse = modules.find(m => (m as any).course_id === courseId);
+      activeModuleId = moduleForCourse?.id || null;
+    }
+    
+    if (!activeModuleId) {
+      toast.error("No active module found for this course");
+      return;
+    }
+    
+    // Call the actual implementation with the module ID
+    await handleUploadPdfImpl(courseId, file, activeModuleId);
+  };
+  
+  // The actual implementation that handles the upload
+  const handleUploadPdfImpl = async (
     courseId: string,
     file: File,
     moduleId: string
@@ -374,25 +397,37 @@ export default function ProfessorDashboard() {
       course.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleCreateCourse = async (newCourse: any) => {
+  const handleCreateCourse = async (courseData: any) => {
     try {
+      // First check if instructor profile exists
+      const profileCheckRes = await fetch("http://localhost:8080/instructor/profile", {
+        credentials: "include"
+      });
+      
+      const hasProfile = profileCheckRes.ok;
+      
+      // Create the course payload
+      const coursePayload = {
+        title: courseData.title,
+        description: courseData.description,
+        code: courseData.code,
+        term: courseData.term,
+        published: courseData.published ?? false,
+        // Skip instructor_id if profile doesn't exist
+        useCreatorAsInstructor: !hasProfile
+      };
+      
       const res = await fetch("http://localhost:8080/instructor/courses", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({
-          title: newCourse.title,
-          description: newCourse.description,
-          code: newCourse.code,
-          term: newCourse.term,
-          published: newCourse.published ?? false,
-        }),
+        body: JSON.stringify(coursePayload),
       });
-
+      
       if (!res.ok) {
-        throw new Error("Failed to create course");
+        let errorMessage = "Failed to create course";
       }
 
       // 🔄 Re-fetch all courses after successful creation
@@ -406,10 +441,21 @@ export default function ProfessorDashboard() {
 
       const updatedCourses = await updatedRes.json();
       setCourses(updatedCourses);
-
+      
+      // Get the newly created course (should be the last one in the list)
+      const createdCourse = updatedCourses.find((c: any) => c.title === courseData.title && c.code === courseData.code);
+      
+      toast.success("Course created successfully");
       setIsCreateDialogOpen(false);
+      
+      // Navigate to the course view
+      if (createdCourse) {
+        setSelectedCourse(createdCourse);
+        setActiveTab("home");
+      }
     } catch (error) {
       console.error("Failed to create course:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to create course");
     }
   };
 
@@ -856,7 +902,7 @@ export default function ProfessorDashboard() {
                                   <div className="mt-3 border border-gray-300 rounded-lg bg-gray-50 shadow-sm p-4 space-y-4">
                                     <UploadPdf
                                       onUpload={(file) =>
-                                        handleUploadPdf(
+                                        handleUploadPdfImpl(
                                           selectedCourse.id,
                                           file,
                                           mod.id
@@ -1230,7 +1276,7 @@ export default function ProfessorDashboard() {
                       uploading={uploadingModuleId === course.id}
                       onEdit={() => setEditingCourse(course)}
                       onPublishToggle={() => handlePublishToggle(course.id)}
-                      onUploadPdf={handleUploadPdf}
+                      onUploadPdf={handleUploadPdfWrapper}
                       showUploadButton={
                         selectedCourse?.id === course.id &&
                         activeTab === "modules"
@@ -1257,7 +1303,7 @@ export default function ProfessorDashboard() {
                         uploading={uploadingModuleId === course.id}
                         onEdit={() => setEditingCourse(course)}
                         onPublishToggle={() => handlePublishToggle(course.id)}
-                        onUploadPdf={handleUploadPdf}
+                        onUploadPdf={handleUploadPdfWrapper}
                         showUploadButton={
                           selectedCourse?.id === course.id &&
                           activeTab === "modules"
@@ -1284,7 +1330,7 @@ export default function ProfessorDashboard() {
                         uploading={uploadingModuleId === course.id}
                         onEdit={() => setEditingCourse(course)}
                         onPublishToggle={() => handlePublishToggle(course.id)}
-                        onUploadPdf={handleUploadPdf}
+                        onUploadPdf={handleUploadPdfWrapper}
                         showUploadButton={
                           selectedCourse?.id === course.id &&
                           activeTab === "modules"

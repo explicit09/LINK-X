@@ -67,7 +67,11 @@ firebase_admin.initialize_app(cred)
 POSTGRES_URL = os.getenv("POSTGRES_URL")
 if not POSTGRES_URL:
     raise RuntimeError("POSTGRES_URL not set")
-engine = create_engine(POSTGRES_URL)
+engine = create_engine(
+    POSTGRES_URL,
+    pool_pre_ping=True,   # Validate connection before each checkout
+    pool_recycle=1800     # Recycle connections every 30 minutes to avoid idle EOF
+)
 Session = sessionmaker(bind=engine, expire_on_commit=False)
 Base.metadata.create_all(engine)
 
@@ -94,6 +98,13 @@ if 'password' not in user_columns:
 if 'firebase_uid' not in user_columns:
     with engine.connect() as conn:
         conn.execute(text('ALTER TABLE "User" ADD COLUMN firebase_uid TEXT'))
+        conn.commit()
+
+# Ensure InstructorProfile has expected columns (e.g. university).
+instr_cols = [c['name'] for c in insp.get_columns('InstructorProfile')]
+if 'university' not in instr_cols:
+    with engine.connect() as conn:
+        conn.execute(text('ALTER TABLE "InstructorProfile" ADD COLUMN university VARCHAR(128)'))
         conn.commit()
 
 def get_user_session():
@@ -887,6 +898,9 @@ def student_manage_file(file_id):
                 )
             else:
                 # Return file details
+                # Check if file has embeddings (FAISS index and pickle data)
+                has_embeddings = file.index_faiss is not None and file.index_pkl is not None
+                
                 return jsonify({
                     'id': str(file.id),
                     'title': file.title,
@@ -895,7 +909,8 @@ def student_manage_file(file_id):
                     'file_size': file.file_size,
                     'module_id': str(file.module_id),
                     'created_at': file.created_at.isoformat() if file.created_at else None,
-                    'transcription': file.transcription
+                    'transcription': file.transcription,
+                    'has_embeddings': has_embeddings
                 }), 200
             
         elif request.method == 'DELETE':
@@ -1420,9 +1435,35 @@ def student_enrollments():
         if get_enrollment_by_student_course(db, user_id, ac.course_id):
             db.close()
             return jsonify({'message': 'Already enrolled'}), 200
-        e = create_enrollment(db, user_id, ac.course_id)
-        db.close()
-        return jsonify({'id': str(e.id)}), 201
+        
+        # Check if student profile exists, create one if it doesn't
+        student_profile = get_student_profile(db, user_id)
+        if not student_profile:
+            try:
+                # Get user info to use for profile creation
+                user = get_user_by_id(db, user_id)
+                if user:
+                    # Create a basic profile with default values
+                    create_student_profile(
+                        db,
+                        user_id,
+                        user.email.split('@')[0],  # Use part of email as name
+                        {},  # Empty onboard_answers
+                        False  # Default want_quizzes
+                    )
+            except Exception as e:
+                db.close()
+                return jsonify({'error': f'Failed to create student profile: {str(e)}'}), 400
+        
+        try:
+            e = create_enrollment(db, user_id, ac.course_id)
+            db.close()
+            return jsonify({'id': str(e.id)}), 201
+        except Exception as e:
+            db.close()
+            error_msg = str(e)
+            return jsonify({'error': f'Enrollment failed: {error_msg}'}), 400
+            
     ens = get_enrollments_by_student(db, user_id)
     db.close()
     return jsonify([{
