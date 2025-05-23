@@ -41,7 +41,7 @@ from src.db.queries import (
     update_personalized_file, delete_personalized_file,
     get_chat_by_id, get_chats_by_student, create_chat, update_chat, delete_chat,
     get_message_by_id, get_messages_by_chat, create_message, delete_messages_after,
-    get_report_by_id, create_report, update_report, delete_report
+    get_report_by_id, create_report, update_report, delete_report,
 )
 
 from src.prompts import (
@@ -1068,7 +1068,7 @@ def instructor_modules(course_id):
     mods = get_modules_by_course(db, course_id)
     db.close()
 
-    # 🚨 Defensive fallback in case mods is None
+    # Defensive fallback in case mods is None
     if not isinstance(mods, list):
         mods = []
 
@@ -1125,10 +1125,10 @@ def instructor_files(module_id):
             return jsonify({'error': 'Missing file'}), 400
         transcription = None
         mimetype = fobj.mimetype or ""
-        print(f"📎 Uploaded file mimetype: {mimetype}")
+        print(f"Uploaded file mimetype: {mimetype}")
 
         if mimetype.startswith("audio/") or mimetype in ["application/octet-stream", "video/mp4"]:
-            print("🧠 Attempting transcription...")
+            print("Attempting transcription...")
             transcription = transcribe_audio(fobj)
             fobj.stream.seek(0)
 
@@ -2391,24 +2391,68 @@ def student_course_files_upload(course_id):
     
     db = Session()
     try:
-        # Verify student owns this course
-        course = get_course_by_id(db, course_id)
-        if not course or str(course.creator_id) != str(user_id):
-            return jsonify({'error': 'Access denied'}), 403
+        # Verify student is enrolled in this course (not that they own it)
+        enrollment = get_enrollment_by_student_course(db, user_id, course_id)
+        if not enrollment:
+            return jsonify({'error': 'Access denied - not enrolled in course'}), 403
         
         # Get the file from the request
         file = request.files.get('file')
         if not file:
             return jsonify({'error': 'No file provided'}), 400
         
-        # For now, return a mock response - this can be expanded later
-        # to actually handle file upload to a default module
+        # Get title and description from form data
+        title = request.form.get('title', file.filename)
+        description = request.form.get('description', '')
+        
+        # Find or create a default module for student uploads
+        course_modules = get_modules_by_course(db, course_id)
+        target_module = None
+        
+        # Look for a "Student Uploads" module
+        for module in course_modules:
+            if 'student' in module.title.lower() and 'upload' in module.title.lower():
+                target_module = module
+                break
+        
+        # If no student upload module exists, create one
+        if not target_module:
+            # Automatically create a "Student Uploads" module
+            target_module = create_module(
+                db=db,
+                course_id=course_id,
+                title="Student Uploads"
+            )
+        
+        # Read file content
+        file_content = file.read()
+        file_size = len(file_content)
+        
+        # Create file record
+        new_file = create_file(
+            db=db,
+            module_id=str(target_module.id),
+            title=title,
+            filename=file.filename,
+            file_type=file.mimetype or 'application/octet-stream',
+            file_size=file_size,
+            file_data=file_content
+        )
+        
+        # Return the created file info
         return jsonify({
-            'message': 'File upload functionality is being implemented',
-            'filename': file.filename
-        }), 202  # Accepted but not processed
+            'id': str(new_file.id),
+            'title': new_file.title,
+            'filename': new_file.filename,
+            'file_type': new_file.file_type,
+            'file_size': new_file.file_size,
+            'module_id': str(new_file.module_id),
+            'message': 'File uploaded successfully'
+        }), 201
     
     except Exception as e:
+        db.rollback()
+        app.logger.error(f"Student file upload error: {str(e)}")
         return jsonify({'error': str(e)}), 500
     finally:
         db.close()
