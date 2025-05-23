@@ -551,6 +551,20 @@ export default function CoursePage() {
             }),
           });
 
+          // Handle the new status codes
+          if (personalizeRes.status === 202) {
+            // File is still processing - continue polling
+            if (attempt > 12) { // Max 12 attempts = ~2 minutes
+              throw new Error("The file is taking longer than expected to process. Please try again later or contact support.");
+            }
+            
+            // Wait before next attempt (progressive backoff)
+            const waitTime = Math.min(attempt * 1000, 5000); // 1s, 2s, 3s, 4s, 5s, 5s...
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            
+            return pollForProcessing(attempt + 1);
+          }
+
           if (!personalizeRes.ok) {
             const errorText = await personalizeRes.text();
             let errorData;
@@ -560,28 +574,19 @@ export default function CoursePage() {
               errorData = { error: errorText };
             }
 
-            // If file is still processing, wait and retry
-            if (errorData.error && errorData.error.includes("bytes-like object is required")) {
-              if (attempt > 12) { // Max 12 attempts = ~2 minutes
-                throw new Error("The file is taking longer than expected to process. Please try again later or contact support.");
-              }
-              
-              // Wait before next attempt (progressive backoff)
-              const waitTime = Math.min(attempt * 1000, 5000); // 1s, 2s, 3s, 4s, 5s, 5s...
-              await new Promise(resolve => setTimeout(resolve, waitTime));
-              
-              return pollForProcessing(attempt + 1);
-            } else {
-              throw new Error(`Failed to generate personalized content: ${errorData.error || 'Unknown error'}`);
-            }
+            throw new Error(`Failed to generate personalized content: ${errorData.error || 'Unknown error'}`);
           }
 
           return await personalizeRes.json();
         } catch (error) {
-          // If it's a processing error, retry
-          if (error instanceof Error && error.message.includes("bytes-like object is required")) {
+          // If it's a network or other error, retry
+          if (error instanceof Error && (
+            error.message.includes("Failed to fetch") || 
+            error.message.includes("NetworkError") ||
+            error.message.includes("TypeError")
+          )) {
             if (attempt > 12) {
-              throw new Error("The file is taking longer than expected to process. Please try again later.");
+              throw new Error("Network connection issue. Please check your connection and try again.");
             }
             const waitTime = Math.min(attempt * 1000, 5000);
             await new Promise(resolve => setTimeout(resolve, waitTime));
@@ -623,6 +628,14 @@ export default function CoursePage() {
           description: errorMessage,
           action: {
             label: "Try Again",
+            onClick: () => handleAskAI(material)
+          }
+        });
+      } else if (errorMessage.includes("Network connection")) {
+        sonnerToast.error("Connection Issue", {
+          description: errorMessage,
+          action: {
+            label: "Retry",
             onClick: () => handleAskAI(material)
           }
         });
