@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import Sidebar from "@/components/link-x/LearnSidebar";
 import LessonContent from "../components/lesson-content";
 import AIChatbot from "../components/ai-chatbot";
+import { FloatingAIAssistant } from "@/components/ai/FloatingAIAssistant";
+import { SmartSelection } from "@/components/ai/SmartSelection";
 
 export default function LearnPage() {
   const params = useParams();
@@ -16,11 +18,32 @@ export default function LearnPage() {
   const [lessonTitle, setLessonTitle] = useState<string | null>(null);
   const [aiContent, setAiContent] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [courseName, setCourseName] = useState<string | null>(null);
+  const [currentMaterial, setCurrentMaterial] = useState<{
+    id: string;
+    title: string;
+    type: string;
+  } | undefined>();
 
   const handleLessonSelect = (title: string, content: string) => {
     setLessonTitle(title);
     setIsLoading(false);
     setAiContent(content);
+    
+    // Update current material for AI context
+    if (fileId && title) {
+      setCurrentMaterial({
+        id: fileId,
+        title: title,
+        type: "lesson"
+      });
+    }
+  };
+
+  // Handle Smart Selection AI actions
+  const handleSmartSelection = (selectedText: string, action: string) => {
+    console.log(`AI ${action} requested for: "${selectedText}"`);
+    // The FloatingAIAssistant will handle the actual AI interaction
   };
 
   useEffect(() => {
@@ -33,7 +56,7 @@ export default function LearnPage() {
         });
   
         if (!res.ok) {
-          const text = await res.text(); // <-- show error message
+          const text = await res.text();
           throw new Error(`Failed to fetch personalized file: ${text}`);
         }
   
@@ -41,6 +64,19 @@ export default function LearnPage() {
   
         if (data.originalFileId) {
           setFileId(data.originalFileId);
+          
+          // Try to get course name from the personalized file data
+          if (data.content) {
+            try {
+              const parsedContent = typeof data.content === "string" ? JSON.parse(data.content) : data.content;
+              if (parsedContent.courseName || parsedContent.title) {
+                setCourseName(parsedContent.courseName || parsedContent.title || "Course Materials");
+              }
+            } catch (e) {
+              console.warn("Could not parse course name from content");
+              setCourseName("Course Materials");
+            }
+          }
         } else {
           console.warn("No original file linked to this personalized file.");
         }
@@ -90,6 +126,19 @@ export default function LearnPage() {
           )}
         </div>
       </div>
+
+      {/* AI Components */}
+      <FloatingAIAssistant 
+        courseId={pfId}
+        courseName={courseName || "Personalized Learning"}
+        currentMaterial={currentMaterial}
+      />
+      
+      <SmartSelection
+        onAskAI={handleSmartSelection}
+        courseId={pfId}
+        materialId={currentMaterial?.id}
+      />
     </div>
   );
 }

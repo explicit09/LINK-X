@@ -469,6 +469,177 @@ export default function CoursePage() {
     }
   };
 
+  // Handle Ask AI button click for materials
+  const handleAskAI = async (material: { id: string; title: string; type: Material["type"] }) => {
+    try {
+      if (!material || !material.id) {
+        sonnerToast.error("Invalid material selected");
+        return;
+      }
+      
+      if (!currentUser) {
+        sonnerToast.error("Please log in to use AI features");
+        return;
+      }
+
+      // Show persistent loading state
+      const loadingToast = sonnerToast.loading("Creating personalized learning experience...", {
+        description: "Analyzing your learning profile and preparing content",
+        duration: 0 // Keep loading until we dismiss it
+      });
+
+      // First, fetch the user's onboarding profile
+      const profileRes = await fetch("http://localhost:8080/student/profile", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (!profileRes.ok) {
+        throw new Error("Failed to fetch student profile. Please complete your onboarding first.");
+      }
+
+      const profileData = await profileRes.json();
+      const { name, onboard_answers } = profileData;
+
+      // Prepare user profile for personalization
+      const userProfile = {
+        role: onboard_answers.job || "student",
+        traits: onboard_answers.traits || "helpful and encouraging",
+        learningStyle: onboard_answers.learningStyle || "visual",
+        depth: onboard_answers.depth || "intermediate",
+        interests: onboard_answers.topics || "general learning",
+        personalization: onboard_answers.interests || "using practical examples",
+        schedule: onboard_answers.schedule || "flexible learning",
+      };
+
+      // Polling function to wait for file processing
+      const pollForProcessing = async (attempt = 1): Promise<any> => {
+        try {
+          // Update loading message based on attempt
+          if (attempt === 1) {
+            sonnerToast.loading("Creating personalized learning experience...", {
+              description: "Analyzing your learning profile and preparing content",
+              id: loadingToast
+            });
+          } else if (attempt <= 3) {
+            sonnerToast.loading("Creating personalized learning experience...", {
+              description: "Processing course material (this may take a moment)...",
+              id: loadingToast
+            });
+          } else if (attempt <= 6) {
+            sonnerToast.loading("Creating personalized learning experience...", {
+              description: "Still processing... AI is analyzing the content thoroughly",
+              id: loadingToast
+            });
+          } else {
+            sonnerToast.loading("Creating personalized learning experience...", {
+              description: "Almost ready... finalizing your personalized content",
+              id: loadingToast
+            });
+          }
+
+          const personalizeRes = await fetch("http://localhost:8080/generatepersonalizedfilecontent", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              name: name,
+              userProfile: userProfile,
+              fileId: material.id,
+            }),
+          });
+
+          if (!personalizeRes.ok) {
+            const errorText = await personalizeRes.text();
+            let errorData;
+            try {
+              errorData = JSON.parse(errorText);
+            } catch {
+              errorData = { error: errorText };
+            }
+
+            // If file is still processing, wait and retry
+            if (errorData.error && errorData.error.includes("bytes-like object is required")) {
+              if (attempt > 12) { // Max 12 attempts = ~2 minutes
+                throw new Error("The file is taking longer than expected to process. Please try again later or contact support.");
+              }
+              
+              // Wait before next attempt (progressive backoff)
+              const waitTime = Math.min(attempt * 1000, 5000); // 1s, 2s, 3s, 4s, 5s, 5s...
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+              
+              return pollForProcessing(attempt + 1);
+            } else {
+              throw new Error(`Failed to generate personalized content: ${errorData.error || 'Unknown error'}`);
+            }
+          }
+
+          return await personalizeRes.json();
+        } catch (error) {
+          // If it's a processing error, retry
+          if (error instanceof Error && error.message.includes("bytes-like object is required")) {
+            if (attempt > 12) {
+              throw new Error("The file is taking longer than expected to process. Please try again later.");
+            }
+            const waitTime = Math.min(attempt * 1000, 5000);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            return pollForProcessing(attempt + 1);
+          }
+          throw error;
+        }
+      };
+
+      // Start polling for processing completion
+      const personalizedData = await pollForProcessing();
+      
+      sonnerToast.dismiss(loadingToast);
+      sonnerToast.success("Personalized learning experience created!", {
+        description: `Redirecting to your customized version of "${material.title}"`,
+      });
+
+      // Small delay to show success message before redirect
+      setTimeout(() => {
+        router.push(`/learn/${personalizedData.id}`);
+      }, 1000);
+
+    } catch (error) {
+      sonnerToast.dismiss();
+      console.error("Error creating personalized content:", error);
+      
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      
+      if (errorMessage.includes("complete your onboarding")) {
+        sonnerToast.error("Profile Required", {
+          description: "Please complete your learning profile first to enable personalized content.",
+          action: {
+            label: "Complete Profile",
+            onClick: () => router.push("/onboarding")
+          }
+        });
+      } else if (errorMessage.includes("taking longer than expected")) {
+        sonnerToast.error("Processing Timeout", {
+          description: errorMessage,
+          action: {
+            label: "Try Again",
+            onClick: () => handleAskAI(material)
+          }
+        });
+      } else {
+        sonnerToast.error("Failed to Create Personalized Content", {
+          description: errorMessage,
+          action: {
+            label: "Contact Support",
+            onClick: () => {
+              window.open("mailto:support@link-x.ai?subject=Personalization Error&body=" + encodeURIComponent(`Error: ${errorMessage}\nMaterial: ${material.title}\nUser: ${currentUser?.email}`));
+            }
+          }
+        });
+      }
+    }
+  };
+
   const getFileIcon = (type: Material["type"]) => {
     switch (type) {
       case "pdf": return FileText;
@@ -962,7 +1133,7 @@ export default function CoursePage() {
                               variant="outline" 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleTabChange("ai");
+                                handleAskAI(material);
                               }}
                               className={cn("modern-hover", `hover:bg-${colors.bg} hover:border-${colors.border} hover:text-${colors.text}`)}
                             >
