@@ -402,7 +402,11 @@ def delete_module(db: Session, module_id: str):
 
 def get_file_by_id(db: Session, file_id):
     if isinstance(file_id, str):
-        file_id = uuid.UUID(file_id)
+        try:
+            file_id = uuid.UUID(file_id)
+        except ValueError:
+            # If file_id is not a valid UUID, return None
+            return None
     return db.execute(select(File).filter_by(id=file_id)).scalars().first()
 
 
@@ -591,7 +595,11 @@ def delete_enrollment(db: Session, user_id: str, course_id: str):
 
 def get_personalized_file_by_id(db: Session, pf_id):
     if isinstance(pf_id, str):
-        pf_id = uuid.UUID(pf_id)
+        try:
+            pf_id = uuid.UUID(pf_id)
+        except ValueError:
+            # If pf_id is not a valid UUID, return None
+            return None
     return db.execute(
         select(PersonalizedFile).filter_by(id=pf_id)
     ).scalars().first()
