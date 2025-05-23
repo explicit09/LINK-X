@@ -43,8 +43,7 @@ export default function CourseForm({ course, onSave, onCancel, userRole = 'instr
         const words = title.split(' ').filter(word => word.length > 2);
         if (words.length >= 2) {
           const prefix = words[0].substring(0, 2).toUpperCase();
-          const number = Math.floor(Math.random() * 400) + 100;
-          return `${prefix} ${number}`;
+          return `${prefix}`;
         }
         return '';
       };

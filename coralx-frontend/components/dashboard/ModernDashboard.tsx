@@ -540,4 +540,4 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
       </Dialog>
     </div>
   );
-} 
+}

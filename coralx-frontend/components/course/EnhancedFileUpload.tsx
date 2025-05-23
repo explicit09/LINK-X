@@ -30,11 +30,12 @@ interface UploadFile {
 
 interface EnhancedFileUploadProps {
   courseId: string;
+  userRole?: 'student' | 'instructor' | 'admin';
   onUploadComplete?: (file: any) => void;
   className?: string;
 }
 
-export function EnhancedFileUpload({ courseId, onUploadComplete, className }: EnhancedFileUploadProps) {
+export function EnhancedFileUpload({ courseId, userRole = 'student', onUploadComplete, className }: EnhancedFileUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -93,6 +94,245 @@ export function EnhancedFileUpload({ courseId, onUploadComplete, className }: En
     return null;
   };
 
+  // Generate proper UUID for file IDs
+  const generateFileId = () => {
+    return 'file-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+  };
+
+  const studentUpload = async (uploadFile: UploadFile) => {
+    const fileId = uploadFile.id;
+    
+    try {
+      // Update status to uploading
+      setUploadFiles(prev => prev.map(f => 
+        f.id === fileId 
+          ? { ...f, status: "uploading", progress: 0 }
+          : f
+      ));
+
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', uploadFile.file);
+      formData.append('title', uploadFile.file.name);
+      formData.append('description', `Uploaded by student: ${uploadFile.file.name}`);
+      
+      // Try student course file upload endpoint
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/student/courses/${courseId}/files`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Student upload failed: ${response.statusText}`);
+      }
+
+      // Simulate progress during upload
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress += 20;
+        if (progress <= 80) {
+          setUploadFiles(prev => prev.map(f => 
+            f.id === fileId 
+              ? { ...f, progress, status: "uploading" }
+              : f
+          ));
+        }
+      }, 200);
+
+      const result = await response.json();
+      clearInterval(progressInterval);
+
+      // Update to processing
+      setUploadFiles(prev => prev.map(f => 
+        f.id === fileId 
+          ? { 
+              ...f, 
+              status: "processing",
+              progress: 100,
+              processingStage: "Processing file..."
+            }
+          : f
+      ));
+
+      // Simulate processing time
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Complete upload
+      setUploadFiles(prev => prev.map(f => 
+        f.id === fileId 
+          ? { ...f, status: "completed", processingStage: "Upload complete!" }
+          : f
+      ));
+
+      // Call success callback with real data
+      onUploadComplete?.({
+        id: result.id || fileId,
+        title: uploadFile.file.name,
+        type: uploadFile.file.type.includes('pdf') ? 'pdf' : 
+              uploadFile.file.type.includes('audio') ? 'audio' : 
+              uploadFile.file.type.includes('video') ? 'video' : 'document',
+        size: formatFileSize(uploadFile.file.size),
+        uploadedAt: 'Just now',
+        processed: true
+      });
+
+      sonnerToast.success(`${uploadFile.file.name} uploaded successfully!`);
+
+    } catch (error) {
+      console.error('Student upload error:', error);
+      
+      // Fall back to simulation for development
+      sonnerToast.warning('Student upload API not available, using simulation mode');
+      await simulateUpload(uploadFile);
+    }
+  };
+
+  const instructorUpload = async (uploadFile: UploadFile) => {
+    const fileId = uploadFile.id;
+    
+    try {
+      // Update status to uploading
+      setUploadFiles(prev => prev.map(f => 
+        f.id === fileId 
+          ? { ...f, status: "uploading", progress: 0 }
+          : f
+      ));
+
+      // First, get the course modules to find where to upload
+      let moduleId = null;
+      try {
+        const modulesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/instructor/courses/${courseId}/modules`, {
+          method: 'GET',
+          credentials: 'include',
+        });
+        
+        if (modulesResponse.ok) {
+          const modules = await modulesResponse.json();
+          // Use the first module or create a default "Materials" module
+          moduleId = modules && modules.length > 0 ? modules[0].id : null;
+        }
+      } catch (moduleError) {
+        console.warn('Failed to get modules:', moduleError);
+      }
+
+      // If no module found, try to create a default "Materials" module
+      if (!moduleId) {
+        try {
+          const createModuleResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/instructor/courses/${courseId}/modules`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              title: 'Course Materials',
+              description: 'Default module for course materials'
+            }),
+          });
+          
+          if (createModuleResponse.ok) {
+            const newModule = await createModuleResponse.json();
+            moduleId = newModule.id;
+            sonnerToast.success('Created new module for materials');
+          }
+        } catch (createError) {
+          console.warn('Failed to create default module:', createError);
+        }
+      }
+
+      // If still no module, fall back to simulation
+      if (!moduleId) {
+        sonnerToast.warning('No module available for upload, using simulation mode');
+        await simulateUpload(uploadFile);
+        return;
+      }
+
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', uploadFile.file);
+      
+      // Try the module-based upload endpoint
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/instructor/modules/${moduleId}/files/upload`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+
+      // Simulate progress during upload
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress += 20;
+        if (progress <= 80) {
+          setUploadFiles(prev => prev.map(f => 
+            f.id === fileId 
+              ? { ...f, progress, status: "uploading" }
+              : f
+          ));
+        }
+      }, 200);
+
+      const result = await response.json();
+      clearInterval(progressInterval);
+
+      // Update to processing
+      setUploadFiles(prev => prev.map(f => 
+        f.id === fileId 
+          ? { 
+              ...f, 
+              status: "processing",
+              progress: 100,
+              processingStage: "Processing file..."
+            }
+          : f
+      ));
+
+      // Simulate processing time
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Complete upload
+      setUploadFiles(prev => prev.map(f => 
+        f.id === fileId 
+          ? { ...f, status: "completed", processingStage: "Upload complete!" }
+          : f
+      ));
+
+      // Call success callback with real data
+      onUploadComplete?.({
+        id: result.id || fileId,
+        title: uploadFile.file.name,
+        type: uploadFile.file.type.includes('pdf') ? 'pdf' : 
+              uploadFile.file.type.includes('audio') ? 'audio' : 
+              uploadFile.file.type.includes('video') ? 'video' : 'document',
+        size: formatFileSize(uploadFile.file.size),
+        uploadedAt: 'Just now',
+        processed: true
+      });
+
+      sonnerToast.success(`${uploadFile.file.name} uploaded successfully!`);
+
+    } catch (error) {
+      console.error('Instructor upload error:', error);
+      
+      // Fall back to simulation for development
+      sonnerToast.warning('Instructor upload API not available, using simulation mode');
+      await simulateUpload(uploadFile);
+    }
+  };
+
+  const realUpload = async (uploadFile: UploadFile) => {
+    // Route to appropriate upload method based on user role
+    if (userRole === 'student') {
+      await studentUpload(uploadFile);
+    } else {
+      await instructorUpload(uploadFile);
+    }
+  };
+
   const simulateUpload = async (uploadFile: UploadFile) => {
     const fileId = uploadFile.id;
     
@@ -109,7 +349,7 @@ export function EnhancedFileUpload({ courseId, onUploadComplete, className }: En
     // Simulate processing stages
     const processingStages = [
       "Analyzing file content...",
-      "Extracting text and media...",
+      "Extracting text and media...", 
       "Generating AI embeddings...",
       "Creating searchable index...",
       "Finalizing upload..."
@@ -160,14 +400,14 @@ export function EnhancedFileUpload({ courseId, onUploadComplete, className }: En
       }
 
       const uploadFile: UploadFile = {
-        id: `${Date.now()}-${Math.random()}`,
+        id: generateFileId(),
         file,
         status: "uploading",
         progress: 0,
       };
 
       setUploadFiles(prev => [...prev, uploadFile]);
-      simulateUpload(uploadFile);
+      realUpload(uploadFile);
     });
   }, []);
 
@@ -209,7 +449,7 @@ export function EnhancedFileUpload({ courseId, onUploadComplete, className }: En
           ? { ...f, status: "uploading", progress: 0, error: undefined }
           : f
       ));
-      simulateUpload(uploadFile);
+      realUpload(uploadFile);
     }
   };
 

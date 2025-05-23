@@ -127,6 +127,24 @@ export const studentAPI = {
   updateCourse: (courseId: string, data: any) => api.patch(`/student/courses/${courseId}`, data),
   deleteCourse: (courseId: string) => api.delete(`/student/courses/${courseId}`),
   
+  // Course content upload - for students creating their own courses
+  uploadCourseContent: (courseId: string, data: FormData) => {
+    return fetchWithAuth(`/student/courses/${courseId}/upload-content`, {
+      method: 'POST', 
+      body: data,
+      headers: {}, // Let browser set Content-Type for FormData
+    });
+  },
+  
+  // Bulk course upload - for students uploading entire course packages
+  uploadCoursePackage: (data: FormData) => {
+    return fetchWithAuth(`/student/courses/upload-package`, {
+      method: 'POST',
+      body: data,
+      headers: {}, // Let browser set Content-Type for FormData
+    });
+  },
+  
   // Profile management
   getProfile: () => api.get('/student/profile'),
   updateProfile: (data: any) => api.patch('/student/profile', data),
@@ -138,7 +156,38 @@ export const studentAPI = {
   
   // File operations
   downloadFile: (fileId: string) => api.get(`/student/files/${fileId}/download`),
-  uploadFile: (courseId: string, data: FormData) => api.post(`/student/courses/${courseId}/files`, data),
+  uploadFile: (courseId: string, data: FormData) => {
+    return fetchWithAuth(`/student/courses/${courseId}/files`, {
+      method: 'POST',
+      body: data,
+      headers: {}, // Let browser set Content-Type for FormData
+    });
+  },
+  getFileContent: (fileId: string) => api.get(`/student/files/${fileId}/content`),
+  getFileUrl: async (fileId: string) => {
+    try {
+      // For direct file access, we need to use the API call to get proper authentication
+      // Return the direct content URL but note that authentication will be handled by cookies
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      
+      // First try to access the file to make sure it exists and we have permission
+      try {
+        await api.get(`/student/files/${fileId}`);
+        return {
+          url: `${baseUrl}/student/files/${fileId}/content`
+        };
+      } catch (studentError) {
+        // If student endpoint fails, the file might be instructor-owned, try instructor endpoint
+        await api.get(`/instructor/files/${fileId}`);
+        return {
+          url: `${baseUrl}/instructor/files/${fileId}/content`
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to access file through any endpoint:', error);
+      throw new Error('File not accessible');
+    }
+  },
   
   // Submissions
   submitAssignment: (assignmentId: string, data: any) => api.post(`/student/assignments/${assignmentId}/submit`, data),
@@ -148,6 +197,15 @@ export const studentAPI = {
   getCourseDiscussions: (courseId: string) => api.get(`/student/courses/${courseId}/discussions`),
   postDiscussion: (courseId: string, data: any) => api.post(`/student/courses/${courseId}/discussions`, data),
   chatWithAI: (data: any) => api.post('/student/ai/chat', data),
+  
+  // Quizzes (to be implemented)
+  getCourseQuizzes: (courseId: string) => api.get(`/student/courses/${courseId}/quizzes`),
+  generateCourseQuiz: (courseId: string, options?: any) => api.post(`/student/courses/${courseId}/quizzes/generate`, options),
+  getQuiz: (quizId: string) => api.get(`/student/quizzes/${quizId}`),
+  startQuizSession: (quizId: string) => api.post(`/student/quizzes/${quizId}/start`),
+  submitQuizAnswer: (quizId: string, questionId: string, answer: any) => api.post(`/student/quizzes/${quizId}/questions/${questionId}/answer`, { answer }),
+  submitQuiz: (quizId: string) => api.post(`/student/quizzes/${quizId}/submit`),
+  getQuizResults: (quizId: string) => api.get(`/student/quizzes/${quizId}/results`),
 };
 
 // Instructor-specific APIs
@@ -187,6 +245,23 @@ export const instructorAPI = {
   updateFile: (fileId: string, data: any) => api.patch(`/instructor/files/${fileId}`, data),
   deleteFile: (fileId: string) => api.delete(`/instructor/files/${fileId}`),
   getFileContent: (fileId: string) => api.get(`/instructor/files/${fileId}/content`),
+  downloadFile: (fileId: string) => api.get(`/instructor/files/${fileId}/download`),
+  getFileUrl: async (fileId: string) => {
+    try {
+      // For direct file access, we need to use the API call to get proper authentication
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      
+      // First try to access the file to make sure it exists and we have permission
+      await api.get(`/instructor/files/${fileId}`);
+      
+      return {
+        url: `${baseUrl}/instructor/files/${fileId}/content`
+      };
+    } catch (error) {
+      console.warn('Failed to access instructor file:', error);
+      throw new Error('File not accessible');
+    }
+  },
   
   // Reports
   getCourseReport: (courseId: string) => api.get(`/instructor/courses/${courseId}/reports`),
