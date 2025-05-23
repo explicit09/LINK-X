@@ -296,14 +296,6 @@ const ModernSidebar = ({
                                 <p className="text-sm font-medium sidebar-text truncate">
                                   {course.title}
                                 </p>
-                                {course.unreadCount && course.unreadCount > 0 && (
-                                  <Badge 
-                                    variant="destructive" 
-                                    className="text-xs px-1.5 py-0.5 ml-2"
-                                  >
-                                    {course.unreadCount}
-                                  </Badge>
-                                )}
                               </div>
                               <p className="text-xs sidebar-text-muted truncate">
                                 {course.code}

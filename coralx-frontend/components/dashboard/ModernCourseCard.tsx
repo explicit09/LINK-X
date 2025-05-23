@@ -176,14 +176,6 @@ export function ModernCourseCard({
               )}>
                 {course.title}
               </h3>
-              {course.unreadCount && course.unreadCount > 0 && (
-                <Badge 
-                  variant="destructive" 
-                  className="h-5 w-5 text-xs p-0 flex items-center justify-center animate-pulse"
-                >
-                  {course.unreadCount}
-                </Badge>
-              )}
             </div>
             <div className="flex items-center gap-3 text-sm text-gray-600">
               <span className="font-medium">{course.code}</span>
