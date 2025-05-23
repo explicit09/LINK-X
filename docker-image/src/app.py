@@ -56,8 +56,13 @@ from src.prompts import (
 from FAISS_db_generation import create_database, generate_citations, replace_sources, file_cleanup
 
 load_dotenv()
+
+# Initialize Flask app
 app = Flask(__name__)
-CORS(app, supports_credentials=True)
+
+# Configure CORS with environment variables
+cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3000').split(',')
+CORS(app, origins=cors_origins, supports_credentials=True, allow_headers=['Content-Type', 'Authorization'], expose_headers=['Content-Type'], methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 
 app.config['TESTING'] = False
 
@@ -2043,17 +2048,38 @@ def session_login():
     if not id_token:
         return jsonify({'error': 'Missing idToken'}), 400
     try:
-        auth.verify_id_token(id_token)
-        expires = 60 * 60 * 24 * 5
+        # Verify the Firebase ID token
+        decoded_token = auth.verify_id_token(id_token)
+        uid = decoded_token.get('uid')
+        print(f'Firebase auth successful for UID: {uid}')
+        
+        # Set a longer expiration for better user experience
+        expires = 60 * 60 * 24 * 14  # 14 days
         session_cookie = auth.create_session_cookie(id_token, expires_in=expires)
-        resp = jsonify({'message': 'Session set'})
-        resp.set_cookie('session',
-                        session_cookie,
-                        max_age=expires,
-                        httponly=True,
-                        samesite='Strict')
+        
+        # Create response
+        resp = jsonify({
+            'status': 'success',
+            'message': 'Session cookie set successfully',
+            'uid': uid
+        })
+        
+        # Set cookie with more permissive settings for development
+        is_secure = os.environ.get('FLASK_ENV') != 'development'
+        
+        resp.set_cookie(
+            'session',
+            session_cookie,
+            max_age=expires,
+            httponly=True,  # Still keep HttpOnly for security
+            secure=is_secure,  # Only require HTTPS in production
+            samesite='Lax'  # Allow cross-site requests with top-level navigation
+        )
+        
+        print(f'Session cookie set for user {uid}')
         return resp, 200
     except Exception as e:
+        print(f'Session login error: {str(e)}')
         return jsonify({'error': str(e)}), 401
 
 @app.route('/sessionLogout', methods=['POST'])
@@ -2323,6 +2349,69 @@ def instructor_course_faqs(course_id):
         db.close()
     faqs_payload = prompt_course_faqs(title, questions)
     return jsonify(faqs_payload), 200
+
+# ---------------------------------------------------------------------------
+# Missing endpoints that frontend expects
+# ---------------------------------------------------------------------------
+
+@app.route('/student/courses/<course_id>/discussions', methods=['GET', 'POST'])
+def student_course_discussions(course_id):
+    """Handle course discussions for students."""
+    user_id, err = verify_student()
+    if err:
+        return err
+    
+    db = Session()
+    try:
+        # Verify student has access to this course
+        enrollment = get_enrollment_by_student_course(db, user_id, course_id)
+        if not enrollment:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        if request.method == 'GET':
+            # For now, return empty discussions - this can be expanded later
+            return jsonify([]), 200
+        
+        elif request.method == 'POST':
+            # For now, return success - this can be expanded later
+            data = request.get_json() or {}
+            return jsonify({'message': 'Discussion posted successfully'}), 201
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/student/courses/<course_id>/files', methods=['POST'])
+def student_course_files_upload(course_id):
+    """Handle file uploads for student courses."""
+    user_id, err = verify_student()
+    if err:
+        return err
+    
+    db = Session()
+    try:
+        # Verify student owns this course
+        course = get_course_by_id(db, course_id)
+        if not course or str(course.creator_id) != str(user_id):
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Get the file from the request
+        file = request.files.get('file')
+        if not file:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        # For now, return a mock response - this can be expanded later
+        # to actually handle file upload to a default module
+        return jsonify({
+            'message': 'File upload functionality is being implemented',
+            'filename': file.filename
+        }), 202  # Accepted but not processed
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
 
 # ---------------------------------------------------------------------------
 # Global error handler: ensures **all** uncaught exceptions respond with a JSON

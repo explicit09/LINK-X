@@ -17,9 +17,13 @@ export async function getAuthToken() {
 // Session login - establishes a session cookie with the backend
 export async function sessionLogin() {
   const token = await getAuthToken();
-  if (!token) return false;
+  if (!token) {
+    console.error('No auth token available for session login');
+    return false;
+  }
   
   try {
+    console.log('Attempting to establish session with backend...');
     const response = await fetch(`${API_URL}/sessionLogin`, {
       method: 'POST',
       headers: {
@@ -31,11 +35,29 @@ export async function sessionLogin() {
     });
     
     if (!response.ok) {
-      console.error('Session login failed:', await response.text());
+      const errorText = await response.text();
+      console.error(`Session login failed: ${response.status}`, errorText);
       return false;
     }
     
-    return true;
+    // Verify the session was established by making a test request
+    try {
+      const verifyResponse = await fetch(`${API_URL}/me`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      
+      if (verifyResponse.ok) {
+        console.log('Session verified successfully');
+        return true;
+      } else {
+        console.error('Session verification failed:', verifyResponse.status);
+        return false;
+      }
+    } catch (verifyError) {
+      console.error('Session verification error:', verifyError);
+      return false;
+    }
   } catch (error) {
     console.error('Session login error:', error);
     return false;
@@ -44,8 +66,11 @@ export async function sessionLogin() {
 
 export async function fetchWithAuth(endpoint: string, options: RequestInit = {}, retryWithSessionLogin = true) {
   const token = await getAuthToken();
+  // Don't include Content-Type for FormData requests
+  const isFormData = options.body instanceof FormData;
+  
   const headers = {
-    'Content-Type': 'application/json',
+    ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     ...options.headers,
   };
@@ -68,14 +93,28 @@ export async function fetchWithAuth(endpoint: string, options: RequestInit = {},
         // Retry the original request with the new session cookie
         console.log('Session established, retrying original request');
         return fetchWithAuth(endpoint, options, false);  // Prevent infinite recursion
+      } else {
+        console.error('Failed to establish session after 401 response');
+        // Try to refresh the page if we're in the browser
+        if (typeof window !== 'undefined' && window.location) {
+          console.log('Refreshing page to attempt re-authentication');
+          // Give user a chance to see error messages before refresh
+          setTimeout(() => window.location.reload(), 2000);
+        }
       }
     }
 
     if (!response.ok) {
       let errorMessage = '';
       try {
-        const errorData = await response.text();
-        errorMessage = errorData;
+        // Try to parse as JSON first
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          errorMessage = JSON.stringify(errorData);
+        } else {
+          errorMessage = await response.text();
+        }
       } catch (e) {
         errorMessage = 'Unknown error';
       }
@@ -83,8 +122,14 @@ export async function fetchWithAuth(endpoint: string, options: RequestInit = {},
       throw new Error(`HTTP error! status: ${response.status}, message: ${errorMessage}`);
     }
 
-    const data = await response.json();
-    return data;
+    // Handle different response types
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      const data = await response.json();
+      return data;
+    } else {
+      return await response.text();
+    }
   } catch (error) {
     console.error('API request failed:', error);
     throw error;
