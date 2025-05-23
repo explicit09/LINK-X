@@ -25,8 +25,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const unsubscribe = onAuthStateChanged(
         auth,
-        (user) => {
+        async (user) => {
           setUser(user);
+          
+          // If user is authenticated, establish session with backend
+          if (user) {
+            try {
+              // Import dynamically to avoid circular dependencies
+              const { sessionLogin } = await import('@/lib/api');
+              const success = await sessionLogin();
+              
+              if (!success) {
+                console.warn('Failed to establish backend session');
+                // Don't show error to avoid spamming users, just log it
+              } else {
+                console.log('Backend session established successfully');
+              }
+            } catch (sessionError) {
+              console.error('Error establishing backend session:', sessionError);
+            }
+          }
+          
           setLoading(false);
         },
         (error) => {

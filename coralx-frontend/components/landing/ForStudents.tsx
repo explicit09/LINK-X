@@ -52,7 +52,7 @@ const StudentBenefits = () => {
     },
     {
       title: "Lecture Help",
-      description: "Your professor explained a complicated topic in a way you didn't understand. No problem! Reworded and reworked lessons will help you further your education.",
+      description: "Your professor explained a complicated topic in a way you didn&apos;t understand. No problem! Reworded and reworked lessons will help you further your education.",
       icon: BarChart
     }
   ];
@@ -65,10 +65,10 @@ const StudentBenefits = () => {
             For Students
           </h5>
           <h2 className="reveal text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Skills You'll Develop
+            Skills You&apos;ll Develop
           </h2>
           <p className="reveal max-w-2xl mx-auto text-gray-600">
-            Learn-X doesn't just teach class concepts — it equips you with practical skills for the modern world.
+            Learn-X doesn&apos;t just teach class concepts — it equips you with practical skills for the modern world.
           </p>
         </div>
 

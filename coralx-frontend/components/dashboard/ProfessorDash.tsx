@@ -30,7 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { CourseCard } from "@/components/dashboard/CourseCard";
-import { CourseForm } from "@/components/dashboard/CourseForm";
+import CourseForm from "@/components/dashboard/CourseForm";
 import UploadPdf from "@/components/dashboard/UploadPDF";
 
 export default function ProfessorDashboard() {
@@ -263,7 +263,7 @@ export default function ProfessorDashboard() {
 
       toast.success("Uploaded!");
 
-      // ✅ fetch just this module’s files again
+      // ✅ fetch just this module's files again
       const updatedFilesRes = await fetch(
         `http://localhost:8080/instructor/modules/${moduleId}/files`,
         {
@@ -698,7 +698,7 @@ export default function ProfessorDashboard() {
                     </DialogDescription>
                   </DialogHeader>
                   <CourseForm
-                    onSubmit={handleCreateCourse}
+                    onSave={handleCreateCourse}
                     onCancel={() => setIsCreateDialogOpen(false)}
                   />
                 </DialogContent>
@@ -1362,7 +1362,7 @@ export default function ProfessorDashboard() {
             </DialogHeader>
             <CourseForm
               course={editingCourse}
-              onSubmit={handleUpdateCourseInfo}
+              onSave={handleUpdateCourseInfo}
               onCancel={() => setEditingCourse(null)}
             />
           </DialogContent>
