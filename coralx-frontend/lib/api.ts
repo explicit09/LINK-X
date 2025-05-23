@@ -198,6 +198,7 @@ export const studentAPI = {
   getCourseModules: (courseId: string) => api.get(`/student/courses/${courseId}/modules`),
   createModule: (courseId: string, data: any) => api.post(`/student/courses/${courseId}/modules`, data),
   getModule: (courseId: string, moduleId: string) => api.get(`/student/courses/${courseId}/modules/${moduleId}`),
+  getModuleFiles: (moduleId: string) => api.get(`/student/modules/${moduleId}/files`),
   
   // File operations
   downloadFile: (fileId: string) => api.get(`/student/files/${fileId}/download`),

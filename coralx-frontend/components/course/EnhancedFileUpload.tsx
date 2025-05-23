@@ -94,9 +94,10 @@ export function EnhancedFileUpload({ courseId, userRole = 'student', onUploadCom
     return null;
   };
 
-  // Generate proper UUID for file IDs
+  // Generate temporary UUID for client-side tracking
   const generateFileId = () => {
-    return 'file-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    // Generate a proper UUID v4 for client-side tracking
+    return 'temp-' + crypto.randomUUID();
   };
 
   const studentUpload = async (uploadFile: UploadFile) => {
@@ -165,9 +166,9 @@ export function EnhancedFileUpload({ courseId, userRole = 'student', onUploadCom
           : f
       ));
 
-      // Call success callback with real data
+      // Call success callback with backend-returned UUID
       onUploadComplete?.({
-        id: result.id || fileId,
+        id: result.id, // Use the UUID returned by the backend
         title: uploadFile.file.name,
         type: uploadFile.file.type.includes('pdf') ? 'pdf' : 
               uploadFile.file.type.includes('audio') ? 'audio' : 
@@ -182,9 +183,14 @@ export function EnhancedFileUpload({ courseId, userRole = 'student', onUploadCom
     } catch (error) {
       console.error('Student upload error:', error);
       
-      // Fall back to simulation for development
-      sonnerToast.warning('Student upload API not available, using simulation mode');
-      await simulateUpload(uploadFile);
+      // Update status to error
+      setUploadFiles(prev => prev.map(f => 
+        f.id === fileId 
+          ? { ...f, status: "error", error: error instanceof Error ? error.message : String(error) }
+          : f
+      ));
+      
+      sonnerToast.error(`Failed to upload ${uploadFile.file.name}: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -303,7 +309,7 @@ export function EnhancedFileUpload({ courseId, userRole = 'student', onUploadCom
 
       // Call success callback with real data
       onUploadComplete?.({
-        id: result.id || fileId,
+        id: result.id, // Use the UUID returned by the backend
         title: uploadFile.file.name,
         type: uploadFile.file.type.includes('pdf') ? 'pdf' : 
               uploadFile.file.type.includes('audio') ? 'audio' : 
@@ -318,9 +324,14 @@ export function EnhancedFileUpload({ courseId, userRole = 'student', onUploadCom
     } catch (error) {
       console.error('Instructor upload error:', error);
       
-      // Fall back to simulation for development
-      sonnerToast.warning('Instructor upload API not available, using simulation mode');
-      await simulateUpload(uploadFile);
+      // Update status to error
+      setUploadFiles(prev => prev.map(f => 
+        f.id === fileId 
+          ? { ...f, status: "error", error: error instanceof Error ? error.message : String(error) }
+          : f
+      ));
+      
+      sonnerToast.error(`Failed to upload ${uploadFile.file.name}: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 

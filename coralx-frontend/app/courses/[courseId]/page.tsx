@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import ModernSidebar from "@/components/dashboard/ModernSidebar";
 import { EnhancedFileUpload } from "@/components/course/EnhancedFileUpload";
@@ -217,7 +217,7 @@ export default function CoursePage() {
                   // Get files for each module
                   for (const moduleItem of modulesData) {
                     try {
-                      const moduleFiles = await instructorAPI.getModuleFiles(moduleItem.id);
+                      const moduleFiles = await studentAPI.getModuleFiles(moduleItem.id);
                       filesData.push(...moduleFiles.map((file: any) => ({
                         ...file,
                         moduleId: moduleItem.id,
@@ -1011,7 +1011,7 @@ export default function CoursePage() {
                           {/* Sample conversation messages */}
                           <div className="flex justify-start">
                             <div className="bg-white rounded-lg p-3 max-w-[80%] shadow-sm">
-                              <p className="text-sm">Hello! I'm your AI tutor for {course?.title}. How can I help you today?</p>
+                              <p className="text-sm">Hello! I'm your AI tutor for {course?.title || 'this course'}. How can I help you today?</p>
                             </div>
                           </div>
                           
@@ -1180,7 +1180,7 @@ export default function CoursePage() {
                         <span className="text-blue-600 font-semibold text-lg">SJ</span>
                       </div>
                       <div>
-                        <p className="font-medium sidebar-text">{course.instructor}</p>
+                        <p className="font-medium sidebar-text">{course?.instructor || 'Instructor'}</p>
                         <p className="text-sm sidebar-text-muted">Professor</p>
                       </div>
                     </div>
@@ -1243,6 +1243,9 @@ export default function CoursePage() {
                 </div>
               )}
             </div>
+            <DialogDescription>
+              Upload PDF, audio, video, or presentation files to your course. Files will be automatically processed for AI interaction.
+            </DialogDescription>
           </DialogHeader>
           
           {useAdvancedUpload && currentUser?.role === 'student' ? (
@@ -1264,7 +1267,10 @@ export default function CoursePage() {
       <Dialog open={!!currentMaterial} onOpenChange={(open) => !open && setCurrentMaterial(undefined)}>
         <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
           <DialogHeader className="flex flex-row items-center justify-between">
-            <DialogTitle className="text-xl">{currentMaterial?.title}</DialogTitle>
+            <DialogTitle className="text-xl">{currentMaterial?.title || 'Course Material'}</DialogTitle>
+            <DialogDescription className="sr-only">
+              View and interact with course material. You can download the file or ask AI questions about its content.
+            </DialogDescription>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={async () => {
                 try {
@@ -1322,8 +1328,14 @@ export default function CoursePage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-blue-600" />
-              {selectedQuiz?.title}
+              {selectedQuiz?.title || 'Practice Quiz'}
             </DialogTitle>
+            <DialogDescription>
+              {selectedQuiz?.completed 
+                ? 'Review your quiz results and performance.'
+                : 'Take a practice quiz to test your knowledge of the course material.'
+              }
+            </DialogDescription>
           </DialogHeader>
           
           {selectedQuiz && (
