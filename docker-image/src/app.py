@@ -1605,16 +1605,27 @@ def generate_personalized_file_content():
     db_session = Session()
     try:
         file = get_file_by_id(db_session, file_id)
-        if file:
-            # Create temp directory
-            tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{file_id}_")
-            tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
-            os.makedirs(tmp_idx_dir, exist_ok=True) 
+        if not file:
+            return jsonify({"error": "File not found"}), 404
             
-            faiss_bytes = file.index_faiss
-            pkl_bytes = file.index_pkl
+        faiss_bytes = file.index_faiss
+        pkl_bytes = file.index_pkl
+        
+        # Check if FAISS indexing is complete
+        if faiss_bytes is None or pkl_bytes is None:
+            return jsonify({
+                "error": "PROCESSING", 
+                "message": "File is still being processed for AI features. Please try again in a moment."
+            }), 202  # 202 Accepted - indicates processing is still in progress
+            
+        # Create temp directory
+        tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{file_id}_")
+        tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
+        os.makedirs(tmp_idx_dir, exist_ok=True) 
+            
     except Exception as e:
         print(f"Error fetching file for ID {file_id}: {e}")
+        return jsonify({"error": "Failed to fetch file data"}), 500
     finally:
         db_session.close()
 
@@ -1651,8 +1662,14 @@ def generate_personalized_file_content():
         return jsonify({ "id": str(saved_file.id), "content": response_json}), 200
     
     except Exception as e:
+        # Clean up temp directory if it exists
+        if 'tmp_root' in locals():
+            try:
+                shutil.rmtree(tmp_root)
+            except:
+                pass
         return jsonify({"error": str(e)}), 500
-    
+
 @app.route('/student/personalized-files/<pf_id>', methods=['GET'])
 def get_student_personalized_file(pf_id):
     user_id, err = verify_student()
