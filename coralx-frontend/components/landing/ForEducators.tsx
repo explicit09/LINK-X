@@ -68,7 +68,7 @@ const EducatorBenefits = () => {
             Help Your Students Learn Their Own Way
           </h2>
           <p className="reveal max-w-2xl mx-auto text-gray-600">
-            Learn-X doesn't just teach your students class concepts — it equips them with practical skills for the modern world.
+            Learn-X doesn&apos;t just teach your students class concepts — it equips them with practical skills for the modern world.
           </p>
         </div>
 

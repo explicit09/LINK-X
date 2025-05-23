@@ -71,7 +71,7 @@ const PureChatItem = ({
 }) => {
   const { visibilityType, setVisibilityType } = useChatVisibility({
     chatId: chat.id,
-    initialVisibility: chat.visibility,
+    initialVisibility: chat.visibility || 'private', // Provide default value when undefined
   });
 
   return (
@@ -151,7 +151,8 @@ export const ChatItem = memo(PureChatItem, (prevProps, nextProps) => {
 
 export function SidebarHistory({ user }: { user: User | undefined }) {
   const { setOpenMobile } = useSidebar();
-  const { id } = useParams();
+  const params = useParams();
+  const id = params ? (typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : undefined) : undefined;
   const pathname = usePathname();
   const {
     data: history,

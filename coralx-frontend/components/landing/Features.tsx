@@ -16,7 +16,7 @@ const features = [
   },
   {
     name: 'Adaptive Assessments',
-    description: "Quizzes and assessments that adjust to your student's progress, focusing on areas where you need more practice.",
+    description: "Quizzes and assessments that adjust to your student&apos;s progress, focusing on areas where you need more practice.",
     icon: Zap,
   },
   {
@@ -26,7 +26,7 @@ const features = [
   },
   {
     name: 'Progress Analytics',
-    description: "Detailed insights into your student's learning journey with metrics to track their improvement over time.",
+    description: "Detailed insights into your student&apos;s learning journey with metrics to track their improvement over time.",
     icon: BarChart,
   },
   {
@@ -75,7 +75,7 @@ const Features = () => {
             Features
           </h5>
           <h2 className="reveal text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Revolutionize Your Student's Learning
+            Revolutionize Your Student&apos;s Learning
           </h2>
           <p className="reveal max-w-2xl mx-auto text-gray-700">
             Our comprehensive suite of tools is designed to transform how your students learn, making complex concepts accessible and engaging.

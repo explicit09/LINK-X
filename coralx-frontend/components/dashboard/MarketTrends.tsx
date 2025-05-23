@@ -114,7 +114,7 @@ export default function MarketTrends() {
         </CardHeader>
         <CardContent>
           <div className="mb-4">
-            <h3 className="text-lg font-semibold text-white mb-2">Today's Market Movement</h3>
+            <h3 className="text-lg font-semibold text-white mb-2">Today&apos;s Market Movement</h3>
             <div className="bg-gray-800/50 p-4 rounded-lg">{renderChart()}</div>
           </div>
           <ul className="space-y-4">

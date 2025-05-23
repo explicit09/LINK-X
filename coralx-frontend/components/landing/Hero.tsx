@@ -69,7 +69,7 @@ const Hero = () => {
           </h1>
 
           <p className="reveal text-lg md:text-xl text-gray-600 max-w-3xl mx-auto mb-8">
-            Traditional learning doesn't work for everyone. Our AI-powered platform personalizes education to match your student's unique learning style.
+            Traditional learning doesn&apos;t work for everyone. Our AI-powered platform personalizes education to match your student&apos;s unique learning style.
           </p>
 
           <div className="reveal flex flex-col sm:flex-row gap-4 justify-center mt-10">
@@ -125,7 +125,7 @@ const Hero = () => {
               <BookOpen className="h-6 w-6 text-blue-600" />
             </div>
             <h3 className="text-xl font-semibold mb-2 text-gray-900">Personalized Learning</h3>
-            <p className="text-gray-700">AI adapts to your student's unique learning style for maximum engagement</p>
+            <p className="text-gray-700">AI adapts to your student&apos;s unique learning style for maximum engagement</p>
           </div>
 
           <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition">

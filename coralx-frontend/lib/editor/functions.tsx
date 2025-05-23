@@ -33,7 +33,7 @@ export const createDecorations = async (
     const suggestions = await fetchSuggestions(documentId);
 
     // Map suggestions to positions within the document
-    const mappedSuggestions = await projectWithPositions(view.state.doc, suggestions);
+    const mappedSuggestions = await projectWithPositions(view.state.doc, documentId);
 
     const decorations: Array<Decoration> = [];
 
