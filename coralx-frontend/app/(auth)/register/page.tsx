@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/select";
 import { AuthForm } from "@/components/auth-form";
 import { SubmitButton } from "@/components/submit-button";
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import Header from "@/components/link-x/Header";
 
 import { createUserWithEmailAndPassword } from "firebase/auth";
@@ -203,17 +206,35 @@ export default function Page() {
       <div className="w-full max-w-md overflow-hidden rounded-2xl gap-12 flex flex-col">
         <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
           <h3 className="text-xl font-semibold dark:text-blue-400">Sign Up</h3>
+          <p className="text-sm text-gray-500 dark:text-zinc-400">
+            Create your account to get started
+          </p>
         </div>
 
-        <AuthForm action={handleSubmit} defaultEmail={email}>
+        <div className="space-y-4 px-4 sm:px-16">
+          {/* Google Sign Up */}
+          <GoogleAuthButton mode="register" disabled={state === "in_progress"} />
+          
+          {/* Divider */}
+          <div className="flex items-center gap-4 py-2">
+            <div className="flex-1 border-t border-gray-200 dark:border-zinc-700"></div>
+            <span className="text-sm text-gray-500 dark:text-zinc-400">or</span>
+            <div className="flex-1 border-t border-gray-200 dark:border-zinc-700"></div>
+          </div>
+
+          {/* Email/Password Form */}
+          <AuthForm action={handleSubmit} defaultEmail={email}>
           <div className="flex flex-col gap-2">
-            <p className="text-zinc-600 text-sm font-normal dark:text-zinc-400">
+            <Label
+              htmlFor="studentOrEducator"
+              className="text-zinc-600 font-normal dark:text-zinc-400"
+            >
               I am a
-            </p>
+            </Label>
             <Select onValueChange={handleChange}>
               <SelectTrigger
                 id="studentOrEducator"
-                className="bg-muted text-md md:text-sm rounded-md border border-input px-3 py-2"
+                className="bg-muted text-md md:text-sm h-10"
               >
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
@@ -226,32 +247,44 @@ export default function Page() {
 
           {/* ✅ Show these fields ONLY if Educator selected */}
           {role === "instructor" && (
-            <div className="flex flex-col gap-2">
-              <p className="text-zinc-600 text-sm font-normal dark:text-zinc-400">
-              Full Name
-            </p>
-              <input
-                type="text"
-                name="name"
-                placeholder=""
-                className="bg-muted text-md md:text-sm rounded-md border border-input px-3 py-2"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-              <p className="text-zinc-600 text-sm font-normal dark:text-zinc-400">
-              University Name
-            </p>
-              <input
-                type="text"
-                name="university"
-                placeholder=""
-                className="bg-muted text-md md:text-sm rounded-md border border-input px-3 py-2"
-                value={university}
-                onChange={(e) => setUniversity(e.target.value)}
-                required
-              />
-            </div>
+            <>
+              <div className="flex flex-col gap-2">
+                <Label
+                  htmlFor="name"
+                  className="text-zinc-600 font-normal dark:text-zinc-400"
+                >
+                  Full Name
+                </Label>
+                <Input
+                  id="name"
+                  name="name"
+                  className="bg-muted text-md md:text-sm"
+                  type="text"
+                  placeholder="Enter your full name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label
+                  htmlFor="university"
+                  className="text-zinc-600 font-normal dark:text-zinc-400"
+                >
+                  University Name
+                </Label>
+                <Input
+                  id="university"
+                  name="university"
+                  className="bg-muted text-md md:text-sm"
+                  type="text"
+                  placeholder="Enter your university name"
+                  value={university}
+                  onChange={(e) => setUniversity(e.target.value)}
+                  required
+                />
+              </div>
+            </>
           )}
 
           <SubmitButton isSuccessful={state === "success"}>
@@ -269,6 +302,7 @@ export default function Page() {
             {" instead."}
           </p>
         </AuthForm>
+        </div>
       </div>
     </div>
   );

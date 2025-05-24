@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { signOut } from "firebase/auth";
 import { auth } from "@/firebaseconfig";
@@ -24,7 +23,11 @@ import {
   BarChart3,
   Home,
   Menu,
-  X
+  X,
+  Target,
+  TrendingUp,
+  Award,
+  GraduationCap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,102 +58,45 @@ interface Chapter {
   subsections: Subsection[];
 }
 
-interface OnboardingData {
-  name: string;
-  job: string;
-  traits: string;
-  learningStyle: string;
-  depth: string;
-  topics: string;
-  interests: string;
-  schedule: string;
-  quizzes: boolean;
-}
-
-interface OnboardingResponse {
-  name: string;
-  answers: string[];
-  quizzes: boolean;
-}
-
-interface SidebarProps {
+interface ModernLearnSidebarProps {
   className?: string;
   onLessonSelect?: (title: string, response: string) => void;
   onLoadingStart?: () => void;
   onCollapseChange?: (value: boolean) => void;
-  courseId?: string;
   pfId?: string;
+  isCollapsed?: boolean;
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-const Sidebar = ({
+const ModernLearnSidebar = ({
   className,
   onLessonSelect,
   onLoadingStart,
   onCollapseChange,
-  courseId,
   pfId,
-}: SidebarProps) => {
-  const [collapsed, setCollapsed] = useState(false);
+  isCollapsed = false,
+  isMobileOpen = false,
+  onMobileClose,
+}: ModernLearnSidebarProps) => {
   const [mounted, setMounted] = useState(false);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [selectedLesson, setSelectedLesson] = useState<string | null>(null);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
   const isMobile = useIsMobile();
   const router = useRouter();
 
-  const fetchOnboarding = async (): Promise<OnboardingData | null> => {
-    try {
-      const res = await fetch("http://localhost:8080/onboarding", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      const data: OnboardingResponse = await res.json();
-
-      if (res.status !== 200) {
-        console.error("Failed to fetch onboarding:", data);
-        return null;
-      }
-
-      const [job, traits, learningStyle, depth, topics, interests, schedule] =
-        data.answers;
-
-      const onboarding: OnboardingData = {
-        name: data.name,
-        job,
-        traits,
-        learningStyle,
-        depth,
-        topics,
-        interests,
-        schedule,
-        quizzes: data.quizzes,
-      };
-
-      return onboarding;
-    } catch (err) {
-      console.error("Error loading onboarding data:", err);
-      return null;
-    }
-  };
-
   useEffect(() => {
     setMounted(true);
-    if (isMobile) setCollapsed(true);
 
     async function fetchChapters() {
       try {
-        let url = "";
-        if (pfId) {
-          url = `http://localhost:8080/student/personalized-files/${pfId}`;
-        } else if (courseId) {
-          url = `http://localhost:8080/courses/${courseId}`;
-        } else {
-          console.warn("No courseId or pfId provided.");
+        if (!pfId) {
+          console.warn("No pfId provided.");
           return;
         }
 
+        const url = `http://localhost:8080/student/personalized-files/${pfId}`;
         const res = await fetch(url, {
           method: "GET",
           credentials: "include",
@@ -159,10 +105,8 @@ const Sidebar = ({
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
 
-        // Expecting { id, content }
         const content = data.content || data?.content?.chapters;
-        const parsed =
-          typeof content === "string" ? JSON.parse(content) : content;
+        const parsed = typeof content === "string" ? JSON.parse(content) : content;
 
         if (parsed?.chapters) {
           const formattedChapters: Chapter[] = parsed.chapters.map(
@@ -176,10 +120,7 @@ const Sidebar = ({
           );
 
           setChapters(formattedChapters);
-          console.log(
-            "Loaded personalized chapters with fullText:",
-            formattedChapters
-          );
+          console.log("Loaded personalized chapters:", formattedChapters);
         } else {
           console.warn("No chapters found in personalized file content.");
         }
@@ -189,21 +130,21 @@ const Sidebar = ({
     }
 
     fetchChapters();
-  }, [isMobile, courseId, pfId]);
+  }, [pfId]);
 
   const toggleSidebar = () => {
-    const newValue = !collapsed;
-    setCollapsed(newValue);
+    const newValue = !isCollapsed;
     onCollapseChange?.(newValue);
   };
 
-  const handleChatClick = async (title: string, fullText: string) => {
+  const handleLessonClick = async (title: string, fullText: string) => {
     onLoadingStart?.();
     setSelectedLesson(title);
     setCompletedLessons(prev => new Set([...prev, title]));
-    
-    // For now, just send the raw content
     onLessonSelect?.(title, fullText);
+    if (isMobile && onMobileClose) {
+      onMobileClose();
+    }
   };
 
   const handleSignOut = async () => {
@@ -222,23 +163,32 @@ const Sidebar = ({
 
   return (
     <TooltipProvider>
-      <div
+      <aside
         className={cn(
-          "h-full bg-gradient-to-b from-gray-900 via-blue-900 to-indigo-900 text-white transition-all duration-300 ease-in-out border-r border-gray-700/50 shadow-2xl",
-          collapsed ? "w-16" : "w-80",
+          "bg-white border-r border-gray-200 transition-all duration-300 ease-in-out shadow-sm z-50",
+          // Desktop positioning
+          "lg:fixed lg:inset-y-0 lg:left-0",
+          isCollapsed ? "lg:w-16" : "lg:w-80",
+          // Mobile positioning
+          isMobile 
+            ? cn(
+                "fixed inset-y-0 left-0 w-80",
+                isMobileOpen ? "translate-x-0" : "-translate-x-full"
+              )
+            : "",
           className
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700/50 bg-black/20">
-          {!collapsed && (
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50">
+          {!isCollapsed && (
             <div className="flex items-center space-x-3">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
-                <Brain className="h-5 w-5 text-white" />
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center shadow-lg">
+                <Brain className="h-4 w-4 text-white" />
               </div>
               <div>
-                <h1 className="font-bold text-lg">LINK-X Learn</h1>
-                <p className="text-xs text-blue-200">AI-Powered Learning</p>
+                <h1 className="canvas-heading-3">LINK-X Learn</h1>
+                <p className="text-xs text-purple-600 font-medium">AI-Enhanced Learning</p>
               </div>
             </div>
           )}
@@ -247,40 +197,44 @@ const Sidebar = ({
             variant="ghost"
             size="sm"
             onClick={toggleSidebar}
-            className="text-gray-300 hover:text-white hover:bg-white/10"
+            className="modern-hover sidebar-text-muted hover:sidebar-text"
           >
-            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
         </div>
 
         {/* Progress Overview */}
-        {!collapsed && (
-          <div className="p-4 border-b border-gray-700/50">
-            <Card className="bg-white/10 border-white/20 backdrop-blur-sm">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-white flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4" />
+        {!isCollapsed && (
+          <div className="p-4 border-b border-gray-200 bg-gray-50/50">
+            <Card className="canvas-card border-0 bg-white shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="canvas-small font-semibold text-gray-700 flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-blue-600" />
                   Learning Progress
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-300">Overall Progress</span>
-                    <span className="text-white font-medium">{Math.round(progressPercentage)}%</span>
+                    <span className="canvas-small text-gray-500">Overall Progress</span>
+                    <span className="canvas-small font-semibold text-gray-900">{Math.round(progressPercentage)}%</span>
                   </div>
                   <Progress 
                     value={progressPercentage} 
-                    className="h-2 bg-gray-700"
+                    className="h-2"
                   />
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="bg-white/10 rounded p-2 text-center">
-                      <div className="text-green-400 font-semibold">{completedLessons.size}</div>
-                      <div className="text-gray-300">Completed</div>
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-2 text-center">
+                      <div className="text-green-700 font-semibold">{completedLessons.size}</div>
+                      <div className="text-green-600">Done</div>
                     </div>
-                    <div className="bg-white/10 rounded p-2 text-center">
-                      <div className="text-blue-400 font-semibold">{totalLessons - completedLessons.size}</div>
-                      <div className="text-gray-300">Remaining</div>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 text-center">
+                      <div className="text-blue-700 font-semibold">{totalLessons - completedLessons.size}</div>
+                      <div className="text-blue-600">Todo</div>
+                    </div>
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-2 text-center">
+                      <div className="text-purple-700 font-semibold">{totalLessons}</div>
+                      <div className="text-purple-600">Total</div>
                     </div>
                   </div>
                 </div>
@@ -291,60 +245,69 @@ const Sidebar = ({
 
         {/* Navigation */}
         <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
+          <div className="p-3 space-y-2">
             {/* Quick Actions */}
-            {!collapsed && (
-              <div className="mb-4">
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">
+            {!isCollapsed && (
+              <div className="mb-6">
+                <h3 className="canvas-small font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">
                   Quick Actions
                 </h3>
                 <div className="space-y-1">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-full justify-start text-gray-300 hover:text-white hover:bg-white/10"
+                    className="w-full justify-start sidebar-text-muted hover:sidebar-text hover:sidebar-hover modern-hover"
+                    onClick={() => router.push('/dashboard')}
+                  >
+                    <Home className="h-4 w-4 mr-3" />
+                    Back to Dashboard
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start sidebar-text-muted hover:sidebar-text hover:sidebar-hover modern-hover"
                     onClick={() => router.push('/courses')}
                   >
-                    <Home className="h-4 w-4 mr-2" />
-                    Back to Courses
+                    <GraduationCap className="h-4 w-4 mr-3" />
+                    All Courses
                   </Button>
                 </div>
               </div>
             )}
 
             {/* Course Content */}
-            <div className="space-y-2">
-              {!collapsed && (
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-2">
+            <div className="space-y-3">
+              {!isCollapsed && (
+                <h3 className="canvas-small font-semibold text-gray-500 uppercase tracking-wider mb-4 px-2">
                   Course Content
                 </h3>
               )}
               
               {chapters.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  {!collapsed && (
+                <div className="text-center py-8">
+                  {!isCollapsed && (
                     <div>
-                      <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">Loading course content...</p>
+                      <FileText className="h-8 w-8 mx-auto mb-3 text-gray-400" />
+                      <p className="canvas-small text-gray-500">Loading course content...</p>
                     </div>
                   )}
                 </div>
               ) : (
                 chapters.map((chapter, chapterIndex) => (
-                  <div key={chapterIndex} className="space-y-1">
+                  <div key={chapterIndex} className="space-y-2">
                     {/* Chapter Header */}
                     <div className={cn(
-                      "px-3 py-2 rounded-lg bg-white/5 border border-white/10",
-                      !collapsed && "mb-2"
+                      "canvas-card bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 p-3 rounded-lg",
+                      !isCollapsed && "mb-2"
                     )}>
-                      <div className="flex items-center gap-2">
-                        <BookOpen className="h-4 w-4 text-blue-400 flex-shrink-0" />
-                        {!collapsed && (
-                          <div>
-                            <h4 className="font-medium text-white text-sm">
+                      <div className="flex items-center gap-3">
+                        <BookOpen className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                        {!isCollapsed && (
+                          <div className="flex-1">
+                            <h4 className="canvas-small font-semibold text-blue-700 line-clamp-2">
                               {chapter.chapterTitle}
                             </h4>
-                            <p className="text-xs text-gray-400">
+                            <p className="text-xs text-blue-600">
                               {chapter.subsections.length} lessons
                             </p>
                           </div>
@@ -359,39 +322,39 @@ const Sidebar = ({
                         const isSelected = selectedLesson === subsection.title;
                         
                         return (
-                          <Tooltip key={subsectionIndex} delayDuration={collapsed ? 0 : 1000}>
+                          <Tooltip key={subsectionIndex} delayDuration={isCollapsed ? 0 : 1000}>
                             <TooltipTrigger asChild>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleChatClick(subsection.title, subsection.fullText)}
+                                onClick={() => handleLessonClick(subsection.title, subsection.fullText)}
                                 className={cn(
-                                  "w-full transition-all duration-200 group",
-                                  collapsed ? "px-2 py-2" : "px-3 py-2 justify-start",
+                                  "w-full transition-all duration-200 group canvas-card border-0 shadow-none hover:shadow-sm",
+                                  isCollapsed ? "px-3 py-3" : "px-4 py-3 justify-start",
                                   isSelected 
-                                    ? "bg-blue-600 text-white shadow-lg" 
+                                    ? "bg-blue-600 text-white shadow-md hover:bg-blue-700" 
                                     : isCompleted
-                                    ? "bg-green-600/20 text-green-100 hover:bg-green-600/30"
-                                    : "text-gray-300 hover:text-white hover:bg-white/10"
+                                    ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                                    : "sidebar-text-muted hover:sidebar-text hover:sidebar-hover"
                                 )}
                               >
-                                <div className="flex items-center gap-2 w-full">
+                                <div className="flex items-center gap-3 w-full">
                                   {isCompleted ? (
-                                    <CheckCircle className="h-4 w-4 text-green-400 flex-shrink-0" />
+                                    <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
                                   ) : isSelected ? (
                                     <PlayCircle className="h-4 w-4 text-white flex-shrink-0" />
                                   ) : (
-                                    <div className="h-4 w-4 rounded-full border-2 border-gray-500 flex-shrink-0 group-hover:border-white transition-colors" />
+                                    <div className="h-4 w-4 rounded-full border-2 border-gray-400 flex-shrink-0 group-hover:border-blue-500 transition-colors" />
                                   )}
                                   
-                                  {!collapsed && (
+                                  {!isCollapsed && (
                                     <div className="flex-1 text-left">
-                                      <p className="text-sm font-medium truncate">
+                                      <p className="canvas-small font-medium line-clamp-2 leading-relaxed">
                                         {subsection.title}
                                       </p>
                                       {isCompleted && (
-                                        <Badge variant="secondary" className="mt-1 bg-green-500/20 text-green-300 text-xs">
-                                          Completed
+                                        <Badge variant="secondary" className="mt-1 bg-green-100 text-green-700 text-xs">
+                                          ✓ Completed
                                         </Badge>
                                       )}
                                     </div>
@@ -399,10 +362,10 @@ const Sidebar = ({
                                 </div>
                               </Button>
                             </TooltipTrigger>
-                            {collapsed && (
+                            {isCollapsed && (
                               <TooltipContent side="right" className="max-w-xs">
                                 <p className="font-medium">{subsection.title}</p>
-                                <p className="text-xs text-gray-400">From: {chapter.chapterTitle}</p>
+                                <p className="text-xs text-gray-500">From: {chapter.chapterTitle}</p>
                               </TooltipContent>
                             )}
                           </Tooltip>
@@ -417,17 +380,17 @@ const Sidebar = ({
         </ScrollArea>
 
         {/* Footer */}
-        <div className="border-t border-gray-700/50 p-4 bg-black/20">
-          {!collapsed ? (
+        <div className="border-t border-gray-200 p-4 bg-gray-50/50">
+          {!isCollapsed ? (
             <div className="space-y-3">
               {/* User Profile */}
               <div className="flex items-center gap-3">
                 <Avatar />
                 <div className="flex-1">
-                  <p className="font-medium text-white text-sm">Learning Mode</p>
+                  <p className="canvas-small font-medium sidebar-text">Learning Mode</p>
                   <div className="flex items-center gap-1">
-                    <Sparkles className="h-3 w-3 text-purple-400" />
-                    <span className="text-xs text-purple-300">AI Enhanced</span>
+                    <Sparkles className="h-3 w-3 text-purple-500" />
+                    <span className="text-xs text-purple-600 font-medium">AI Enhanced</span>
                   </div>
                 </div>
               </div>
@@ -439,7 +402,8 @@ const Sidebar = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="flex-1 text-gray-300 hover:text-white hover:bg-white/10"
+                      className="flex-1 sidebar-text-muted hover:sidebar-text hover:sidebar-hover modern-hover"
+                      onClick={() => router.push('/settings')}
                     >
                       <Settings className="h-4 w-4" />
                     </Button>
@@ -452,7 +416,7 @@ const Sidebar = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="flex-1 text-gray-300 hover:text-white hover:bg-white/10"
+                      className="flex-1 sidebar-text-muted hover:sidebar-text hover:sidebar-hover modern-hover"
                     >
                       <Bell className="h-4 w-4" />
                     </Button>
@@ -466,7 +430,7 @@ const Sidebar = ({
                       variant="ghost"
                       size="sm"
                       onClick={handleSignOut}
-                      className="flex-1 text-gray-300 hover:text-red-400 hover:bg-red-500/10"
+                      className="flex-1 sidebar-text-muted hover:text-red-600 hover:bg-red-50 modern-hover"
                     >
                       <LogOut className="h-4 w-4" />
                     </Button>
@@ -482,7 +446,8 @@ const Sidebar = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-full text-gray-300 hover:text-white hover:bg-white/10"
+                    className="w-full sidebar-text-muted hover:sidebar-text hover:sidebar-hover modern-hover"
+                    onClick={() => router.push('/settings')}
                   >
                     <Settings className="h-4 w-4" />
                   </Button>
@@ -496,7 +461,7 @@ const Sidebar = ({
                     variant="ghost"
                     size="sm"
                     onClick={handleSignOut}
-                    className="w-full text-gray-300 hover:text-red-400 hover:bg-red-500/10"
+                    className="w-full sidebar-text-muted hover:text-red-600 hover:bg-red-50 modern-hover"
                   >
                     <LogOut className="h-4 w-4" />
                   </Button>
@@ -506,9 +471,9 @@ const Sidebar = ({
             </div>
           )}
         </div>
-      </div>
+      </aside>
     </TooltipProvider>
   );
 };
 
-export default Sidebar;
+export default ModernLearnSidebar; 

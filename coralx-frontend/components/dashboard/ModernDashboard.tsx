@@ -140,10 +140,129 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
     }
   };
 
-  // Load real data from API
+  // Load real data from API and initialize todo/activity from localStorage
   useEffect(() => {
     loadCourses();
+    loadTodoItems();
+    loadRecentActivity();
   }, [userRole]);
+
+  // Load todo items from localStorage
+  const loadTodoItems = () => {
+    try {
+      const saved = localStorage.getItem('linkx-todo-items');
+      if (saved) {
+        setTodoItems(JSON.parse(saved));
+      } else {
+        // Initialize with sample items
+        const sampleTodos: TodoItem[] = [
+          {
+            id: "1",
+            title: "Complete Machine Learning Quiz",
+            course: "CS 101",
+            dueDate: "Tomorrow",
+            type: "quiz",
+            priority: "high"
+          },
+          {
+            id: "2", 
+            title: "Review Chapter 5 Notes",
+            course: "Physics 201",
+            dueDate: "Friday",
+            type: "reading",
+            priority: "medium"
+          }
+        ];
+        setTodoItems(sampleTodos);
+        localStorage.setItem('linkx-todo-items', JSON.stringify(sampleTodos));
+      }
+    } catch (error) {
+      console.error('Error loading todo items:', error);
+    }
+  };
+
+  // Load recent activity from localStorage  
+  const loadRecentActivity = () => {
+    try {
+      const saved = localStorage.getItem('linkx-recent-activity');
+      if (saved) {
+        setRecentActivity(JSON.parse(saved));
+      } else {
+        // Initialize with sample activities
+        const sampleActivities: RecentActivity[] = [
+          {
+            id: "1",
+            type: "upload",
+            course: "CS 101", 
+            title: "Uploaded assignment solution",
+            timestamp: "2 hours ago"
+          },
+          {
+            id: "2",
+            type: "quiz",
+            course: "Physics 201",
+            title: "Completed Chapter 4 Quiz",
+            timestamp: "1 day ago"
+          }
+        ];
+        setRecentActivity(sampleActivities);
+        localStorage.setItem('linkx-recent-activity', JSON.stringify(sampleActivities));
+      }
+    } catch (error) {
+      console.error('Error loading recent activity:', error);
+    }
+  };
+
+  // Function to add new todo item
+  const addTodoItem = () => {
+    if (!newTodoTitle.trim()) return;
+
+    const newItem: TodoItem = {
+      id: Date.now().toString(),
+      title: newTodoTitle,
+      course: newTodoCourse || "General",
+      dueDate: "Added just now",
+      type: newTodoType,
+      priority: newTodoPriority
+    };
+
+    const updatedTodos = [newItem, ...todoItems];
+    setTodoItems(updatedTodos);
+    localStorage.setItem('linkx-todo-items', JSON.stringify(updatedTodos));
+    
+    // Clear form
+    setNewTodoTitle("");
+    setNewTodoCourse("");
+    setShowAddTodo(false);
+    
+    // Add to recent activity
+    addActivity("completion", newTodoCourse || "General", `Added new task: ${newTodoTitle}`);
+    
+    sonnerToast.success("Todo item added successfully!");
+  };
+
+  // Function to remove todo item
+  const removeTodoItem = (id: string) => {
+    const updatedTodos = todoItems.filter(item => item.id !== id);
+    setTodoItems(updatedTodos);
+    localStorage.setItem('linkx-todo-items', JSON.stringify(updatedTodos));
+    sonnerToast.success("Todo item completed!");
+  };
+
+  // Function to add activity 
+  const addActivity = (type: RecentActivity["type"], course: string, title: string) => {
+    const newActivity: RecentActivity = {
+      id: Date.now().toString(),
+      type,
+      course,
+      title,
+      timestamp: "Just now"
+    };
+
+    const updatedActivity = [newActivity, ...recentActivity.slice(0, 9)]; // Keep only 10 items
+    setRecentActivity(updatedActivity);
+    localStorage.setItem('linkx-recent-activity', JSON.stringify(updatedActivity));
+  };
 
   // Helper function to format relative time
   const formatRelativeTime = (dateString: string) => {
@@ -197,16 +316,22 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
 
   const handleUpload = (courseId: string) => {
     // Handle file upload
-    console.log("Upload for course:", courseId);
+    const course = realCourses.find(c => c.id === courseId);
+    addActivity("upload", course?.title || "Unknown Course", "Uploaded new material");
+    router.push(`/courses/${courseId}?tab=materials`);
   };
 
   const handleAIChat = (courseId: string) => {
     // Handle AI chat
+    const course = realCourses.find(c => c.id === courseId);
+    addActivity("ai_chat", course?.title || "Unknown Course", "Started AI chat session");
     router.push(`/courses/${courseId}?tab=ai`);
   };
 
   const handleQuiz = (courseId: string) => {
     // Handle quiz generation
+    const course = realCourses.find(c => c.id === courseId);
+    addActivity("quiz", course?.title || "Unknown Course", "Generated new quiz");
     router.push(`/courses/${courseId}?tab=quiz`);
   };
 
@@ -407,37 +532,111 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
               {/* To Do List - Cleaner design */}
               <Card className="canvas-card gradient-hover">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shadow-md">
-                      <Calendar className="h-4 w-4 text-white" />
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shadow-md">
+                        <Calendar className="h-4 w-4 text-white" />
+                      </div>
+                      To Do
                     </div>
-                    To Do
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => setShowAddTodo(!showAddTodo)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {todoItems.map((item) => {
-                      const IconComponent = getTodoIcon(item.type);
-                      return (
-                        <div
-                          key={item.id}
-                          className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-all duration-200 cursor-pointer modern-hover"
-                        >
-                          <IconComponent className={cn("h-4 w-4 mt-0.5", getPriorityColor(item.priority))} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium sidebar-text truncate">
-                              {item.title}
-                            </p>
-                            <p className="text-xs sidebar-text-muted">
-                              {item.course} • {item.dueDate}
-                            </p>
-                          </div>
-                          <Badge variant="outline" className="text-xs">
-                            {item.priority}
-                          </Badge>
+                  {/* Add Todo Form */}
+                  {showAddTodo && (
+                    <div className="mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50">
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="What needs to be done?"
+                          value={newTodoTitle}
+                          onChange={(e) => setNewTodoTitle(e.target.value)}
+                          className="text-sm"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            placeholder="Course (optional)"
+                            value={newTodoCourse}
+                            onChange={(e) => setNewTodoCourse(e.target.value)}
+                            className="text-sm"
+                          />
+                          <select 
+                            value={newTodoPriority}
+                            onChange={(e) => setNewTodoPriority(e.target.value as "high" | "medium" | "low")}
+                            className="text-sm border border-gray-300 rounded-md px-2 py-1"
+                          >
+                            <option value="low">Low Priority</option>
+                            <option value="medium">Medium Priority</option>
+                            <option value="high">High Priority</option>
+                          </select>
                         </div>
-                      );
-                    })}
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            onClick={addTodoItem}
+                            className="bg-blue-600 hover:bg-blue-700"
+                          >
+                            <Check className="h-3 w-3 mr-1" />
+                            Add
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => setShowAddTodo(false)}
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="space-y-3">
+                    {todoItems.length === 0 ? (
+                      <div className="text-center py-4 text-gray-500">
+                        <p className="text-sm">No tasks yet!</p>
+                        <p className="text-xs">Add your first task above</p>
+                      </div>
+                    ) : (
+                      todoItems.map((item) => {
+                        const IconComponent = getTodoIcon(item.type);
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-all duration-200 modern-hover group"
+                          >
+                            <IconComponent className={cn("h-4 w-4 mt-0.5", getPriorityColor(item.priority))} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium sidebar-text truncate">
+                                {item.title}
+                              </p>
+                              <p className="text-xs sidebar-text-muted">
+                                {item.course} • {item.dueDate}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="text-xs">
+                              {item.priority}
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => removeTodoItem(item.id)}
+                              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Check className="h-3 w-3 text-green-600" />
+                            </Button>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -454,20 +653,27 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {recentActivity.map((activity) => {
-                      const IconComponent = getActivityIcon(activity.type);
-                      return (
-                        <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-all duration-200 modern-hover">
-                          <IconComponent className="h-4 w-4 text-gray-600 mt-0.5" />
-                          <div className="flex-1">
-                            <p className="text-sm sidebar-text">{activity.title}</p>
-                            <p className="text-xs sidebar-text-muted">
-                              {activity.course} • {activity.timestamp}
-                            </p>
+                    {recentActivity.length === 0 ? (
+                      <div className="text-center py-4 text-gray-500">
+                        <p className="text-sm">No recent activity</p>
+                        <p className="text-xs">Your actions will appear here</p>
+                      </div>
+                    ) : (
+                      recentActivity.map((activity) => {
+                        const IconComponent = getActivityIcon(activity.type);
+                        return (
+                          <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-all duration-200 modern-hover">
+                            <IconComponent className="h-4 w-4 text-gray-600 mt-0.5" />
+                            <div className="flex-1">
+                              <p className="text-sm sidebar-text">{activity.title}</p>
+                              <p className="text-xs sidebar-text-muted">
+                                {activity.course} • {activity.timestamp}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })
+                    )}
                   </div>
                 </CardContent>
               </Card>

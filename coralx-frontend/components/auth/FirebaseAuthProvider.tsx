@@ -104,7 +104,7 @@ export function FirebaseAuthProvider({ children }: FirebaseAuthProviderProps) {
         // Add auth domain iframe for development environments
         const iframe = document.createElement('iframe');
         iframe.style.display = 'none';
-        iframe.src = 'https://link-x-7826d.firebaseapp.com/__/auth/iframe';
+        iframe.src = 'https://learn-x-757f8.firebaseapp.com/__/auth/iframe';
         document.body.appendChild(iframe);
 
         // Also add localhost to authorized domains via iframe
