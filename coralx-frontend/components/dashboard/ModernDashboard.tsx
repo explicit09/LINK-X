@@ -375,7 +375,7 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex">
+    <div className="h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex overflow-hidden">
       <ModernSidebar
         userRole={userRole}
         onCollapseChange={setIsCollapsed}
@@ -383,9 +383,9 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
         currentUser={currentUser}
       />
       
-      <div className={cn("flex-1 transition-all duration-300", isCollapsed ? "ml-16" : "ml-64")}>
+      <div className={cn("flex-1 transition-all duration-300 flex flex-col overflow-hidden", isCollapsed ? "ml-16" : "ml-64")}>
         {/* Top Header - Reduced gradient usage */}
-        <div className="bg-white border-b border-gray-200">
+        <div className="bg-white border-b border-gray-200 flex-shrink-0">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
@@ -432,7 +432,7 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
           </div>
         </div>
 
-        <main className="p-6">
+        <main className="p-6 flex-1 overflow-y-auto">
           {/* Stats with cleaner design - flat colors with subtle shadows */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <Card className="canvas-card modern-hover">
@@ -599,14 +599,14 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
                     </div>
                   )}
                   
-                  <div className="space-y-3">
+                  <div className="space-y-3 max-h-32 overflow-y-auto">
                     {todoItems.length === 0 ? (
                       <div className="text-center py-4 text-gray-500">
                         <p className="text-sm">No tasks yet!</p>
                         <p className="text-xs">Add your first task above</p>
                       </div>
                     ) : (
-                      todoItems.map((item) => {
+                      todoItems.slice(0, 2).map((item) => {
                         const IconComponent = getTodoIcon(item.type);
                         return (
                           <div
@@ -652,14 +652,14 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
+                  <div className="space-y-3 max-h-40 overflow-y-auto">
                     {recentActivity.length === 0 ? (
                       <div className="text-center py-4 text-gray-500">
                         <p className="text-sm">No recent activity</p>
                         <p className="text-xs">Your actions will appear here</p>
                       </div>
                     ) : (
-                      recentActivity.map((activity) => {
+                      recentActivity.slice(0, 3).map((activity) => {
                         const IconComponent = getActivityIcon(activity.type);
                         return (
                           <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-all duration-200 modern-hover">
