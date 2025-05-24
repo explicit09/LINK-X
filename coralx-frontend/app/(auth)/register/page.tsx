@@ -16,7 +16,6 @@ import { SubmitButton } from "@/components/submit-button";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import Header from "@/components/link-x/Header";
 
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/firebaseconfig";
@@ -201,107 +200,171 @@ export default function Page() {
   };
 
   return (
-    <div className="flex h-dvh w-screen items-start pt-12 md:pt-0 md:items-center justify-center bg-background">
-      <Header isLoggedIn={false} showAuthButton={false} />
-      <div className="w-full max-w-md overflow-hidden rounded-2xl gap-12 flex flex-col">
-        <div className="flex flex-col items-center justify-center gap-2 px-4 text-center sm:px-16">
-          <h3 className="text-xl font-semibold dark:text-blue-400">Sign Up</h3>
-          <p className="text-sm text-gray-500 dark:text-zinc-400">
-            Create your account to get started
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white flex items-center justify-center px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md">
+        {/* Logo & Header */}
+        <div className="mb-8 text-center">
+          <img
+            src="/images/LearnXLogo.png"
+            alt="LEARN-X"
+            className="h-12 w-auto mx-auto mb-6"
+          />
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Create your account</h1>
+          <p className="text-gray-600">Start your learning journey today</p>
         </div>
 
-        <div className="space-y-4 px-4 sm:px-16">
-          {/* Google Sign Up */}
-          <GoogleAuthButton mode="register" disabled={state === "in_progress"} />
-          
-          {/* Divider */}
-          <div className="flex items-center gap-4 py-2">
-            <div className="flex-1 border-t border-gray-200 dark:border-zinc-700"></div>
-            <span className="text-sm text-gray-500 dark:text-zinc-400">or</span>
-            <div className="flex-1 border-t border-gray-200 dark:border-zinc-700"></div>
-          </div>
+        {/* Register Card */}
+        <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
+          <div className="space-y-5">
+            {/* Primary CTA - Google Sign Up */}
+            <GoogleAuthButton 
+              mode="register" 
+              disabled={state === "in_progress"}
+            />
+            
+            {/* Visual Divider */}
+            <div className="my-4 border-t border-gray-200"></div>
 
-          {/* Email/Password Form */}
-          <AuthForm action={handleSubmit} defaultEmail={email}>
-          <div className="flex flex-col gap-2">
-            <Label
-              htmlFor="studentOrEducator"
-              className="text-zinc-600 font-normal dark:text-zinc-400"
-            >
-              I am a
-            </Label>
-            <Select onValueChange={handleChange}>
-              <SelectTrigger
-                id="studentOrEducator"
-                className="bg-muted text-md md:text-sm h-10"
+            {/* Registration Form */}
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              await handleSubmit(formData);
+            }} className="space-y-5">
+              {/* Role Selection */}
+              <div className="space-y-2">
+                <Label
+                  htmlFor="studentOrEducator"
+                  className="text-sm font-medium text-gray-900"
+                >
+                  I am a
+                </Label>
+                <Select onValueChange={handleChange} defaultValue="student">
+                  <SelectTrigger
+                    id="studentOrEducator"
+                    className="h-12 px-3 text-base border-gray-300 rounded-lg bg-white transition-colors focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo focus:ring-opacity-20 focus:outline-none"
+                  >
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border border-gray-300 rounded-lg shadow-lg">
+                    <SelectItem value="student">Student</SelectItem>
+                    <SelectItem value="instructor">Educator</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Instructor-specific fields */}
+              {role === "instructor" && (
+                <>
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="name"
+                      className="text-sm font-medium text-gray-900"
+                    >
+                      Full Name
+                    </Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      className="h-12 px-3 text-base border-gray-300 rounded-lg bg-white placeholder-gray-400 transition-colors focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo focus:ring-opacity-20 focus:outline-none"
+                      type="text"
+                      placeholder="Enter your full name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="university"
+                      className="text-sm font-medium text-gray-900"
+                    >
+                      University Name
+                    </Label>
+                    <Input
+                      id="university"
+                      name="university"
+                      className="h-12 px-3 text-base border-gray-300 rounded-lg bg-white placeholder-gray-400 transition-colors focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo focus:ring-opacity-20 focus:outline-none"
+                      type="text"
+                      placeholder="Enter your university name"
+                      value={university}
+                      onChange={(e) => setUniversity(e.target.value)}
+                      required
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Email Field */}
+              <div className="space-y-2">
+                <Label
+                  htmlFor="email"
+                  className="text-sm font-medium text-gray-900"
+                >
+                  Email Address
+                </Label>
+                <Input
+                  id="email"
+                  name="email"
+                  className="h-12 px-3 text-base border-gray-300 rounded-lg bg-white placeholder-gray-400 transition-colors focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo focus:ring-opacity-20 focus:outline-none"
+                  type="email"
+                  placeholder="Enter your email"
+                  autoComplete="email"
+                  required
+                  defaultValue={email}
+                />
+              </div>
+
+              {/* Password Field */}
+              <div className="space-y-2">
+                <Label
+                  htmlFor="password"
+                  className="text-sm font-medium text-gray-900"
+                >
+                  Password
+                </Label>
+                <Input
+                  id="password"
+                  name="password"
+                  className="h-12 px-3 text-base border-gray-300 rounded-lg bg-white placeholder-gray-400 transition-colors focus:border-brand-indigo focus:ring-2 focus:ring-brand-indigo focus:ring-opacity-20 focus:outline-none"
+                  type="password"
+                  placeholder="Enter your password"
+                  required
+                />
+                
+                {/* Inline Security Note */}
+                <div className="flex items-center space-x-1 text-xs text-gray-500 mt-1">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                  </svg>
+                  <span>Encrypted</span>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={state === "in_progress" || state === "success"}
+                  className="w-full h-12 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="text-base">
+                    {state === "in_progress" ? "Creating account..." : "Sign up"}
+                  </span>
+                </button>
+              </div>
+            </form>
+
+            {/* Secondary Actions */}
+            <div className="text-center text-sm text-gray-600 pt-2">
+              Already have an account?{" "}
+              <Link
+                href="/login"
+                className="font-semibold text-brand-indigo hover:text-brand-navy transition-colors"
               >
-                <SelectValue placeholder="Select role" />
-              </SelectTrigger>
-              <SelectContent className="bg-white border border-input text-sm rounded-md shadow-md">
-                <SelectItem value="student">Student</SelectItem>
-                <SelectItem value="instructor">Educator</SelectItem>
-              </SelectContent>
-            </Select>
+                Sign in
+              </Link>
+            </div>
           </div>
-
-          {/* ✅ Show these fields ONLY if Educator selected */}
-          {role === "instructor" && (
-            <>
-              <div className="flex flex-col gap-2">
-                <Label
-                  htmlFor="name"
-                  className="text-zinc-600 font-normal dark:text-zinc-400"
-                >
-                  Full Name
-                </Label>
-                <Input
-                  id="name"
-                  name="name"
-                  className="bg-muted text-md md:text-sm"
-                  type="text"
-                  placeholder="Enter your full name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label
-                  htmlFor="university"
-                  className="text-zinc-600 font-normal dark:text-zinc-400"
-                >
-                  University Name
-                </Label>
-                <Input
-                  id="university"
-                  name="university"
-                  className="bg-muted text-md md:text-sm"
-                  type="text"
-                  placeholder="Enter your university name"
-                  value={university}
-                  onChange={(e) => setUniversity(e.target.value)}
-                  required
-                />
-              </div>
-            </>
-          )}
-
-          <SubmitButton isSuccessful={state === "success"}>
-            Sign Up
-          </SubmitButton>
-
-          <p className="text-center text-sm text-gray-600 mt-4 dark:text-zinc-400">
-            Already have an account?{" "}
-            <Link
-              href="/login"
-              className="font-semibold text-blue-400 hover:underline dark:text-blue-400"
-            >
-              Sign in
-            </Link>
-            {" instead."}
-          </p>
-        </AuthForm>
         </div>
       </div>
     </div>
