@@ -10,7 +10,7 @@ import numpy as np
 import tempfile
 import shutil
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 import firebase_admin
@@ -2553,6 +2553,336 @@ def check_personalized_file_exists(file_id):
     except Exception as e:
         db.close()
         return jsonify({'error': str(e)}), 500
+
+# Add dashboard stats and activity tracking endpoints
+@app.route('/student/dashboard/stats', methods=['GET'])
+def student_dashboard_stats():
+    user_id, err = verify_student()
+    if err:
+        return err
+    
+    db = Session()
+    try:
+        # Calculate AI interactions from real data
+        # Get AI chats/interactions from personalized file views
+        ai_interactions_count = db.query(PersonalizedFile).filter(
+            PersonalizedFile.user_id == user_id
+        ).count()
+        
+        # Get additional AI interactions from file views (both raw and personalized)
+        student_files_query = db.query(File).join(Module).join(Course).join(Enrollment).filter(
+            Enrollment.user_id == user_id
+        )
+        
+        ai_chat_interactions = 0
+        personalized_view_count = 0
+        for file in student_files_query.all():
+            personalized_view_count += file.view_count_personalized
+            ai_chat_interactions += file.view_count_personalized  # Each personalized view is an AI interaction
+        
+        total_ai_interactions = ai_interactions_count + ai_chat_interactions
+        
+        # Calculate weekly study time based on recent activity
+        week_ago = datetime.now() - timedelta(days=7)
+        
+        # Count activities from the last week
+        recent_files_viewed = db.query(File).join(Module).join(Course).join(Enrollment).filter(
+            Enrollment.user_id == user_id,
+            File.created_at >= week_ago
+        ).count()
+        
+        recent_personalized_files = db.query(PersonalizedFile).filter(
+            PersonalizedFile.user_id == user_id,
+            PersonalizedFile.created_at >= week_ago
+        ).count()
+        
+        # Estimate time: 20 minutes per file viewed, 45 minutes per personalized session
+        estimated_hours = (recent_files_viewed * 20 + recent_personalized_files * 45) / 60
+        weekly_hours = round(max(estimated_hours, 0.1), 1)  # At least 0.1h if any activity
+        
+        return jsonify({
+            'aiInteractions': total_ai_interactions,
+            'weeklyHours': weekly_hours,
+            'personalizedFilesCount': ai_interactions_count,
+            'fileViewsThisWeek': recent_files_viewed
+        }), 200
+        
+    except Exception as e:
+        print(f"Dashboard stats error: {str(e)}")
+        return jsonify({'error': 'Failed to calculate dashboard stats'}), 500
+    finally:
+        db.close()
+
+@app.route('/student/courses/<course_id>/progress', methods=['GET'])
+def student_course_progress(course_id):
+    user_id, err = verify_student()
+    if err:
+        return err
+    
+    db = Session()
+    try:
+        # Verify student is enrolled in the course
+        enrollment = get_enrollment_by_student_course(db, user_id, course_id)
+        if not enrollment:
+            return jsonify({'error': 'Not enrolled in this course'}), 403
+        
+        # Get all course files/materials
+        course_files = db.query(File).join(Module).filter(
+            Module.course_id == course_id
+        ).all()
+        
+        total_materials = len(course_files)
+        
+        # Count viewed materials (both raw and personalized views)
+        viewed_materials = 0
+        personalized_materials = 0
+        today_time_minutes = 0
+        weekly_time_minutes = 0
+        
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        week_start = datetime.now() - timedelta(days=7)
+        
+        for file in course_files:
+            # Count as viewed if either raw or personalized views > 0
+            if file.view_count_raw > 0 or file.view_count_personalized > 0:
+                viewed_materials += 1
+            
+            # Count personalized materials
+            if file.view_count_personalized > 0:
+                personalized_materials += 1
+                
+        # Get personalized files for this course to estimate time
+        course_personalized_files = db.query(PersonalizedFile).join(File).join(Module).filter(
+            PersonalizedFile.user_id == user_id,
+            Module.course_id == course_id
+        ).all()
+        
+        # Estimate time based on activity
+        for pf in course_personalized_files:
+            # Each personalized file represents ~30-45 minutes of learning
+            weekly_time_minutes += 35
+            
+            # If created today, add to today's time
+            if pf.created_at >= today_start:
+                today_time_minutes += 35
+        
+        # Add time for regular file views (estimate 10 minutes per view)
+        for file in course_files:
+            weekly_views_raw = file.view_count_raw  # We don't have timestamps, so use total
+            if week_start:  # Rough estimate for weekly activity
+                weekly_time_minutes += min(weekly_views_raw * 10, 60)  # Cap at 60 mins per file
+        
+        # Calculate progress percentage
+        progress_percentage = round((viewed_materials / total_materials) * 100) if total_materials > 0 else 0
+        
+        return jsonify({
+            'totalMaterials': total_materials,
+            'viewedMaterials': viewed_materials,
+            'personalizedMaterials': personalized_materials,
+            'progressPercentage': progress_percentage,
+            'todayTimeMinutes': min(today_time_minutes, 120),  # Cap at 2 hours
+            'weeklyTimeMinutes': min(weekly_time_minutes, 600),  # Cap at 10 hours
+            'aiInteractions': personalized_materials  # Each personalized file is an AI interaction
+        }), 200
+        
+    except Exception as e:
+        print(f"Course progress error: {str(e)}")
+        return jsonify({'error': 'Failed to calculate course progress'}), 500
+    finally:
+        db.close()
+
+@app.route('/student/activity/log', methods=['POST'])
+def log_student_activity():
+    """Log student activity for better time tracking"""
+    user_id, err = verify_student()
+    if err:
+        return err
+    
+    data = request.get_json()
+    activity_type = data.get('type')  # 'file_view', 'ai_chat', 'quiz', 'upload'
+    file_id = data.get('fileId')
+    course_id = data.get('courseId')
+    duration_minutes = data.get('durationMinutes', 0)
+    
+    db = Session()
+    try:
+        # For now, we'll increment view counts on files
+        # In the future, you could create a separate ActivityLog table
+        
+        if activity_type == 'file_view' and file_id:
+            file = get_file_by_id(db, file_id)
+            if file:
+                file.view_count_raw += 1
+                db.commit()
+                
+        elif activity_type == 'personalized_view' and file_id:
+            file = get_file_by_id(db, file_id)
+            if file:
+                file.view_count_personalized += 1
+                db.commit()
+        
+        return jsonify({'status': 'logged'}), 200
+        
+    except Exception as e:
+        print(f"Activity logging error: {str(e)}")
+        return jsonify({'error': 'Failed to log activity'}), 500
+    finally:
+        db.close()
+
+@app.route('/student/recent-activities', methods=['GET'])
+def get_student_recent_activities():
+    """Get recent activities for a student based on real data"""
+    user_id, err = verify_student()
+    if err:
+        return err
+    
+    db = Session()
+    try:
+        activities = []
+        
+        # Get recent file uploads from enrolled courses
+        recent_files = db.query(File).join(Module).join(Course).join(Enrollment).filter(
+            Enrollment.user_id == user_id,
+            File.created_at >= datetime.now() - timedelta(days=7)
+        ).order_by(File.created_at.desc()).limit(5).all()
+        
+        for file in recent_files:
+            activities.append({
+                'id': str(file.id),
+                'type': 'upload',
+                'course': file.module.course.title,
+                'title': f"New material: {file.title}",
+                'timestamp': file.created_at.isoformat()
+            })
+        
+        # Get recent personalized files (AI interactions)
+        recent_personalized = db.query(PersonalizedFile).filter(
+            PersonalizedFile.user_id == user_id,
+            PersonalizedFile.created_at >= datetime.now() - timedelta(days=7)
+        ).order_by(PersonalizedFile.created_at.desc()).limit(5).all()
+        
+        for pf in recent_personalized:
+            if pf.original_file:
+                activities.append({
+                    'id': str(pf.id),
+                    'type': 'ai_chat',
+                    'course': pf.original_file.module.course.title,
+                    'title': f"AI interaction with {pf.original_file.title}",
+                    'timestamp': pf.created_at.isoformat()
+                })
+        
+        # Get recent chat messages
+        recent_chats = db.query(Chat).filter(
+            Chat.user_id == user_id,
+            Chat.created_at >= datetime.now() - timedelta(days=7)
+        ).order_by(Chat.created_at.desc()).limit(3).all()
+        
+        for chat in recent_chats:
+            activities.append({
+                'id': str(chat.id),
+                'type': 'ai_chat',
+                'course': 'General',
+                'title': f"AI chat: {chat.title[:50]}...",
+                'timestamp': chat.created_at.isoformat()
+            })
+        
+        # Sort all activities by timestamp and limit to 10
+        activities.sort(key=lambda x: x['timestamp'], reverse=True)
+        return jsonify(activities[:10]), 200
+        
+    except Exception as e:
+        print(f"Recent activities error: {str(e)}")
+        return jsonify({'error': 'Failed to load recent activities'}), 500
+    finally:
+        db.close()
+
+@app.route('/student/todo-items', methods=['GET', 'POST'])
+def student_todo_items():
+    """Get or create todo items for student"""
+    user_id, err = verify_student()
+    if err:
+        return err
+    
+    db = Session()
+    try:
+        if request.method == 'GET':
+            # Generate real todo items based on course materials and activities
+            todo_items = []
+            
+            # Get courses student is enrolled in
+            enrollments = get_enrollments_by_student(db, user_id)
+            
+            for enrollment in enrollments:
+                course = get_course_by_id(db, enrollment.course_id)
+                if not course:
+                    continue
+                    
+                # Get unprocessed files as review items
+                modules = get_modules_by_course(db, course.id)
+                unreviewed_count = 0
+                total_files = 0
+                
+                for module in modules:
+                    files = get_files_by_module(db, module.id)
+                    for file in files:
+                        total_files += 1
+                        # Count files that haven't been viewed much
+                        if file.view_count_raw == 0 and file.view_count_personalized == 0:
+                            unreviewed_count += 1
+                
+                # Only create todo if there are multiple unreviewed files (3+)
+                if unreviewed_count >= 3:
+                    todo_items.append({
+                        'id': f"review-{course.id}",
+                        'title': f"Review {unreviewed_count} new materials",
+                        'course': course.title,
+                        'dueDate': "This week",
+                        'type': 'reading',
+                        'priority': 'medium'
+                    })
+                
+                # Check for files with AI interactions that could use follow-up
+                personalized_files = db.query(PersonalizedFile).join(File).join(Module).filter(
+                    PersonalizedFile.user_id == user_id,
+                    Module.course_id == course.id,
+                    PersonalizedFile.created_at >= datetime.now() - timedelta(days=3)
+                ).count()
+                
+                # Only suggest practice if there's meaningful AI interaction
+                if personalized_files >= 2:
+                    todo_items.append({
+                        'id': f"practice-{course.id}",
+                        'title': f"Practice questions for {course.title}",
+                        'course': course.title,
+                        'dueDate': "Soon",
+                        'type': 'quiz',
+                        'priority': 'high'
+                    })
+            
+            # If no real todos, provide helpful suggestions
+            if not todo_items:
+                todo_items = [
+                    {
+                        'id': 'explore-courses',
+                        'title': 'Explore your course materials',
+                        'course': 'Getting Started',
+                        'dueDate': 'Today',
+                        'type': 'reading',
+                        'priority': 'medium'
+                    }
+                ]
+            
+            return jsonify(todo_items), 200
+            
+        elif request.method == 'POST':
+            # For now, just return success - in future could save custom todos
+            return jsonify({'message': 'Todo functionality coming soon'}), 200
+            
+    except Exception as e:
+        print(f"Todo items error: {str(e)}")
+        return jsonify({'error': 'Failed to load todo items'}), 500
+    finally:
+        db.close()
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8080))

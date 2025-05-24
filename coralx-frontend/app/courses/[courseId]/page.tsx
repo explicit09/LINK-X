@@ -176,22 +176,16 @@ export default function CoursePage() {
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
   const [useAdvancedUpload, setUseAdvancedUpload] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('[data-dropdown="continue-actions"]')) {
-        setDropdownOpen(false);
-      }
-    };
+  const [courseProgress, setCourseProgress] = useState({
+    completedMaterials: 0,
+    totalMaterials: 0,
+    weeklyTimeMinutes: 0,
+    todayTimeMinutes: 0,
+    progressPercentage: 0
+  });
 
-    if (dropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [dropdownOpen]);
+
 
   // Load real data from API
   useEffect(() => {
@@ -375,6 +369,53 @@ export default function CoursePage() {
         setMaterials(transformedMaterials);
         setConversations(conversations);
         setQuizzes(quizzes);
+
+        // Load real course progress from API
+        let realProgress = {
+          completedMaterials: 0,
+          totalMaterials: transformedMaterials.length,
+          weeklyTimeMinutes: 0,
+          todayTimeMinutes: 0,
+          progressPercentage: 0
+        };
+        
+        try {
+          if (user.role === "student") {
+            const progressData = await studentAPI.getCourseProgress(courseId);
+            realProgress = {
+              completedMaterials: progressData.viewedMaterials || 0,
+              totalMaterials: progressData.totalMaterials || transformedMaterials.length,
+              weeklyTimeMinutes: progressData.weeklyTimeMinutes || 0,
+              todayTimeMinutes: progressData.todayTimeMinutes || 0,
+              progressPercentage: progressData.progressPercentage || 0
+            };
+          } else {
+            // For instructors, calculate based on materials
+            const processedMaterials = transformedMaterials.filter(m => m.processed).length;
+            realProgress = {
+              completedMaterials: processedMaterials,
+              totalMaterials: transformedMaterials.length,
+              weeklyTimeMinutes: 0, // Instructors don't have "study time"
+              todayTimeMinutes: 0,
+              progressPercentage: transformedMaterials.length > 0 ? 
+                Math.round((processedMaterials / transformedMaterials.length) * 100) : 0
+            };
+          }
+        } catch (progressError) {
+          console.warn("Failed to load real progress data:", progressError);
+          // Fallback to basic calculation
+          const processedMaterials = transformedMaterials.filter(m => m.processed).length;
+          realProgress = {
+            completedMaterials: processedMaterials,
+            totalMaterials: transformedMaterials.length,
+            weeklyTimeMinutes: 0,
+            todayTimeMinutes: 0,
+            progressPercentage: transformedMaterials.length > 0 ? 
+              Math.round((processedMaterials / transformedMaterials.length) * 100) : 0
+          };
+        }
+        
+        setCourseProgress(realProgress);
         
       } catch (error) {
         console.error("Failed to load course:", error);
@@ -457,6 +498,15 @@ export default function CoursePage() {
         sonnerToast.error("Please log in to view materials");
         return;
       }
+      
+      // Log the file view activity
+      studentAPI.logActivity({
+        type: 'file_view',
+        fileId: material.id,
+        courseId: courseId
+      }).catch(error => {
+        console.warn("Failed to log file view activity:", error);
+      });
       
       setCurrentMaterial(material);
     } catch (error) {
@@ -620,6 +670,15 @@ export default function CoursePage() {
       sonnerToast.dismiss(loadingToast);
       sonnerToast.success("Personalized learning experience created!", {
         description: `Redirecting to your customized version of "${material.title}"`,
+      });
+
+      // Log the AI personalization activity
+      studentAPI.logActivity({
+        type: 'personalized_view',
+        fileId: material.id,
+        courseId: courseId
+      }).catch(error => {
+        console.warn("Failed to log AI activity:", error);
       });
 
       // Small delay to show success message before redirect
@@ -933,74 +992,18 @@ export default function CoursePage() {
                   {/* Merged Progress Metrics */}
                   <div className="flex items-center gap-4">
                     <p className="text-sm text-gray-600">
-                      {materials.length}/15 • 4m today • 53%
+                      {courseProgress.completedMaterials}/{courseProgress.totalMaterials} • {Math.round(courseProgress.todayTimeMinutes)}m today • {courseProgress.progressPercentage}%
                     </p>
                   </div>
 
-                  {/* Unified Primary Action with Dropdown */}
-                  <div className="relative" data-dropdown="continue-actions">
-                    <div className="flex items-center">
-                      <Button 
-                        className={cn("bg-gradient-to-r", colors.gradient, "text-white px-6 py-2 rounded-l-lg")}
-                        onClick={() => {
-                          // Get first material and continue
-                          if (materials.length > 0) {
-                            handleViewMaterial({ 
-                              id: materials[0].id, 
-                              title: materials[0].title, 
-                              type: materials[0].type 
-                            });
-                          } else {
-                            sonnerToast.info("No materials available to continue with");
-                          }
-                        }}
-                      >
-                        ▶ Continue Now
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-l-none border-l-0 px-2"
-                        onClick={() => setDropdownOpen(!dropdownOpen)}
-                      >
-                        ▼
-                      </Button>
-                    </div>
-                    
-                    {dropdownOpen && (
-                      <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                        <div className="py-1">
-                          <button
-                            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                            onClick={() => {
-                              setDropdownOpen(false);
-                              handleStartAIChat();
-                            }}
-                          >
-                            <Brain className="h-4 w-4" />
-                            Ask AI
-                          </button>
-                          <button
-                            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                            onClick={() => {
-                              setDropdownOpen(false);
-                              handleGenerateQuiz();
-                            }}
-                          >
-                            <MessageSquare className="h-4 w-4" />
-                            Quiz Me
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+
                 </div>
                 
                 {/* Ultra-thin Progress Bar */}
                 <div className="w-full bg-gray-200 rounded-full h-px mt-3">
                   <div 
                     className={cn("h-px rounded-full transition-all duration-500", colors.bar)}
-                    style={{ width: "53%" }}
+                    style={{ width: `${courseProgress.progressPercentage}%` }}
                   />
                 </div>
               </div>
@@ -1055,11 +1058,11 @@ export default function CoursePage() {
                             <div className="text-xs text-gray-500">Students</div>
                           </div>
                           <div className="text-center p-3 bg-gray-50 rounded-lg">
-                            <div className="text-2xl font-bold text-purple-600">53%</div>
+                            <div className="text-2xl font-bold text-purple-600">{courseProgress.progressPercentage}%</div>
                             <div className="text-xs text-gray-500">Progress</div>
                           </div>
                           <div className="text-center p-3 bg-gray-50 rounded-lg">
-                            <div className="text-2xl font-bold text-orange-600">4m</div>
+                            <div className="text-2xl font-bold text-orange-600">{Math.round(courseProgress.todayTimeMinutes)}m</div>
                             <div className="text-xs text-gray-500">Today</div>
                           </div>
                         </div>

@@ -60,97 +60,27 @@ export function SmartRecommendations({ courseId, userId, className, prioritizedL
   });
 
   useEffect(() => {
-    // Simulate loading recommendations and insights
+    // Load real recommendations based on course data
     const loadData = async () => {
       setIsLoading(true);
       
-      // Mock delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Generate mock recommendations based on simulated student behavior
-      const mockRecommendations: Recommendation[] = [
-        {
-          id: "1",
-          type: "practice",
-          priority: "high",
-          title: "Practice Python Loops",
-          description: "You've been struggling with loop concepts. Practice with interactive exercises.",
-          action: "Start Practice Session",
-          timeEstimate: "15 min",
-          confidence: 92,
-          reason: "Based on your quiz performance and time spent on loop-related materials",
-          dueDate: "Today"
-        },
-        {
-          id: "2",
-          type: "review",
-          priority: "medium",
-          title: "Review Data Types",
-          description: "Quick review before tomorrow's quiz to reinforce your knowledge.",
-          action: "Review Materials",
-          timeEstimate: "10 min",
-          confidence: 85,
-          reason: "Upcoming quiz detected and previous performance analysis",
-          dueDate: "Tomorrow"
-        },
-        {
-          id: "3",
-          type: "study",
-          priority: "medium",
-          title: "Deep Dive: Functions",
-          description: "You're ready for advanced function concepts. Great progress!",
-          action: "Continue Learning",
-          timeEstimate: "30 min",
-          confidence: 78,
-          reason: "Strong performance in basics suggests readiness for advanced topics"
-        },
-        {
-          id: "4",
-          type: "schedule",
-          priority: "low",
-          title: "Plan Study Schedule",
-          description: "Optimize your study time with AI-generated schedule recommendations.",
-          action: "Create Schedule",
-          timeEstimate: "5 min",
-          confidence: 71,
-          reason: "Pattern analysis suggests you learn best in morning sessions"
-        }
-      ];
-
-      const mockInsights: LearningInsight[] = [
-        {
-          metric: "Comprehension Score",
-          value: 85,
-          change: 12,
-          status: "improving",
-          description: "Your understanding has improved significantly this week"
-        },
-        {
-          metric: "Study Consistency",
-          value: 92,
-          change: 5,
-          status: "improving",
-          description: "Great job maintaining regular study habits"
-        },
-        {
-          metric: "Material Engagement",
-          value: 67,
-          change: -3,
-          status: "declining",
-          description: "Consider trying different study materials or methods"
-        },
-        {
-          metric: "Quiz Performance",
-          value: 78,
-          change: 0,
-          status: "stable",
-          description: "Consistent performance, ready for more challenging topics"
-        }
-      ];
-
-      setRecommendations(mockRecommendations);
-      setInsights(mockInsights);
-      setIsLoading(false);
+      try {
+        // For now, don't show any recommendations until we have real data
+        // This removes the mock "Practice Python Loops" type content
+        setRecommendations([]);
+        setInsights([]);
+        
+        // TODO: Future enhancement - load real course-specific recommendations from API
+        // const realRecommendations = await fetch(`/api/courses/${courseId}/recommendations`);
+        // setRecommendations(realRecommendations);
+        
+      } catch (error) {
+        console.warn('Failed to load recommendations:', error);
+        setRecommendations([]);
+        setInsights([]);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     loadData();
@@ -323,6 +253,21 @@ export function SmartRecommendations({ courseId, userId, className, prioritizedL
   if (prioritizedLayout) {
     const { mustDo, nextUp } = groupRecommendationsByPriority();
     
+    // If no recommendations, show clean empty state
+    if (mustDo.length === 0 && nextUp.length === 0) {
+      return (
+        <div className={cn("", className)}>
+          <div className="text-center py-8 text-gray-500">
+            <Brain className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <h3 className="text-lg font-medium text-gray-700 mb-2">AI Recommendations</h3>
+            <p className="text-sm text-gray-500 max-w-md mx-auto">
+              As you engage with course materials, AI will provide personalized learning recommendations here.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    
     return (
       <div className={cn("space-y-6", className)}>
         {/* Must-Do Zone - Always Expanded */}
@@ -394,6 +339,24 @@ export function SmartRecommendations({ courseId, userId, className, prioritizedL
     );
   }
 
+  // If no data to show, show clean empty state for full view too
+  if (recommendations.length === 0 && insights.length === 0) {
+    return (
+      <div className={cn("", className)}>
+        <div className="text-center py-12 text-gray-500">
+          <Zap className="h-16 w-16 mx-auto mb-6 text-gray-300" />
+          <h3 className="text-xl font-medium text-gray-700 mb-3">Smart Recommendations</h3>
+          <p className="text-sm text-gray-500 max-w-lg mx-auto mb-4">
+            AI-powered learning recommendations will appear here as you interact with course materials.
+          </p>
+          <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+            AI-Powered
+          </Badge>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn("space-y-6", className)}>
       {/* Header */}
@@ -405,121 +368,105 @@ export function SmartRecommendations({ courseId, userId, className, prioritizedL
         </Badge>
       </div>
 
-      {/* Learning Insights */}
-      <Card className="canvas-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-blue-600" />
-            Learning Progress
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {insights.map((insight) => {
-              const IconComponent = getInsightIcon(insight.status);
-              return (
-                <div key={insight.metric} className="text-center">
-                  <div className="flex items-center justify-center mb-2">
-                    <IconComponent className={cn("h-5 w-5", getInsightColor(insight.status))} />
+      {/* Learning Insights - Only show if we have insights */}
+      {insights.length > 0 && (
+        <Card className="canvas-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-blue-600" />
+              Learning Progress
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {insights.map((insight) => {
+                const IconComponent = getInsightIcon(insight.status);
+                return (
+                  <div key={insight.metric} className="text-center">
+                    <div className="flex items-center justify-center mb-2">
+                      <IconComponent className={cn("h-5 w-5", getInsightColor(insight.status))} />
+                    </div>
+                    <div className="text-2xl font-bold canvas-text mb-1">{insight.value}%</div>
+                    <div className="text-xs canvas-body mb-2">{insight.metric}</div>
+                    <div className={cn(
+                      "text-xs flex items-center justify-center gap-1",
+                      insight.change > 0 ? "text-green-600" : insight.change < 0 ? "text-red-600" : "text-gray-600"
+                    )}>
+                      {insight.change > 0 ? "+" : ""}{insight.change}%
+                    </div>
                   </div>
-                  <div className="text-2xl font-bold canvas-text mb-1">{insight.value}%</div>
-                  <div className="text-xs canvas-body mb-2">{insight.metric}</div>
-                  <div className={cn(
-                    "text-xs flex items-center justify-center gap-1",
-                    insight.change > 0 ? "text-green-600" : insight.change < 0 ? "text-red-600" : "text-gray-600"
-                  )}>
-                    {insight.change > 0 ? "+" : ""}{insight.change}%
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Recommendations */}
-      <div className="space-y-4">
-        {recommendations.map((rec) => {
-          const IconComponent = getTypeIcon(rec.type);
-          return (
-            <Card key={rec.id} className="canvas-card modern-hover">
-              <CardContent className="p-4">
-                <div className="flex items-start gap-4">
-                  <div className={cn("p-2 rounded-lg", getPriorityColor(rec.priority))}>
-                    <IconComponent className="h-5 w-5" />
-                  </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h4 className="font-medium canvas-text">{rec.title}</h4>
-                        <p className="text-sm canvas-body mt-1">{rec.description}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          {rec.confidence}% confident
-                        </Badge>
-                        {rec.timeEstimate && (
-                          <Badge variant="secondary" className="text-xs">
-                            {rec.timeEstimate}
-                          </Badge>
-                        )}
-                      </div>
+      {/* Recommendations - Only show if we have recommendations */}
+      {recommendations.length > 0 && (
+        <div className="space-y-4">
+          {recommendations.map((rec) => {
+            const IconComponent = getTypeIcon(rec.type);
+            return (
+              <Card key={rec.id} className="canvas-card modern-hover">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-4">
+                    <div className={cn("p-2 rounded-lg", getPriorityColor(rec.priority))}>
+                      <IconComponent className="h-5 w-5" />
                     </div>
                     
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge 
-                          variant="outline" 
-                          className={cn("text-xs capitalize", getPriorityColor(rec.priority))}
-                        >
-                          {rec.priority} priority
-                        </Badge>
-                        {rec.dueDate && (
-                          <span className="text-xs text-gray-500">Due: {rec.dueDate}</span>
-                        )}
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h4 className="font-medium canvas-text">{rec.title}</h4>
+                          <p className="text-sm canvas-body mt-1">{rec.description}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {rec.confidence}% confident
+                          </Badge>
+                          {rec.timeEstimate && (
+                            <Badge variant="secondary" className="text-xs">
+                              {rec.timeEstimate}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       
-                      <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600">
-                        {rec.action}
-                        <ArrowRight className="h-3 w-3 ml-1" />
-                      </Button>
-                    </div>
-                    
-                    <div className="mt-3 p-2 bg-gray-50 rounded text-xs text-gray-600">
-                      <Brain className="h-3 w-3 inline mr-1" />
-                      AI Insight: {rec.reason}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant="outline" 
+                            className={cn("text-xs capitalize", getPriorityColor(rec.priority))}
+                          >
+                            {rec.priority} priority
+                          </Badge>
+                          {rec.dueDate && (
+                            <span className="text-xs text-gray-500">Due: {rec.dueDate}</span>
+                          )}
+                        </div>
+                        
+                        <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600">
+                          {rec.action}
+                          <ArrowRight className="h-3 w-3 ml-1" />
+                        </Button>
+                      </div>
+                      
+                      <div className="mt-3 p-2 bg-gray-50 rounded text-xs text-gray-600">
+                        <Brain className="h-3 w-3 inline mr-1" />
+                        AI Insight: {rec.reason}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
-      {/* Study Streak */}
-      <Card className="canvas-card bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Star className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <h4 className="font-medium text-green-800">7-Day Study Streak! 🔥</h4>
-                <p className="text-sm text-green-600">Keep up the great momentum</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold text-green-700">7</div>
-              <div className="text-xs text-green-600">days</div>
-            </div>
-          </div>
-          <Progress value={70} className="mt-3 h-2" />
-          <p className="text-xs text-green-600 mt-2">3 more days to reach your 10-day goal!</p>
-        </CardContent>
-      </Card>
+      {/* Study Streak - Only show if we have real data */}
+      {/* TODO: Add real study streak tracking */}
     </div>
   );
 } 
