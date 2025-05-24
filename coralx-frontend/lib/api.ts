@@ -244,6 +244,16 @@ export const studentAPI = {
   postDiscussion: (courseId: string, data: any) => api.post(`/student/courses/${courseId}/discussions`, data),
   chatWithAI: (data: any) => api.post('/student/ai/chat', data),
   
+  // Dashboard statistics
+  getDashboardStats: () => api.get('/student/dashboard/stats'),
+  getCourseProgress: (courseId: string) => api.get(`/student/courses/${courseId}/progress`),
+  logActivity: (data: any) => api.post('/student/activity/log', data),
+  
+  // Dashboard content
+  getRecentActivities: () => api.get('/student/recent-activities'),
+  getTodoItems: () => api.get('/student/todo-items'),
+  createTodoItem: (data: any) => api.post('/student/todo-items', data),
+  
   // Quizzes (to be implemented)
   getCourseQuizzes: (courseId: string) => api.get(`/student/courses/${courseId}/quizzes`),
   generateCourseQuiz: (courseId: string, options?: any) => api.post(`/student/courses/${courseId}/quizzes/generate`, options),

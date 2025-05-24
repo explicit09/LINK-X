@@ -94,6 +94,11 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
   const [newTodoCourse, setNewTodoCourse] = useState("");
   const [newTodoPriority, setNewTodoPriority] = useState<"high" | "medium" | "low">("medium");
   const [newTodoType, setNewTodoType] = useState<"quiz" | "assignment" | "reading" | "review">("assignment");
+  const [dashboardStats, setDashboardStats] = useState({
+    aiInteractions: 0,
+    weeklyHours: 0,
+    loading: true
+  });
   const router = useRouter();
 
   const loadCourses = async () => {
@@ -147,121 +152,154 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
     loadRecentActivity();
   }, [userRole]);
 
-  // Load todo items from localStorage
-  const loadTodoItems = () => {
+  // Load dashboard stats after recent activity is loaded
+  useEffect(() => {
+    if (recentActivity.length >= 0) { // Always call, even if empty
+      loadDashboardStats();
+    }
+  }, [recentActivity]);
+
+  // Load real todo items from API
+  const loadTodoItems = async () => {
     try {
-      const saved = localStorage.getItem('linkx-todo-items');
-      if (saved) {
-        setTodoItems(JSON.parse(saved));
+      if (userRole === 'student') {
+        const realTodos = await studentAPI.getTodoItems();
+        setTodoItems(realTodos || []);
       } else {
-        // Initialize with sample items
-        const sampleTodos: TodoItem[] = [
-          {
-            id: "1",
-            title: "Complete Machine Learning Quiz",
-            course: "CS 101",
-            dueDate: "Tomorrow",
-            type: "quiz",
-            priority: "high"
-          },
-          {
-            id: "2", 
-            title: "Review Chapter 5 Notes",
-            course: "Physics 201",
-            dueDate: "Friday",
-            type: "reading",
-            priority: "medium"
-          }
-        ];
-        setTodoItems(sampleTodos);
-        localStorage.setItem('linkx-todo-items', JSON.stringify(sampleTodos));
+        // For instructors/admins, show empty or instructor-specific todos
+        setTodoItems([]);
       }
     } catch (error) {
-      console.error('Error loading todo items:', error);
+      console.warn('Failed to load real todo items:', error);
+      // Clean fallback - empty list instead of mock data
+      setTodoItems([]);
     }
   };
 
-  // Load recent activity from localStorage  
-  const loadRecentActivity = () => {
+  // Load real dashboard statistics
+  const loadDashboardStats = async () => {
     try {
-      const saved = localStorage.getItem('linkx-recent-activity');
-      if (saved) {
-        setRecentActivity(JSON.parse(saved));
+      setDashboardStats(prev => ({ ...prev, loading: true }));
+      
+      // Try to fetch real stats from API first
+      if (userRole === 'student') {
+        try {
+          const apiStats = await studentAPI.getDashboardStats();
+          setDashboardStats({
+            aiInteractions: apiStats.aiInteractions || 0,
+            weeklyHours: apiStats.weeklyHours || 0,
+            loading: false
+          });
+          return;
+        } catch (apiError) {
+          console.warn("Failed to load real dashboard stats:", apiError);
+          // Show zero stats rather than estimates for clean slate
+          setDashboardStats({
+            aiInteractions: 0,
+            weeklyHours: 0,
+            loading: false
+          });
+          return;
+        }
+      }
+      
+      // For instructors/admins, show basic stats
+      setDashboardStats({
+        aiInteractions: 0, // Instructors don't have AI interactions
+        weeklyHours: 0, // Instructors don't have study time
+        loading: false
+      });
+      
+    } catch (error) {
+      console.error("Failed to load dashboard stats:", error);
+      // Clean fallback - show zeros rather than estimates
+      setDashboardStats({
+        aiInteractions: 0,
+        weeklyHours: 0,
+        loading: false
+      });
+    }
+  };
+
+  // Load real recent activity from API
+  const loadRecentActivity = async () => {
+    try {
+      if (userRole === 'student') {
+        const realActivities = await studentAPI.getRecentActivities();
+        setRecentActivity(realActivities || []);
       } else {
-        // Initialize with sample activities
-        const sampleActivities: RecentActivity[] = [
-          {
-            id: "1",
-            type: "upload",
-            course: "CS 101", 
-            title: "Uploaded assignment solution",
-            timestamp: "2 hours ago"
-          },
-          {
-            id: "2",
-            type: "quiz",
-            course: "Physics 201",
-            title: "Completed Chapter 4 Quiz",
-            timestamp: "1 day ago"
-          }
-        ];
-        setRecentActivity(sampleActivities);
-        localStorage.setItem('linkx-recent-activity', JSON.stringify(sampleActivities));
+        // For instructors/admins, could load instructor-specific activities
+        setRecentActivity([]);
       }
     } catch (error) {
-      console.error('Error loading recent activity:', error);
+      console.warn('Failed to load real recent activities:', error);
+      // Clean fallback - empty list instead of mock data
+      setRecentActivity([]);
     }
   };
 
   // Function to add new todo item
-  const addTodoItem = () => {
+  const addTodoItem = async () => {
     if (!newTodoTitle.trim()) return;
 
-    const newItem: TodoItem = {
-      id: Date.now().toString(),
-      title: newTodoTitle,
-      course: newTodoCourse || "General",
-      dueDate: "Added just now",
-      type: newTodoType,
-      priority: newTodoPriority
-    };
-
-    const updatedTodos = [newItem, ...todoItems];
-    setTodoItems(updatedTodos);
-    localStorage.setItem('linkx-todo-items', JSON.stringify(updatedTodos));
-    
-    // Clear form
-    setNewTodoTitle("");
-    setNewTodoCourse("");
-    setShowAddTodo(false);
-    
-    // Add to recent activity
-    addActivity("completion", newTodoCourse || "General", `Added new task: ${newTodoTitle}`);
-    
-    sonnerToast.success("Todo item added successfully!");
+    try {
+      if (userRole === 'student') {
+        await studentAPI.createTodoItem({
+          title: newTodoTitle,
+          course: newTodoCourse || "General",
+          type: newTodoType,
+          priority: newTodoPriority
+        });
+        
+        // Reload todo items to get updated list
+        await loadTodoItems();
+      }
+      
+      // Clear form
+      setNewTodoTitle("");
+      setNewTodoCourse("");
+      setShowAddTodo(false);
+      
+      sonnerToast.success("Todo item added successfully!");
+    } catch (error) {
+      console.error('Error adding todo item:', error);
+      sonnerToast.error("Failed to add todo item");
+    }
   };
 
   // Function to remove todo item
-  const removeTodoItem = (id: string) => {
-    const updatedTodos = todoItems.filter(item => item.id !== id);
-    setTodoItems(updatedTodos);
-    localStorage.setItem('linkx-todo-items', JSON.stringify(updatedTodos));
-    sonnerToast.success("Todo item completed!");
+  const removeTodoItem = async (id: string) => {
+    try {
+      // For now, just remove from local state since we don't have delete API yet
+      const updatedTodos = todoItems.filter(item => item.id !== id);
+      setTodoItems(updatedTodos);
+      sonnerToast.success("Todo item completed!");
+    } catch (error) {
+      console.error('Error removing todo item:', error);
+      sonnerToast.error("Failed to remove todo item");
+    }
   };
 
-  // Function to add activity 
-  const addActivity = (type: RecentActivity["type"], course: string, title: string) => {
-    const newActivity: RecentActivity = {
-      id: Date.now().toString(),
-      type,
-      course,
-      title,
-      timestamp: "Just now"
-    };
-
-    const updatedActivity = [newActivity, ...recentActivity.slice(0, 9)]; // Keep only 10 items
-    setRecentActivity(updatedActivity);
-    localStorage.setItem('linkx-recent-activity', JSON.stringify(updatedActivity));
+  // Function to add activity - now just reloads from API
+  const addActivity = async (type: RecentActivity["type"], course: string, title: string) => {
+    try {
+      // Log activity via API and reload the real data
+      if (userRole === 'student') {
+        await studentAPI.logActivity({
+          type: type,
+          course: course,
+          title: title
+        });
+        
+        // Reload recent activities to get updated list
+        await loadRecentActivity();
+        
+        // Trigger stats recalculation
+        setTimeout(() => loadDashboardStats(), 100);
+      }
+    } catch (error) {
+      console.warn('Failed to log activity:', error);
+    }
   };
 
   // Helper function to format relative time
@@ -468,7 +506,13 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="canvas-small text-gray-500">AI Interactions</p>
-                    <p className="text-2xl font-bold sidebar-text">24</p>
+                    <p className="text-2xl font-bold sidebar-text">
+                      {dashboardStats.loading ? (
+                        <div className="animate-pulse bg-gray-200 h-6 w-8 rounded"></div>
+                      ) : (
+                        dashboardStats.aiInteractions
+                      )}
+                    </p>
                   </div>
                   <div className={cn(
                     "w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center shadow-lg transition-all duration-300",
@@ -485,7 +529,13 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="canvas-small text-gray-500">This Week</p>
-                    <p className="text-2xl font-bold sidebar-text">12h</p>
+                    <p className="text-2xl font-bold sidebar-text">
+                      {dashboardStats.loading ? (
+                        <div className="animate-pulse bg-gray-200 h-6 w-12 rounded"></div>
+                      ) : (
+                        `${dashboardStats.weeklyHours}h`
+                      )}
+                    </p>
                   </div>
                   <div className="w-12 h-12 rounded-full bg-green-600 flex items-center justify-center shadow-lg">
                     <TrendingUp className="h-6 w-6 text-white" />
