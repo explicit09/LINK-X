@@ -29,6 +29,8 @@ import {
   GraduationCap,
   BarChart3,
   BookmarkPlus,
+  X,
+  Check,
 } from "lucide-react";
 import { FloatingAIAssistant } from "@/components/ai/FloatingAIAssistant";
 import { SmartSelection } from "@/components/ai/SmartSelection";
@@ -87,6 +89,11 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
   const [realCourses, setRealCourses] = useState<Course[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [showCourseForm, setShowCourseForm] = useState(false);
+  const [showAddTodo, setShowAddTodo] = useState(false);
+  const [newTodoTitle, setNewTodoTitle] = useState("");
+  const [newTodoCourse, setNewTodoCourse] = useState("");
+  const [newTodoPriority, setNewTodoPriority] = useState<"high" | "medium" | "low">("medium");
+  const [newTodoType, setNewTodoType] = useState<"quiz" | "assignment" | "reading" | "review">("assignment");
   const router = useRouter();
 
   const loadCourses = async () => {
@@ -363,9 +370,9 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             {/* Courses Section */}
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-3">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <h2 className="canvas-heading-2">My Courses</h2>
@@ -380,7 +387,7 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
                 </Button>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {filteredCourses.map((course, index) => (
                   <ModernCourseCard
                     key={course.id}

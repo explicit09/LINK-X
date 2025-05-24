@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()  # Load environment variables before other imports
+
 import uuid
 import tempfile
 import pickle
@@ -12,7 +15,6 @@ from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 import firebase_admin
 from firebase_admin import auth, credentials
-from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from src.db.schema import Base
@@ -55,14 +57,12 @@ from src.prompts import (
 
 from FAISS_db_generation import create_database, generate_citations, replace_sources, file_cleanup
 
-load_dotenv()
-
 # Initialize Flask app
 app = Flask(__name__)
 
-# Configure CORS with environment variables
-cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3000').split(',')
-CORS(app, origins=cors_origins, supports_credentials=True, allow_headers=['Content-Type', 'Authorization'], expose_headers=['Content-Type'], methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
+# Configure CORS to allow all origins during development
+# In production, this should be restricted to specific origins
+CORS(app, supports_credentials=True, origins='*', allow_headers=['Content-Type', 'Authorization'], expose_headers=['Content-Type'], methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 
 app.config['TESTING'] = False
 
@@ -2068,7 +2068,26 @@ def session_login():
         # Verify the Firebase ID token
         decoded_token = auth.verify_id_token(id_token)
         uid = decoded_token.get('uid')
-        print(f'Firebase auth successful for UID: {uid}')
+        email = decoded_token.get('email')
+        print(f'Firebase auth successful for UID: {uid}, Email: {email}')
+        
+        # Check if user exists in our database
+        db = Session()
+        user = get_user_by_firebase_uid(db, uid)
+        
+        # If user doesn't exist in our database, create one
+        if not user and email:
+            try:
+                # For Google sign-ins, we don't have a password, so use a random one
+                import secrets
+                random_password = secrets.token_hex(16)
+                
+                # Create user with default role 'student'
+                user = create_user(db, email, random_password, uid, 'student')
+                print(f'Created new user in database for Firebase UID: {uid}, Email: {email}')
+            except Exception as user_create_error:
+                print(f'Error creating user in database: {str(user_create_error)}')
+                # Continue even if user creation fails - they'll still get a session cookie
         
         # Set a longer expiration for better user experience
         expires = 60 * 60 * 24 * 14  # 14 days
@@ -2093,6 +2112,7 @@ def session_login():
             samesite='Lax'  # Allow cross-site requests with top-level navigation
         )
         
+        db.close()
         print(f'Session cookie set for user {uid}')
         return resp, 200
     except Exception as e:
@@ -2503,6 +2523,36 @@ def handle_unexpected_error(err):  # noqa: D401 – simple handler name
     return jsonify({
         'error': str(err),
     }), status_code
+
+@app.route('/student/personalized-files/check/<file_id>', methods=['GET'])
+def check_personalized_file_exists(file_id):
+    """Check if a personalized file already exists for the given original file ID"""
+    user_id, err = verify_student()
+    if err:
+        return err
+
+    db = Session()
+    try:
+        # Get all personalized files for this student
+        personalized_files = get_personalized_files_by_student(db, user_id)
+        
+        # Check if any personalized file has this original_file_id
+        for pf in personalized_files:
+            if pf.original_file_id and str(pf.original_file_id) == str(file_id):
+                db.close()
+                return jsonify({
+                    'exists': True,
+                    'personalizedDocumentId': str(pf.id),
+                    'createdAt': pf.created_at.isoformat()
+                }), 200
+        
+        # No personalized file found for this original file
+        db.close()
+        return jsonify({'exists': False}), 200
+        
+    except Exception as e:
+        db.close()
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8080))
