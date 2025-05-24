@@ -22,6 +22,9 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				sans: ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -63,7 +66,11 @@ export default {
 					accent: 'hsl(var(--blue-accent))',
 					'accent-hover': 'hsl(var(--blue-accent-hover))',
 					shadow: 'hsl(var(--blue-shadow))',
-				  }
+				},
+				brand: {
+					navy: '#0D47A1',
+					indigo: '#2563EB',
+				}
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
