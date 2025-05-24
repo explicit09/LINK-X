@@ -33,7 +33,9 @@ import {
   Plus,
   X,
   Download,
-  Package
+  Package,
+  Zap,
+  BarChart3
 } from "lucide-react";
 import { toast as sonnerToast } from 'sonner';
 
@@ -160,7 +162,7 @@ export default function CoursePage() {
   const courseId = params?.courseId as string;
   const activeTab = searchParams?.get("tab") || "home";
 
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [course, setCourse] = useState<Course | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [conversations, setConversations] = useState<AIConversation[]>([]);
@@ -174,6 +176,22 @@ export default function CoursePage() {
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
   const [useAdvancedUpload, setUseAdvancedUpload] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-dropdown="continue-actions"]')) {
+        setDropdownOpen(false);
+      }
+    };
+
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [dropdownOpen]);
 
   // Load real data from API
   useEffect(() => {
@@ -790,6 +808,7 @@ export default function CoursePage() {
         onCollapseChange={setIsCollapsed}
         courses={[course]}
         currentUser={currentUser}
+        initialCollapsed={true}
       />
       
       <div className={cn("flex-1 transition-all duration-300", isCollapsed ? "ml-16" : "ml-64")}>
@@ -906,174 +925,152 @@ export default function CoursePage() {
 
         <main className="p-6">
           <Tabs value={activeTab} onValueChange={handleTabChange}>
-            {/* Home Tab */}
-            <TabsContent value="home" className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                  {/* Smart Recommendations - Featured prominently */}
-                  <SmartRecommendations 
-                    courseId={courseId} 
-                    userId={currentUser?.id}
-                  />
+            {/* Home Tab - Ruthlessly Decluttered */}
+            <TabsContent value="home" className="space-y-0">
+              {/* Simplified Sticky Progress Header */}
+              <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-200 px-6 py-3 mb-6 z-40">
+                <div className="flex items-center justify-between">
+                  {/* Merged Progress Metrics */}
+                  <div className="flex items-center gap-4">
+                    <p className="text-sm text-gray-600">
+                      {materials.length}/15 • 4m today • 53%
+                    </p>
+                  </div>
 
-                  {/* Enhanced Course Description */}
-                  <Card className="canvas-card gradient-hover modern-hover">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <div className={cn("w-8 h-8 rounded-full bg-gradient-to-r flex items-center justify-center", colors.gradient)}>
-                          <BookOpen className="h-4 w-4 text-white" />
-                        </div>
-                        Course Description
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="canvas-body">{course.description}</p>
-                    </CardContent>
-                  </Card>
-
-                  {/* Enhanced Recent Materials */}
-                  <Card className="canvas-card gradient-hover modern-hover">
-                    <CardHeader>
-                      <CardTitle className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className={cn("w-8 h-8 rounded-full bg-gradient-to-r flex items-center justify-center", colors.gradient)}>
-                            <FileText className="h-4 w-4 text-white" />
-                          </div>
-                          Recent Materials
-                        </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleTabChange("materials")}
-                          className={cn("modern-hover", `hover:bg-${colors.bg} hover:border-${colors.border} hover:text-${colors.text}`)}
-                        >
-                          View All
-                        </Button>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {materials.length === 0 ? (
-                        <div className="text-center py-8">
-                          <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                          <p className="text-sm text-gray-500 mb-4">No materials uploaded yet</p>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleTabChange("materials")}
-                            className={cn("modern-hover", `hover:bg-${colors.bg} hover:border-${colors.border} hover:text-${colors.text}`)}
+                  {/* Unified Primary Action with Dropdown */}
+                  <div className="relative" data-dropdown="continue-actions">
+                    <div className="flex items-center">
+                      <Button 
+                        className={cn("bg-gradient-to-r", colors.gradient, "text-white px-6 py-2 rounded-l-lg")}
+                        onClick={() => {
+                          // Get first material and continue
+                          if (materials.length > 0) {
+                            handleViewMaterial({ 
+                              id: materials[0].id, 
+                              title: materials[0].title, 
+                              type: materials[0].type 
+                            });
+                          } else {
+                            sonnerToast.info("No materials available to continue with");
+                          }
+                        }}
+                      >
+                        ▶ Continue Now
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-l-none border-l-0 px-2"
+                        onClick={() => setDropdownOpen(!dropdownOpen)}
+                      >
+                        ▼
+                      </Button>
+                    </div>
+                    
+                    {dropdownOpen && (
+                      <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                        <div className="py-1">
+                          <button
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                            onClick={() => {
+                              setDropdownOpen(false);
+                              handleStartAIChat();
+                            }}
                           >
-                            Upload Materials
-                          </Button>
+                            <Brain className="h-4 w-4" />
+                            Ask AI
+                          </button>
+                          <button
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                            onClick={() => {
+                              setDropdownOpen(false);
+                              handleGenerateQuiz();
+                            }}
+                          >
+                            <MessageSquare className="h-4 w-4" />
+                            Quiz Me
+                          </button>
                         </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {materials.slice(0, 3).map((material) => {
-                            const IconComponent = getFileIcon(material.type);
-                            return (
-                              <div 
-                                key={material.id} 
-                                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-all duration-300 cursor-pointer modern-hover group"
-                                onClick={() => handleViewMaterial({ id: material.id, title: material.title, type: material.type })}
-                              >
-                                <IconComponent className={cn("h-5 w-5 transition-colors duration-300", getFileColor(material.type))} />
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium sidebar-text">{material.title}</p>
-                                  <p className="text-xs sidebar-text-muted">{material.size} • {material.uploadedAt}</p>
-                                </div>
-                                {!material.processed && (
-                                  <Badge variant="outline" className="text-xs animate-pulse">Processing</Badge>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Enhanced Sidebar */}
-                <div className="space-y-6">
-                  {/* Enhanced Quick Actions */}
-                  <Card className="canvas-card gradient-hover modern-hover">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <div className={cn("w-8 h-8 rounded-full bg-gradient-to-r flex items-center justify-center", colors.gradient)}>
-                          <Clock className="h-4 w-4 text-white" />
-                        </div>
-                        Quick Actions
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <Button 
-                        className={cn("w-full justify-start modern-hover button-pulse bg-gradient-to-r", colors.gradient)}
-                        onClick={() => setIsUploadDialogOpen(true)}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload Material
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className={cn("w-full justify-start modern-hover", `hover:bg-${colors.bg} hover:border-${colors.border} hover:text-${colors.text}`)}
-                        onClick={() => {
-                          handleTabChange("ai");
-                          setTimeout(() => handleStartAIChat(), 100); // Small delay to ensure tab change
-                        }}
-                      >
-                        <Brain className="h-4 w-4 mr-2" />
-                        Ask AI Tutor
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className={cn("w-full justify-start modern-hover", `hover:bg-${colors.bg} hover:border-${colors.border} hover:text-${colors.text}`)}
-                        onClick={() => {
-                          handleTabChange("quizzes");
-                          setTimeout(() => handleGenerateQuiz(), 100); // Small delay to ensure tab change
-                        }}
-                      >
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        Generate Quiz
-                      </Button>
-                    </CardContent>
-                  </Card>
-
-                  {/* Enhanced Recent AI Conversations */}
-                  <Card className="canvas-card gradient-hover modern-hover">
-                    <CardHeader>
-                      <CardTitle className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-blue-600 flex items-center justify-center">
-                            <Brain className="h-4 w-4 text-white" />
-                          </div>
-                          Recent AI Chats
-                        </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleTabChange("ai")}
-                          className="modern-hover hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700"
-                        >
-                          View All
-                        </Button>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {conversations.slice(0, 2).map((conversation) => (
-                          <div key={conversation.id} className="p-3 rounded-lg hover:bg-gray-50 transition-all duration-300 cursor-pointer modern-hover">
-                            <p className="text-sm font-medium sidebar-text line-clamp-1">{conversation.title}</p>
-                            <p className="text-xs sidebar-text-muted mt-1 line-clamp-2">{conversation.lastMessage}</p>
-                            <p className="text-xs text-gray-400 mt-2">{conversation.messageCount} messages • {conversation.timestamp}</p>
-                          </div>
-                        ))}
                       </div>
-                    </CardContent>
-                  </Card>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Ultra-thin Progress Bar */}
+                <div className="w-full bg-gray-200 rounded-full h-px mt-3">
+                  <div 
+                    className={cn("h-px rounded-full transition-all duration-500", colors.bar)}
+                    style={{ width: "53%" }}
+                  />
+                </div>
+              </div>
+
+              {/* Two Column Layout - Smart Recommendations + Course Info */}
+              <div className="max-w-7xl mx-auto px-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Left Column - Smart Recommendations (2/3 width) */}
+                  <div className="lg:col-span-2">
+                    <SmartRecommendations 
+                      courseId={courseId} 
+                      userId={currentUser?.id}
+                      prioritizedLayout={true}
+                    />
+                  </div>
+
+                  {/* Right Column - Course Info (1/3 width) */}
+                  <div className="space-y-6">
+                    {/* Course Description */}
+                    <Card className="canvas-card gradient-hover modern-hover">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <div className={cn("w-8 h-8 rounded-full bg-gradient-to-r flex items-center justify-center", colors.gradient)}>
+                            <BookOpen className="h-4 w-4 text-white" />
+                          </div>
+                          Course Description
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="canvas-body">{course.description}</p>
+                      </CardContent>
+                    </Card>
+
+                    {/* Course Stats */}
+                    <Card className="canvas-card gradient-hover modern-hover">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <div className={cn("w-8 h-8 rounded-full bg-gradient-to-r flex items-center justify-center", colors.gradient)}>
+                            <BarChart3 className="h-4 w-4 text-white" />
+                          </div>
+                          Course Stats
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-2xl font-bold text-blue-600">{materials.length}</div>
+                            <div className="text-xs text-gray-500">Materials</div>
+                          </div>
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-2xl font-bold text-green-600">{course.studentsCount || 0}</div>
+                            <div className="text-xs text-gray-500">Students</div>
+                          </div>
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-2xl font-bold text-purple-600">53%</div>
+                            <div className="text-xs text-gray-500">Progress</div>
+                          </div>
+                          <div className="text-center p-3 bg-gray-50 rounded-lg">
+                            <div className="text-2xl font-bold text-orange-600">4m</div>
+                            <div className="text-xs text-gray-500">Today</div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </div>
               </div>
             </TabsContent>
 
-            {/* Materials Tab - Enhanced */}
+            {/* Materials Tab - Enhanced with Course Info */}
             <TabsContent value="materials" className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="canvas-heading-2">Course Materials</h2>
@@ -1085,6 +1082,8 @@ export default function CoursePage() {
                   Upload Material
                 </Button>
               </div>
+
+
 
               {materials.length === 0 ? (
                 <Card className="canvas-card">
@@ -1256,7 +1255,7 @@ export default function CoursePage() {
                   )}
                 </div>
 
-                <div>
+                <div className="space-y-6">
                   <Card className="canvas-card">
                     <CardHeader>
                       <CardTitle>Recent Conversations</CardTitle>
@@ -1276,8 +1275,32 @@ export default function CoursePage() {
                         ))}
                         
                         {conversations.length === 0 && (
-                          <p className="text-sm text-gray-500 text-center py-4">No conversations yet</p>
+                          <div className="text-center py-8">
+                            <Brain className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                            <p className="text-sm text-gray-500 mb-4">No conversations yet</p>
+                            <Button size="sm" onClick={handleStartAIChat}>
+                              Start Your First Chat
+                            </Button>
+                          </div>
                         )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* AI Tips Card */}
+                  <Card className="canvas-card bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-purple-700">
+                        <Zap className="h-5 w-5" />
+                        AI Tips
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="space-y-2 text-sm text-purple-700">
+                        <p>💡 Ask specific questions about course materials</p>
+                        <p>📝 Request practice problems and explanations</p>
+                        <p>🎯 Get personalized study recommendations</p>
+                        <p>✨ Upload materials and chat about them instantly</p>
                       </div>
                     </CardContent>
                   </Card>

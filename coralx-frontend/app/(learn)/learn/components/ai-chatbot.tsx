@@ -1,10 +1,28 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Send, ChevronRight, Brain, Sparkles, Lightbulb, MessageSquare, FileText, HelpCircle } from "lucide-react";
+import { 
+  Send, 
+  Brain, 
+  Sparkles, 
+  Lightbulb, 
+  MessageSquare, 
+  FileText, 
+  HelpCircle,
+  Minimize2,
+  Maximize2,
+  Bot,
+  User as UserIcon,
+  Zap,
+  Clock,
+  Star
+} from "lucide-react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +30,7 @@ interface Suggestion {
   id: string;
   text: string;
   icon: any;
+  color: string;
   action: () => void;
 }
 
@@ -22,43 +41,42 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [width, setWidth] = useState(384);
   const [showSuggestions, setShowSuggestions] = useState(true);
-  const minWidth = 80;
-  const maxWidth = 800;
 
   const auth = getAuth();
   const user = auth.currentUser;
   const firebaseUid = user?.uid;
-  const userScopedKey = firebaseUid ? `chatId_${firebaseUid}` : null;
-  const isDragging = useRef(false);
 
   // Quick suggestion buttons for common learning tasks
   const getContextualSuggestions = (): Suggestion[] => {
     return [
       {
         id: "explain",
-        text: "Explain this concept",
+        text: "Explain key concepts",
         icon: Lightbulb,
-        action: () => handleSuggestionClick("Can you explain the key concepts in this lesson?")
+        color: "bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100",
+        action: () => handleSuggestionClick("Can you explain the key concepts in this lesson in simple terms?")
       },
       {
         id: "quiz",
         text: "Create practice quiz",
         icon: MessageSquare,
-        action: () => handleSuggestionClick("Generate a practice quiz based on this material")
+        color: "bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100",
+        action: () => handleSuggestionClick("Generate a practice quiz with 5 questions based on this material")
       },
       {
         id: "summary",
-        text: "Summarize key points",
+        text: "Summarize lesson",
         icon: FileText,
-        action: () => handleSuggestionClick("Please summarize the most important points")
+        color: "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100",
+        action: () => handleSuggestionClick("Please provide a comprehensive summary of the most important points")
       },
       {
         id: "help",
-        text: "I need help understanding",
+        text: "I need help",
         icon: HelpCircle,
-        action: () => handleSuggestionClick("I'm having trouble understanding this. Can you help break it down?")
+        color: "bg-green-50 border-green-200 text-green-700 hover:bg-green-100",
+        action: () => handleSuggestionClick("I'm having trouble understanding this. Can you help break it down step by step?")
       }
     ];
   };
@@ -71,7 +89,7 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
 
   // Enhanced welcome message
   const getWelcomeMessage = () => {
-    return "🧠 **Welcome to your AI Learning Assistant!** \n\nI'm here to help you understand this course material better. I can:\n\n• **Explain** complex concepts in simple terms\n• **Generate** practice quizzes and exercises\n• **Summarize** key points and takeaways\n• **Answer** specific questions about the content\n• **Provide** examples and real-world applications\n\nWhat would you like to explore first?";
+    return "👋 **Welcome to your AI Learning Assistant!** \n\nI'm your personal tutor, ready to help you master this course material. Here's what I can do for you:\n\n🎯 **Explain** complex concepts in your preferred learning style\n📝 **Generate** practice quizzes and exercises\n📚 **Summarize** key points and takeaways\n💡 **Answer** specific questions about the content\n🌟 **Provide** real-world examples and applications\n\n✨ **Pro tip**: I remember our conversation, so feel free to ask follow-up questions!\n\nWhat would you like to explore first?";
   };
 
   useEffect(() => {
@@ -79,26 +97,6 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isLoading, isMinimized]);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging.current) return;
-      const newWidth = window.innerWidth - e.clientX;
-      setWidth(Math.min(Math.max(newWidth, minWidth), maxWidth));
-    };
-  
-    const handleMouseUp = () => {
-      isDragging.current = false;
-    };
-  
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-  
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    };
-  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -118,7 +116,6 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
             if (data.error) {
               localStorage.removeItem(localStorageKey);
               setChatId(null);
-              // Set welcome message for new chat
               setMessages([{ role: "assistant", content: getWelcomeMessage() }]);
             } else {
               const formattedMessages = data.map((msg: any) => ({
@@ -134,7 +131,6 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
             setMessages([{ role: "assistant", content: getWelcomeMessage() }]);
           });
       } else {
-        // New chat - show welcome message
         setMessages([{ role: "assistant", content: getWelcomeMessage() }]);
       }
     });
@@ -176,7 +172,10 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
       const data = await response.json();
       if (data.error) {
         console.error("AI chat error:", data.error);
-        const errorMessage = { role: "assistant", content: "I'm sorry, I encountered an error. Please try again." };
+        const errorMessage = { 
+          role: "assistant", 
+          content: "I'm sorry, I encountered an error. Please try again." 
+        };
         setMessages((prev) => [...prev, errorMessage]);
         return;
       }
@@ -192,83 +191,162 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
       setInput("");
     } catch (err) {
       console.error("Failed to call /ai-chat:", err);
-      const errorMessage = { role: "assistant", content: "I'm sorry, I couldn't connect to the AI service. Please check your connection and try again." };
+      const errorMessage = { 
+        role: "assistant", 
+        content: "I'm sorry, I couldn't connect to the AI service. Please check your connection and try again." 
+      };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
   };
-  
-  return (
-    <div
-      className="fixed top-0 right-0 h-screen z-40 bg-white border-l border-gray-200 shadow-lg"
-      style={{ width: `${isMinimized ? 80 : width}px` }}
-    >
-      {/* Drag handle for resizing */}
-      {!isMinimized && (
-        <div
-          onMouseDown={() => (isDragging.current = true)}
-          className="absolute left-0 top-0 h-full w-2 cursor-col-resize bg-gray-300 opacity-0 hover:opacity-100 transition-opacity z-50"
-        />
-      )}
-  
-      <div className="flex flex-col h-full text-gray-900">
-        {/* Enhanced Header */}
-        <div className="relative bg-gradient-to-r from-purple-600 to-blue-600 py-3 px-4 font-semibold flex items-center border-t border-gray-200 text-white">
-          <button
-            onClick={() => setIsMinimized(!isMinimized)}
-            className="text-white hover:text-purple-200 transition-colors mr-3"
-          >
-            {isMinimized ? (
-              <ChevronRight size={18} />
-            ) : (
-              <ChevronRight size={18} className="rotate-180" />
-            )}
-          </button>
-          
-          {!isMinimized && (
-            <div className="flex items-center gap-2">
-              <Brain className="h-5 w-5" />
-              <span className="text-sm font-medium">AI Learning Assistant</span>
-              <Sparkles className="h-4 w-4 text-yellow-300" />
-            </div>
-          )}
 
-          {isMinimized && (
-            <div className="flex items-center justify-center flex-1">
-              <Brain className="h-5 w-5" />
+  const formatTimestamp = () => {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  return (
+    <div className={cn(
+      "h-full bg-white flex flex-col transition-all duration-300 ease-in-out border-l border-gray-200",
+      isMinimized ? "h-16" : "h-full"
+    )}>
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-purple-50 flex-shrink-0">
+        <div className="flex items-center space-x-3">
+          <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center shadow-lg">
+            <Brain className="h-5 w-5 text-white" />
+          </div>
+          {!isMinimized && (
+            <div>
+              <h3 className="canvas-heading-3">AI Tutor</h3>
+              <div className="flex items-center space-x-2">
+                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="canvas-small text-green-600 font-medium">Online & Ready</span>
+              </div>
             </div>
           )}
         </div>
-  
-        {/* Chat content */}
-        {!isMinimized && (
-          <>
-            <div className="flex-grow overflow-auto p-4 space-y-4 bg-white">
-              {messages.map((m, index) => (
+        
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsMinimized(!isMinimized)}
+          className="sidebar-text-muted hover:sidebar-text modern-hover"
+        >
+          {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+        </Button>
+      </div>
+
+      {!isMinimized && (
+        <>
+          {/* Messages */}
+          <ScrollArea className="flex-1 p-4">
+            <div className="space-y-4">
+              {messages.map((message, index) => (
                 <div
                   key={index}
-                  className={`flex ${
-                    m.role === "user" ? "justify-end" : "justify-start"
-                  }`}
+                  className={cn(
+                    "flex gap-3 max-w-full",
+                    message.role === "user" ? "justify-end" : "justify-start"
+                  )}
                 >
+                  {message.role === "assistant" && (
+                    <Avatar className="h-8 w-8 border-2 border-blue-200 flex-shrink-0 shadow-sm">
+                      <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600">
+                        <Bot className="h-4 w-4 text-white" />
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  
                   <div
-                    className={`max-w-[85%] p-3 rounded-lg text-sm leading-relaxed ${
-                      m.role === "user"
-                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
-                        : "bg-gray-100 text-gray-800 border border-gray-200"
-                    }`}
+                    className={cn(
+                      "rounded-xl px-4 py-3 max-w-[85%] shadow-sm border transition-all duration-200",
+                      message.role === "user"
+                        ? "bg-blue-600 text-white border-blue-600 ml-auto"
+                        : "bg-white text-gray-900 border-gray-200 hover:shadow-md"
+                    )}
                   >
-                    <ReactMarkdown>{m.content}</ReactMarkdown>
+                    <div className="prose prose-sm max-w-none dark:prose-invert">
+                      <ReactMarkdown 
+                        components={{
+                          p: ({children}) => (
+                            <p className={cn(
+                              "mb-2 last:mb-0",
+                              message.role === "user" ? "text-white" : "canvas-body text-gray-700"
+                            )}>
+                              {children}
+                            </p>
+                          ),
+                          strong: ({children}) => (
+                            <strong className={cn(
+                              "font-semibold",
+                              message.role === "user" ? "text-white" : "text-gray-900"
+                            )}>
+                              {children}
+                            </strong>
+                          ),
+                          code: ({children}) => (
+                            <code className={cn(
+                              "px-1 py-0.5 rounded text-sm font-mono",
+                              message.role === "user" 
+                                ? "bg-blue-500 text-white" 
+                                : "bg-gray-100 text-gray-800"
+                            )}>
+                              {children}
+                            </code>
+                          ),
+                        }}
+                      >
+                        {message.content}
+                      </ReactMarkdown>
+                    </div>
+                    <div className={cn(
+                      "text-xs mt-2 opacity-70",
+                      message.role === "user" ? "text-blue-100" : "text-gray-500"
+                    )}>
+                      {formatTimestamp()}
+                    </div>
                   </div>
+
+                  {message.role === "user" && (
+                    <Avatar className="h-8 w-8 border-2 border-green-200 flex-shrink-0 shadow-sm">
+                      <AvatarFallback className="bg-gradient-to-r from-emerald-500 to-blue-500">
+                        <UserIcon className="h-4 w-4 text-white" />
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
                 </div>
               ))}
 
+              {/* Typing Indicator */}
+              {isLoading && (
+                <div className="flex gap-3 justify-start">
+                  <Avatar className="h-8 w-8 border-2 border-blue-200 shadow-sm">
+                    <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600">
+                      <Bot className="h-4 w-4 text-white" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="bg-white rounded-xl px-4 py-3 shadow-sm border border-gray-200">
+                    <div className="flex items-center space-x-2">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      </div>
+                      <span className="canvas-small text-blue-600 font-medium">AI is thinking...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Quick Suggestions */}
               {showSuggestions && messages.length <= 1 && (
-                <div className="space-y-3 mt-4">
-                  <p className="text-xs text-gray-500 text-center mb-3">Quick actions to get started:</p>
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 px-2">
+                    <Zap className="h-4 w-4 text-purple-600" />
+                    <span className="canvas-small font-semibold text-gray-700">Quick Actions</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2">
                     {getContextualSuggestions().map((suggestion) => {
                       const IconComponent = suggestion.icon;
                       return (
@@ -278,74 +356,67 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
                           size="sm"
                           onClick={suggestion.action}
                           className={cn(
-                            "flex flex-col h-auto py-2 px-2 text-xs",
-                            "hover:bg-gradient-to-r hover:from-purple-500 hover:to-blue-500 hover:text-white hover:border-transparent",
-                            "transition-all duration-200"
+                            "justify-start h-auto py-3 text-left transition-all duration-200 modern-hover",
+                            suggestion.color
                           )}
                         >
-                          <IconComponent className="h-3 w-3 mb-1" />
-                          <span className="leading-tight">{suggestion.text}</span>
+                          <IconComponent className="h-4 w-4 mr-3 flex-shrink-0" />
+                          <span className="canvas-small font-medium">{suggestion.text}</span>
                         </Button>
                       );
                     })}
                   </div>
                 </div>
               )}
-  
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="flex space-x-1 bg-gray-100 text-gray-700 p-3 rounded-lg text-sm leading-relaxed animate-pulse border border-gray-200">
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" />
+            </div>
+            <div ref={messagesEndRef} />
+          </ScrollArea>
+
+          {/* Input */}
+          <div className="border-t border-gray-200 p-4 bg-gray-50/50 flex-shrink-0">
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="flex items-center space-x-3">
+                <div className="flex-1 relative">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Ask me anything about this lesson..."
+                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white canvas-body transition-all duration-200"
+                    disabled={isLoading}
+                  />
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={isLoading || !input.trim()}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white rounded-md modern-hover"
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Status indicator */}
+              <div className="flex items-center justify-between canvas-small text-gray-500">
+                <div className="flex items-center space-x-2">
+                  <Sparkles className="h-3 w-3 text-purple-600" />
+                  <span>Powered by AI • Context-aware</span>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-1">
+                    <Clock className="h-3 w-3 text-green-600" />
+                    <span className="text-green-600">Instant responses</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Star className="h-3 w-3 text-yellow-600" />
+                    <span className="text-yellow-600">Personalized</span>
                   </div>
                 </div>
-              )}
-  
-              <div ref={messagesEndRef} />
-            </div>
-  
-            {/* Enhanced Input form */}
-            <form
-              onSubmit={handleSubmit}
-              className="p-4 border-t border-gray-200 flex bg-white"
-            >
-              <input
-                className="flex-grow bg-gray-100 text-gray-900 rounded-l-lg p-3 focus:outline-none focus:ring-2 focus:ring-purple-600 placeholder-gray-500"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about this lesson..."
-                disabled={isLoading}
-              />
-              <button
-                type="submit"
-                disabled={isLoading || !input.trim()}
-                aria-label="Send message"
-                className={cn(
-                  "bg-gradient-to-r from-purple-600 to-blue-600 text-white p-3 rounded-r-lg transition-all duration-200",
-                  "hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed",
-                  "focus:outline-none focus:ring-2 focus:ring-purple-600"
-                )}
-              >
-                <Send size={20} />
-              </button>
-            </form>
-
-            {/* Status Footer */}
-            <div className="px-4 py-2 bg-gray-50 border-t border-gray-200">
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <div className="flex items-center gap-1">
-                  <Badge variant="secondary" className="text-xs px-2 py-1">
-                    <Sparkles className="h-3 w-3 mr-1" />
-                    Personalized AI
-                  </Badge>
-                </div>
-                <span>Powered by your learning profile</span>
               </div>
-            </div>
-          </>
-        )}
-      </div>
+            </form>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import ModernDashboard from "./ModernDashboard";
 import { studentAPI, userAPI } from "@/lib/api";
 import { toast as sonnerToast } from 'sonner';
@@ -57,6 +58,7 @@ export default function StudentDash({ currentUser }: StudentDashProps) {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const loadStudentData = async () => {
@@ -70,6 +72,28 @@ export default function StudentDash({ currentUser }: StudentDashProps) {
         ]);
         
         setUserProfile(user);
+
+        // Check if student has completed onboarding by checking for student profile
+        if (user.role === 'student') {
+          try {
+            const profileResponse = await fetch('http://localhost:8080/student/profile', {
+              method: 'GET',
+              credentials: 'include',
+            });
+            
+            if (!profileResponse.ok) {
+              // Student profile doesn't exist, redirect to onboarding
+              console.log("No student profile found, redirecting to onboarding");
+              router.push('/onboarding');
+              return;
+            }
+          } catch (error) {
+            // Error fetching profile, likely doesn't exist
+            console.log("Error fetching student profile, redirecting to onboarding");
+            router.push('/onboarding');
+            return;
+          }
+        }
         
         // Transform API data to match our interface
         const transformedCourses = coursesData.map((course: any, index: number) => ({

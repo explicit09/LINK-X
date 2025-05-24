@@ -46,12 +46,18 @@ interface SmartRecommendationsProps {
   courseId?: string;
   userId?: string;
   className?: string;
+  prioritizedLayout?: boolean;
 }
 
-export function SmartRecommendations({ courseId, userId, className }: SmartRecommendationsProps) {
+export function SmartRecommendations({ courseId, userId, className, prioritizedLayout }: SmartRecommendationsProps) {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [insights, setInsights] = useState<LearningInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [expandedZones, setExpandedZones] = useState<Record<string, boolean>>({
+    mustDo: true,
+    nextUp: false,
+    planProgress: false
+  });
 
   useEffect(() => {
     // Simulate loading recommendations and insights
@@ -185,6 +191,118 @@ export function SmartRecommendations({ courseId, userId, className }: SmartRecom
     }
   };
 
+  const toggleZone = (zone: string) => {
+    setExpandedZones(prev => ({
+      ...prev,
+      [zone]: !prev[zone]
+    }));
+  };
+
+  const getZoneIcon = (zone: string) => {
+    switch (zone) {
+      case "mustDo": return "🔥";
+      case "nextUp": return "⏱️";
+      case "planProgress": return "🗓️";
+      default: return "📋";
+    }
+  };
+
+  const groupRecommendationsByPriority = () => {
+    const mustDo = recommendations.filter(r => r.priority === "high");
+    const nextUp = recommendations.filter(r => r.priority === "medium");
+    const planProgress = recommendations.filter(r => r.priority === "low");
+    
+    return { mustDo, nextUp, planProgress };
+  };
+
+  const renderPriorityZone = (title: string, zoneKey: string, items: Recommendation[], itemLimit: number = 2) => {
+    const isExpanded = expandedZones[zoneKey];
+    const displayItems = isExpanded ? items : items.slice(0, itemLimit);
+    const hasMore = !isExpanded && items.length > itemLimit;
+    
+    return (
+      <div key={zoneKey} className="space-y-4">
+        <div 
+          className="flex items-center justify-between cursor-pointer group py-2"
+          onClick={() => toggleZone(zoneKey)}
+        >
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <span>{getZoneIcon(zoneKey)}</span>
+            {title} ({items.length})
+          </h3>
+          <div className="flex items-center gap-2">
+            {!isExpanded && hasMore && (
+              <span className="text-xs text-gray-500">
+                {items.length - itemLimit} more
+              </span>
+            )}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-gray-500 hover:text-gray-700 text-xs"
+            >
+              {isExpanded ? "Collapse" : "Show All"}
+            </Button>
+          </div>
+        </div>
+        
+        <div className="space-y-3">
+          {displayItems.map((rec) => {
+            const IconComponent = getTypeIcon(rec.type);
+            const isHighPriority = rec.priority === "high";
+            return (
+              <div 
+                key={rec.id} 
+                className={cn(
+                  "p-6 rounded-lg bg-white hover:bg-gray-50 transition-all duration-300 cursor-pointer",
+                  isHighPriority && "shadow-md border border-red-100"
+                )}
+              >
+                <div className="flex items-start gap-4">
+                  <div className={cn("p-2 rounded-lg", getPriorityColor(rec.priority))}>
+                    <IconComponent className="h-4 w-4" />
+                  </div>
+                  
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-medium text-gray-900">{rec.title}</h4>
+                        <p className="text-sm text-gray-600 mt-1">{rec.description}</p>
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        {rec.timeEstimate && (
+                          <span className="text-xs text-gray-500">{rec.timeEstimate}</span>
+                        )}
+                        {isHighPriority && (
+                          <Badge className="text-xs bg-red-100 text-red-700 border-red-200">
+                            High Priority
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {rec.dueDate && (
+                          <span className="text-xs text-gray-500">Due: {rec.dueDate}</span>
+                        )}
+                      </div>
+                      
+                      <Button size="sm" className="bg-gradient-to-r from-purple-600 to-blue-600">
+                        {rec.action}
+                        <ArrowRight className="h-3 w-3 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className={cn("space-y-6", className)}>
@@ -197,6 +315,81 @@ export function SmartRecommendations({ courseId, userId, className }: SmartRecom
             <div key={i} className="h-32 bg-gray-200 rounded-lg animate-pulse"></div>
           ))}
         </div>
+      </div>
+    );
+  }
+
+  // Prioritized Layout for Course Home
+  if (prioritizedLayout) {
+    const { mustDo, nextUp } = groupRecommendationsByPriority();
+    
+    return (
+      <div className={cn("space-y-6", className)}>
+        {/* Must-Do Zone - Always Expanded */}
+        {mustDo.length > 0 && renderPriorityZone("Must-Do", "mustDo", mustDo, 1)}
+        
+        {/* Next Up Zone - Collapsed by Default */}
+        {nextUp.length > 0 && (
+          <div className="space-y-3">
+            <button 
+              className="flex items-center justify-between w-full py-2 text-left group"
+              onClick={() => toggleZone("nextUp")}
+            >
+              <span className="text-sm font-medium text-gray-700">
+                Show Next Up ({nextUp.length})
+              </span>
+              <span className="text-xs text-gray-400 group-hover:text-gray-600">
+                {expandedZones.nextUp ? "Hide" : "Show"}
+              </span>
+            </button>
+            
+            {expandedZones.nextUp && (
+              <div className="space-y-3">
+                {nextUp.slice(0, 2).map((rec) => {
+                  const IconComponent = getTypeIcon(rec.type);
+                  return (
+                    <div 
+                      key={rec.id} 
+                      className="p-4 rounded-lg bg-white hover:bg-gray-50 transition-all duration-300 cursor-pointer"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={cn("p-2 rounded-lg", getPriorityColor(rec.priority))}>
+                          <IconComponent className="h-4 w-4" />
+                        </div>
+                        
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h4 className="font-medium text-gray-900">{rec.title}</h4>
+                              <p className="text-sm text-gray-600 mt-1">{rec.description}</p>
+                            </div>
+                            <div className="flex items-center gap-2 ml-4">
+                              {rec.timeEstimate && (
+                                <span className="text-xs text-gray-500">{rec.timeEstimate}</span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {rec.dueDate && (
+                                <span className="text-xs text-gray-500">Due: {rec.dueDate}</span>
+                              )}
+                            </div>
+                            
+                            <Button size="sm" variant="outline" className="text-xs">
+                              {rec.action}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }

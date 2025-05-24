@@ -56,6 +56,7 @@ interface ModernSidebarProps {
     email?: string;
     avatar?: string;
   };
+  initialCollapsed?: boolean;
 }
 
 const courseColors = [
@@ -72,9 +73,10 @@ const ModernSidebar = ({
   onCollapseChange, 
   userRole,
   courses = [],
-  currentUser
+  currentUser,
+  initialCollapsed = false
 }: ModernSidebarProps) => {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [mounted, setMounted] = useState(false);
   const [hoveredCourse, setHoveredCourse] = useState<string | null>(null);
   const pathname = usePathname();
@@ -86,8 +88,12 @@ const ModernSidebar = ({
     // Default to collapsed on mobile
     if (isMobile) {
       setCollapsed(true);
+      if (onCollapseChange) onCollapseChange(true);
+    } else if (initialCollapsed && onCollapseChange) {
+      // Notify parent of initial collapsed state
+      onCollapseChange(initialCollapsed);
     }
-  }, [isMobile]);
+  }, [isMobile, initialCollapsed, onCollapseChange]);
 
   useEffect(() => {
     // Close sidebar on mobile when route changes

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { AuthForm } from "@/components/auth-form";
 import { SubmitButton } from "@/components/submit-button";
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import Header from "@/components/link-x/Header";
 
 import { signInWithEmailAndPassword } from "firebase/auth";
@@ -92,21 +93,34 @@ export default function Page() {
           </p>
         </div>
 
-        <AuthForm action={handleSubmit} defaultEmail={email}>
-          <SubmitButton isSuccessful={isSuccessful}>
-            Sign in
-          </SubmitButton>
-          <p className="text-center text-sm text-gray-600 mt-4 dark:text-zinc-400">
-            {"Don't have an account? "}
-            <Link
-              href="/register"
-              className="font-semibold text-gray-800 hover:underline dark:text-blue-400"
-            >
-              Sign up
-            </Link>
-            {" for free."}
-          </p>
-        </AuthForm>
+        <div className="space-y-4">
+          {/* Google Sign In */}
+          <GoogleAuthButton mode="login" disabled={state === "in_progress"} />
+          
+          {/* Divider */}
+          <div className="flex items-center gap-4 py-2">
+            <div className="flex-1 border-t border-gray-200 dark:border-zinc-700"></div>
+            <span className="text-sm text-gray-500 dark:text-zinc-400">or</span>
+            <div className="flex-1 border-t border-gray-200 dark:border-zinc-700"></div>
+          </div>
+
+          {/* Email/Password Form */}
+          <AuthForm action={handleSubmit} defaultEmail={email}>
+            <SubmitButton isSuccessful={isSuccessful}>
+              Sign in
+            </SubmitButton>
+            <p className="text-center text-sm text-gray-600 mt-4 dark:text-zinc-400">
+              {"Don't have an account? "}
+              <Link
+                href="/register"
+                className="font-semibold text-gray-800 hover:underline dark:text-blue-400"
+              >
+                Sign up
+              </Link>
+              {" for free."}
+            </p>
+          </AuthForm>
+        </div>
       </div>
     </div>
   );
