@@ -375,7 +375,7 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex overflow-hidden">
+    <div className="h-screen bg-gray-50 flex overflow-hidden">
       <ModernSidebar
         userRole={userRole}
         onCollapseChange={setIsCollapsed}
@@ -432,10 +432,10 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
           </div>
         </div>
 
-        <main className="p-6 flex-1 overflow-y-auto">
+        <main className="p-6 flex-1 overflow-y-auto bg-gray-100">
           {/* Stats with cleaner design - flat colors with subtle shadows */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <Card className="canvas-card modern-hover">
+            <Card className="canvas-card hover:bg-gray-50 transition-colors duration-200">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -449,7 +449,7 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
               </CardContent>
             </Card>
             
-            <Card className="canvas-card modern-hover">
+            <Card className="canvas-card hover:bg-gray-50 transition-colors duration-200">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -463,7 +463,7 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
               </CardContent>
             </Card>
             
-            <Card className="canvas-card modern-hover">
+            <Card className="canvas-card hover:bg-gray-50 transition-colors duration-200">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -480,7 +480,7 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
               </CardContent>
             </Card>
             
-            <Card className="canvas-card modern-hover">
+            <Card className="canvas-card hover:bg-gray-50 transition-colors duration-200">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -529,8 +529,8 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
 
             {/* Enhanced Sidebar Content */}
             <div className="space-y-6">
-              {/* To Do List - Cleaner design */}
-              <Card className="canvas-card gradient-hover">
+              {/* To Do List - Highlighted zone */}
+              <Card className="bg-blue-50 border-l-4 border-blue-500 shadow-lg border border-blue-200">
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -611,7 +611,7 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
                         return (
                           <div
                             key={item.id}
-                            className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-all duration-200 modern-hover group"
+                            className="flex items-start gap-3 p-3 rounded-lg hover:bg-white hover:shadow-sm transition-all duration-200 group"
                           >
                             <IconComponent className={cn("h-4 w-4 mt-0.5", getPriorityColor(item.priority))} />
                             <div className="flex-1 min-w-0">
@@ -641,8 +641,8 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
                 </CardContent>
               </Card>
 
-              {/* Recent Activity - Cleaner design */}
-              <Card className="canvas-card gradient-hover">
+              {/* Recent Activity - Enhanced with background */}
+              <Card className="bg-green-50 border-l-4 border-green-500 shadow-lg border border-green-200">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center shadow-md">
@@ -662,7 +662,7 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
                       recentActivity.slice(0, 3).map((activity) => {
                         const IconComponent = getActivityIcon(activity.type);
                         return (
-                          <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-all duration-200 modern-hover">
+                          <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-white hover:shadow-sm transition-all duration-200">
                             <IconComponent className="h-4 w-4 text-gray-600 mt-0.5" />
                             <div className="flex-1">
                               <p className="text-sm sidebar-text">{activity.title}</p>
