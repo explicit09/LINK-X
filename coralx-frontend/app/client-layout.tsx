@@ -4,7 +4,6 @@ import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "./(auth)/AuthContext";
 import { useEffect } from "react";
-import Script from 'next/script';
 import "./globals.css";
 
 const LIGHT_THEME_COLOR = "hsl(0 0% 100%)";
@@ -43,11 +42,28 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     return () => observer.disconnect();
   }, []);
 
+  // Add a useEffect to dynamically load the Firebase auth helper script after hydration
+  useEffect(() => {
+    // Only run on client side after hydration
+    if (typeof window !== 'undefined') {
+      const script = document.createElement('script');
+      script.src = '/firebase-auth-helper.js';
+      script.async = true;
+      document.head.appendChild(script);
+
+      return () => {
+        // Cleanup function
+        if (script.parentNode) {
+          script.parentNode.removeChild(script);
+        }
+      };
+    }
+  }, []);
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Firebase Auth Helper Script */}
-        <Script src="/firebase-auth-helper.js" strategy="beforeInteractive" />
+        {/* Firebase Auth Helper Script is now loaded via useEffect */}
       </head>
       <body>
         <AuthProvider>
