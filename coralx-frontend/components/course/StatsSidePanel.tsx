@@ -87,16 +87,17 @@ export function StatsSidePanel({
         
         // Use real API call instead of mock data
         const response = await studentAPI.getTodoItems();
-        console.log('StatsSidePanel: Loaded todos from API:', response?.length || 0, 'items');
-        
+        const todosData: TodoItem[] = Array.isArray(response) ? response : [];
+        console.log('StatsSidePanel: Loaded todos from API:', todosData.length, 'items');
+
         // Filter todos for this specific course if we have a course ID
-        const courseTodos = course?.id 
-          ? response.filter((todo: TodoItem) => 
-              todo.course === course.title || 
+        const courseTodos = course?.id
+          ? todosData.filter((todo: TodoItem) =>
+              todo.course === course?.title ||
               todo.course === 'General' ||
               todo.course === 'This Course'
             )
-          : response;
+          : todosData;
         
         console.log('StatsSidePanel: Filtered todos for course:', courseTodos?.length || 0, 'items');
         setTodos(courseTodos);

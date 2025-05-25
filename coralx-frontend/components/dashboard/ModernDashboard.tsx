@@ -165,8 +165,9 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
       console.log('Loading todo items from API...');
       if (userRole === 'student') {
         const realTodos = await studentAPI.getTodoItems();
-        console.log('Loaded todos from API:', realTodos?.length || 0, 'items');
-        setTodoItems(realTodos || []);
+        const todosData: TodoItem[] = Array.isArray(realTodos) ? realTodos : [];
+        console.log('Loaded todos from API:', todosData.length, 'items');
+        setTodoItems(todosData);
       } else {
         // For instructors/admins, show empty or instructor-specific todos
         setTodoItems([]);
