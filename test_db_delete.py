@@ -3,9 +3,20 @@ import sys
 import os
 sys.path.append('/Users/tadies/Documents/GitHub/LINK-X/docker-image/src')
 
-from db.database import Session
-from db.queries import create_todo, delete_todo, get_todo_by_id
+# Import Session from app.py and queries
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
+from src.db.queries import create_todo, delete_todo, get_todo_by_id
 import uuid
+
+# Set up database connection like in app.py
+POSTGRES_URL = os.getenv("POSTGRES_URL")
+if not POSTGRES_URL:
+    print("❌ POSTGRES_URL not set in environment")
+    sys.exit(1)
+
+engine = create_engine(POSTGRES_URL, pool_pre_ping=True, pool_recycle=1800)
+Session = sessionmaker(bind=engine, expire_on_commit=False)
 
 db = Session()
 user_id = str(uuid.uuid4())
