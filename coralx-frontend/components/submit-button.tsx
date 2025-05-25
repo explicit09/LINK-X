@@ -20,9 +20,9 @@ export function SubmitButton({
       type={pending ? 'button' : 'submit'}
       aria-disabled={pending || isSuccessful}
       disabled={pending || isSuccessful}
-      className="relative"
+      className="w-full h-12 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      {children}
+      <span className="text-base">{children}</span>
 
       {(pending || isSuccessful) && (
         <span className="animate-spin absolute right-4">

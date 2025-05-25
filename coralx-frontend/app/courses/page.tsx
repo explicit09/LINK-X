@@ -38,7 +38,7 @@ export default function Dashboard() {
             <div>
               <h1 className="text-4xl font-bold text-blue-600">Current Courses</h1>
               <h2 className="text-lg font-medium text-gray-700">
-                Welcome back to Learn-X! Here's your current courses.
+                Welcome back to Learn-X! Here&apos;s your current courses.
               </h2>
             </div>
 

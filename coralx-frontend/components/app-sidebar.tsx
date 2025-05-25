@@ -1,6 +1,6 @@
 'use client';
 
-import type { User } from 'next-auth';
+import type { User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 
 import { PlusIcon } from '@/components/icons';
@@ -47,7 +47,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
             router.refresh();
           }}
         >
-          <PlusIcon className="h-4 w-4" />
+          <PlusIcon size={16} />
           <span>New Chat</span>
         </Button>
       </div>

@@ -63,10 +63,10 @@ const StudentBenefits = () => {
             For Students
           </h5>
           <h2 className="reveal text-3xl md:text-4xl font-bold text-white mb-4">
-            Skills You'll Develop
+            Skills You&apos;ll Develop
           </h2>
           <p className="reveal max-w-2xl mx-auto text-gray-300">
-            Link-X doesn't just teach financial concepts - it equips you with practical skills for the modern world.
+            Link-X doesn&apos;t just teach financial concepts - it equips you with practical skills for the modern world.
           </p>
         </div>
 
