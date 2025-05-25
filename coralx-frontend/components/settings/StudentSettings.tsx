@@ -54,6 +54,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { userAPI } from "@/lib/api";
 
 interface OnboardingData {
   firstName: string;
@@ -208,6 +209,17 @@ const StudentSettings = () => {
           interests,
           schedule: data.onboard_answers?.schedule || "",
           quizzes: data.want_quizzes ?? false,
+        });
+
+        // Mark onboarding as completed since we successfully loaded profile data
+        // This helps existing users who haven't had this flag set yet
+        userAPI.getMe().then(currentUser => {
+          if (currentUser?.id) {
+            localStorage.setItem(`onboarding_completed_${currentUser.id}`, 'true');
+            console.log("✅ Onboarding completion marked for existing user");
+          }
+        }).catch(err => {
+          console.warn("Could not mark onboarding completion:", err);
         });
         
       })

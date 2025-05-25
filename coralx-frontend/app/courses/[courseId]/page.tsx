@@ -16,6 +16,8 @@ import { SmartSelection } from "@/components/ai/SmartSelection";
 import { SmartRecommendations } from "@/components/ai/SmartRecommendations";
 import MaterialViewer from "@/components/course/MaterialViewer";
 import { StudentCourseUpload } from "@/components/course/StudentCourseUpload";
+import { ModuleStream } from "@/components/course/ModuleStream";
+import { StatsSidePanel } from "@/components/course/StatsSidePanel";
 import {
   ArrowLeft,
   BookOpen,
@@ -163,6 +165,7 @@ export default function CoursePage() {
   const activeTab = searchParams?.get("tab") || "home";
 
   const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isFocusMode, setIsFocusMode] = useState(false);
   const [course, setCourse] = useState<Course | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [conversations, setConversations] = useState<AIConversation[]>([]);
@@ -190,6 +193,9 @@ export default function CoursePage() {
   // Load real data from API
   useEffect(() => {
     if (!courseId) return;
+    
+    // Clear any existing error toasts on page load
+    sonnerToast.dismiss();
     
     const loadCourseData = async () => {
       try {
@@ -843,8 +849,8 @@ export default function CoursePage() {
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="canvas-heading-2 mb-2">Course Not Found</h2>
-          <p className="canvas-body mb-4">The course you&apos;re looking for doesn&apos;t exist.</p>
+                        <h2 className="canvas-heading-2 mb-2">Course Not Found</h2>
+              <p className="canvas-body mb-4">The course you&apos;re looking for doesn&apos;t exist.</p>
           <Button onClick={() => router.push("/dashboard")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
@@ -861,320 +867,198 @@ export default function CoursePage() {
   const colors = courseColors[colorIndex];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex">
-      <ModernSidebar
-        userRole="student"
-        onCollapseChange={setIsCollapsed}
-        courses={[course]}
-        currentUser={currentUser}
-        initialCollapsed={true}
-      />
+    <div className="min-h-screen bg-gray-50/30 flex">
+      {!isFocusMode && (
+        <ModernSidebar
+          userRole="student"
+          onCollapseChange={setIsCollapsed}
+          courses={[course]}
+          currentUser={currentUser}
+          initialCollapsed={true}
+        />
+      )}
       
-      <div className={cn("flex-1 transition-all duration-300", isCollapsed ? "ml-16" : "ml-64")}>
-        {/* Enhanced Course Header */}
-        <div className="bg-gradient-to-r from-white via-gray-50 to-white border-b border-gray-200 relative overflow-hidden">
-          {/* Animated Course Color Bar */}
-          <div className={cn("h-2 w-full transition-all duration-500", colors.bar)} />
-          
-          {/* Subtle background pattern */}
-          <div className="absolute inset-0 opacity-5">
-            <div className={cn("w-full h-full bg-gradient-to-br", colors.gradient)} />
-          </div>
-          
-          <div className="px-6 py-4 relative">
+      <div className={cn("flex-1 transition-all duration-300 ease-out", 
+        isFocusMode ? "ml-0" : (isCollapsed ? "ml-14" : "ml-64")
+      )}>
+        {/* Modern Course Header */}
+        <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200/80 shadow-sm">
+          <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => router.push("/dashboard")}
-                  className="text-gray-600 hover:text-gray-900 modern-hover"
+                  className="text-gray-600 hover:text-gray-900 hover:bg-gray-100/80 rounded-lg px-3 py-2 transition-all duration-200"
                 >
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Dashboard
+                  Dashboard
                 </Button>
-                <div>
-                  <h1 className={cn(
-                    "canvas-heading-1 bg-gradient-to-r bg-clip-text text-transparent",
-                    `from-${colors.text} via-gray-900 to-${colors.text}`
-                  )}>
-                    {course.title}
-                  </h1>
-                  <p className="canvas-body">
-                    {course.code} • {course.term} • {course.instructor}
-                  </p>
+                <div className="flex items-center gap-3">
+                  <div className={cn("w-3 h-8 rounded-full bg-gradient-to-b", colors.gradient)} />
+                  <div>
+                    <h1 className="text-xl font-semibold text-gray-900 tracking-tight">
+                      {course.title}
+                    </h1>
+                    <div className="flex items-center gap-4 text-sm text-gray-500 font-medium">
+                      <span>{course.code} • {course.term}</span>
+                      <span>•</span>
+                      <span>{materials.length} material{materials.length !== 1 ? 's' : ''}</span>
+                      <span>•</span>
+                      <span>{courseProgress.progressPercentage}% complete</span>
+                      <span>•</span>
+                      <span>{Math.round(courseProgress.todayTimeMinutes)}m today</span>
+                    </div>
+                  </div>
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
-                <Badge 
-                  variant="outline" 
-                  className={cn("text-xs modern-hover", `border-${colors.border} text-${colors.text}`)}
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-500 hover:text-gray-700"
+                  onClick={() => {
+                    setIsFocusMode(!isFocusMode);
+                    if (!isFocusMode) {
+                      setIsCollapsed(true); // Force sidebar collapsed when entering focus mode
+                    }
+                  }}
                 >
-                  {course.studentsCount} students
-                </Badge>
-                <Badge 
-                  variant="outline" 
-                  className={cn("text-xs modern-hover", `border-${colors.border} text-${colors.text}`)}
-                >
-                  {course.materialsCount} materials
-                </Badge>
+                  {isFocusMode ? 'Exit Focus' : 'Focus Mode'}
+                </Button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Enhanced Course Navigation */}
-        <div className="bg-white border-b border-gray-200 px-6 relative">
-          <Tabs value={activeTab} onValueChange={handleTabChange}>
-            <TabsList className="h-12 bg-transparent border-none p-0">
-              <TabsTrigger 
-                value="home" 
-                className={cn(
-                  "data-[state=active]:bg-transparent data-[state=active]:border-b-2 rounded-none modern-hover",
-                  `data-[state=active]:border-${colors.accent} data-[state=active]:text-${colors.text}`
-                )}
-              >
-                <BookOpen className="h-4 w-4 mr-2" />
-                Home
-              </TabsTrigger>
-              <TabsTrigger 
-                value="materials"
-                className={cn(
-                  "data-[state=active]:bg-transparent data-[state=active]:border-b-2 rounded-none modern-hover",
-                  `data-[state=active]:border-${colors.accent} data-[state=active]:text-${colors.text}`
-                )}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Materials
-              </TabsTrigger>
-              <TabsTrigger 
-                value="ai"
-                className={cn(
-                  "data-[state=active]:bg-transparent data-[state=active]:border-b-2 rounded-none modern-hover",
-                  `data-[state=active]:border-${colors.accent} data-[state=active]:text-${colors.text}`
-                )}
-              >
-                <Brain className="h-4 w-4 mr-2" />
-                AI Tutor
-              </TabsTrigger>
-              <TabsTrigger 
-                value="quizzes"
-                className={cn(
-                  "data-[state=active]:bg-transparent data-[state=active]:border-b-2 rounded-none modern-hover",
-                  `data-[state=active]:border-${colors.accent} data-[state=active]:text-${colors.text}`
-                )}
-              >
-                <MessageSquare className="h-4 w-4 mr-2" />
-                Quizzes
-              </TabsTrigger>
-              <TabsTrigger 
-                value="people"
-                className={cn(
-                  "data-[state=active]:bg-transparent data-[state=active]:border-b-2 rounded-none modern-hover",
-                  `data-[state=active]:border-${colors.accent} data-[state=active]:text-${colors.text}`
-                )}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                People
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+        {/* Modern Navigation */}
+        <div className="bg-white/60 backdrop-blur-sm border-b border-gray-200/50">
+          <div className="px-6">
+            <Tabs value={activeTab} onValueChange={handleTabChange}>
+              <TabsList className="h-14 bg-transparent border-none p-0 w-full justify-start">
+                <TabsTrigger 
+                  value="home" 
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-gray-200 data-[state=active]:text-gray-900 rounded-lg px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-white/80 transition-all duration-200 font-medium"
+                >
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Home
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="ai"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-gray-200 data-[state=active]:text-gray-900 rounded-lg px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-white/80 transition-all duration-200 font-medium"
+                >
+                  <Brain className="h-4 w-4 mr-2" />
+                  AI Tutor
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="quizzes"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-gray-200 data-[state=active]:text-gray-900 rounded-lg px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-white/80 transition-all duration-200 font-medium"
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Quizzes
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="people"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-gray-200 data-[state=active]:text-gray-900 rounded-lg px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-white/80 transition-all duration-200 font-medium"
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  People
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {/* Subtle Progress Bar */}
+            <div className="w-full bg-gray-200/50 h-0.5">
+              <div 
+                className="h-0.5 bg-[#7B61FF] transition-all duration-500 ease-out"
+                style={{ width: `${courseProgress.progressPercentage}%` }}
+              />
+            </div>
+          </div>
         </div>
 
-        <main className="p-6">
+        <main className="bg-gray-50/30 relative">
           <Tabs value={activeTab} onValueChange={handleTabChange}>
-            {/* Home Tab - Ruthlessly Decluttered */}
+            {/* Home Tab - Modern Design */}
             <TabsContent value="home" className="space-y-0">
-              {/* Simplified Sticky Progress Header */}
-              <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-200 px-6 py-3 mb-6 z-40">
-                <div className="flex items-center justify-between">
-                  {/* Merged Progress Metrics */}
-                  <div className="flex items-center gap-4">
-                    <p className="text-sm text-gray-600">
-                      {courseProgress.completedMaterials}/{courseProgress.totalMaterials} • {Math.round(courseProgress.todayTimeMinutes)}m today • {courseProgress.progressPercentage}%
-                    </p>
+              <div className="flex min-h-screen">
+                {/* Main Content Area */}
+                <div className={cn("flex-1 mx-auto px-6 py-8 transition-all duration-200", 
+                  isFocusMode ? "max-w-none w-[90vw]" : "max-w-5xl"
+                )}>
+                  <div className="space-y-6">
+                    {/* Materials Section */}
+                    <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-sm">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-3">
+                          <div className={cn("w-2 h-6 rounded-full bg-gradient-to-b", colors.gradient)} />
+                          Materials
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0 px-4 pb-4">
+                        <ModuleStream 
+                          courseId={courseId}
+                          materials={materials}
+                          onUploadComplete={handleUploadComplete}
+                          onViewMaterial={handleViewMaterial}
+                          onAskAI={handleAskAI}
+                          userRole={currentUser?.role || 'student'}
+                        />
+                      </CardContent>
+                    </Card>
                   </div>
-
-
+                  
+                  {/* Improved empty-state treatment - only show when materials count is reasonable */}
+                  {materials.length > 0 && materials.length <= 4 && (
+                    <div className="mt-16 py-20 text-center">
+                      <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-green-100 to-blue-100 mb-6">
+                        <CheckCircle className="h-10 w-10 text-green-600" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">All set—start learning!</h3>
+                      <p className="text-gray-500 max-w-md mx-auto">
+                        Your course materials are organized and ready. Click any file to begin learning with AI assistance.
+                      </p>
+                    </div>
+                  )}
                 </div>
-                
-                {/* Ultra-thin Progress Bar */}
-                <div className="w-full bg-gray-200 rounded-full h-px mt-3">
-                  <div 
-                    className={cn("h-px rounded-full transition-all duration-500", colors.bar)}
-                    style={{ width: `${courseProgress.progressPercentage}%` }}
-                  />
-                </div>
-              </div>
 
-              {/* Two Column Layout - Smart Recommendations + Course Info */}
-              <div className="max-w-7xl mx-auto px-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Left Column - Smart Recommendations (2/3 width) */}
-                  <div className="lg:col-span-2">
-                    <SmartRecommendations 
-                      courseId={courseId} 
-                      userId={currentUser?.id}
-                      prioritizedLayout={true}
+                {/* Modern Stats Sidebar */}
+                {!isFocusMode && (
+                  <div className="w-80 bg-white/60 backdrop-blur-sm border-l border-gray-200/50 p-6 overflow-y-auto stats-sidebar transition-all duration-200">
+                    <StatsSidePanel 
+                      course={course}
+                      courseProgress={courseProgress}
+                      onUpdateDescription={(newDescription) => {
+                        setCourse(prev => prev ? { ...prev, description: newDescription } : null);
+                      }}
+                      userRole={currentUser?.role || 'student'}
                     />
                   </div>
-
-                  {/* Right Column - Course Info (1/3 width) */}
-                  <div className="space-y-6">
-                    {/* Course Description */}
-                    <Card className="canvas-card gradient-hover modern-hover">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <div className={cn("w-8 h-8 rounded-full bg-gradient-to-r flex items-center justify-center", colors.gradient)}>
-                            <BookOpen className="h-4 w-4 text-white" />
-                          </div>
-                          Course Description
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="canvas-body">{course.description}</p>
-                      </CardContent>
-                    </Card>
-
-                    {/* Course Stats */}
-                    <Card className="canvas-card gradient-hover modern-hover">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <div className={cn("w-8 h-8 rounded-full bg-gradient-to-r flex items-center justify-center", colors.gradient)}>
-                            <BarChart3 className="h-4 w-4 text-white" />
-                          </div>
-                          Course Stats
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                          <div className="text-center p-3 bg-gray-50 rounded-lg">
-                            <div className="text-2xl font-bold text-blue-600">{materials.length}</div>
-                            <div className="text-xs text-gray-500">Materials</div>
-                          </div>
-                          <div className="text-center p-3 bg-gray-50 rounded-lg">
-                            <div className="text-2xl font-bold text-green-600">{course.studentsCount || 0}</div>
-                            <div className="text-xs text-gray-500">Students</div>
-                          </div>
-                          <div className="text-center p-3 bg-gray-50 rounded-lg">
-                            <div className="text-2xl font-bold text-purple-600">{courseProgress.progressPercentage}%</div>
-                            <div className="text-xs text-gray-500">Progress</div>
-                          </div>
-                          <div className="text-center p-3 bg-gray-50 rounded-lg">
-                            <div className="text-2xl font-bold text-orange-600">{Math.round(courseProgress.todayTimeMinutes)}m</div>
-                            <div className="text-xs text-gray-500">Today</div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
+                )}
               </div>
             </TabsContent>
 
-            {/* Materials Tab - Enhanced with Course Info */}
-            <TabsContent value="materials" className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="canvas-heading-2">Course Materials</h2>
-                <Button 
-                  onClick={() => setIsUploadDialogOpen(true)}
-                  className={cn("modern-hover button-pulse bg-gradient-to-r", colors.gradient)}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Material
-                </Button>
-              </div>
 
-
-
-              {materials.length === 0 ? (
-                <Card className="canvas-card">
-                  <CardContent className="p-12 text-center">
-                    <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="canvas-heading-3 mb-2">No materials available</h3>
-                    <p className="canvas-body text-gray-500 mb-6">
-                      {currentUser?.role === 'instructor' 
-                        ? "Upload your first course material to get started."
-                        : "No course materials have been uploaded yet. Check back later or contact your instructor."
-                      }
-                    </p>
-                    {currentUser?.role === 'instructor' && (
-                      <Button 
-                        onClick={() => setIsUploadDialogOpen(true)}
-                        className={cn("bg-gradient-to-r", colors.gradient)}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload First Material
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {materials.map((material) => {
-                    const IconComponent = getFileIcon(material.type);
-                    return (
-                      <Card 
-                        key={material.id} 
-                        className="canvas-card modern-hover cursor-pointer gradient-hover group"
-                        onClick={() => handleViewMaterial({ id: material.id, title: material.title, type: material.type })}
-                      >
-                        <CardContent className="p-6 relative">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className={cn("p-3 rounded-lg bg-gradient-to-r", colors.gradient)}>
-                              <IconComponent className="h-6 w-6 text-white" />
-                            </div>
-                            {!material.processed && (
-                              <Badge variant="outline" className="text-xs animate-pulse">Processing</Badge>
-                            )}
-                          </div>
-                          <h3 className="font-medium sidebar-text mb-2 line-clamp-2">{material.title}</h3>
-                          <p className="text-sm sidebar-text-muted">{material.size} • {material.uploadedAt}</p>
-                          
-                          <div className="flex gap-2 mt-4">
-                            <Button 
-                              size="sm" 
-                              className={cn("flex-1 bg-gradient-to-r", colors.gradient)}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleViewMaterial({ id: material.id, title: material.title, type: material.type });
-                              }}
-                            >
-                              View
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAskAI(material);
-                              }}
-                              className={cn("modern-hover", `hover:bg-${colors.bg} hover:border-${colors.border} hover:text-${colors.text}`)}
-                            >
-                              <Brain className="h-3 w-3 mr-1" />
-                              Ask AI
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </TabsContent>
 
             {/* AI Tutor Tab */}
-            <TabsContent value="ai" className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="canvas-heading-2">AI Tutor</h2>
-                <Button onClick={handleStartAIChat}>
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  New Conversation
-                </Button>
-              </div>
+            <TabsContent value="ai" className="p-6">
+              <div className="max-w-6xl mx-auto space-y-8">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={cn("w-2 h-8 rounded-full bg-gradient-to-b", colors.gradient)} />
+                    <h2 className="text-2xl font-semibold text-gray-900">AI Tutor</h2>
+                  </div>
+                  <Button 
+                    onClick={handleStartAIChat}
+                    className="bg-[#7B61FF] hover:bg-[#6B51E5] text-white shadow-sm hover:shadow-md transition-all duration-200"
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    New Conversation
+                  </Button>
+                </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2">
                   {aiChatOpen ? (
                     <Card className="canvas-card h-[600px] flex flex-col">
@@ -1309,17 +1193,25 @@ export default function CoursePage() {
                   </Card>
                 </div>
               </div>
+                </div>
             </TabsContent>
 
             {/* Quizzes Tab */}
-            <TabsContent value="quizzes" className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="canvas-heading-2">Practice Quizzes</h2>
-                <Button onClick={handleGenerateQuiz}>
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Generate Quiz
-                </Button>
-              </div>
+            <TabsContent value="quizzes" className="p-6">
+              <div className="max-w-6xl mx-auto space-y-8">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={cn("w-2 h-8 rounded-full bg-gradient-to-b", colors.gradient)} />
+                    <h2 className="text-2xl font-semibold text-gray-900">Practice Quizzes</h2>
+                  </div>
+                  <Button 
+                    onClick={handleGenerateQuiz}
+                    className="bg-[#7B61FF] hover:bg-[#6B51E5] text-white shadow-sm hover:shadow-md transition-all duration-200"
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Generate Quiz
+                  </Button>
+                </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {quizzes.map((quiz) => (
@@ -1373,11 +1265,16 @@ export default function CoursePage() {
                   </div>
                 )}
               </div>
+                </div>
             </TabsContent>
 
             {/* People Tab */}
-            <TabsContent value="people" className="space-y-6">
-              <h2 className="canvas-heading-2">Course People</h2>
+            <TabsContent value="people" className="p-6">
+              <div className="max-w-6xl mx-auto space-y-8">
+                <div className="flex items-center gap-3">
+                  <div className={cn("w-2 h-8 rounded-full bg-gradient-to-b", colors.gradient)} />
+                  <h2 className="text-2xl font-semibold text-gray-900">Course People</h2>
+                </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="canvas-card">
@@ -1408,6 +1305,7 @@ export default function CoursePage() {
                   </CardContent>
                 </Card>
               </div>
+                </div>
             </TabsContent>
           </Tabs>
         </main>
@@ -1599,7 +1497,7 @@ export default function CoursePage() {
                       <li>Read each question carefully</li>
                       <li>Select the best answer from the options provided</li>
                       <li>You can review and change your answers before submitting</li>
-                      <li>Click "Submit Quiz" when you're ready to finish</li>
+                      <li>Click &quot;Submit Quiz&quot; when you&apos;re ready to finish</li>
                     </ul>
                   </div>
                   

@@ -10,8 +10,11 @@ docker build --no-cache -t dev7 -f Dockerfile .
 echo "Running backend directly with Flask app..."
 cd src
 pwd
-docker run -d -p 8080:8080 \
+docker run -d -p 8081:8080 \
   -e FIREBASE_KEY_PATH=/app/firebaseKey.json \
+  -e POSTGRES_URL="postgresql://neondb_owner:npg_2ZO0npmbLIPU@ep-withered-hill-a5u0pgp4-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require" \
+  -e FLASK_ENV=development \
+  -e CORS_ORIGINS="*" \
   -v $(pwd):/app/src \
   -w /app \
   --entrypoint="" \

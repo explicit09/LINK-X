@@ -104,7 +104,7 @@ export default function PDFViewer({ fileUrl, fileName, onClose }: PDFViewerProps
             <AlertCircle className="h-16 w-16 text-orange-500 mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">Unable to display document</h3>
             <p className="text-gray-600 mb-6">
-              The document couldn't be displayed in the viewer.
+              The document couldn&apos;t be displayed in the viewer.
             </p>
             <div className="space-y-3">
               <Button onClick={openInNewTab} className="w-full">
