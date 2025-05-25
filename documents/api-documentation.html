@@ -829,10 +829,15 @@
 <hr />
 
 <h2>/student/courses/&lt;course_id&gt;/modules</h2>
-<p><strong>Method:</strong> GET</p>
+<p><strong>Methods:</strong> GET, POST</p>
+<p>
+  <strong>Description:</strong> Manage course modules for student-created courses.
+</p>
+
+<h3>GET</h3>
 <p>
   <strong>Description:</strong> Retrieves a list of modules within a course the
-  student is enrolled in.
+  student is enrolled in or created.
 </p>
 
 <h4>Response:</h4>
@@ -841,9 +846,29 @@
   { "id": "module-id-2", "title": "Module 2" }
 ]</code></pre>
 
+<h3>POST</h3>
+<p>
+  <strong>Description:</strong> Create a new module in a course. Only available for courses created by the student.
+</p>
+
+<h4>Request Body:</h4>
+<pre><code>{
+  "title": "New Module Title"
+}</code></pre>
+
+<h4>Response:</h4>
+<pre><code>{
+  "id": "new-module-id",
+  "title": "New Module Title",
+  "course_id": "course-id",
+  "ordering": 0
+}</code></pre>
+
 <ul>
   <li>200 OK – Modules retrieved</li>
-  <li>403 Forbidden – Student not enrolled in course</li>
+  <li>201 Created – Module created successfully</li>
+  <li>400 Bad Request – Title is required</li>
+  <li>403 Forbidden – Student not enrolled/authorized or not course creator</li>
 </ul>
 
 <hr />
