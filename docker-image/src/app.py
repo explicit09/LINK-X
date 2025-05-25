@@ -2082,99 +2082,9 @@ def student_todo_items():
                     'completed': todo.completed
                 })
             
-            # If no todos exist, create some helpful default ones
+            # If no todos exist, return an empty list instead of defaults
             if not todo_items:
-                # Get courses student is enrolled in to create course-specific todos
-                try:
-                    enrollments = get_enrollments_by_student(db, user_id)
-                    
-                    for enrollment in enrollments:
-                        course = get_course_by_id(db, enrollment.course_id)
-                        if course:
-                            # Create a default todo for exploring the course
-                            todo = create_todo(
-                                db, 
-                                user_id=user_id,
-                                course_id=str(course.id),
-                                title=f"Explore {course.title}",
-                                description=f"Get familiar with the course materials and structure",
-                                todo_type='reading',
-                                priority='medium'
-                            )
-                            todo_items.append({
-                                'id': str(todo.id),
-                                'title': todo.title,
-                                'description': todo.description,
-                                'course': course.title,
-                                'dueDate': 'This week',
-                                'type': todo.todo_type,
-                                'priority': todo.priority,
-                                'completed': todo.completed
-                            })
-                except Exception as e:
-                    print(f"Error creating default course todos: {str(e)}")
-                
-                # Check for personalized files that suggest practice
-                try:
-                    personalized_files = get_personalized_files_by_student(db, user_id)
-                    if personalized_files and len(personalized_files) > 0:
-                        todo = create_todo(
-                            db,
-                            user_id=user_id,
-                            title='Continue AI-assisted learning',
-                            description='Review your personalized learning materials',
-                            todo_type='quiz',
-                            priority='high'
-                        )
-                        todo_items.append({
-                            'id': str(todo.id),
-                            'title': todo.title,
-                            'description': todo.description,
-                            'course': 'Course Materials',
-                            'dueDate': 'Soon',
-                            'type': todo.todo_type,
-                            'priority': todo.priority,
-                            'completed': todo.completed
-                        })
-                except Exception as e:
-                    print(f"Error creating personalized file todo: {str(e)}")
-                
-                # If still no todos, create basic getting started ones
-                if not todo_items:
-                    default_todos = [
-                        {
-                            'title': 'Explore your course materials',
-                            'description': 'Browse through your enrolled courses and available materials',
-                            'todo_type': 'reading',
-                            'priority': 'medium'
-                        },
-                        {
-                            'title': 'Upload some study materials',
-                            'description': 'Add your own documents to enhance your learning experience',
-                            'todo_type': 'upload',
-                            'priority': 'low'
-                        }
-                    ]
-                    
-                    for default_todo in default_todos:
-                        todo = create_todo(
-                            db,
-                            user_id=user_id,
-                            title=default_todo['title'],
-                            description=default_todo['description'],
-                            todo_type=default_todo['todo_type'],
-                            priority=default_todo['priority']
-                        )
-                        todo_items.append({
-                            'id': str(todo.id),
-                            'title': todo.title,
-                            'description': todo.description,
-                            'course': 'Getting Started',
-                            'dueDate': 'Today',
-                            'type': todo.todo_type,
-                            'priority': todo.priority,
-                            'completed': todo.completed
-                        })
+                return jsonify([]), 200
             
             return jsonify(todo_items), 200
             
@@ -2233,16 +2143,8 @@ def student_todo_items():
             
     except Exception as e:
         print(f"Todo items error: {str(e)}")
-        # Return helpful defaults instead of error
-        return jsonify([{
-            'id': 'default-todo',
-            'title': 'Start exploring your learning platform',
-            'course': 'Getting Started',
-            'dueDate': 'Today',
-            'type': 'reading',
-            'priority': 'medium',
-            'completed': False
-        }]), 200
+        # Return an empty list on error instead of mock data
+        return jsonify([]), 200
     finally:
         db.close()
 
