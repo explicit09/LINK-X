@@ -163,6 +163,7 @@ export default function CoursePage() {
   const searchParams = useSearchParams();
   const courseId = params?.courseId as string;
   const activeTab = searchParams?.get("tab") || "home";
+  const selectedModuleId = searchParams?.get("moduleId") || undefined;
 
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [isFocusMode, setIsFocusMode] = useState(false);
@@ -1357,8 +1358,9 @@ export default function CoursePage() {
           </DialogHeader>
           
           {useAdvancedUpload && currentUser?.role === 'student' ? (
-            <StudentCourseUpload 
+            <StudentCourseUpload
               courseId={courseId}
+              moduleId={selectedModuleId}
               onUploadComplete={handleUploadComplete}
             />
           ) : (
