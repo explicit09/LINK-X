@@ -153,8 +153,9 @@ export function StudentCourseUpload({ courseId, moduleId, onUploadComplete, clas
         formData.append('moduleId', moduleId);
       }
       
-      // Upload to student's course
-      const result = await studentAPI.uploadFile(courseId, formData);
+      // Upload to student's course and parse JSON response
+      const response = await studentAPI.uploadFile(courseId, formData);
+      const result = await response.json();
 
       // Simulate progress during upload
       let progress = 0;
@@ -179,8 +180,18 @@ export function StudentCourseUpload({ courseId, moduleId, onUploadComplete, clas
             : f
         ));
 
-        // Call success callback
-        onUploadComplete?.(result);
+        // Call success callback with normalized data for parent components
+        onUploadComplete?.({
+          id: result.id,
+          title: uploadFile.file.name,
+          type: uploadFile.file.type.includes('pdf') ? 'pdf' :
+                uploadFile.file.type.includes('audio') ? 'audio' :
+                uploadFile.file.type.includes('video') ? 'video' : 'document',
+          size: formatFileSize(uploadFile.file.size),
+          uploadedAt: 'Just now',
+          processed: true,
+          moduleId: result.module_id || moduleId,
+        });
         sonnerToast.success(`${uploadFile.file.name} uploaded successfully!`);
       }, 2000);
 
