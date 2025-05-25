@@ -3,12 +3,12 @@
 set -e  # Exit if any command fails
 
 REMOVE_OLD=false # Default: Do not remove old containers
-DETATCHED=false # Default: Do not run docker in detatched mode
+DETACHED=false # Default: Do not run docker in detached mode
 
 while getopts "rd" opt; do
     case ${opt} in
         r ) REMOVE_OLD=true ;; # If flag -r is used, set REMOVE_OLD to true
-        d ) DETATCHED=true ;; # If flag -d is used, set DETATCHED to true
+        d ) DETACHED=true ;; # If flag -d is used, set DETACHED to true
         * ) echo "Usage: $0 [-r]"; exit 1 ;;
     esac
 done
