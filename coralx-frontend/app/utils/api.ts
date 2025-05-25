@@ -1,6 +1,6 @@
 import { auth } from '../../firebaseconfig';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
 
 export async function getAuthToken() {
   const user = auth.currentUser;

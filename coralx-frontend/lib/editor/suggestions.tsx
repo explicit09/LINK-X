@@ -11,7 +11,7 @@ import { Suggestion as PreviewSuggestion } from '@/components/suggestion';
 import { BlockKind } from '@/components/block';
 
 // Define backend API endpoint
-const API_URL = 'http://localhost:8080/suggestions';
+const API_URL = 'http://localhost:8081/suggestions';
 
 export interface UISuggestion {
   id: string;

@@ -123,7 +123,7 @@ CREATE TABLE modules (
 
 ### 1. Test Module Title Updates
 ```bash
-curl -X PUT http://localhost:8080/instructor/modules/module_id \
+curl -X PUT http://localhost:8081/instructor/modules/module_id \
   -H "Content-Type: application/json" \
   -d '{"title": "New Module Name"}' \
   --cookie "session_cookie"
@@ -133,7 +133,7 @@ Expected: 200 OK with updated module object
 
 ### 2. Test File Upload with Module Association
 ```bash
-curl -X POST http://localhost:8080/student/courses/course_id/files \
+curl -X POST http://localhost:8081/student/courses/course_id/files \
   -F "file=@test.pdf" \
   -F "title=Test Document" \
   -F "moduleId=module_id" \
@@ -144,7 +144,7 @@ Expected: File object returned with `moduleId` field populated
 
 ### 3. Test File Retrieval Includes Module Info
 ```bash
-curl http://localhost:8080/student/courses/course_id/files \
+curl http://localhost:8081/student/courses/course_id/files \
   --cookie "session_cookie"
 ```
 

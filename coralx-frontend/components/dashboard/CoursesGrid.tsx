@@ -30,7 +30,7 @@ const CoursesGrid = ({
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const res = await fetch("http://localhost:8080/courses", {
+        const res = await fetch("http://localhost:8081/courses", {
           method: "GET",
           credentials: "include",
         });

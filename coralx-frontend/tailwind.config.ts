@@ -8,6 +8,19 @@ export default {
 		"./app/**/*.{ts,tsx}",
 		"./src/**/*.{ts,tsx}",
 	],
+	// Optimize for production builds
+	safelist: [
+		// Keep essential utility classes that might be used dynamically
+		'animate-spin',
+		'animate-pulse',
+		'animate-bounce',
+		'bg-blue-600',
+		'bg-green-600',
+		'bg-red-600',
+		'text-blue-600',
+		'text-green-600',
+		'text-red-600',
+	],
 	prefix: "",
 	theme: {
 		container: {
@@ -105,6 +118,10 @@ export default {
 				pulse: {
 					'0%, 100%': { opacity: '1' },
 					'50%': { opacity: '0.5' },
+				},
+				shimmer: {
+					'0%': { transform: 'translateX(-100%)' },
+					'100%': { transform: 'translateX(100%)' },
 				}
 			},
 			animation: {
@@ -115,6 +132,7 @@ export default {
 				'fade-in-right': 'fadeInRight 0.6s ease-out forwards',
 				'float': 'float 6s ease-in-out infinite',
 				'pulse': 'pulse 3s ease-in-out infinite',
+				'shimmer': 'shimmer 2s infinite',
 			}
 		}
 	},

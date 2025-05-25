@@ -14,7 +14,7 @@ import { auth } from "@/firebaseconfig";
 
 export default function Page() {
   const router = useRouter();
-  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+  const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081";
 
   const [email, setEmail] = useState("");
   const [isSuccessful, setIsSuccessful] = useState(false);

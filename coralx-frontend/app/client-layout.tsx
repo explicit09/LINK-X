@@ -3,14 +3,23 @@
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "./(auth)/AuthContext";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { Inter } from "next/font/google";
+import dynamic from "next/dynamic";
 import "./globals.css";
+
+// Lazy load performance monitor only in production
+const PerformanceMonitor = dynamic(
+  () => import("@/components/performance/PerformanceMonitor"),
+  { ssr: false }
+);
 
 const inter = Inter({ 
   subsets: ['latin'],
   weight: ['400', '500', '700'],
   variable: '--font-inter',
+  display: 'swap', // Optimize font loading
+  preload: true,
 });
 
 const LIGHT_THEME_COLOR = "hsl(0 0% 100%)";
@@ -70,9 +79,21 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
       <head>
+        {/* Preload critical resources */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="//avatar.vercel.sh" />
+        
+        {/* Optimize viewport for mobile */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        
         {/* Firebase Auth Helper Script is now loaded via useEffect */}
       </head>
       <body className={`${inter.className} antialiased`}>
+        <Suspense fallback={null}>
+          <PerformanceMonitor />
+        </Suspense>
+        
         <AuthProvider>
           <ThemeProvider
             attribute="class"
@@ -83,7 +104,18 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             {children}
           </ThemeProvider>
         </AuthProvider>
-        <Toaster position="top-center" />
+        
+        <Toaster 
+          position="top-center" 
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: 'hsl(var(--background))',
+              color: 'hsl(var(--foreground))',
+              border: '1px solid hsl(var(--border))',
+            },
+          }}
+        />
       </body>
     </html>
   );

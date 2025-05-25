@@ -77,7 +77,7 @@ export default function StudentDash({ currentUser }: StudentDashProps) {
         // Check if student has completed onboarding by checking for student profile
         if (user.role === 'student') {
           try {
-            const profileResponse = await fetch('http://localhost:8080/student/profile', {
+            const profileResponse = await fetch('http://localhost:8081/student/profile', {
               method: 'GET',
               credentials: 'include',
             });

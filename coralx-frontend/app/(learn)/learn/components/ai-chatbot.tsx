@@ -107,7 +107,7 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
 
       if (savedChatId) {
         setChatId(savedChatId);
-        fetch(`http://localhost:8080/student/chats/${savedChatId}/messages`, {
+        fetch(`http://localhost:8081/student/chats/${savedChatId}/messages`, {
           method: "GET",
           credentials: "include",
         })
@@ -160,7 +160,7 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
         requestBody.fileId = fileId;
       }
   
-      const response = await fetch("http://localhost:8080/ai-chat", {
+      const response = await fetch("http://localhost:8081/ai-chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
