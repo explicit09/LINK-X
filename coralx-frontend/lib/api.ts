@@ -1,6 +1,6 @@
 import { auth } from '../firebaseconfig';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 // Auth helpers
 export async function getAuthToken() {
@@ -215,7 +215,7 @@ export const studentAPI = {
     try {
       // For direct file access, we need to use the API call to get proper authentication
       // Return the direct content URL but note that authentication will be handled by cookies
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
       
       // First try to access the file to make sure it exists and we have permission
       try {
@@ -311,7 +311,7 @@ export const instructorAPI = {
   getFileUrl: async (fileId: string) => {
     try {
       // For direct file access, we need to use the API call to get proper authentication
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
       
       // First try to access the file to make sure it exists and we have permission
       await api.get(`/instructor/files/${fileId}`);
