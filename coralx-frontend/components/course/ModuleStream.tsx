@@ -697,25 +697,36 @@ export function ModuleStream({
     // This would call an API endpoint to personalize all files in the module
   };
 
-  const handleDeleteMaterial = (materialId: string) => {
-    // Optimistic update
-    setModules(prev => 
+  const handleDeleteMaterial = async (materialId: string) => {
+    const deleteToast = toast.loading("Deleting file...");
+
+    // Optimistically remove from UI
+    setModules(prev =>
       prev.map(module => ({
         ...module,
         materials: module.materials.filter(m => m.id !== materialId)
       }))
     );
-    
-    toast.success("File deleted", {
-      description: "Move to trash? Undo",
-      action: {
-        label: "Undo",
-        onClick: () => {
-          // TODO: Implement proper undo
-          window.location.reload(); // Temporary solution
-        }
+
+    try {
+      const endpoint = userRole === 'student'
+        ? `/student/files/${materialId}`
+        : `/instructor/files/${materialId}`;
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${endpoint}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete file: ${response.statusText}`);
       }
-    });
+
+      toast.success("File deleted", { id: deleteToast });
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      toast.error("Failed to delete file", { id: deleteToast });
+    }
   };
 
   const getFileIcon = (type: Material["type"]) => {
