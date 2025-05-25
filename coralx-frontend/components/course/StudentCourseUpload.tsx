@@ -36,11 +36,12 @@ interface UploadFile {
 
 interface StudentCourseUploadProps {
   courseId?: string; // Optional - if provided, upload to existing course
+  moduleId?: string; // Optional - specify module/week for upload
   onUploadComplete?: (result: any) => void;
   className?: string;
 }
 
-export function StudentCourseUpload({ courseId, onUploadComplete, className }: StudentCourseUploadProps) {
+export function StudentCourseUpload({ courseId, moduleId, onUploadComplete, className }: StudentCourseUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [activeTab, setActiveTab] = useState("files");
@@ -148,6 +149,9 @@ export function StudentCourseUpload({ courseId, onUploadComplete, className }: S
       formData.append('file', uploadFile.file);
       formData.append('title', uploadFile.file.name);
       formData.append('description', `Student upload: ${uploadFile.file.name}`);
+      if (moduleId) {
+        formData.append('moduleId', moduleId);
+      }
       
       // Upload to student's course
       const result = await studentAPI.uploadFile(courseId, formData);
