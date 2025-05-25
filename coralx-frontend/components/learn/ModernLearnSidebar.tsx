@@ -96,7 +96,7 @@ const ModernLearnSidebar = ({
           return;
         }
 
-        const url = `http://localhost:8080/student/personalized-files/${pfId}`;
+        const url = `http://localhost:8081/student/personalized-files/${pfId}`;
         const res = await fetch(url, {
           method: "GET",
           credentials: "include",

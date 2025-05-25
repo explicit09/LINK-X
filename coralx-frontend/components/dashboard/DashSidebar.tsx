@@ -247,7 +247,7 @@ const Sidebar = ({ className, onCollapseChange, userRole }: SidebarProps) => {
                   await signOut(auth);
                   const API =
                     process.env.NEXT_PUBLIC_API_BASE_URL ||
-                    "http://localhost:8080";
+                    "http://localhost:8081";
                   await fetch(`${API}/sessionLogout`, {
                     method: "POST",
                     credentials: "include",

@@ -564,7 +564,7 @@ export default function CoursePage() {
       });
 
       // First, fetch the user's onboarding profile
-      const profileRes = await fetch("http://localhost:8080/student/profile", {
+      const profileRes = await fetch("http://localhost:8081/student/profile", {
         method: "GET",
         credentials: "include",
       });
@@ -613,7 +613,7 @@ export default function CoursePage() {
             });
           }
 
-          const personalizeRes = await fetch("http://localhost:8080/generatepersonalizedfilecontent", {
+          const personalizeRes = await fetch("http://localhost:8081/generatepersonalizedfilecontent", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

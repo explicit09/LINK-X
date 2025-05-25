@@ -29,7 +29,7 @@ const LandingHeader = () => {
     return () => unsubscribe();
   }, []);
 
-  const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+  const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8081";
 
   const handleLogout = async () => {
     await signOut(auth);

@@ -3,12 +3,30 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import Sidebar from "@/components/dashboard/DashSidebar";
-import AudioUpload from "@/components/dashboard/AudioUpload";
-import Footer from "@/components/landing/Footer";
-import ProfessorDashboard from "@/components/dashboard/ProfessorDash"; // 🚨 make sure path is correct
-import { userAPI } from "@/lib/api"; // ✅ this will be a small API helper you create
-import StudentDashboard from "@/components/dashboard/StudentDash";
+import dynamic from "next/dynamic";
+import { DashboardSkeleton } from "@/components/ui/skeleton";
+import { userAPI } from "@/lib/api";
+
+// Lazy load heavy dashboard components
+const Sidebar = dynamic(() => import("@/components/dashboard/DashSidebar"), {
+  loading: () => <div className="w-44 bg-gray-50 animate-pulse" />,
+});
+
+const AudioUpload = dynamic(() => import("@/components/dashboard/AudioUpload"), {
+  loading: () => <div className="h-32 bg-gray-100 rounded-lg animate-pulse" />,
+});
+
+const Footer = dynamic(() => import("@/components/landing/Footer"), {
+  ssr: false,
+});
+
+const ProfessorDashboard = dynamic(() => import("@/components/dashboard/ProfessorDash"), {
+  loading: () => <DashboardSkeleton />,
+});
+
+const StudentDashboard = dynamic(() => import("@/components/dashboard/StudentDash"), {
+  loading: () => <DashboardSkeleton />,
+});
 
 export default function Dashboard() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -38,8 +56,14 @@ export default function Dashboard() {
   };
 
   if (role === "unknown") {
-   
-    return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
   if (role === "instructor") {

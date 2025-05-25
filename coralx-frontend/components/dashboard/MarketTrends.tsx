@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 async function fetchRecentMarketPricesDirectly() {
   try {
-    const res = await fetch("http://localhost:8080/market/recent", { method: "GET" });
+    const res = await fetch("http://localhost:8081/market/recent", { method: "GET" });
     if (!res.ok) throw new Error("Failed to fetch market prices");
 
     const data = await res.json();

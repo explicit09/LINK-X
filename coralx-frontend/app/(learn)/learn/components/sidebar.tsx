@@ -82,7 +82,7 @@ export default function Sidebar() {
     console.log("Sending message to AI:", message)
   
     try {
-      const response = await fetch("http://localhost:8080/chat", {
+      const response = await fetch("http://localhost:8081/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -118,7 +118,7 @@ export default function Sidebar() {
   //   if (!message.trim()) return
 
   //   try {
-  //     const response = await fetch("http://localhost:8080/chat", {
+  //     const response = await fetch("http://localhost:8081/chat", {
   //       method: "POST",
   //       headers: {
   //         "Content-Type": "application/json",

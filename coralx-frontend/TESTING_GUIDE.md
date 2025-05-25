@@ -64,10 +64,10 @@ The backend should be running with all files processed. Verify with:
 
 ```bash
 # Check backend is running
-curl http://localhost:8080  # Should return 404
+curl http://localhost:8081  # Should return 404
 
 # Check auth endpoint
-curl http://localhost:8080/me  # Should return 401
+curl http://localhost:8081/me  # Should return 401
 ```
 
 ## ⏰ Timeline for Testing
