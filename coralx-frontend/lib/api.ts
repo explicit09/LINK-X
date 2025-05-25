@@ -210,6 +210,7 @@ export const studentAPI = {
     });
   },
   getFileContent: (fileId: string) => api.get(`/student/files/${fileId}/content`),
+  deleteFile: (fileId: string) => api.delete(`/student/files/${fileId}`),
   getFileUrl: async (fileId: string) => {
     try {
       // For direct file access, we need to use the API call to get proper authentication
@@ -234,6 +235,9 @@ export const studentAPI = {
       throw new Error('File not accessible');
     }
   },
+
+  // Personalized files
+  deletePersonalizedFile: (pfId: string) => api.delete(`/student/personalized-files/${pfId}`),
   
   // Submissions
   submitAssignment: (assignmentId: string, data: any) => api.post(`/student/assignments/${assignmentId}/submit`, data),
