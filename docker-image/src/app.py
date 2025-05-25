@@ -883,18 +883,18 @@ def student_manage_personalized_file(pf_id):
 
     db = Session()
     try:
-    pf = get_personalized_file_by_id(db, pf_id)
+        pf = get_personalized_file_by_id(db, pf_id)
 
-    if not pf or str(pf.user_id) != str(user_id):
-        return jsonify({'error': 'Not found or unauthorized'}), 404
+        if not pf or str(pf.user_id) != str(user_id):
+            return jsonify({'error': 'Not found or unauthorized'}), 404
 
         if request.method == 'GET':
-    response = {
-        'id': str(pf.id),
-        'originalFileId': str(pf.original_file_id) if pf.original_file_id else None,
-        'createdAt': pf.created_at.isoformat(),
-        'content': pf.content  
-    }
+            response = {
+                'id': str(pf.id),
+                'originalFileId': str(pf.original_file_id) if pf.original_file_id else None,
+                'createdAt': pf.created_at.isoformat(),
+                'content': pf.content  
+            }
             return jsonify(response), 200
 
         elif request.method == 'DELETE':
@@ -905,7 +905,7 @@ def student_manage_personalized_file(pf_id):
         db.rollback()
         return jsonify({'error': str(e)}), 500
     finally:
-    db.close()
+        db.close()
 
 @app.route('/student/chats', methods=['GET', 'POST'])
 def student_chats():
@@ -2608,28 +2608,28 @@ def student_manage_file(file_id):
 
     db = Session()
     try:
-    f = get_file_by_id(db, file_id)
-    if not f:
-        return jsonify({'error': 'Not found'}), 404
+        f = get_file_by_id(db, file_id)
+        if not f:
+            return jsonify({'error': 'Not found'}), 404
 
-    mod = get_module_by_id(db, f.module_id)
+        mod = get_module_by_id(db, f.module_id)
         if not mod:
             return jsonify({'error': 'Module not found'}), 404
 
         course = get_course_by_id(db, mod.course_id)
         if not course or str(course.creator_id) != str(user_id):
-        return jsonify({'error': 'Forbidden'}), 403
+            return jsonify({'error': 'Forbidden'}), 403
 
         if request.method == 'GET':
-    response = {
-        'id': str(f.id),
-        'title': f.title,
-        'filename': f.filename,
-        'file_type': f.file_type,
-        'file_size': f.file_size,
-        'module_id': str(f.module_id),
-        'created_at': f.created_at.isoformat() if f.created_at else None
-    }
+            response = {
+                'id': str(f.id),
+                'title': f.title,
+                'filename': f.filename,
+                'file_type': f.file_type,
+                'file_size': f.file_size,
+                'module_id': str(f.module_id),
+                'created_at': f.created_at.isoformat() if f.created_at else None
+            }
             return jsonify(response), 200
 
         elif request.method == 'PATCH':
@@ -2659,7 +2659,7 @@ def student_manage_file(file_id):
         db.rollback()
         return jsonify({'error': str(e)}), 500
     finally:
-    db.close()
+        db.close()
 
 # ===== NEW INSTRUCTOR FILE & MODULE MANAGEMENT ENDPOINTS =====
 

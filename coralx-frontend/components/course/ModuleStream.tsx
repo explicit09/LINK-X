@@ -86,7 +86,7 @@ export function ModuleStream({
           ? `/student/courses/${courseId}/modules`
           : `/instructor/courses/${courseId}/modules`;
           
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${endpoint}`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
           method: 'GET',
           credentials: 'include',
         });
@@ -281,7 +281,7 @@ export function ModuleStream({
       
       if (userRole === 'student') {
         // For students, use the course upload endpoint but include moduleId
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}/student/courses/${courseId}/files`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/student/courses/${courseId}/files`, {
           method: 'POST',
           body: formData,
           credentials: 'include',
@@ -294,7 +294,7 @@ export function ModuleStream({
         result = await response.json();
       } else {
         // For instructors, upload directly to the module
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}/instructor/modules/${moduleId}/files/upload`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/instructor/modules/${moduleId}/files/upload`, {
           method: 'POST',
           body: formData,
           credentials: 'include',
@@ -451,7 +451,7 @@ export function ModuleStream({
         ? `/student/courses/${courseId}/modules`
         : `/instructor/courses/${courseId}/modules`;
         
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${endpoint}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -520,7 +520,7 @@ export function ModuleStream({
       console.log(`Attempting to update module ${moduleId} title to: "${newModuleTitle.trim()}"`);
       
       // Try PUT method (most RESTful for updates)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${endpoint}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -612,7 +612,7 @@ export function ModuleStream({
         ? `/student/modules/${moduleId}`
         : `/instructor/modules/${moduleId}`;
         
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${endpoint}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -637,7 +637,7 @@ export function ModuleStream({
                   ? `/student/courses/${courseId}/modules`
                   : `/instructor/courses/${courseId}/modules`;
                   
-                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${endpoint}`, {
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
@@ -713,7 +713,7 @@ export function ModuleStream({
         ? `/student/files/${materialId}`
         : `/instructor/files/${materialId}`;
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${endpoint}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
         method: 'DELETE',
         credentials: 'include'
       });
