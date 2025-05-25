@@ -525,6 +525,60 @@ def instructor_courses():
     for c in courses
 ]), 200
 
+
+@app.route('/instructor/courses/<course_id>', methods=['GET', 'PATCH', 'DELETE'])
+def instructor_manage_course(course_id):
+    """Manage a single course owned by the instructor"""
+    user_id, err = verify_instructor()
+    if err:
+        return err
+
+    db = Session()
+    try:
+        course = get_course_by_id(db, course_id)
+        if not course or str(course.instructor_id) != str(user_id):
+            db.close()
+            return jsonify({'error': 'Course not found or access denied'}), 404
+
+        if request.method == 'GET':
+            return jsonify({
+                'id': str(course.id),
+                'title': course.title,
+                'description': course.description,
+                'code': course.code,
+                'term': course.term,
+                'published': course.published,
+                'created_at': course.created_at.isoformat() if course.created_at else None,
+                'last_updated': course.last_updated.isoformat() if course.last_updated else None
+            }), 200
+
+        elif request.method == 'PATCH':
+            data = request.get_json() or {}
+            allowed_fields = ['title', 'description', 'code', 'term', 'published']
+            update_data = {k: v for k, v in data.items() if k in allowed_fields}
+
+            if not update_data:
+                db.close()
+                return jsonify({'error': 'No valid fields to update'}), 400
+
+            updated_course = update_course(db, course_id, **update_data)
+            db.commit()
+            return jsonify({
+                'id': str(updated_course.id),
+                'message': 'Course updated successfully'
+            }), 200
+
+        elif request.method == 'DELETE':
+            delete_course(db, course_id)
+            db.commit()
+            return jsonify({'message': 'Course deleted successfully'}), 200
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
 @app.route('/student/courses/<course_id>', methods=['GET', 'PATCH', 'DELETE'])
 def student_manage_course(course_id):
     user_id, err = verify_student()
@@ -787,28 +841,37 @@ def generate_personalized_file_content():
                 pass
         return jsonify({"error": str(e)}), 500
 
-@app.route('/student/personalized-files/<pf_id>', methods=['GET'])
-def get_student_personalized_file(pf_id):
+@app.route('/student/personalized-files/<pf_id>', methods=['GET', 'DELETE'])
+def student_manage_personalized_file(pf_id):
     user_id, err = verify_student()
     if err:
         return err
 
     db = Session()
-    pf = get_personalized_file_by_id(db, pf_id)
+    try:
+        pf = get_personalized_file_by_id(db, pf_id)
 
-    if not pf or str(pf.user_id) != str(user_id):
+        if not pf or str(pf.user_id) != str(user_id):
+            return jsonify({'error': 'Not found or unauthorized'}), 404
+
+        if request.method == 'GET':
+            response = {
+                'id': str(pf.id),
+                'originalFileId': str(pf.original_file_id) if pf.original_file_id else None,
+                'createdAt': pf.created_at.isoformat(),
+                'content': pf.content
+            }
+            return jsonify(response), 200
+
+        elif request.method == 'DELETE':
+            delete_personalized_file(db, pf_id)
+            return jsonify({'message': 'Personalized file deleted successfully'}), 200
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
         db.close()
-        return jsonify({'error': 'Not found or unauthorized'}), 404
-
-    response = {
-        'id': str(pf.id),
-        'originalFileId': str(pf.original_file_id) if pf.original_file_id else None,
-        'createdAt': pf.created_at.isoformat(),
-        'content': pf.content  
-    }
-
-    db.close()
-    return jsonify(response), 200
 
 @app.route('/student/chats', methods=['GET', 'POST'])
 def student_chats():
@@ -2600,36 +2663,66 @@ def student_file_download(file_id):
         }
     )
 
-@app.route('/student/files/<file_id>', methods=['GET'])
-def student_file_info(file_id):
+@app.route('/student/files/<file_id>', methods=['GET', 'PATCH', 'DELETE'])
+def student_manage_file(file_id):
     user_id, err = verify_student()
     if err:
         return err
 
     db = Session()
+    try:
+        f = get_file_by_id(db, file_id)
+        if not f:
+            return jsonify({'error': 'Not found'}), 404
 
-    f = get_file_by_id(db, file_id)
-    if not f:
+        mod = get_module_by_id(db, f.module_id)
+        if not mod:
+            return jsonify({'error': 'Module not found'}), 404
+
+        course = get_course_by_id(db, mod.course_id)
+        if not course or str(course.creator_id) != str(user_id):
+            return jsonify({'error': 'Forbidden'}), 403
+
+        if request.method == 'GET':
+            response = {
+                'id': str(f.id),
+                'title': f.title,
+                'filename': f.filename,
+                'file_type': f.file_type,
+                'file_size': f.file_size,
+                'module_id': str(f.module_id),
+                'created_at': f.created_at.isoformat() if f.created_at else None
+            }
+            return jsonify(response), 200
+
+        elif request.method == 'PATCH':
+            data = request.get_json() or {}
+            allowed_fields = ['title']
+            update_data = {k: v for k, v in data.items() if k in allowed_fields}
+
+            if not update_data:
+                return jsonify({'error': 'No valid fields to update'}), 400
+
+            updated_file = update_file(db, file_id, **update_data)
+            return jsonify({
+                'id': str(updated_file.id),
+                'title': updated_file.title,
+                'filename': updated_file.filename,
+                'file_type': updated_file.file_type,
+                'file_size': updated_file.file_size,
+                'module_id': str(updated_file.module_id),
+                'created_at': updated_file.created_at.isoformat() if updated_file.created_at else None
+            }), 200
+
+        elif request.method == 'DELETE':
+            delete_file(db, file_id)
+            return jsonify({'message': 'File deleted successfully'}), 200
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
         db.close()
-        return jsonify({'error': 'Not found'}), 404
-
-    mod = get_module_by_id(db, f.module_id)
-    if not mod or not get_enrollment_by_student_course(db, user_id, mod.course_id):
-        db.close()
-        return jsonify({'error': 'Forbidden'}), 403
-
-    response = {
-        'id': str(f.id),
-        'title': f.title,
-        'filename': f.filename,
-        'file_type': f.file_type,
-        'file_size': f.file_size,
-        'module_id': str(f.module_id),
-        'created_at': f.created_at.isoformat() if f.created_at else None
-    }
-    
-    db.close()
-    return jsonify(response), 200
 
 # ===== NEW INSTRUCTOR FILE & MODULE MANAGEMENT ENDPOINTS =====
 

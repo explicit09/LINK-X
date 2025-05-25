@@ -18,6 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { instructorAPI } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -461,15 +462,7 @@ export default function ProfessorDashboard() {
 
   const handleDeleteCourse = async (deletedCourse: any) => {
     try {
-      const res = await fetch(
-        `http://localhost:8080/instructor/courses/${deletedCourse.id}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        }
-      );
-
-      if (!res.ok) throw new Error("Failed to delete course");
+      await instructorAPI.deleteCourse(deletedCourse.id);
 
       setCourses((prev) => prev.filter((c) => c.id !== deletedCourse.id));
       setSelectedCourse(null); // Navigates back to dashboard view
