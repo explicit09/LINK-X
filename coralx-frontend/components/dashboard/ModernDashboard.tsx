@@ -162,8 +162,10 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
   // Load real todo items from API
   const loadTodoItems = async () => {
     try {
+      console.log('Loading todo items from API...');
       if (userRole === 'student') {
         const realTodos = await studentAPI.getTodoItems();
+        console.log('Loaded todos from API:', realTodos?.length || 0, 'items');
         setTodoItems(realTodos || []);
       } else {
         // For instructors/admins, show empty or instructor-specific todos
@@ -244,15 +246,18 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
 
     try {
       if (userRole === 'student') {
-        await studentAPI.createTodoItem({
+        console.log('Creating new todo item...');
+        const newTodo = await studentAPI.createTodoItem({
           title: newTodoTitle,
           course: newTodoCourse || "General",
           type: newTodoType,
           priority: newTodoPriority
         });
         
-        // Reload todo items to get updated list
-        await loadTodoItems();
+        console.log('Created new todo:', newTodo);
+        
+        // Add the new todo to existing state instead of reloading all todos
+        setTodoItems(prev => [...prev, newTodo]);
       }
       
       // Clear form
@@ -270,13 +275,35 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
   // Function to remove todo item
   const removeTodoItem = async (id: string) => {
     try {
-      // For now, just remove from local state since we don't have delete API yet
-      const updatedTodos = todoItems.filter(item => item.id !== id);
-      setTodoItems(updatedTodos);
-      sonnerToast.success("Todo item completed!");
+      if (userRole === 'student') {
+        console.log('Attempting to delete todo with ID:', id);
+        
+        // Call API to delete from database
+        const response = await studentAPI.deleteTodoItem(id);
+        console.log('Delete API response:', response);
+        
+        // Update local state after successful deletion
+        setTodoItems(prev => {
+          const filtered = prev.filter(item => item.id !== id);
+          console.log('Updated todo items after delete:', filtered.length, 'items remaining');
+          return filtered;
+        });
+        
+        sonnerToast.success("Todo item deleted successfully!");
+      }
     } catch (error) {
-      console.error('Error removing todo item:', error);
-      sonnerToast.error("Failed to remove todo item");
+      console.error('Error deleting todo item:', error);
+      
+      // Check if it's an authentication error
+      if (error instanceof Error && error.message.includes('401')) {
+        sonnerToast.error("Authentication failed. Please refresh the page and try again.");
+      } else if (error instanceof Error && error.message.includes('404')) {
+        sonnerToast.error("Todo item not found. It may have already been deleted.");
+        // Remove from local state anyway since it doesn't exist
+        setTodoItems(prev => prev.filter(item => item.id !== id));
+      } else {
+        sonnerToast.error("Failed to delete todo item: " + (error instanceof Error ? error.message : 'Unknown error'));
+      }
     }
   };
 
@@ -506,13 +533,13 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="canvas-small text-gray-500">AI Interactions</p>
-                    <p className="text-2xl font-bold sidebar-text">
+                    <div className="text-2xl font-bold sidebar-text">
                       {dashboardStats.loading ? (
                         <div className="animate-pulse bg-gray-200 h-6 w-8 rounded"></div>
                       ) : (
                         dashboardStats.aiInteractions
                       )}
-                    </p>
+                    </div>
                   </div>
                   <div className={cn(
                     "w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center shadow-lg transition-all duration-300",
@@ -529,13 +556,13 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="canvas-small text-gray-500">This Week</p>
-                    <p className="text-2xl font-bold sidebar-text">
+                    <div className="text-2xl font-bold sidebar-text">
                       {dashboardStats.loading ? (
                         <div className="animate-pulse bg-gray-200 h-6 w-12 rounded"></div>
                       ) : (
                         `${dashboardStats.weeklyHours}h`
                       )}
-                    </p>
+                    </div>
                   </div>
                   <div className="w-12 h-12 rounded-full bg-green-600 flex items-center justify-center shadow-lg">
                     <TrendingUp className="h-6 w-6 text-white" />

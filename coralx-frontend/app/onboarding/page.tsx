@@ -33,6 +33,7 @@ import {
   Coffee
 } from "lucide-react";
 import { toast } from "sonner";
+import { userAPI } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -181,6 +182,18 @@ export default function OnboardingPage() {
         toast.error("Failed to save your preferences. Please try again.");
         return;
       }
+
+      // Mark onboarding as completed in localStorage
+      try {
+        const currentUser = await userAPI.getMe();
+        if (currentUser?.id) {
+          localStorage.setItem(`onboarding_completed_${currentUser.id}`, 'true');
+          console.log("✅ Onboarding completion marked in localStorage");
+        }
+      } catch (userError) {
+        console.warn("Could not mark onboarding completion in localStorage:", userError);
+        // Don't fail the entire onboarding process for this
+      }
   
       console.log("✅ Onboarding saved successfully!");
       toast.success("Welcome to Learn-X! Your profile has been created.");
@@ -203,7 +216,7 @@ export default function OnboardingPage() {
                 <User className="w-8 h-8 text-white" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Who You Are</h2>
-              <p className="text-gray-600">Let's start with the basics</p>
+              <p className="text-gray-600">Let&apos;s start with the basics</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -231,7 +244,7 @@ export default function OnboardingPage() {
             </div>
             
             <p className="text-sm text-gray-500 text-center mt-4">
-              💡 Tip: Hit "Enter" or "Tab" to move quickly between fields
+              💡 Tip: Hit &quot;Enter&quot; or &quot;Tab&quot; to move quickly between fields
             </p>
           </div>
         );
@@ -332,7 +345,7 @@ export default function OnboardingPage() {
             </div>
             
             <p className="text-sm text-gray-500 text-center mt-6">
-              💡 "Flexible" will auto-schedule around your habits later
+              💡 &quot;Flexible&quot; will auto-schedule around your habits later
             </p>
           </div>
         );
@@ -488,7 +501,7 @@ export default function OnboardingPage() {
             </div>
 
             <p className="text-sm text-gray-500 text-center mt-4">
-              💡 Type and hit "Enter" to add tags quickly
+              💡 Type and hit &quot;Enter&quot; to add tags quickly
             </p>
           </div>
         );
