@@ -88,9 +88,11 @@ export function convertToUIMessages(
   messages: Array<DBMessage>,
 ): Array<Message> {
   return messages.reduce((chatMessages: Array<Message>, message) => {
-    if (message.role === 'tool') {
+    // Check if message has a tool-like structure despite the type definition
+    // Using type assertion to avoid the type error since DBMessage only allows 'user' or 'assistant'
+    if ((message as any).role === 'tool') {
       return addToolMessageToChat({
-        toolMessage: message as CoreToolMessage,
+        toolMessage: message as unknown as CoreToolMessage,
         messages: chatMessages,
       });
     }
@@ -98,19 +100,25 @@ export function convertToUIMessages(
     let textContent = '';
     const toolInvocations: Array<ToolInvocation> = [];
 
+    // In the schema, content is defined as a string, so we need to handle it accordingly
     if (typeof message.content === 'string') {
       textContent = message.content;
-    } else if (Array.isArray(message.content)) {
-      for (const content of message.content) {
-        if (content.type === 'text') {
-          textContent += content.text;
-        } else if (content.type === 'tool-call') {
-          toolInvocations.push({
-            state: 'call',
-            toolCallId: content.toolCallId,
-            toolName: content.toolName,
-            args: content.args,
-          });
+    } else {
+      // This branch is for handling potential array content from the API
+      // We need to cast it to any to avoid type errors
+      const contentArray = message.content as any;
+      if (Array.isArray(contentArray)) {
+        for (const content of contentArray) {
+          if (content.type === 'text') {
+            textContent += content.text;
+          } else if (content.type === 'tool-call') {
+            toolInvocations.push({
+              state: 'call',
+              toolCallId: content.toolCallId,
+              toolName: content.toolName,
+              args: content.args,
+            });
+          }
         }
       }
     }
@@ -222,5 +230,3 @@ export function getMessageIdFromAnnotations(message: Message) {
   // @ts-expect-error messageIdFromServer is not defined in MessageAnnotation
   return annotation.messageIdFromServer;
 }
-
-

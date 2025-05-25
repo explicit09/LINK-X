@@ -38,8 +38,14 @@ import {
   Bell,
   Shield,
   Moon,
-  UserCircle
+  UserCircle,
+  Settings,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface OnboardingData {
   name: string;
@@ -80,6 +86,7 @@ const ProfessorSettings = () => {
   });
   const [passwordError, setPasswordError] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     fetch(`http://localhost:8080/me`, {
@@ -252,260 +259,284 @@ const ProfessorSettings = () => {
   const [privacy, setPrivacy] = useState<boolean>(true);
 
   return (
-    <div className="flex flex-col min-h-screen w-full pt-24 pb-12 px-4 md:px-6">
+    <div className="min-h-screen bg-gray-50">
       <Header isLoggedIn={true} />
-      <div className="max-w-[900px] mx-auto w-full mb-12">
-        <div className="mb-8 flex items-center">
-          <Link href="/dashboard" className="flex items-center text-black hover:text-blue-400 mr-4">
-            <ArrowLeft size={20} className="mr-2" />
-            Dashboard
-          </Link>
-          <h1 className="text-3xl font-bold">Settings</h1>
-        </div>
+      
+      {/* Main Content Container */}
+      <div className="pt-20 pb-12">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Header Section */}
+          <div className="mb-8">
+            <div className="flex items-center gap-4 mb-4">
+              <Link 
+                href="/dashboard" 
+                className={cn(
+                  "flex items-center gap-2 text-gray-600 hover:text-blue-600",
+                  "transition-colors duration-200 canvas-small font-medium"
+                )}
+              >
+                <ArrowLeft size={20} />
+                Back to Dashboard
+              </Link>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                <Settings className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="canvas-heading-1">Settings</h1>
+                <p className="canvas-body text-gray-600">Manage your account and preferences</p>
+              </div>
+            </div>
+          </div>
 
-        
-        <Tabs defaultValue="account" className="w-full">
-          <TabsList className="grid grid-cols-3 mb-8">
-            <TabsTrigger value="account" className="flex items-center justify-center gap-2">
-              <UserCircle size={18} /> Account
-            </TabsTrigger> 
-            {/* {isStudent && !loading && (
-              <TabsTrigger value="onboarding" className="flex items-center justify-center gap-2">
-                <Moon size={18} /> Onboarding
+          {/* Settings Tabs */}
+          <Tabs defaultValue="account" className="w-full">
+            <TabsList className={cn(
+              "grid grid-cols-3 mb-8 bg-white rounded-xl border border-gray-200",
+              "canvas-card shadow-sm"
+            )}>
+              <TabsTrigger 
+                value="account" 
+                className={cn(
+                  "flex items-center justify-center gap-2 canvas-small font-medium",
+                  "data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700",
+                  "data-[state=active]:border-blue-200 transition-all duration-200"
+                )}
+              >
+                <UserCircle size={18} />
+                Account
               </TabsTrigger>
-            )} */}
-            <TabsTrigger value="notifications" className="flex items-center justify-center gap-2">
-              <Bell size={18} /> Notifications
-            </TabsTrigger>
-            <TabsTrigger value="privacy" className="flex items-center justify-center gap-2">
-              <Shield size={18} /> Privacy
-            </TabsTrigger>
-          </TabsList>
+              
+              <TabsTrigger 
+                value="notifications" 
+                className={cn(
+                  "flex items-center justify-center gap-2 canvas-small font-medium",
+                  "data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700",
+                  "data-[state=active]:border-blue-200 transition-all duration-200"
+                )}
+              >
+                <Bell size={18} />
+                Notifications
+              </TabsTrigger>
+              
+              <TabsTrigger 
+                value="privacy" 
+                className={cn(
+                  "flex items-center justify-center gap-2 canvas-small font-medium",
+                  "data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700",
+                  "data-[state=active]:border-blue-200 transition-all duration-200"
+                )}
+              >
+                <Shield size={18} />
+                Privacy
+              </TabsTrigger>
+            </TabsList>
 
-          {/* ACCOUNT */}
-          <TabsContent value="account">
-            <Card>
-              <CardHeader>
-                <CardTitle>Account Settings</CardTitle>
-                <CardDescription>Manage your account information and preferences.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-1">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    placeholder="Enter your email"
-                    value={accountData.email}
-                    onChange={e =>
-                      setAccountData(prev => ({ ...prev, email: e.target.value }))
-                    }
-                    className="w-full bg-muted rounded-md p-2 text-foreground"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Change your password"
-                    value={accountData.password}
-                    onChange={e =>
-                      setAccountData(prev => ({ ...prev, password: e.target.value }))
-                    }
-                    className="w-full bg-muted rounded-md p-2 text-foreground"
-                  />
-                  {passwordError && (
-                    <p className="text-red-500 text-sm mt-1">{passwordError}</p>
-                  )}
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button onClick={handleAccountUpdate}>Save Changes</Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-
-          {/* ONBOARDING */}
-          {isStudent && (
-            <TabsContent value="onboarding">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Edit Onboarding</CardTitle>
-                  <CardDescription>Customize how the AI responds to you.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Label htmlFor="onboardingName">What should Learn-X call you?</Label>
-                  <Input
-                    id="onboardingName"
-                    type="text"
-                    name="name"
-                    defaultValue={formData.name}
-                    onChange={e => handleChange(e.target.value, "name")}
-                  />
-                  <Label htmlFor="job">What do you do?</Label>
-                  <Input
-                    id="job"
-                    type="text"
-                    name="job"
-                    placeholder="e.g., Student, Engineer"
-                    defaultValue={formData.job}
-                    onChange={e => handleChange(e.target.value, "job")}
-                  />
-
-                  <Label htmlFor="traits">What traits should Learn-X have?</Label>
-                  <Input
-                    id="traits"
-                    type="text"
-                    name="traits"
-                    placeholder="e.g., witty, encouraging"
-                    defaultValue={formData.traits}
-                    onChange={e => handleChange(e.target.value, "traits")}
-                  />
-
-                  <Label>Learning Style</Label>
-                  <Select
-                    value={formData.learningStyle}
-                    onValueChange={v => handleChange(v, "learningStyle")}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select style" />
-                    </SelectTrigger>
-                    <SelectContent className="z-50 bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg text-gray-100">
-                      <SelectItem value="visual">Visual</SelectItem>
-                      <SelectItem value="auditory">Auditory</SelectItem>
-                      <SelectItem value="games">Games</SelectItem>
-                      <SelectItem value="text-based">Text-Based</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Label>Depth of Explanation</Label>
-                  <Select
-                    value={formData.depth}
-                    onValueChange={v => handleChange(v, "depth")}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select depth" />
-                    </SelectTrigger>
-                    <SelectContent className="z-50 bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg text-gray-100">
-                      <SelectItem value="concise">Concise Summaries</SelectItem>
-                      <SelectItem value="detailed">In-depth Explanations</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Label htmlFor="topics">Topics of Interest</Label>
-                  <Input
-                    id="topics"
-                    type="text"
-                    name="topics"
-                    placeholder="e.g., Finance, Biology"
-                    defaultValue={formData.topics}
-                    onChange={e => handleChange(e.target.value, "topics")}
-                  />
-
-                  <Label htmlFor="interests">Interests, Preferences</Label>
-                  <Input
-                    id="interests"
-                    type="text"
-                    name="interests"
-                    placeholder="e.g., Basketball, Music"
-                    defaultValue={formData.interests}
-                    onChange={e => handleChange(e.target.value, "interests")}
-                  />
-
-                  <Label>Study Schedule</Label>
-                  <Select
-                    value={formData.schedule}
-                    onValueChange={v => handleChange(v, "schedule")}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select schedule" />
-                    </SelectTrigger>
-                    <SelectContent className="z-50 bg-gradient-to-br from-gray-900 to-gray-800 border-blue-500/20 shadow-lg text-gray-100">
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="flexible">Flexible</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <div className="flex items-center mt-4">
-                    <Checkbox
-                      checked={formData.quizzes}
-                      onCheckedChange={c => handleCheckboxChange(c, "quizzes")}
-                    />
-                    <Label htmlFor="quizzes" className="ml-2">
-                      Include quizzes
-                    </Label>
+            {/* ACCOUNT TAB */}
+            <TabsContent value="account">
+              <Card className="canvas-card modern-hover">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                      <UserCircle className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="canvas-heading-3">Account Information</CardTitle>
+                      <CardDescription className="canvas-small">
+                        Update your email and password
+                      </CardDescription>
+                    </div>
                   </div>
-
-                  <Button
-                    className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white"
-                    onClick={handleUpdateOnboarding}
+                </CardHeader>
+                
+                <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="canvas-body font-medium flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-gray-500" />
+                      Email Address
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={accountData.email}
+                      onChange={e =>
+                        setAccountData(prev => ({ ...prev, email: e.target.value }))
+                      }
+                      className={cn(
+                        "canvas-card border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100",
+                        "text-gray-900 placeholder:text-gray-400 transition-all duration-200"
+                      )}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="password" className="canvas-body font-medium flex items-center gap-2">
+                      <Lock className="h-4 w-4 text-gray-500" />
+                      New Password
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Enter new password (leave blank to keep current)"
+                        value={accountData.password}
+                        onChange={e =>
+                          setAccountData(prev => ({ ...prev, password: e.target.value }))
+                        }
+                        className={cn(
+                          "canvas-card border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100",
+                          "text-gray-900 placeholder:text-gray-400 transition-all duration-200 pr-10"
+                        )}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    {passwordError && (
+                      <p className="text-red-500 canvas-small">{passwordError}</p>
+                    )}
+                  </div>
+                </CardContent>
+                
+                <CardFooter className="border-t border-gray-100 pt-6">
+                  <Button 
+                    onClick={handleAccountUpdate}
+                    className={cn(
+                      "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600",
+                      "text-white shadow-sm hover:shadow-md transition-all duration-200 modern-hover button-pulse"
+                    )}
                   >
-                    Update Preferences
+                    Save Changes
                   </Button>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+
+            {/* NOTIFICATIONS TAB */}
+            <TabsContent value="notifications">
+              <Card className="canvas-card modern-hover">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-yellow-100 flex items-center justify-center">
+                      <Bell className="h-5 w-5 text-yellow-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="canvas-heading-3">Notification Preferences</CardTitle>
+                      <CardDescription className="canvas-small">
+                        Control how and when you receive notifications
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="space-y-6">
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100">
+                    <div className="space-y-1">
+                      <p className="canvas-body font-medium">Push Notifications</p>
+                      <p className="canvas-small text-gray-600">Receive device alerts for important updates</p>
+                    </div>
+                    <Switch
+                      checked={notifications}
+                      onCheckedChange={checked => setNotifications(checked)}
+                      className="data-[state=checked]:bg-blue-600"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100">
+                    <div className="space-y-1">
+                      <p className="canvas-body font-medium">Email Notifications</p>
+                      <p className="canvas-small text-gray-600">Get email updates about courses and assignments</p>
+                    </div>
+                    <Switch 
+                      checked={true} 
+                      onCheckedChange={() => {}}
+                      className="data-[state=checked]:bg-blue-600"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between py-3">
+                    <div className="space-y-1">
+                      <p className="canvas-body font-medium">Weekly Digest</p>
+                      <p className="canvas-small text-gray-600">Summary of weekly activity and upcoming deadlines</p>
+                    </div>
+                    <Switch 
+                      checked={true} 
+                      onCheckedChange={() => {}}
+                      className="data-[state=checked]:bg-blue-600"
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
-          )}
 
-          {/* NOTIFICATIONS */}
-          <TabsContent value="notifications">
-            <Card>
-              <CardHeader>
-                <CardTitle>Notification Settings</CardTitle>
-                <CardDescription>Manage your notifications.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between py-2">
-                  <div>
-                    <p className="font-medium">Push Notifications</p>
-                    <p className="text-sm text-muted-foreground">Receive device alerts</p>
+            {/* PRIVACY TAB */}
+            <TabsContent value="privacy">
+              <Card className="canvas-card modern-hover">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
+                      <Shield className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="canvas-heading-3">Privacy & Security</CardTitle>
+                      <CardDescription className="canvas-small">
+                        Manage your data and privacy settings
+                      </CardDescription>
+                    </div>
                   </div>
-                  <Switch
-                    checked={notifications}
-                    onCheckedChange={checked => setNotifications(checked)}
-                  />
-                </div>
-                <div className="flex items-center justify-between py-2">
-                  <div>
-                    <p className="font-medium">Email Alerts</p>
-                    <p className="text-sm text-muted-foreground">Receive email updates</p>
+                </CardHeader>
+                
+                <CardContent className="space-y-6">
+                  <div className="flex items-center justify-between py-3 border-b border-gray-100">
+                    <div className="space-y-1">
+                      <p className="canvas-body font-medium">Profile Visibility</p>
+                      <p className="canvas-small text-gray-600">Control who can see your profile information</p>
+                    </div>
+                    <Switch 
+                      checked={privacy} 
+                      onCheckedChange={c => setPrivacy(c)}
+                      className="data-[state=checked]:bg-blue-600"
+                    />
                   </div>
-                  <Switch checked={true} onCheckedChange={() => {}} />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* PRIVACY */}
-          <TabsContent value="privacy">
-            <Card>
-              <CardHeader>
-                <CardTitle>Privacy Settings</CardTitle>
-                <CardDescription>Manage your privacy preferences.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between py-2">
-                  <div>
-                    <p className="font-medium">Profile Visibility</p>
-                    <p className="text-sm text-muted-foreground">Who can see your info</p>
+                  
+                  <div className="space-y-3 py-3">
+                    <div>
+                      <p className="canvas-body font-medium">Data Usage</p>
+                      <p className="canvas-small text-gray-600 mb-3">
+                        We collect anonymized data to improve your learning experience and platform performance.
+                      </p>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className={cn(
+                        "border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300",
+                        "transition-all duration-200"
+                      )}
+                    >
+                      View Data Policy
+                    </Button>
                   </div>
-                  <Switch checked={privacy} onCheckedChange={c => setPrivacy(c)} />
-                </div>
-                <div className="space-y-1">
-                  <Label>Data Usage</Label>
-                  <p className="text-sm text-muted-foreground">
-                    We collect anonymized data to improve your experience.
-                  </p>
-                  <Button variant="outline" size="sm" className="mt-2">
-                    Manage Data Settings
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
+      
       <Footer />
     </div>
   );

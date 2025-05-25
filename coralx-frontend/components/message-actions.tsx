@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { useSWRConfig } from 'swr';
 import { useCopyToClipboard } from 'usehooks-ts';
 
-import type { Vote } from '@/lib/db/schema';
+import type { Vote } from '../lib/db/schema';
 import { getMessageIdFromAnnotations } from '@/lib/utils';
 
 import { CopyIcon, ThumbDownIcon, ThumbUpIcon } from './icons';
@@ -88,9 +88,11 @@ export function PureMessageActions({
                         return [
                           ...votesWithoutCurrent,
                           {
+                            id: crypto.randomUUID(),
                             chatId,
                             messageId: message.id,
                             isUpvoted: true,
+                            createdAt: new Date(),
                           },
                         ];
                       },
@@ -142,9 +144,11 @@ export function PureMessageActions({
                         return [
                           ...votesWithoutCurrent,
                           {
+                            id: crypto.randomUUID(),
                             chatId,
                             messageId: message.id,
                             isUpvoted: false,
+                            createdAt: new Date(),
                           },
                         ];
                       },

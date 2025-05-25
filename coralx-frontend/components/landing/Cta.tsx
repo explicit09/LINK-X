@@ -54,7 +54,7 @@ const Cta = () => {
 
           <div className="relative text-center">
             <h2 className="reveal text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Ready to transform your student's education?
+              Ready to transform your student&apos;s education?
             </h2>
             <p className="reveal text-lg text-blue-800 mb-8 max-w-2xl mx-auto">
               Join hundreds of institutions who are already teaching their students with personalized AI learning.

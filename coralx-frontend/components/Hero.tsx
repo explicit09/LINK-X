@@ -55,7 +55,7 @@ const Hero = () => {
           </h1>
           
           <p className="reveal text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-8">
-            Traditional learning doesn't work for everyone. Our AI-powered platform personalizes financial education to match your unique learning style.
+            Traditional learning doesn&apos;t work for everyone. Our AI-powered platform personalizes financial education to match your unique learning style.
           </p>
           
           <div className="reveal flex flex-col sm:flex-row gap-4 justify-center mt-10">

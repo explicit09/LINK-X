@@ -18,6 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { instructorAPI } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { CourseCard } from "@/components/dashboard/CourseCard";
-import { CourseForm } from "@/components/dashboard/CourseForm";
+import CourseForm from "@/components/dashboard/CourseForm";
 import UploadPdf from "@/components/dashboard/UploadPDF";
 
 export default function ProfessorDashboard() {
@@ -263,7 +264,7 @@ export default function ProfessorDashboard() {
 
       toast.success("Uploaded!");
 
-      // ✅ fetch just this module’s files again
+      // ✅ fetch just this module's files again
       const updatedFilesRes = await fetch(
         `http://localhost:8080/instructor/modules/${moduleId}/files`,
         {
@@ -461,15 +462,7 @@ export default function ProfessorDashboard() {
 
   const handleDeleteCourse = async (deletedCourse: any) => {
     try {
-      const res = await fetch(
-        `http://localhost:8080/instructor/courses/${deletedCourse.id}`,
-        {
-          method: "DELETE",
-          credentials: "include",
-        }
-      );
-
-      if (!res.ok) throw new Error("Failed to delete course");
+      await instructorAPI.deleteCourse(deletedCourse.id);
 
       setCourses((prev) => prev.filter((c) => c.id !== deletedCourse.id));
       setSelectedCourse(null); // Navigates back to dashboard view
@@ -698,7 +691,7 @@ export default function ProfessorDashboard() {
                     </DialogDescription>
                   </DialogHeader>
                   <CourseForm
-                    onSubmit={handleCreateCourse}
+                    onSave={handleCreateCourse}
                     onCancel={() => setIsCreateDialogOpen(false)}
                   />
                 </DialogContent>
@@ -1362,7 +1355,7 @@ export default function ProfessorDashboard() {
             </DialogHeader>
             <CourseForm
               course={editingCourse}
-              onSubmit={handleUpdateCourseInfo}
+              onSave={handleUpdateCourseInfo}
               onCancel={() => setEditingCourse(null)}
             />
           </DialogContent>

@@ -34,7 +34,7 @@ const InfoSection = () => {
 
   const benefits = [
     "Instant syllabus generation from any Canvas materials",
-    "Smart quizzes that adapt to your student's learning pace",
+    "Smart quizzes that adapt to your student&apos;s learning pace",
     "Detailed progress tracking and performance insights",
     "Ethical AI that supports learning, not shortcuts",
   ];
@@ -49,10 +49,10 @@ const InfoSection = () => {
               How It Works
             </h5>
             <h2 className="reveal text-3xl md:text-4xl font-bold text-gray-900 mb-6">
-              Your Student's Personalized Learning Journey
+              Your Student&apos;s Personalized Learning Journey
             </h2>
             <p className="reveal text-lg text-gray-600 mb-6">
-              Learn-X uses advanced AI to transform existing Canvas materials into engaging, personalized learning pathways tailored to each student's style, pace, and goals.
+              Learn-X uses advanced AI to transform existing Canvas materials into engaging, personalized learning pathways tailored to each student&apos;s style, pace, and goals.
             </p>
 
             <div className="reveal space-y-4 mb-8">

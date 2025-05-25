@@ -21,7 +21,8 @@ from src.db.schema import (
     Message,
     Report,
     News,
-    Market
+    Market,
+    Todo
 )
 
 # --- User & Role CRUD ---
@@ -404,7 +405,11 @@ def delete_module(db: Session, module_id: str):
 
 def get_file_by_id(db: Session, file_id):
     if isinstance(file_id, str):
-        file_id = uuid.UUID(file_id)
+        try:
+            file_id = uuid.UUID(file_id)
+        except ValueError:
+            # If file_id is not a valid UUID, return None
+            return None
     return db.execute(select(File).filter_by(id=file_id)).scalars().first()
 
 
@@ -593,7 +598,11 @@ def delete_enrollment(db: Session, user_id: str, course_id: str):
 
 def get_personalized_file_by_id(db: Session, pf_id):
     if isinstance(pf_id, str):
-        pf_id = uuid.UUID(pf_id)
+        try:
+            pf_id = uuid.UUID(pf_id)
+        except ValueError:
+            # If pf_id is not a valid UUID, return None
+            return None
     return db.execute(
         select(PersonalizedFile).filter_by(id=pf_id)
     ).scalars().first()
@@ -905,3 +914,81 @@ def get_module_metrics_for_course(db: Session, course_id: str) -> list[dict]:
         }
         for mid, views, chats in rows
     ]
+
+# --- Todo CRUD ---
+
+def get_todo_by_id(db: Session, todo_id: str):
+    if isinstance(todo_id, str):
+        todo_id = uuid.UUID(todo_id)
+    return db.execute(select(Todo).filter_by(id=todo_id)).scalars().first()
+
+
+def get_todos_by_user(db: Session, user_id):
+    if isinstance(user_id, str):
+        user_id = uuid.UUID(user_id)
+    return db.execute(
+        select(Todo).filter_by(user_id=user_id).order_by(asc(Todo.created_at))
+    ).scalars().all()
+
+
+def get_todos_by_user_and_course(db: Session, user_id, course_id):
+    if isinstance(user_id, str):
+        user_id = uuid.UUID(user_id)
+    if isinstance(course_id, str):
+        course_id = uuid.UUID(course_id)
+    return db.execute(
+        select(Todo).filter_by(user_id=user_id, course_id=course_id).order_by(asc(Todo.created_at))
+    ).scalars().all()
+
+
+def create_todo(db: Session, user_id: str, title: str, description: str = None, 
+                course_id: str = None, todo_type: str = 'reading', priority: str = 'medium',
+                due_date: datetime = None):
+    if isinstance(user_id, str):
+        user_id = uuid.UUID(user_id)
+    if course_id and isinstance(course_id, str):
+        course_id = uuid.UUID(course_id)
+    
+    todo = Todo(
+        user_id=user_id,
+        course_id=course_id,
+        title=title,
+        description=description,
+        todo_type=todo_type,
+        priority=priority,
+        due_date=due_date
+    )
+    db.add(todo)
+    db.commit()
+    db.refresh(todo)
+    return todo
+
+
+def update_todo(db: Session, todo_id: str, **kwargs):
+    todo = get_todo_by_id(db, todo_id)
+    if not todo:
+        return None
+    
+    for key in ('title', 'description', 'todo_type', 'priority', 'completed', 'due_date', 'completed_at'):
+        if key in kwargs:
+            setattr(todo, key, kwargs[key])
+    
+    # If marking as completed, set completed_at timestamp
+    if kwargs.get('completed') and not todo.completed_at:
+        todo.completed_at = datetime.utcnow()
+    # If marking as not completed, clear completed_at
+    elif not kwargs.get('completed', True) and todo.completed_at:
+        todo.completed_at = None
+    
+    db.commit()
+    db.refresh(todo)
+    return todo
+
+
+def delete_todo(db: Session, todo_id: str):
+    todo = get_todo_by_id(db, todo_id)
+    if todo:
+        db.delete(todo)
+        db.commit()
+        return True
+    return False
