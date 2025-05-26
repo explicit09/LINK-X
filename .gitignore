@@ -5,5 +5,14 @@ node_modules
 
 # Virtual environment
 .venv/
+
+# Python cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+
+# Archived documentation
+archived_docs/

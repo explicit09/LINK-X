@@ -18,6 +18,7 @@ import MaterialViewer from "@/components/course/MaterialViewer";
 import { StudentCourseUpload } from "@/components/course/StudentCourseUpload";
 import { StatsSidePanel } from "@/components/course/StatsSidePanel";
 import { ModuleCard } from "@/components/course/ModuleCard";
+import { EnterpriseModuleCard } from "@/components/course/EnterpriseModuleCard";
 import { EnhancedSidebar } from "@/components/course/EnhancedSidebar";
 import { SearchAndFilter } from "@/components/course/SearchAndFilter";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
@@ -209,6 +210,8 @@ export default function CoursePage() {
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
   const [useAdvancedUpload, setUseAdvancedUpload] = useState(false);
   const [createModuleDialogOpen, setCreateModuleDialogOpen] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
   const [newModuleTitle, setNewModuleTitle] = useState("");
   const [newModuleDescription, setNewModuleDescription] = useState("");
   const [isCreatingModule, setIsCreatingModule] = useState(false);
@@ -717,25 +720,36 @@ export default function CoursePage() {
 
   // Helper functions
   const formatRelativeTime = (dateString: string) => {
+    if (!dateString) return "—";
+    
     const date = new Date(dateString);
+    // Check if date is valid
+    if (isNaN(date.getTime())) return "—";
+    
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     
-    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
+  const formatFileSize = (bytes: number | string) => {
+    if (!bytes || bytes === 0) return "—";
+    
+    const numBytes = typeof bytes === 'string' ? parseInt(bytes) : bytes;
+    if (isNaN(numBytes) || numBytes === 0) return "—";
+    
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(numBytes) / Math.log(k));
+    const size = parseFloat((numBytes / Math.pow(k, i)).toFixed(1));
+    return `${size} ${sizes[i]}`;
   };
 
   const getFileType = (mimeType: string): Material["type"] => {
@@ -749,6 +763,53 @@ export default function CoursePage() {
     const url = new URL(window.location.href);
     url.searchParams.set("tab", tab);
     router.replace(url.pathname + url.search);
+  };
+
+  const handleSelectFile = (fileId: string, selected: boolean) => {
+    setSelectedFiles(prev => {
+      const newSet = new Set(prev);
+      if (selected) {
+        newSet.add(fileId);
+      } else {
+        newSet.delete(fileId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleBulkAction = async (action: string, fileIds: string[]) => {
+    if (action === 'delete') {
+      if (!window.confirm(`Are you sure you want to delete ${fileIds.length} files? This action cannot be undone.`)) {
+        return;
+      }
+
+      try {
+        // Delete files one by one (could be optimized with batch API)
+        for (const fileId of fileIds) {
+          if (currentUser?.role === "student") {
+            await studentAPI.deleteFile(fileId);
+          } else {
+            await instructorAPI.deleteFile(fileId);
+          }
+        }
+
+        // Remove files from local state
+        setModules(prev => 
+          prev.map(module => ({
+            ...module,
+            materials: module.materials.filter(material => !fileIds.includes(material.id))
+          }))
+        );
+
+        // Clear selection
+        setSelectedFiles(new Set());
+
+        sonnerToast.success(`${fileIds.length} files deleted successfully`);
+      } catch (error) {
+        console.error("Error deleting files:", error);
+        sonnerToast.error("Failed to delete some files. Please try again.");
+      }
+    }
   };
 
   const handleDeleteFile = async (fileId: string, moduleId: string) => {
@@ -1625,7 +1686,7 @@ export default function CoursePage() {
                         
                         <div className="space-y-6">
                           {filteredModules.map((module, index) => (
-                            <ModuleCard
+                            <EnterpriseModuleCard
                               key={module.id}
                               module={{
                                 ...module,
@@ -1637,6 +1698,9 @@ export default function CoursePage() {
                               onAskAI={handleAskAI}
                               onDeleteFile={handleDeleteFile}
                               onDeleteModule={handleDeleteModule}
+                              selectedFiles={selectedFiles}
+                              onSelectFile={handleSelectFile}
+                              onBulkAction={handleBulkAction}
                             />
                           ))}
                           
