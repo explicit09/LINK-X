@@ -17,21 +17,34 @@ bucket_name = os.getenv('S3_BUCKET_NAME', 'learn-x')
 
 # Update CORS configuration
 cors_config = {
-    'CORSRules': [{
-        'AllowedHeaders': ['*'],
-        'AllowedMethods': ['GET', 'POST', 'PUT', 'DELETE', 'HEAD'],
-        'AllowedOrigins': [
-            'http://localhost:3000',
-            'http://localhost:3001', 
-            'http://localhost:3002',
-            'https://localhost:3000',
-            'https://localhost:3001',
-            'https://localhost:3002',
-            '*'  # For development - remove in production
-        ],
-        'ExposeHeaders': ['ETag', 'Content-Length', 'Content-Type'],
-        'MaxAgeSeconds': 3000
-    }]
+    'CORSRules': [
+        {
+            'AllowedHeaders': ['*'],
+            'AllowedMethods': ['GET', 'HEAD', 'PUT', 'POST', 'DELETE'],
+            'AllowedOrigins': [
+                'http://localhost:3000',
+                'http://localhost:3001',
+                'http://localhost:3002',
+                'http://localhost:3003',
+                'http://127.0.0.1:3000',
+                'http://127.0.0.1:3001',
+                'http://127.0.0.1:3002',
+                'http://127.0.0.1:3003',
+                'http://localhost:49713'
+            ],
+            'ExposeHeaders': [
+                'ETag',
+                'Content-Length',
+                'Content-Type',
+                'x-amz-server-side-encryption',
+                'x-amz-request-id',
+                'x-amz-id-2',
+                'x-amz-expiration',
+                'x-amz-request-charged'
+            ],
+            'MaxAgeSeconds': 3000
+        }
+    ]
 }
 
 try:

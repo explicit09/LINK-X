@@ -45,6 +45,5 @@ RUN pip install -U Flask flask-cors types-flask-cors
 # Install pgvector
 RUN pip install pgvector
 
-# Set the entry point to run migrations and then start the app
-ENTRYPOINT ["/run_migrations.sh"]
-CMD ["gunicorn", "--bind", ":8080", "--workers", "1", "--threads", "8", "--timeout", "0", "app:app"]
+# Set the command to run migrations in the background and start the app
+CMD ["bash", "-c", "/run_migrations.sh & gunicorn --bind :8080 --workers 1 --threads 8 --timeout 0 app:app"]

@@ -64,7 +64,17 @@ export async function sessionLogin() {
   }
 }
 
-export async function fetchWithAuth(endpoint: string, options: RequestInit = {}, retryWithSessionLogin = true) {
+// Default timeout and retry settings
+const DEFAULT_TIMEOUT_MS = 10000; // 10 seconds
+const MAX_RETRIES = 2;
+
+export async function fetchWithAuth(
+  endpoint: string, 
+  options: RequestInit = {}, 
+  retryWithSessionLogin = true,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  maxRetries = MAX_RETRIES
+) {
   const token = await getAuthToken();
   // Don't include Content-Type for FormData requests
   const isFormData = options.body instanceof FormData;
@@ -75,65 +85,119 @@ export async function fetchWithAuth(endpoint: string, options: RequestInit = {},
     ...options.headers,
   };
 
-  try {
-    console.log(`Making request to: ${API_URL}${endpoint}`);
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers,
-      credentials: 'include',
-      mode: 'cors',
-    });
+  // Create an AbortController for request timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  // For retry handling
+  let attempt = 0;
+  let lastError = null;
 
-    // If we get a 401 and we haven't tried session login yet, try to establish a session
-    if (response.status === 401 && retryWithSessionLogin) {
-      console.log('Received 401, attempting to establish session...');
-      const sessionSuccess = await sessionLogin();
+  while (attempt <= maxRetries) {
+    try {
+      // Add a small delay between retries, increasing with each attempt
+      if (attempt > 0) {
+        console.log(`Retry attempt ${attempt}/${maxRetries} for ${endpoint}`);
+        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+      }
       
-      if (sessionSuccess) {
-        // Retry the original request with the new session cookie
-        console.log('Session established, retrying original request');
-        return fetchWithAuth(endpoint, options, false);  // Prevent infinite recursion
-      } else {
-        console.error('Failed to establish session after 401 response');
-        // Try to refresh the page if we're in the browser
-        if (typeof window !== 'undefined' && window.location) {
-          console.log('Refreshing page to attempt re-authentication');
-          // Give user a chance to see error messages before refresh
-          setTimeout(() => window.location.reload(), 2000);
-        }
-      }
-    }
+      console.log(`Making request to: ${API_URL}${endpoint}`);
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        ...options,
+        headers,
+        credentials: 'include',
+        mode: 'cors',
+        signal: controller.signal
+      });
 
-    if (!response.ok) {
-      let errorMessage = '';
-      try {
-        // Try to parse as JSON first
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const errorData = await response.json();
-          errorMessage = JSON.stringify(errorData);
+      // Clear timeout since request completed
+      clearTimeout(timeoutId);
+
+      // If we get a 401 and we haven't tried session login yet, try to establish a session
+      if (response.status === 401 && retryWithSessionLogin) {
+        console.log('Received 401, attempting to establish session...');
+        const sessionSuccess = await sessionLogin();
+        
+        if (sessionSuccess) {
+          // Retry the original request with the new session cookie
+          console.log('Session established, retrying original request');
+          return fetchWithAuth(endpoint, options, false);  // Prevent infinite recursion
         } else {
-          errorMessage = await response.text();
+          console.error('Failed to establish session after 401 response');
+          // Try to refresh the page if we're in the browser
+          if (typeof window !== 'undefined' && window.location) {
+            console.log('Refreshing page to attempt re-authentication');
+            // Give user a chance to see error messages before refresh
+            setTimeout(() => window.location.reload(), 2000);
+          }
         }
-      } catch (e) {
-        errorMessage = 'Unknown error';
       }
-      console.error(`API error: ${response.status}`, errorMessage);
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorMessage}`);
-    }
 
-    // Handle different response types
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      const data = await response.json();
-      return data;
-    } else {
-      return await response.text();
+      // Check if the response indicates a server error (5xx) that might be retryable
+      if (response.status >= 500 && response.status < 600 && attempt < maxRetries) {
+        console.warn(`Server error ${response.status} for ${endpoint}, retrying...`);
+        attempt++;
+        continue;
+      }
+
+      if (!response.ok) {
+        let errorMessage = '';
+        try {
+          // Try to parse as JSON first
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json();
+            errorMessage = JSON.stringify(errorData);
+          } else {
+            errorMessage = await response.text();
+          }
+        } catch (e) {
+          errorMessage = 'Unknown error';
+        }
+        console.error(`API error: ${response.status}`, errorMessage);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorMessage}`);
+      }
+
+      // Handle different response types
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        return data;
+      } else {
+        return await response.text();
+      }
+    } catch (error) {
+      // Clear timeout if we got an error
+      clearTimeout(timeoutId);
+      
+      lastError = error;
+      
+      // Handle timeout abort errors
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        console.error(`Request to ${endpoint} timed out after ${timeoutMs}ms`);
+        if (attempt < maxRetries) {
+          attempt++;
+          continue;
+        }
+        throw new Error(`Request to ${endpoint} timed out after ${timeoutMs}ms and ${attempt} retries`);
+      }
+      
+      // Handle network errors with retry
+      if (error instanceof TypeError && error.message.includes('network')) {
+        console.error(`Network error for ${endpoint}:`, error);
+        if (attempt < maxRetries) {
+          attempt++;
+          continue;
+        }
+      }
+      
+      console.error('API request failed:', error);
+      throw error;
     }
-  } catch (error) {
-    console.error('API request failed:', error);
-    throw error;
   }
+  
+  // This should never be reached if retries are working correctly
+  throw lastError || new Error(`Failed after ${maxRetries} retries`);
 }
 
 // Generic API methods
@@ -224,27 +288,27 @@ export const studentAPI = {
         }
       });
       
-      if (response.ok) {
-        const contentType = response.headers.get('content-type');
-        
-        // If response is JSON, it's likely a presigned URL
-        if (contentType && contentType.includes('application/json')) {
-          const data = await response.json();
-          if (data.type === 'presigned' && data.url) {
-            return { url: data.url };
-          }
-        }
-        
-        // Otherwise, use direct URL with credentials
-        return {
-          url: `${baseUrl}/student/files/${fileId}/content`
-        };
+      if (!response.ok) {
+        throw new Error(`Failed to access file: ${response.status} ${response.statusText}`);
       }
       
-      throw new Error(`Failed to get file URL: ${response.statusText}`);
+      const contentType = response.headers.get('content-type');
+      
+      // If response is JSON, it's likely a presigned URL
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        if (data.type === 'presigned' && data.url) {
+          return { url: data.url };
+        }
+      }
+      
+      // Otherwise, use direct URL with credentials
+      return {
+        url: `${baseUrl}/student/files/${fileId}/content`
+      };
     } catch (error) {
       console.error('Failed to get file URL:', error);
-      throw error;
+      throw new Error(error instanceof Error ? error.message : 'File not accessible');
     }
   },
 
@@ -325,11 +389,26 @@ export const instructorAPI = {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
       
       // Check if file has S3 storage
-      const response = await api.get(`/instructor/files/${fileId}/content`);
+      const response = await fetch(`${baseUrl}/instructor/files/${fileId}/content`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
       
-      // Check if it's a presigned URL response (S3)
-      if (response.type === 'presigned' && response.url) {
-        return { url: response.url };
+      if (!response.ok) {
+        throw new Error(`Failed to access file: ${response.status} ${response.statusText}`);
+      }
+      
+      const contentType = response.headers.get('content-type');
+      
+      // If response is JSON, it could be a presigned URL or error message
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        if (data.type === 'presigned' && data.url) {
+          return { url: data.url };
+        }
       }
       
       // Otherwise, it's traditional file storage
@@ -337,8 +416,8 @@ export const instructorAPI = {
         url: `${baseUrl}/instructor/files/${fileId}/content`
       };
     } catch (error) {
-      console.warn('Failed to access instructor file:', error);
-      throw new Error('File not accessible');
+      console.error('Failed to access instructor file:', error);
+      throw new Error(error instanceof Error ? error.message : 'File not accessible');
     }
   },
   

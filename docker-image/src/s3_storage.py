@@ -10,11 +10,18 @@ logger = logging.getLogger(__name__)
 
 class S3Storage:
     def __init__(self):
-        self.s3_client = boto3.client(
-            's3',
+        # Configure the S3 client with explicit SigV4 authentication
+        session = boto3.Session(
             aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
             aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
-            region_name=os.getenv('AWS_REGION', 'us-east-1')
+            region_name=os.getenv('AWS_REGION', 'us-east-2')
+        )
+        self.s3_client = session.client(
+            's3',
+            config=boto3.session.Config(
+                signature_version='s3v4',
+                s3={'addressing_style': 'virtual'}
+            )
         )
         self.bucket_name = os.getenv('S3_BUCKET_NAME', 'linkx-files')
         self.cloudfront_domain = os.getenv('CLOUDFRONT_DOMAIN')  # Optional CDN
@@ -84,17 +91,31 @@ class S3Storage:
             Presigned URL string
         """
         try:
+            # Create a new client with explicit region configuration
+            session = boto3.Session(
+                aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+                aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+                region_name=os.getenv('AWS_REGION', 'us-east-2')
+            )
+            s3_client = session.client(
+                's3',
+                config=boto3.session.Config(
+                    signature_version='s3v4',
+                    s3={'addressing_style': 'virtual'}
+                )
+            )
+            
             params = {
                 'Bucket': self.bucket_name,
                 'Key': s3_key
             }
             
-            # Add response headers for downloads
+            # Set content disposition for download if requested
             if download:
                 filename = os.path.basename(s3_key)
                 params['ResponseContentDisposition'] = f'attachment; filename="{filename}"'
             
-            url = self.s3_client.generate_presigned_url(
+            url = s3_client.generate_presigned_url(
                 'get_object',
                 Params=params,
                 ExpiresIn=expiration
@@ -209,11 +230,64 @@ class S3Storage:
             return None
     
     def _get_file_url(self, s3_key: str) -> str:
-        """Get the file URL (CDN if available, otherwise S3)"""
-        if self.cloudfront_domain:
-            return f"https://{self.cloudfront_domain}/{s3_key}"
-        else:
-            return f"https://{self.bucket_name}.s3.amazonaws.com/{s3_key}"
+        """
+        Generate a pre-signed URL for secure file access
+        
+        Args:
+            s3_key: The S3 key of the file
+            
+        Returns:
+            Pre-signed URL string with 1-hour expiration
+        """
+        try:
+            # Create a new client with explicit region configuration
+            session = boto3.Session(
+                aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+                aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+                region_name=os.getenv('AWS_REGION', 'us-east-2')
+            )
+            s3_client = session.client(
+                's3',
+                config=boto3.session.Config(
+                    signature_version='s3v4',
+                    s3={'addressing_style': 'virtual'}
+                )
+            )
+            
+            # Generate a pre-signed URL for the S3 object
+            url = s3_client.generate_presigned_url(
+                'get_object',
+                Params={
+                    'Bucket': self.bucket_name,
+                    'Key': s3_key,
+                    'ResponseContentDisposition': 'inline',  # Display in browser
+                    'ResponseContentType': 'application/pdf'  # Set appropriate content type
+                },
+                ExpiresIn=3600  # 1 hour expiration
+            )
+            
+            # If using CloudFront, replace the domain
+            if self.cloudfront_domain:
+                from urllib.parse import urlparse, urlunparse
+                parsed = urlparse(url)
+                # Replace the netloc with CloudFront domain and reconstruct the URL
+                cloudfront_url = urlunparse((
+                    parsed.scheme,
+                    self.cloudfront_domain,
+                    parsed.path,
+                    parsed.params,
+                    parsed.query,
+                    parsed.fragment
+                ))
+                return cloudfront_url
+                
+            return url
+            
+        except Exception as e:
+            logger.error(f"Failed to generate pre-signed URL: {str(e)}")
+            # Fallback to direct URL if pre-signed URL generation fails
+            region = os.getenv('AWS_REGION', 'us-east-2')
+            return f"https://{self.bucket_name}.s3.{region}.amazonaws.com/{s3_key}"
     
     def create_bucket_if_not_exists(self):
         """Create S3 bucket if it doesn't exist (for initial setup)"""

@@ -7,6 +7,7 @@ import tempfile
 import pickle
 import numpy as np
 import json
+import logging
 from datetime import datetime, timedelta
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
@@ -14,6 +15,13 @@ import firebase_admin
 from firebase_admin import auth, credentials
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 from src.db.schema import Base, File, Module, PersonalizedFile, Todo, FileChunk
 from openai import OpenAI
 from src.transcriber import transcribe_audio
@@ -199,15 +207,11 @@ app.config['TESTING'] = False
 cred = credentials.Certificate(os.getenv("FIREBASE_KEY_PATH", "firebaseKey.json"))
 firebase_admin.initialize_app(cred)
 
-POSTGRES_URL = os.getenv("POSTGRES_URL")
-if not POSTGRES_URL:
-    raise RuntimeError("POSTGRES_URL not set")
-engine = create_engine(
-    POSTGRES_URL,
-    pool_pre_ping=True,   # Validate connection before each checkout
-    pool_recycle=1800     # Recycle connections every 30 minutes to avoid idle EOF
-)
-Session = sessionmaker(bind=engine, expire_on_commit=False)
+# Import the enhanced database connection module
+from src.db.connection import engine, get_db_session, with_db_retry, execute_with_retry
+# Create the session factory - we'll use get_db_session() to create sessions
+Session = get_db_session
+# Create tables
 Base.metadata.create_all(engine)
 
 # ---------------------------------------------------------------------------
@@ -2024,25 +2028,30 @@ def student_dashboard_stats():
         db.close()
 
 @app.route('/student/courses/<course_id>/progress', methods=['GET'])
+@with_db_retry()  # Apply retry logic to the entire endpoint
 def student_course_progress(course_id):
     user_id, err = verify_student()
     if err:
         return err
     
-    db = Session()
+    db = get_db_session()
     try:
         # Verify student is enrolled in the course
         enrollment = get_enrollment_by_student_course(db, user_id, course_id)
         if not enrollment:
             return jsonify({'error': 'Not enrolled in this course'}), 403
         
-        # Get all course files/materials with safer query
+        # Get all course files/materials with safer query and retry logic
         try:
-            course_files = db.query(File).join(Module).filter(
-                Module.course_id == course_id
-            ).all()
+            # Use execute_with_retry for the specific database query
+            def get_course_files():
+                return db.query(File).join(Module).filter(
+                    Module.course_id == course_id
+                ).all()
+            
+            course_files = execute_with_retry(get_course_files)
         except Exception as query_error:
-            print(f"Error querying course files: {str(query_error)}")
+            logger.error(f"Error querying course files: {str(query_error)}")
             # Fallback to basic counting
             return jsonify({
                 'totalMaterials': 0,
@@ -2066,7 +2075,7 @@ def student_course_progress(course_id):
             today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             week_start = datetime.now() - timedelta(days=7)
         except Exception as date_error:
-            print(f"Error calculating dates: {str(date_error)}")
+            logger.error(f"Error calculating dates: {str(date_error)}")
             today_start = datetime.now()
             week_start = datetime.now()
         
@@ -2083,17 +2092,20 @@ def student_course_progress(course_id):
                 if personalized_views > 0:
                     personalized_materials += 1
             except Exception as file_error:
-                print(f"Error processing file {file.id}: {str(file_error)}")
+                logger.error(f"Error processing file {file.id}: {str(file_error)}")
                 continue
                 
-        # Get personalized files for this course with safer query
+        # Get personalized files for this course with safer query and retry logic
         try:
-            course_personalized_files = db.query(PersonalizedFile).join(File).join(Module).filter(
-                PersonalizedFile.user_id == user_id,
-                Module.course_id == course_id
-            ).all()
+            def get_personalized_files():
+                return db.query(PersonalizedFile).join(File).join(Module).filter(
+                    PersonalizedFile.user_id == user_id,
+                    Module.course_id == course_id
+                ).all()
+            
+            course_personalized_files = execute_with_retry(get_personalized_files)
         except Exception as pf_error:
-            print(f"Error querying personalized files: {str(pf_error)}")
+            logger.error(f"Error querying personalized files: {str(pf_error)}")
             course_personalized_files = []
         
         # Estimate time based on activity
@@ -2106,7 +2118,7 @@ def student_course_progress(course_id):
                 if hasattr(pf, 'created_at') and pf.created_at and pf.created_at >= today_start:
                     today_time_minutes += 35
             except Exception as time_error:
-                print(f"Error calculating time for personalized file {pf.id}: {str(time_error)}")
+                logger.error(f"Error calculating time for personalized file {pf.id}: {str(time_error)}")
                 continue
         
         # Add time for regular file views (estimate 10 minutes per view)
@@ -2115,7 +2127,7 @@ def student_course_progress(course_id):
                 weekly_views_raw = getattr(file, 'view_count_raw', 0) or 0
                 weekly_time_minutes += min(weekly_views_raw * 10, 60)  # Cap at 60 mins per file
             except Exception as view_error:
-                print(f"Error calculating view time for file {file.id}: {str(view_error)}")
+                logger.error(f"Error calculating view time for file {file.id}: {str(view_error)}")
                 continue
         
         # Calculate progress percentage
@@ -2132,7 +2144,7 @@ def student_course_progress(course_id):
         }), 200
         
     except Exception as e:
-        print(f"Course progress error: {str(e)}")
+        logger.error(f"Course progress error: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': 'Failed to calculate course progress'}), 500

@@ -109,55 +109,69 @@ export default function MaterialViewer({
       );
     }
     
-    switch (materialType) {
-      case 'pdf':
-        return <PDFViewer fileUrl={fileUrl} fileName={materialTitle} />;
-        
-      case 'video':
-        return (
-          <div className="w-full h-full min-h-[500px]">
-            <video 
-              src={fileUrl} 
-              controls 
-              className="w-full h-full" 
-              controlsList="nodownload"
-            >
-              Your browser does not support the video tag.
-            </video>
-          </div>
-        );
-        
-      case 'audio':
-        return (
-          <div className="w-full p-8 flex flex-col items-center justify-center min-h-[300px]">
-            <Mic className="h-16 w-16 text-purple-600 mb-4" />
-            <h3 className="text-lg font-medium mb-4">{materialTitle}</h3>
-            <audio 
-              src={fileUrl} 
-              controls 
-              className="w-full max-w-md" 
-              controlsList="nodownload"
-            >
-              Your browser does not support the audio tag.
-            </audio>
-          </div>
-        );
-        
-      default:
-        return (
-          <div className="flex items-center justify-center h-[500px] w-full">
-            <div className="text-center">
-              <FileText className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">{materialTitle}</h3>
-              <p className="text-gray-600 mb-4">This file type cannot be previewed directly.</p>
-              <Button asChild>
-                <a href={fileUrl} target="_blank" rel="noopener noreferrer" download={materialTitle}>
-                  Download File
-                </a>
-              </Button>
+    try {
+      switch (materialType) {
+        case 'pdf':
+          return <PDFViewer fileUrl={fileUrl} fileName={materialTitle} />;
+          
+        case 'video':
+          return (
+            <div className="w-full h-full min-h-[500px]">
+              <video 
+                src={fileUrl} 
+                controls 
+                className="w-full h-full" 
+                controlsList="nodownload"
+              >
+                Your browser does not support the video tag.
+              </video>
             </div>
+          );
+          
+        case 'audio':
+          return (
+            <div className="w-full p-8 flex flex-col items-center justify-center min-h-[300px]">
+              <Mic className="h-16 w-16 text-purple-600 mb-4" />
+              <h3 className="text-lg font-medium mb-4">{materialTitle}</h3>
+              <audio 
+                src={fileUrl} 
+                controls 
+                className="w-full max-w-md" 
+                controlsList="nodownload"
+              >
+                Your browser does not support the audio tag.
+              </audio>
+            </div>
+          );
+          
+        default:
+          return (
+            <div className="flex items-center justify-center h-[500px] w-full">
+              <div className="text-center">
+                <FileText className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">{materialTitle}</h3>
+                <p className="text-gray-600 mb-4">This file type cannot be previewed directly.</p>
+                <Button asChild>
+                  <a href={fileUrl} target="_blank" rel="noopener noreferrer" download={materialTitle}>
+                    Download File
+                  </a>
+                </Button>
+              </div>
+            </div>
+          );
+      }
+    } catch (err) {
+      console.error('Error rendering content:', err);
+      return (
+        <div className="flex items-center justify-center h-[500px] w-full">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">Failed to display content</h3>
+            <p className="text-gray-600 mb-4">There was an error displaying this content.</p>
+            <Button onClick={() => window.location.reload()}>Try Again</Button>
           </div>
-        );
+        </div>
+      );
     }
   };
   

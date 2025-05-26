@@ -21,16 +21,12 @@ else
     SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
     cd "$SCRIPT_DIR"
     
-    # Check if .env exists in src directory
-    if [ -f "src/.env" ]; then
-        echo "Loading environment variables from src/.env..."
-        export $(cat src/.env | grep -v '^#' | xargs)
-    elif [ -f ".env" ]; then
-        # Fallback to .env in current directory for backward compatibility
+    # Check if .env exists
+    if [ -f ".env" ]; then
         echo "Loading environment variables from .env..."
         export $(cat .env | grep -v '^#' | xargs)
     else
-        echo "⚠️  Warning: No .env file found in src/ or current directory. Make sure environment variables are set!"
+        echo "⚠️  Warning: No .env file found. Make sure environment variables are set!"
     fi
     
     # Check Python availability

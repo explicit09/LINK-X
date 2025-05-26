@@ -747,7 +747,16 @@ def get_report_by_id(db: Session, report_id: str):
     return db.execute(select(Report).filter_by(id=report_id)).scalars().first()
 
 
-def get_report_by_course(db: Session, course_id: str) -> Report | None:
+def get_report_by_course(db: Session, course_id: str):
+    """Get a report by course ID.
+    
+    Args:
+        db: Database session
+        course_id: The course ID as a string or UUID
+        
+    Returns:
+        Report or None if not found
+    """
     if isinstance(course_id, str):
         course_id = uuid.UUID(course_id)
     return db.execute(

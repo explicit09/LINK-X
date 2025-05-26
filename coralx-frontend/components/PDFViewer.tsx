@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, Maximize2, Minimize2, Download, AlertCircle, ExternalLink } from 'lucide-react';
@@ -16,6 +16,12 @@ export default function PDFViewer({ fileUrl, fileName, onClose }: PDFViewerProps
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const blobUrlRef = useRef<string | null>(null);
+  
+  // Update the ref whenever blobUrl changes
+  useEffect(() => {
+    blobUrlRef.current = blobUrl;
+  }, [blobUrl]);
   
   // Fetch the PDF as a blob to handle authentication
   useEffect(() => {
@@ -25,6 +31,10 @@ export default function PDFViewer({ fileUrl, fileName, onClose }: PDFViewerProps
         setHasError(false);
         
         console.log('Fetching PDF from:', fileUrl);
+        
+        if (!fileUrl) {
+          throw new Error('Invalid file URL');
+        }
         
         const response = await fetch(fileUrl, {
           credentials: 'include', // Include cookies for authentication
@@ -36,20 +46,19 @@ export default function PDFViewer({ fileUrl, fileName, onClose }: PDFViewerProps
         console.log('Response status:', response.status);
         
         if (!response.ok) {
-          console.error('Failed to fetch PDF:', response.status, response.statusText);
-          setHasError(true);
-          setIsLoading(false);
-          return;
+          throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
         }
         
         const blob = await response.blob();
         console.log('Blob received:', blob.type, 'Size:', blob.size);
         
         if (blob.size === 0) {
-          console.error('Empty PDF blob received');
-          setHasError(true);
-          setIsLoading(false);
-          return;
+          throw new Error('Empty PDF blob received');
+        }
+        
+        // Revoke previous blob URL if it exists
+        if (blobUrlRef.current) {
+          URL.revokeObjectURL(blobUrlRef.current);
         }
         
         const url = URL.createObjectURL(blob);
@@ -57,7 +66,7 @@ export default function PDFViewer({ fileUrl, fileName, onClose }: PDFViewerProps
         setBlobUrl(url);
         setIsLoading(false);
       } catch (error) {
-        console.error('Error fetching PDF:', error);
+        console.error('Error fetching PDF:', error instanceof Error ? error.message : 'Unknown error');
         setHasError(true);
         setIsLoading(false);
       }
@@ -65,13 +74,13 @@ export default function PDFViewer({ fileUrl, fileName, onClose }: PDFViewerProps
     
     fetchPDFAsBlob();
     
-    // Cleanup blob URL on unmount
+    // Cleanup blob URL on unmount or when fileUrl changes
     return () => {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
       }
     };
-  }, [fileUrl]);
+  }, [fileUrl]); // Removed blobUrl from dependencies
 
   const handleDownload = () => {
     try {

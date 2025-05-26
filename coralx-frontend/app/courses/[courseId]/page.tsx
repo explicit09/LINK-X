@@ -76,6 +76,7 @@ interface Material {
   size?: string;
   uploadedAt: string;
   processed?: boolean;
+  viewed?: boolean;   // Track if a file has been viewed
   moduleId?: string;
   moduleName?: string;
 }
@@ -485,14 +486,28 @@ export default function CoursePage() {
         
         try {
           if (user.role === "student") {
-            const progressData = await studentAPI.getCourseProgress(courseId);
-            realProgress = {
-              completedMaterials: progressData.viewedMaterials || 0,
-              totalMaterials: progressData.totalMaterials || transformedMaterials.length,
-              weeklyTimeMinutes: progressData.weeklyTimeMinutes || 0,
-              todayTimeMinutes: progressData.todayTimeMinutes || 0,
-              progressPercentage: progressData.progressPercentage || 0
-            };
+            try {
+              const progressData = await studentAPI.getCourseProgress(courseId);
+              realProgress = {
+                completedMaterials: progressData.viewedMaterials || 0,
+                totalMaterials: progressData.totalMaterials || transformedMaterials.length,
+                weeklyTimeMinutes: progressData.weeklyTimeMinutes || 0,
+                todayTimeMinutes: progressData.todayTimeMinutes || 0,
+                progressPercentage: progressData.progressPercentage || 0
+              };
+            } catch (progressError) {
+              console.error("Failed to load course progress, using default values:", progressError);
+              // Calculate a fallback progress based on local data
+              const processedMaterials = transformedMaterials.filter(m => m.viewed).length;
+              realProgress = {
+                completedMaterials: processedMaterials,
+                totalMaterials: transformedMaterials.length,
+                weeklyTimeMinutes: 0,
+                todayTimeMinutes: 0,
+                progressPercentage: transformedMaterials.length > 0 ? 
+                  Math.round((processedMaterials / transformedMaterials.length) * 100) : 0
+              };
+            }
           } else {
             const processedMaterials = transformedMaterials.filter(m => m.processed).length;
             realProgress = {
