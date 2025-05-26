@@ -213,7 +213,6 @@ export const studentAPI = {
   deleteFile: (fileId: string) => api.delete(`/student/files/${fileId}`),
   getFileUrl: async (fileId: string) => {
     try {
-      // For direct file access, we need to use the API call to get proper authentication
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
       
       // First check if it's S3 storage by trying to get metadata
@@ -323,34 +322,20 @@ export const instructorAPI = {
   downloadFile: (fileId: string) => api.get(`/instructor/files/${fileId}/download`),
   getFileUrl: async (fileId: string) => {
     try {
-      // For direct file access, we need to use the API call to get proper authentication
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
       
-      // First check if it's S3 storage by trying to get metadata
-      const response = await fetch(`${baseUrl}/instructor/files/${fileId}/content`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json',
-        }
-      });
+      // Check if file has S3 storage
+      const response = await api.get(`/instructor/files/${fileId}/content`);
       
-      if (response.ok) {
-        const contentType = response.headers.get('content-type');
-        
-        // If response is JSON, it's likely a presigned URL
-        if (contentType && contentType.includes('application/json')) {
-          const data = await response.json();
-          if (data.type === 'presigned' && data.url) {
-            return { url: data.url };
-          }
-        }
-        
-        // Otherwise, use direct URL with credentials
-        return {
-          url: `${baseUrl}/instructor/files/${fileId}/content`
-        };
+      // Check if it's a presigned URL response (S3)
+      if (response.type === 'presigned' && response.url) {
+        return { url: response.url };
       }
+      
+      // Otherwise, it's traditional file storage
+      return {
+        url: `${baseUrl}/instructor/files/${fileId}/content`
+      };
     } catch (error) {
       console.warn('Failed to access instructor file:', error);
       throw new Error('File not accessible');
