@@ -2,6 +2,7 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   /* Performance optimizations */
+  distDir: '.next',
   experimental: {
     ppr: true,
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
@@ -13,11 +14,19 @@ const nextConfig: NextConfig = {
         },
       },
     },
+    // Enable faster builds
+    webpackBuildWorker: true,
   },
   
   // Compression and optimization
   compress: true,
   poweredByHeader: false,
+  
+  // Development performance optimizations
+  swcMinify: true,
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
   
   // Image optimization
   images: {
@@ -34,6 +43,22 @@ const nextConfig: NextConfig = {
   
   // Bundle optimization
   webpack: (config, { dev, isServer }) => {
+    // Development performance optimizations
+    if (dev) {
+      // Faster builds in development
+      config.cache = {
+        type: 'filesystem',
+        buildDependencies: {
+          config: [__filename],
+        },
+      };
+      
+      // Reduce bundle analysis overhead
+      config.optimization.removeAvailableModules = false;
+      config.optimization.removeEmptyChunks = false;
+      config.optimization.splitChunks = false;
+    }
+    
     // Suppress Next.js dev server CORS warnings
     if (dev && !isServer) {
       config.devServer = {

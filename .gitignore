@@ -2,3 +2,14 @@
 # Environment variables
 .env
 set_aws_env.sh
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+
+# Archived documentation
+archived_docs/

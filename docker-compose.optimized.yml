@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./docker-image
+      dockerfile: Dockerfile.optimized
+      cache_from:
+        - python:3.10-slim
+    image: linkx-backend:latest
+    container_name: linkx-backend
+    env_file:
+      - ./docker-image/src/.env
+    environment:
+      # Override for development
+      FLASK_ENV: development
+      FLASK_DEBUG: 1
+    volumes:
+      # Only mount what changes during development
+      - ./docker-image/src/app.py:/app/src/app.py
+      - ./docker-image/src/routes.py:/app/src/routes.py
+      - ./docker-image/src/db:/app/src/db
+      - ./data/learning_pdfs:/app/src/learning_pdfs
+      - ./data/faiss_generated:/app/src/faiss_generated
+    ports:
+      - "8080:8080"
+    command: ["bash", "-c", "cd /app/src && python -m flask run --host=0.0.0.0 --port=8080 --reload"]
+    # Add resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
