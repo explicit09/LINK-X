@@ -360,22 +360,31 @@ def get_module_by_id(db: Session, module_id):
 def get_modules_by_course(db: Session, course_id):
     if isinstance(course_id, str):
         course_id = uuid.UUID(course_id)
+    # Explicitly select only columns that exist in the database
     return db.execute(
-        select(Module)
-        .filter_by(course_id=course_id)
+        select(
+            Module.id,
+            Module.course_id,
+            Module.title,
+            Module.ordering
+        )
+        .filter(Module.course_id == course_id)
         .order_by(Module.ordering)
-    ).scalars().all()
+    ).all()
 
 
-def create_module(db: Session, course_id: str, title: str):
+def create_module(db: Session, course_id: str, title: str, description: str = ""):
     # Convert course_id to UUID if it's a string
     if isinstance(course_id, str):
         course_id = uuid.UUID(course_id)
     
     max_ord = db.query(func.max(Module.ordering)).filter(Module.course_id == course_id).scalar() or 0
+    
+    # Create module with all required fields including description
     m = Module(
         course_id=course_id,
         title=title,
+        description=description,
         ordering=max_ord + 1
     )
     db.add(m)

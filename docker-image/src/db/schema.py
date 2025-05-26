@@ -107,6 +107,7 @@ class Module(Base):
                        ForeignKey('Course.id', ondelete='CASCADE'),
                        nullable=False)
     title = Column(String(128), nullable=False)
+    description = Column(Text, nullable=True)
     ordering = Column(Integer, nullable=False, default=0)
 
     course = relationship('Course', back_populates='modules')

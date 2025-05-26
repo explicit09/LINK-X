@@ -974,7 +974,14 @@ export default function CoursePage() {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to create module: ${response.statusText}`);
+        let errorMsg = `Failed to create module: ${response.statusText}`;
+        try {
+          const errJson = await response.json();
+          errorMsg = errJson.error || errorMsg;
+        } catch {}
+        sonnerToast.error(errorMsg);
+        setIsCreatingModule(false);
+        return;
       }
 
       const newModule = await response.json();
@@ -983,7 +990,7 @@ export default function CoursePage() {
       const moduleToAdd = {
         id: newModule.id,
         title: newModule.title,
-        description: newModule.description,
+        description: newModule.description || '',
         materials: [],
         isExpanded: true,
       };
