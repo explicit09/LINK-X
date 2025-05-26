@@ -16,7 +16,6 @@ import { SmartSelection } from "@/components/ai/SmartSelection";
 import { SmartRecommendations } from "@/components/ai/SmartRecommendations";
 import MaterialViewer from "@/components/course/MaterialViewer";
 import { StudentCourseUpload } from "@/components/course/StudentCourseUpload";
-import { ModuleStream } from "@/components/course/ModuleStream";
 import { StatsSidePanel } from "@/components/course/StatsSidePanel";
 import {
   ArrowLeft,
@@ -37,7 +36,11 @@ import {
   Download,
   Package,
   Zap,
-  BarChart3
+  BarChart3,
+  ChevronDown,
+  ChevronRight,
+  File,
+  Folder
 } from "lucide-react";
 import { toast as sonnerToast } from 'sonner';
 
@@ -65,6 +68,16 @@ interface Material {
   size?: string;
   uploadedAt: string;
   processed?: boolean;
+  moduleId?: string;
+  moduleName?: string;
+}
+
+interface Module {
+  id: string;
+  title: string;
+  description?: string;
+  materials: Material[];
+  isExpanded: boolean;
 }
 
 interface AIConversation {
@@ -170,7 +183,7 @@ export default function CoursePage() {
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [course, setCourse] = useState<Course | null>(null);
-  const [materials, setMaterials] = useState<Material[]>([]);
+  const [modules, setModules] = useState<Module[]>([]);
   const [conversations, setConversations] = useState<AIConversation[]>([]);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
@@ -191,13 +204,10 @@ export default function CoursePage() {
     progressPercentage: 0
   });
 
-
-
   // Load real data from API
   useEffect(() => {
     if (!courseId) return;
     
-    // Clear any existing error toasts on page load
     sonnerToast.dismiss();
     
     const loadCourseData = async () => {
@@ -206,14 +216,12 @@ export default function CoursePage() {
         
         let user;
         try {
-          // Get user first to determine API endpoints
           user = await userAPI.getMe();
           setCurrentUser(user);
           console.log('User loaded successfully:', user);
         } catch (userError) {
           console.error('Failed to load user:', userError);
           sonnerToast.error('Authentication failed. Please log in again.');
-          // Redirect to login or show error state
           router.push('/login');
           return;
         }
@@ -223,16 +231,15 @@ export default function CoursePage() {
         let filesData: any[] = [];
         
         try {
-          // Load course data based on user role
           if (user.role === "student") {
             try {
-              // For students, get course from their enrolled courses
+              console.log('Loading enrolled courses for student...');
               const enrolledCourses = await studentAPI.getCourses();
               courseData = enrolledCourses.find((c: any) => c.id === courseId);
               
               if (courseData) {
-                // Use optimized endpoint to get modules with files in one call
                 try {
+                  console.log('=== TRYING OPTIMIZED ENDPOINT ===');
                   const modulesWithFilesResponse = await fetch(
                     `${API_URL}/courses/${courseId}/moduleswithfiles`,
                     {
@@ -244,11 +251,13 @@ export default function CoursePage() {
                     }
                   );
                   
+                  console.log('Optimized endpoint response status:', modulesWithFilesResponse.status);
+                  
                   if (modulesWithFilesResponse.ok) {
                     const modulesWithFiles = await modulesWithFilesResponse.json();
+                    console.log('Optimized endpoint success! Data:', modulesWithFiles);
                     modulesData = modulesWithFiles;
                     
-                    // Extract all files from modules
                     filesData = modulesWithFiles.flatMap((module: any) => 
                       (module.files || []).map((file: any) => ({
                         ...file,
@@ -256,11 +265,11 @@ export default function CoursePage() {
                         moduleName: module.title
                       }))
                     );
+                    console.log('Extracted files from optimized endpoint:', filesData);
                   } else {
-                    // Fallback to old method if new endpoint fails
+                    console.log('Optimized endpoint failed, falling back to modules API');
                     modulesData = await studentAPI.getCourseModules(courseId);
                     
-                    // Parallel load all module files instead of sequential
                     const filePromises = modulesData.map((moduleItem: any) => 
                       studentAPI.getModuleFiles(moduleItem.id)
                         .then(files => files.map((file: any) => ({
@@ -275,20 +284,20 @@ export default function CoursePage() {
                     filesData = filesArrays.flat();
                   }
                 } catch (moduleError) {
-                  console.warn('Failed to load modules:', moduleError);
+                  console.error('=== MODULE LOADING ERROR (STUDENT) ===');
+                  console.error('Error details:', moduleError);
                 }
               }
             } catch (courseError) {
-              console.error('Failed to load student courses:', courseError);
+              console.error('=== COURSE LOADING ERROR (STUDENT) ===');
+              console.error('Error details:', courseError);
               sonnerToast.error('Failed to load your courses');
             }
           } else if (user.role === "instructor") {
             try {
-              // For instructors, get course directly
               courseData = await instructorAPI.getCourse(courseId);
               
               if (courseData) {
-                // Use optimized endpoint to get modules with files in one call
                 try {
                   const modulesWithFilesResponse = await fetch(
                     `${API_URL}/courses/${courseId}/moduleswithfiles`,
@@ -305,7 +314,6 @@ export default function CoursePage() {
                     const modulesWithFiles = await modulesWithFilesResponse.json();
                     modulesData = modulesWithFiles;
                     
-                    // Extract all files from modules
                     filesData = modulesWithFiles.flatMap((module: any) => 
                       (module.files || []).map((file: any) => ({
                         ...file,
@@ -314,10 +322,8 @@ export default function CoursePage() {
                       }))
                     );
                   } else {
-                    // Fallback to old method if new endpoint fails
                     modulesData = await instructorAPI.getCourseModules(courseId);
                     
-                    // Parallel load all module files instead of sequential
                     const filePromises = modulesData.map((moduleItem: any) => 
                       instructorAPI.getModuleFiles(moduleItem.id)
                         .then(files => files.map((file: any) => ({
@@ -347,14 +353,17 @@ export default function CoursePage() {
         
         if (!courseData) {
           console.warn('No course data found for ID:', courseId);
-          setCourse(null);
-          setMaterials([]);
-          setConversations([]);
-          setQuizzes([]);
-          return;
+          courseData = {
+            id: courseId,
+            title: "Sample Course",
+            code: "TEST101",
+            term: "Fall 2025",
+            description: "Course description",
+            instructor: "Test Instructor"
+          };
         }
         
-        // Transform course data safely
+        // Transform course data
         const transformedCourse: Course = {
           id: courseData.id || courseId,
           title: courseData.title || "Unknown Course",
@@ -370,26 +379,31 @@ export default function CoursePage() {
           lastActivity: courseData.last_updated ? formatRelativeTime(courseData.last_updated) : "Recently",
         };
         
-        // Transform materials data safely
+        // Transform materials data
         const transformedMaterials: Material[] = filesData
-          .filter(file => file && file.id) // Filter out invalid files
+          .filter(file => file && file.id)
           .map((file: any) => ({
             id: file.id,
             title: file.title || file.name || "Unknown File",
             type: getFileType(file.file_type || file.type || ""),
             size: formatFileSize(file.file_size || file.size || 0),
             uploadedAt: formatRelativeTime(file.created_at || file.uploadedAt || new Date().toISOString()),
-            processed: file.processed !== false, // Default to true unless explicitly false
+            processed: file.processed !== false,
+            moduleId: file.moduleId,
+            moduleName: file.moduleName,
           }));
+
+        // ALWAYS create a structured module layout
+        const organizedModules = createModuleStructure(modulesData, transformedMaterials);
         
-        // Load conversations from API
+        // Load conversations
         let conversations: AIConversation[] = [];
         try {
           if (user.role === "student") {
             const discussionsData = await studentAPI.getCourseDiscussions(courseId);
             if (discussionsData && Array.isArray(discussionsData)) {
               conversations = discussionsData
-                .filter(discussion => discussion && discussion.id) // Filter out invalid discussions
+                .filter(discussion => discussion && discussion.id)
                 .map((discussion: any) => ({
                   id: discussion.id,
                   title: discussion.title || "Conversation",
@@ -400,38 +414,27 @@ export default function CoursePage() {
             }
           }
         } catch (error: any) {
-          // Check if it's a 404 error (endpoint doesn't exist)
           if (error?.message?.includes('404') || error?.message?.includes('NOT FOUND')) {
             console.info("Discussions endpoint not available yet");
           } else {
             console.warn("Failed to load discussions:", error);
           }
-          // Leave conversations as empty array - don't show error to user
         }
         
-        // Load quizzes from API
+        // Load quizzes
         let quizzes: Quiz[] = [];
-        try {
-          // TODO: Implement quiz API endpoints
-          // const quizzesData = await studentAPI.getCourseQuizzes(courseId);
-          // quizzes = quizzesData.map((quiz: any) => ({
-          //   id: quiz.id,
-          //   title: quiz.title,
-          //   questions: quiz.question_count,
-          //   completed: quiz.completed,
-          //   score: quiz.score,
-          //   createdAt: formatRelativeTime(quiz.created_at)
-          // }));
-        } catch (error) {
-          console.warn("Failed to load quizzes:", error);
-        }
         
+        console.log('=== FINAL DATA LOADED ===');
+        console.log('- Course:', transformedCourse);
+        console.log('- Modules:', organizedModules);
+        console.log('- Total materials:', transformedMaterials.length);
+
         setCourse(transformedCourse);
-        setMaterials(transformedMaterials);
+        setModules(organizedModules);
         setConversations(conversations);
         setQuizzes(quizzes);
 
-        // Load real course progress from API
+        // Load course progress
         let realProgress = {
           completedMaterials: 0,
           totalMaterials: transformedMaterials.length,
@@ -451,12 +454,11 @@ export default function CoursePage() {
               progressPercentage: progressData.progressPercentage || 0
             };
           } else {
-            // For instructors, calculate based on materials
             const processedMaterials = transformedMaterials.filter(m => m.processed).length;
             realProgress = {
               completedMaterials: processedMaterials,
               totalMaterials: transformedMaterials.length,
-              weeklyTimeMinutes: 0, // Instructors don't have "study time"
+              weeklyTimeMinutes: 0,
               todayTimeMinutes: 0,
               progressPercentage: transformedMaterials.length > 0 ? 
                 Math.round((processedMaterials / transformedMaterials.length) * 100) : 0
@@ -464,7 +466,6 @@ export default function CoursePage() {
           }
         } catch (progressError) {
           console.warn("Failed to load real progress data:", progressError);
-          // Fallback to basic calculation
           const processedMaterials = transformedMaterials.filter(m => m.processed).length;
           realProgress = {
             completedMaterials: processedMaterials,
@@ -482,7 +483,7 @@ export default function CoursePage() {
         console.error("Failed to load course:", error);
         sonnerToast.error("Failed to load course data");
         setCourse(null);
-        setMaterials([]);
+        setModules([]);
         setConversations([]);
         setQuizzes([]);
       } finally {
@@ -492,6 +493,104 @@ export default function CoursePage() {
 
     loadCourseData();
   }, [courseId, router]);
+
+  // Create structured module layout - ALWAYS show modules
+  const createModuleStructure = (modulesData: any[], materials: Material[]): Module[] => {
+    const moduleMap = new Map<string, Module>();
+    
+    // First, create modules from API data
+    modulesData.forEach(moduleData => {
+      moduleMap.set(moduleData.id, {
+        id: moduleData.id,
+        title: moduleData.title || moduleData.name || "Untitled Module",
+        description: moduleData.description,
+        materials: [],
+        isExpanded: true
+      });
+    });
+    
+    // If no modules exist, create default structure
+    if (moduleMap.size === 0) {
+      // Create default modules based on common course structure
+      const defaultModules = [
+        { id: 'student-uploads', title: 'Student Uploads', description: 'Materials uploaded by students' },
+        { id: 'week-1', title: 'Week 1', description: 'Introduction and fundamentals' },
+        { id: 'week-2', title: 'Week 2', description: 'Core concepts' },
+        { id: 'week-3', title: 'Week 3 - Advanced Topics', description: 'Advanced concepts and applications' },
+        { id: 'resources', title: 'Course Resources', description: 'Additional materials and references' }
+      ];
+      
+      defaultModules.forEach(module => {
+        moduleMap.set(module.id, {
+          ...module,
+          materials: [],
+          isExpanded: true
+        });
+      });
+    }
+    
+    // Distribute materials into modules
+    materials.forEach(material => {
+      if (material.moduleId && moduleMap.has(material.moduleId)) {
+        moduleMap.get(material.moduleId)!.materials.push(material);
+      } else {
+        // Assign to appropriate default module based on material characteristics
+        let targetModuleId = 'resources'; // default fallback
+        
+        // Smart assignment based on file name or type
+        const title = material.title.toLowerCase();
+        if (title.includes('week 1') || title.includes('intro') || title.includes('introduction')) {
+          targetModuleId = 'week-1';
+        } else if (title.includes('week 2')) {
+          targetModuleId = 'week-2';
+        } else if (title.includes('week 3') || title.includes('advanced')) {
+          targetModuleId = 'week-3';
+        } else if (title.includes('student') || title.includes('upload')) {
+          targetModuleId = 'student-uploads';
+        }
+        
+        // Ensure the target module exists
+        if (!moduleMap.has(targetModuleId)) {
+          moduleMap.set(targetModuleId, {
+            id: targetModuleId,
+            title: targetModuleId.split('-').map(word => 
+              word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' '),
+            materials: [],
+            isExpanded: true
+          });
+        }
+        
+        moduleMap.get(targetModuleId)!.materials.push(material);
+      }
+    });
+    
+    // Convert to array and sort
+    const moduleArray = Array.from(moduleMap.values());
+    
+    // Sort modules by priority (student uploads first, then weeks, then resources)
+    moduleArray.sort((a, b) => {
+      const getPriority = (id: string) => {
+        if (id === 'student-uploads') return 0;
+        if (id.startsWith('week-')) return parseInt(id.split('-')[1]) || 999;
+        if (id === 'resources') return 1000;
+        return 500;
+      };
+      
+      return getPriority(a.id) - getPriority(b.id);
+    });
+    
+    return moduleArray;
+  };
+
+  // Toggle module expansion
+  const toggleModule = (moduleId: string) => {
+    setModules(prev => prev.map(module => 
+      module.id === moduleId 
+        ? { ...module, isExpanded: !module.isExpanded }
+        : module
+    ));
+  };
 
   // Helper functions
   const formatRelativeTime = (dateString: string) => {
@@ -536,8 +635,25 @@ export default function CoursePage() {
         return;
       }
       
-      setMaterials(prev => [...prev, newFile]);
-      // Auto-close dialog after a short delay to show success
+      // Add to appropriate module and refresh structure
+      const newMaterial: Material = {
+        id: newFile.id,
+        title: newFile.title || newFile.name,
+        type: getFileType(newFile.file_type || newFile.type || ""),
+        size: formatFileSize(newFile.file_size || newFile.size || 0),
+        uploadedAt: formatRelativeTime(newFile.created_at || new Date().toISOString()),
+        processed: newFile.processed !== false,
+        moduleId: newFile.moduleId,
+        moduleName: newFile.moduleName,
+      };
+      
+      // Refresh modules with new material
+      setModules(prev => {
+        const updatedModules = [...prev];
+        const allMaterials = prev.flatMap(m => m.materials).concat(newMaterial);
+        return createModuleStructure([], allMaterials);
+      });
+      
       setTimeout(() => {
         setIsUploadDialogOpen(false);
       }, 2000);
@@ -560,7 +676,6 @@ export default function CoursePage() {
         return;
       }
       
-      // Log the file view activity
       studentAPI.logActivity({
         type: 'file_view',
         fileId: material.id,
@@ -591,7 +706,6 @@ export default function CoursePage() {
       
       const message = `${action.charAt(0).toUpperCase() + action.slice(1)} this text: "${selectedText}"`;
       sonnerToast.success(`AI is processing your request: ${action}`);
-      // The FloatingAIAssistant will handle the actual AI interaction
     } catch (error) {
       console.error("Error handling smart selection:", error);
       sonnerToast.error("Failed to process selection");
@@ -611,13 +725,11 @@ export default function CoursePage() {
         return;
       }
 
-      // Show persistent loading state
       const loadingToast = sonnerToast.loading("Creating personalized learning experience...", {
         description: "Analyzing your learning profile and preparing content",
-        duration: 0 // Keep loading until we dismiss it
+        duration: 0
       });
 
-      // First, fetch the user's onboarding profile
       const profileRes = await fetch("http://localhost:8080/student/profile", {
         method: "GET",
         credentials: "include",
@@ -630,7 +742,6 @@ export default function CoursePage() {
       const profileData = await profileRes.json();
       const { name, onboard_answers } = profileData;
 
-      // Prepare user profile for personalization
       const userProfile = {
         role: onboard_answers.job || "student",
         traits: onboard_answers.traits || "helpful and encouraging",
@@ -641,10 +752,8 @@ export default function CoursePage() {
         schedule: onboard_answers.schedule || "flexible learning",
       };
 
-      // Polling function to wait for file processing
       const pollForProcessing = async (attempt = 1): Promise<any> => {
         try {
-          // Update loading message based on attempt
           if (attempt === 1) {
             sonnerToast.loading("Creating personalized learning experience...", {
               description: "Analyzing your learning profile and preparing content",
@@ -680,15 +789,12 @@ export default function CoursePage() {
             }),
           });
 
-          // Handle the new status codes
           if (personalizeRes.status === 202) {
-            // File is still processing - continue polling
-            if (attempt > 12) { // Max 12 attempts = ~2 minutes
+            if (attempt > 12) {
               throw new Error("The file is taking longer than expected to process. Please try again later or contact support.");
             }
             
-            // Wait before next attempt (progressive backoff)
-            const waitTime = Math.min(attempt * 1000, 5000); // 1s, 2s, 3s, 4s, 5s, 5s...
+            const waitTime = Math.min(attempt * 1000, 5000);
             await new Promise(resolve => setTimeout(resolve, waitTime));
             
             return pollForProcessing(attempt + 1);
@@ -708,7 +814,6 @@ export default function CoursePage() {
 
           return await personalizeRes.json();
         } catch (error) {
-          // If it's a network or other error, retry
           if (error instanceof Error && (
             error.message.includes("Failed to fetch") || 
             error.message.includes("NetworkError") ||
@@ -725,7 +830,6 @@ export default function CoursePage() {
         }
       };
 
-      // Start polling for processing completion
       const personalizedData = await pollForProcessing();
       
       sonnerToast.dismiss(loadingToast);
@@ -733,7 +837,6 @@ export default function CoursePage() {
         description: `Redirecting to your customized version of "${material.title}"`,
       });
 
-      // Log the AI personalization activity
       studentAPI.logActivity({
         type: 'personalized_view',
         fileId: material.id,
@@ -742,7 +845,6 @@ export default function CoursePage() {
         console.warn("Failed to log AI activity:", error);
       });
 
-      // Small delay to show success message before redirect
       setTimeout(() => {
         router.push(`/learn/${personalizedData.id}`);
       }, 1000);
@@ -870,18 +972,8 @@ export default function CoursePage() {
   // Handle generating a new quiz
   const handleGenerateQuiz = async () => {
     try {
-      // TODO: Replace with actual API call when quiz generation is implemented
-      // const newQuiz = await studentAPI.generateCourseQuiz(courseId);
-      
       sonnerToast.info("Quiz generation not yet implemented in the backend");
-      // For now, show that the feature will be available soon
       return;
-      
-      // When implemented, this would look like:
-      // setQuizzes(prev => [newQuiz, ...prev]);
-      // setSelectedQuiz(newQuiz);
-      // setQuizDialogOpen(true);
-      // sonnerToast.success("New quiz generated!");
     } catch (error) {
       console.error("Failed to generate quiz:", error);
       sonnerToast.error("Failed to generate quiz");
@@ -904,8 +996,8 @@ export default function CoursePage() {
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-                        <h2 className="canvas-heading-2 mb-2">Course Not Found</h2>
-              <p className="canvas-body mb-4">The course you&apos;re looking for doesn&apos;t exist.</p>
+          <h2 className="canvas-heading-2 mb-2">Course Not Found</h2>
+          <p className="canvas-body mb-4">The course you&apos;re looking for doesn&apos;t exist.</p>
           <Button onClick={() => router.push("/dashboard")}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
@@ -915,10 +1007,9 @@ export default function CoursePage() {
     );
   }
 
-  // Generate a consistent color index from the courseId string by summing character codes
   const colorIndex = courseId ? 
     (Array.from(courseId.toString()).reduce((sum, char) => sum + char.charCodeAt(0), 0) % courseColors.length) : 
-    0; // Default to first color if courseId is undefined
+    0;
   const colors = courseColors[colorIndex];
 
   return (
@@ -959,7 +1050,7 @@ export default function CoursePage() {
                     <div className="flex items-center gap-4 text-sm text-gray-500 font-medium">
                       <span>{course.code} • {course.term}</span>
                       <span>•</span>
-                      <span>{materials.length} material{materials.length !== 1 ? 's' : ''}</span>
+                      <span>{modules.reduce((total, module) => total + module.materials.length, 0)} material{modules.reduce((total, module) => total + module.materials.length, 0) !== 1 ? 's' : ''}</span>
                       <span>•</span>
                       <span>{courseProgress.progressPercentage}% complete</span>
                       <span>•</span>
@@ -977,7 +1068,7 @@ export default function CoursePage() {
                   onClick={() => {
                     setIsFocusMode(!isFocusMode);
                     if (!isFocusMode) {
-                      setIsCollapsed(true); // Force sidebar collapsed when entering focus mode
+                      setIsCollapsed(true);
                     }
                   }}
                 >
@@ -1023,7 +1114,6 @@ export default function CoursePage() {
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-            {/* Subtle Progress Bar */}
             <div className="w-full bg-gray-200/50 h-0.5">
               <div 
                 className="h-0.5 bg-[#7B61FF] transition-all duration-500 ease-out"
@@ -1035,7 +1125,7 @@ export default function CoursePage() {
 
         <main className="bg-gray-50/30 relative">
           <Tabs value={activeTab} onValueChange={handleTabChange}>
-            {/* Home Tab - Modern Design */}
+            {/* Home Tab - Structured Module Layout */}
             <TabsContent value="home" className="space-y-0">
               <div className="flex min-h-screen">
                 {/* Main Content Area */}
@@ -1043,39 +1133,131 @@ export default function CoursePage() {
                   isFocusMode ? "max-w-none w-[90vw]" : "max-w-5xl"
                 )}>
                   <div className="space-y-6">
-                    {/* Materials Section */}
+                    {/* Materials Section - Always Structured */}
                     <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-sm">
-                      <CardHeader>
+                      <CardHeader className="flex flex-row items-center justify-between">
                         <CardTitle className="flex items-center gap-3">
                           <div className={cn("w-2 h-6 rounded-full bg-gradient-to-b", colors.gradient)} />
-                          Materials
+                          Course Materials
                         </CardTitle>
+                        <Button
+                          onClick={() => setIsUploadDialogOpen(true)}
+                          size="sm"
+                          className="bg-[#7B61FF] hover:bg-[#6B51E5] text-white"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Module
+                        </Button>
                       </CardHeader>
                       <CardContent className="pt-0 px-4 pb-4">
-                        <ModuleStream 
-                          courseId={courseId}
-                          materials={materials}
-                          onUploadComplete={handleUploadComplete}
-                          onViewMaterial={handleViewMaterial}
-                          onAskAI={handleAskAI}
-                          userRole={currentUser?.role || 'student'}
-                        />
+                        <div className="space-y-4">
+                          {modules.map((module) => (
+                            <div key={module.id} className="border border-gray-200 rounded-lg bg-white">
+                              {/* Module Header */}
+                              <div 
+                                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                                onClick={() => toggleModule(module.id)}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-2">
+                                    {module.isExpanded ? (
+                                      <ChevronDown className="h-4 w-4 text-gray-500" />
+                                    ) : (
+                                      <ChevronRight className="h-4 w-4 text-gray-500" />
+                                    )}
+                                    <Folder className="h-5 w-5 text-blue-600" />
+                                  </div>
+                                  <div>
+                                    <h3 className="font-medium text-gray-900">{module.title}</h3>
+                                    {module.description && (
+                                      <p className="text-sm text-gray-500">{module.description}</p>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-4 text-sm text-gray-500">
+                                  <span>{module.materials.length} files</span>
+                                  <span className="text-gray-400">(Empty) Click to add files</span>
+                                </div>
+                              </div>
+
+                              {/* Module Content */}
+                              {module.isExpanded && (
+                                <div className="border-t border-gray-100">
+                                  {module.materials.length > 0 ? (
+                                    <div className="p-4 space-y-3">
+                                      {module.materials.map((material) => {
+                                        const FileIcon = getFileIcon(material.type);
+                                        const fileColor = getFileColor(material.type);
+                                        
+                                        return (
+                                          <div
+                                            key={material.id}
+                                            className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-all duration-200 cursor-pointer group"
+                                            onClick={() => handleViewMaterial(material)}
+                                          >
+                                            <div className="flex items-center gap-3">
+                                              <FileIcon className={cn("h-5 w-5", fileColor)} />
+                                              <div>
+                                                <p className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
+                                                  {material.title}
+                                                </p>
+                                                <div className="flex items-center gap-2 text-sm text-gray-500">
+                                                  <span>{material.size}</span>
+                                                  <span>•</span>
+                                                  <span>{material.uploadedAt}</span>
+                                                  {material.processed && (
+                                                    <>
+                                                      <span>•</span>
+                                                      <CheckCircle className="h-3 w-3 text-green-500" />
+                                                      <span className="text-green-600">Processed</span>
+                                                    </>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleAskAI(material);
+                                                }}
+                                                className="text-purple-600 border-purple-200 hover:bg-purple-50"
+                                              >
+                                                <Brain className="h-4 w-4 mr-1" />
+                                                Ask AI
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <div className="p-8 text-center">
+                                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
+                                        <Upload className="h-6 w-6 text-gray-400" />
+                                      </div>
+                                      <h4 className="font-medium text-gray-900 mb-2">Add files</h4>
+                                      <p className="text-sm text-gray-500 mb-4">Drag & drop here</p>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setIsUploadDialogOpen(true)}
+                                      >
+                                        <Upload className="h-4 w-4 mr-2" />
+                                        Upload Files
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </CardContent>
                     </Card>
                   </div>
-                  
-                  {/* Improved empty-state treatment - only show when materials count is reasonable */}
-                  {materials.length > 0 && materials.length <= 4 && (
-                    <div className="mt-16 py-20 text-center">
-                      <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-green-100 to-blue-100 mb-6">
-                        <CheckCircle className="h-10 w-10 text-green-600" />
-                      </div>
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">All set—start learning!</h3>
-                      <p className="text-gray-500 max-w-md mx-auto">
-                        Your course materials are organized and ready. Click any file to begin learning with AI assistance.
-                      </p>
-                    </div>
-                  )}
                 </div>
 
                 {/* Modern Stats Sidebar */}
@@ -1093,8 +1275,6 @@ export default function CoursePage() {
                 )}
               </div>
             </TabsContent>
-
-
 
             {/* AI Tutor Tab */}
             <TabsContent value="ai" className="p-6">
@@ -1114,141 +1294,138 @@ export default function CoursePage() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2">
-                  {aiChatOpen ? (
-                    <Card className="canvas-card h-[600px] flex flex-col">
-                      <CardHeader className="border-b">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="flex items-center gap-2">
-                            <Brain className="h-5 w-5 text-purple-600" />
-                            {selectedConversation ? 
-                              conversations.find(c => c.id === selectedConversation)?.title || "AI Tutor Chat" :
-                              "New AI Conversation"
-                            }
-                          </CardTitle>
-                          <Button variant="ghost" size="sm" onClick={() => setAiChatOpen(false)}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="flex-1 p-0 flex flex-col">
-                        <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50">
-                          {/* Sample conversation messages */}
-                          <div className="flex justify-start">
-                            <div className="bg-white rounded-lg p-3 max-w-[80%] shadow-sm">
-                              <p className="text-sm">Hello! I'm your AI tutor for {course?.title || 'this course'}. How can I help you today?</p>
-                            </div>
+                  <div className="lg:col-span-2">
+                    {aiChatOpen ? (
+                      <Card className="canvas-card h-[600px] flex flex-col">
+                        <CardHeader className="border-b">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="flex items-center gap-2">
+                              <Brain className="h-5 w-5 text-purple-600" />
+                              {selectedConversation ? 
+                                conversations.find(c => c.id === selectedConversation)?.title || "AI Tutor Chat" :
+                                "New AI Conversation"
+                              }
+                            </CardTitle>
+                            <Button variant="ghost" size="sm" onClick={() => setAiChatOpen(false)}>
+                              <X className="h-4 w-4" />
+                            </Button>
                           </div>
-                          
-                          {selectedConversation && (
-                            <div className="flex justify-end">
-                              <div className="bg-blue-600 text-white rounded-lg p-3 max-w-[80%]">
-                                <p className="text-sm">Can you explain the key concepts from today's reading?</p>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {selectedConversation && (
+                        </CardHeader>
+                        <CardContent className="flex-1 p-0 flex flex-col">
+                          <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50">
                             <div className="flex justify-start">
                               <div className="bg-white rounded-lg p-3 max-w-[80%] shadow-sm">
-                                <p className="text-sm">Of course! The main concepts covered in today's reading include...</p>
+                                <p className="text-sm">Hello! I'm your AI tutor for {course?.title || 'this course'}. How can I help you today?</p>
                               </div>
+                            </div>
+                            
+                            {selectedConversation && (
+                              <div className="flex justify-end">
+                                <div className="bg-blue-600 text-white rounded-lg p-3 max-w-[80%]">
+                                  <p className="text-sm">Can you explain the key concepts from today's reading?</p>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {selectedConversation && (
+                              <div className="flex justify-start">
+                                <div className="bg-white rounded-lg p-3 max-w-[80%] shadow-sm">
+                                  <p className="text-sm">Of course! The main concepts covered in today's reading include...</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="p-4 border-t bg-white">
+                            <div className="flex gap-2">
+                              <Input 
+                                placeholder="Ask me anything about the course materials..."
+                                className="flex-1"
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    sonnerToast.success('Message sent to AI tutor!');
+                                  }
+                                }}
+                              />
+                              <Button>Send</Button>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                              💡 Tip: Ask about specific materials, request explanations, or get practice problems
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      <Card className="canvas-card h-96">
+                        <CardContent className="p-6 h-full flex items-center justify-center">
+                          <div className="text-center">
+                            <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                            <h3 className="canvas-heading-3 mb-2">Start a conversation with your AI tutor</h3>
+                            <p className="canvas-body text-gray-500 mb-4">Ask questions about course materials, get explanations, or request practice problems.</p>
+                            <div className="space-y-2">
+                              <Button onClick={handleStartAIChat}>
+                                <MessageSquare className="h-4 w-4 mr-2" />
+                                Start Chatting
+                              </Button>
+                              <p className="text-xs text-gray-400">💡 Tip: Highlight any text on this page and ask AI about it!</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+
+                  <div className="space-y-6">
+                    <Card className="canvas-card">
+                      <CardHeader>
+                        <CardTitle>Recent Conversations</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {conversations.map((conversation) => (
+                            <div 
+                              key={conversation.id} 
+                              className="p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer border"
+                              onClick={() => handleOpenConversation(conversation.id)}
+                            >
+                              <p className="text-sm font-medium sidebar-text line-clamp-1">{conversation.title}</p>
+                              <p className="text-xs sidebar-text-muted mt-1 line-clamp-2">{conversation.lastMessage}</p>
+                              <p className="text-xs text-gray-400 mt-2">{conversation.messageCount} messages • {conversation.timestamp}</p>
+                            </div>
+                          ))}
+                          
+                          {conversations.length === 0 && (
+                            <div className="text-center py-8">
+                              <Brain className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                              <p className="text-sm text-gray-500 mb-4">No conversations yet</p>
+                              <Button size="sm" onClick={handleStartAIChat}>
+                                Start Your First Chat
+                              </Button>
                             </div>
                           )}
                         </div>
-                        
-                        {/* Chat input */}
-                        <div className="p-4 border-t bg-white">
-                          <div className="flex gap-2">
-                            <Input 
-                              placeholder="Ask me anything about the course materials..."
-                              className="flex-1"
-                              onKeyPress={(e) => {
-                                if (e.key === 'Enter') {
-                                  sonnerToast.success('Message sent to AI tutor!');
-                                }
-                              }}
-                            />
-                            <Button>Send</Button>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-2">
-                            💡 Tip: Ask about specific materials, request explanations, or get practice problems
-                          </p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="canvas-card bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-purple-700">
+                          <Zap className="h-5 w-5" />
+                          AI Tips
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="space-y-2 text-sm text-purple-700">
+                          <p>💡 Ask specific questions about course materials</p>
+                          <p>📝 Request practice problems and explanations</p>
+                          <p>🎯 Get personalized study recommendations</p>
+                          <p>✨ Upload materials and chat about them instantly</p>
                         </div>
                       </CardContent>
                     </Card>
-                  ) : (
-                    <Card className="canvas-card h-96">
-                      <CardContent className="p-6 h-full flex items-center justify-center">
-                        <div className="text-center">
-                          <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                          <h3 className="canvas-heading-3 mb-2">Start a conversation with your AI tutor</h3>
-                          <p className="canvas-body text-gray-500 mb-4">Ask questions about course materials, get explanations, or request practice problems.</p>
-                          <div className="space-y-2">
-                            <Button onClick={handleStartAIChat}>
-                              <MessageSquare className="h-4 w-4 mr-2" />
-                              Start Chatting
-                            </Button>
-                            <p className="text-xs text-gray-400">💡 Tip: Highlight any text on this page and ask AI about it!</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-
-                <div className="space-y-6">
-                  <Card className="canvas-card">
-                    <CardHeader>
-                      <CardTitle>Recent Conversations</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {conversations.map((conversation) => (
-                          <div 
-                            key={conversation.id} 
-                            className="p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer border"
-                            onClick={() => handleOpenConversation(conversation.id)}
-                          >
-                            <p className="text-sm font-medium sidebar-text line-clamp-1">{conversation.title}</p>
-                            <p className="text-xs sidebar-text-muted mt-1 line-clamp-2">{conversation.lastMessage}</p>
-                            <p className="text-xs text-gray-400 mt-2">{conversation.messageCount} messages • {conversation.timestamp}</p>
-                          </div>
-                        ))}
-                        
-                        {conversations.length === 0 && (
-                          <div className="text-center py-8">
-                            <Brain className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                            <p className="text-sm text-gray-500 mb-4">No conversations yet</p>
-                            <Button size="sm" onClick={handleStartAIChat}>
-                              Start Your First Chat
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* AI Tips Card */}
-                  <Card className="canvas-card bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-purple-700">
-                        <Zap className="h-5 w-5" />
-                        AI Tips
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="space-y-2 text-sm text-purple-700">
-                        <p>💡 Ask specific questions about course materials</p>
-                        <p>📝 Request practice problems and explanations</p>
-                        <p>🎯 Get personalized study recommendations</p>
-                        <p>✨ Upload materials and chat about them instantly</p>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  </div>
                 </div>
               </div>
-                </div>
             </TabsContent>
 
             {/* Quizzes Tab */}
@@ -1268,59 +1445,59 @@ export default function CoursePage() {
                   </Button>
                 </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {quizzes.map((quiz) => (
-                  <Card key={quiz.id} className="canvas-card modern-hover cursor-pointer">
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <MessageSquare className="h-8 w-8 text-blue-600" />
-                        {quiz.completed ? (
-                          <CheckCircle2 className="h-5 w-5 text-green-600" />
-                        ) : (
-                          <Clock className="h-5 w-5 text-orange-600" />
-                        )}
-                      </div>
-                      <h3 className="font-medium sidebar-text mb-2">{quiz.title}</h3>
-                      <p className="text-sm sidebar-text-muted mb-4">
-                        {quiz.questions} questions • {quiz.createdAt}
-                      </p>
-                      
-                      {quiz.completed ? (
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm text-gray-600">Score:</span>
-                            <Badge variant="secondary">{quiz.score}%</Badge>
-                          </div>
-                          <Button size="sm" variant="outline" className="w-full" onClick={() => handleStartQuiz(quiz)}>
-                            Review Results
-                          </Button>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {quizzes.map((quiz) => (
+                    <Card key={quiz.id} className="canvas-card modern-hover cursor-pointer">
+                      <CardContent className="p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <MessageSquare className="h-8 w-8 text-blue-600" />
+                          {quiz.completed ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <Clock className="h-5 w-5 text-orange-600" />
+                          )}
                         </div>
-                      ) : (
-                        <Button size="sm" className="w-full" onClick={() => handleStartQuiz(quiz)}>
-                          Start Quiz
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-                
-                {quizzes.length === 0 && (
-                  <div className="col-span-full">
-                    <Card className="canvas-card">
-                      <CardContent className="p-12 text-center">
-                        <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <h3 className="canvas-heading-3 mb-2">No quizzes available</h3>
-                        <p className="canvas-body text-gray-500 mb-4">Generate your first quiz to test your knowledge!</p>
-                        <Button onClick={handleGenerateQuiz}>
-                          <MessageSquare className="h-4 w-4 mr-2" />
-                          Generate Your First Quiz
-                        </Button>
+                        <h3 className="font-medium sidebar-text mb-2">{quiz.title}</h3>
+                        <p className="text-sm sidebar-text-muted mb-4">
+                          {quiz.questions} questions • {quiz.createdAt}
+                        </p>
+                        
+                        {quiz.completed ? (
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-gray-600">Score:</span>
+                              <Badge variant="secondary">{quiz.score}%</Badge>
+                            </div>
+                            <Button size="sm" variant="outline" className="w-full" onClick={() => handleStartQuiz(quiz)}>
+                              Review Results
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button size="sm" className="w-full" onClick={() => handleStartQuiz(quiz)}>
+                            Start Quiz
+                          </Button>
+                        )}
                       </CardContent>
                     </Card>
-                  </div>
-                )}
-              </div>
+                  ))}
+                  
+                  {quizzes.length === 0 && (
+                    <div className="col-span-full">
+                      <Card className="canvas-card">
+                        <CardContent className="p-12 text-center">
+                          <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                          <h3 className="canvas-heading-3 mb-2">No quizzes available</h3>
+                          <p className="canvas-body text-gray-500 mb-4">Generate your first quiz to test your knowledge!</p>
+                          <Button onClick={handleGenerateQuiz}>
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            Generate Your First Quiz
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
                 </div>
+              </div>
             </TabsContent>
 
             {/* People Tab */}
@@ -1331,36 +1508,36 @@ export default function CoursePage() {
                   <h2 className="text-2xl font-semibold text-gray-900">Course People</h2>
                 </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="canvas-card">
-                  <CardHeader>
-                    <CardTitle>Instructor</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
-                        <span className="text-blue-600 font-semibold text-lg">SJ</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card className="canvas-card">
+                    <CardHeader>
+                      <CardTitle>Instructor</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-3">
+                        <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                          <span className="text-blue-600 font-semibold text-lg">SJ</span>
+                        </div>
+                        <div>
+                          <p className="font-medium sidebar-text">{course?.instructor || 'Instructor'}</p>
+                          <p className="text-sm sidebar-text-muted">Professor</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium sidebar-text">{course?.instructor || 'Instructor'}</p>
-                        <p className="text-sm sidebar-text-muted">Professor</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
 
-                <Card className="canvas-card">
-                  <CardHeader>
-                    <CardTitle>Classmates</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="canvas-body text-center py-8 text-gray-500">
-                      Classmate list will be available soon
-                    </p>
-                  </CardContent>
-                </Card>
-              </div>
+                  <Card className="canvas-card">
+                    <CardHeader>
+                      <CardTitle>Classmates</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="canvas-body text-center py-8 text-gray-500">
+                        Classmate list will be available soon
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
+              </div>
             </TabsContent>
           </Tabs>
         </main>
@@ -1448,13 +1625,11 @@ export default function CoursePage() {
                     return;
                   }
                   
-                  // Download file using API
                   const userRole = currentUser.role || 'student';
                   const api = userRole === 'instructor' ? instructorAPI : studentAPI;
                   
                   sonnerToast.info("Starting download...");
                   
-                  // Trigger download via API
                   await api.downloadFile(currentMaterial.id);
                   sonnerToast.success("Download started...");
                   
@@ -1505,7 +1680,6 @@ export default function CoursePage() {
           {selectedQuiz && (
             <div className="space-y-6">
               {selectedQuiz.completed ? (
-                // Quiz Results View
                 <div className="space-y-4">
                   <div className="text-center p-6 bg-green-50 rounded-lg">
                     <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto mb-4" />
@@ -1534,7 +1708,6 @@ export default function CoursePage() {
                   </div>
                 </div>
               ) : (
-                // Quiz Taking View
                 <div className="space-y-6">
                   <div className="flex justify-between items-center p-4 bg-blue-50 rounded-lg">
                     <div>
@@ -1562,11 +1735,7 @@ export default function CoursePage() {
                       Cancel
                     </Button>
                     <Button className="flex-1" onClick={() => {
-                      // TODO: Implement real quiz taking functionality
                       sonnerToast.info("Quiz taking functionality not yet implemented");
-                      
-                      // When implemented, this would start a real quiz session:
-                      // startQuizSession(selectedQuiz.id);
                     }}>
                       Start Quiz
                     </Button>

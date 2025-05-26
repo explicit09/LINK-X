@@ -31,7 +31,7 @@
 
 2. **Missing ModuleId Warning**
    - Files sometimes uploaded without moduleId association
-   - Backend creates "Student Uploads" module automatically
+   - Backend now requires explicit module creation (removed "Student Uploads" fallback)
    - Frontend shows warning but files are still accessible
 
 3. **Initial Load Still Feels Slow**

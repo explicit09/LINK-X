@@ -75,7 +75,7 @@ python docker-image/src/migrate_files_to_s3.py --execute
 
 Files are associated with modules through:
 1. **Explicit moduleId**: Frontend provides `moduleId` in form data
-2. **Fallback**: System finds/creates "Student Uploads" module if no moduleId provided
+2. **Required**: No fallback - users must create modules explicitly before uploading files
 
 ## Next Steps
 
