@@ -1,6 +1,15 @@
 version: '3.8'
 
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
   backend:
     build:
       context: ./docker-image
@@ -18,4 +27,35 @@ services:
       # - "8501:8501"  # Temporarily disabled
     environment:
       - AWS_REGION=us-east-2
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_URL=postgresql://neondb_owner:npg_2ZO0npmbLIPU@ep-withered-hill-a5u0pgp4-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - redis
     command: ["bash", "-c", "cd /app/src && FLASK_APP=app.py FLASK_ENV=development flask run --host=0.0.0.0 --port=8080"]
+
+  celery-worker:
+    build:
+      context: ./docker-image
+    image: dev7
+    container_name: celery-worker
+    env_file:
+      - ./docker-image/.env
+    volumes:
+      - ./docker-image/src:/app/src
+      - ./data/learning_pdfs:/app/src/learning_pdfs
+      - ./docker-image/src/firebaseKey.json:/app/src/firebaseKey.json
+    environment:
+      - AWS_REGION=us-east-2
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_URL=postgresql://neondb_owner:npg_2ZO0npmbLIPU@ep-withered-hill-a5u0pgp4-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
+      - CELERY_WORKER_NAME=worker1
+      - CELERY_CONCURRENCY=2
+      - CELERY_LOGLEVEL=info
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - redis
+    command: ["bash", "-c", "cd /app && chmod +x celery_worker.sh && PYTHONPATH=/app/src ./celery_worker.sh"]
+
+volumes:
+  redis_data:

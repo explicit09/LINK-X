@@ -661,18 +661,174 @@ export function ModuleStream({
     );
   };
 
-  const handlePersonalizeAll = (module: Module) => {
+  const handlePersonalizeAll = async (module: Module) => {
     if (module.materials.length === 0) {
       toast.error("No files to personalize in this module");
       return;
     }
-    
-    toast.loading(`Generate study plan from ${module.materials.length} files`, {
-      description: "Analyzing your learning profile and preparing content"
+
+    const loadingToast = toast.loading(`Generate study plan from ${module.materials.length} files`, {
+      description: "Starting personalized content generation..."
     });
-    
-    // TODO: Implement bulk personalization
-    // This would call an API endpoint to personalize all files in the module
+
+    try {
+      // Get user profile for personalization
+      const profileResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/student/profile`, {
+        method: "GET",
+        credentials: "include",
+      });
+
+      if (!profileResponse.ok) {
+        throw new Error("Please complete your profile setup first");
+      }
+
+      const profile = await profileResponse.json();
+      const onboard_answers = profile.onboard_answers || {};
+      
+      const name = profile.name || "Student";
+      const userProfile = {
+        role: onboard_answers.role || "student",
+        traits: onboard_answers.traits || "curious and analytical",
+        learningStyle: onboard_answers.learning_style || "visual learning",
+        depth: onboard_answers.depth || "comprehensive",
+        interests: onboard_answers.interests || "technology and innovation",
+        personalization: onboard_answers.personalization || "examples and analogies",
+        schedule: onboard_answers.schedule || "flexible learning",
+      };
+
+      // Step 1: Start the personalization task
+      const startResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/generatepersonalizedmodulecontent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          moduleId: module.id,
+          name: name,
+          userProfile: userProfile
+        }),
+      });
+
+      if (!startResponse.ok) {
+        const errorData = await startResponse.json().catch(() => ({}));
+        if (startResponse.status === 404) {
+          throw new Error("Module not found. Please refresh the page and try again.");
+        } else if (startResponse.status === 400) {
+          throw new Error(errorData.error || "Invalid request. Please check that all files in the module are properly processed.");
+        } else if (startResponse.status === 500) {
+          throw new Error("Server error occurred. Please try again in a few moments.");
+        } else if (startResponse.status === 202 && errorData.error === "PROCESSING") {
+          throw new Error("Files in this module are still being processed. Please try again in a moment.");
+        }
+        throw new Error(`Failed to start personalized content generation: ${startResponse.status}`);
+      }
+
+      const taskData = await startResponse.json();
+      const taskId = taskData.task_id;
+
+      if (!taskId) {
+        throw new Error("Failed to start personalization task");
+      }
+
+      // Step 2: Poll the task status
+      const pollTaskStatus = async (attempt = 1): Promise<any> => {
+        try {
+          if (attempt <= 3) {
+            toast.loading(`Generate study plan from ${module.materials.length} files`, {
+              description: "Analyzing your learning profile and preparing content...",
+              id: loadingToast
+            });
+          } else if (attempt <= 6) {
+            toast.loading(`Generate study plan from ${module.materials.length} files`, {
+              description: "Processing module content and generating personalized study guide...",
+              id: loadingToast
+            });
+          } else if (attempt <= 9) {
+            toast.loading(`Generate study plan from ${module.materials.length} files`, {
+              description: "Finalizing your personalized content...",
+              id: loadingToast
+            });
+          } else {
+            toast.loading(`Generate study plan from ${module.materials.length} files`, {
+              description: "Almost ready... putting the finishing touches...",
+              id: loadingToast
+            });
+          }
+
+          const statusResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/personalization/status/${taskId}`, {
+            method: "GET",
+            credentials: "include",
+          });
+
+          if (!statusResponse.ok) {
+            throw new Error(`Failed to check task status: ${statusResponse.status}`);
+          }
+
+          const statusData = await statusResponse.json();
+
+          if (statusData.status === 'completed') {
+            toast.success("Study guide created successfully!", {
+              id: loadingToast,
+              description: `Generated personalized content from ${module.materials.length} files`
+            });
+
+            // Navigate to the learn page
+            setTimeout(() => {
+              window.location.href = `/learn/${statusData.result.file_id}`;
+            }, 1000);
+            return statusData.result;
+          } else if (statusData.status === 'failed') {
+            throw new Error(statusData.error || "Task failed");
+          } else if (statusData.status === 'processing') {
+            if (attempt >= 24) { // Increased timeout to 2 minutes (24 * 5 seconds)
+              throw new Error("Processing is taking longer than expected. Please try again later or check if your files are still being processed.");
+            }
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            return pollTaskStatus(attempt + 1);
+          } else {
+            throw new Error(`Unknown task status: ${statusData.status}`);
+          }
+
+        } catch (error) {
+          if (attempt < 24 && (error instanceof TypeError || (error instanceof Error && error.message.includes('fetch')))) {
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            return pollTaskStatus(attempt + 1);
+          }
+          throw error;
+        }
+      };
+
+      await pollTaskStatus();
+
+    } catch (error) {
+      console.error("Error creating personalized module content:", error);
+      
+      let errorMessage = "Failed to create personalized study guide";
+      let errorDescription = "Please try again";
+
+      if (error instanceof Error) {
+        if (error.message.includes("profile")) {
+          errorMessage = "Profile not found";
+          errorDescription = "Please complete your onboarding first";
+        } else if (error.message.includes("longer than expected")) {
+          errorMessage = "Processing timeout";
+          errorDescription = "Your files may still be processing. Please try again in a few minutes.";
+        } else if (error.message.includes("not found")) {
+          errorMessage = "Module not found";
+          errorDescription = "Please refresh the page and try again";
+        } else if (error.message.includes("processed")) {
+          errorMessage = "Files not ready";
+          errorDescription = "Please wait for all files to finish processing";
+        } else if (error.message.includes("Server error")) {
+          errorMessage = "Server error";
+          errorDescription = "Please try again in a few moments";
+        }
+      }
+
+      toast.error(errorMessage, {
+        id: loadingToast,
+        description: errorDescription
+      });
+    }
   };
 
   const handleDeleteMaterial = async (materialId: string) => {

@@ -89,7 +89,7 @@ def index_file(self, file_id: str, force_reindex: bool = False) -> Dict[str, Any
         file_content = None
         if file.storage_type == 's3' and file.s3_key:
             self.update_state(state='PROCESSING', meta={'stage': 'downloading_from_s3'})
-            file_content = s3_storage.download_file(file.s3_bucket, file.s3_key)
+            file_content = s3_storage.download_file(file.s3_key)
         else:
             file_content = file.file_data
         

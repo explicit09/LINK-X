@@ -87,7 +87,8 @@ class FileUploadHandler:
                     file_size=file_size,
                     s3_key=s3_result['s3_key'],
                     s3_bucket=s3_result['s3_bucket'],
-                    storage_type='s3'
+                    storage_type='s3',
+                    file_id=file_id  # Use the same file_id for both S3 and database
                 )
             else:
                 # Store in database

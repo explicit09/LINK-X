@@ -95,6 +95,6 @@ app.conf.update(
 
 # Import tasks to register them
 try:
-    import src.simple_tasks
+    import src.tasks
 except ImportError:
     app.autodiscover_tasks(['src'])

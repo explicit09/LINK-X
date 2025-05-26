@@ -4,7 +4,7 @@ from werkzeug.security import generate_password_hash
 from datetime import datetime
 import uuid
 
-from src.db.schema import (
+from .schema import (
     User,
     Role,
     InstructorProfile,
@@ -455,13 +455,19 @@ def get_files_without_raw_by_module(db: Session, module_id):
 
 def create_file(db: Session, module_id: str, title: str, filename: str,
                 file_type: str, file_size: int, file_data: bytes = None,
-                s3_key: str = None, s3_bucket: str = None, storage_type: str = 'database'):
+                s3_key: str = None, s3_bucket: str = None, storage_type: str = 'database',
+                file_id: str = None):
     # Convert module_id to UUID if it's a string
     if isinstance(module_id, str):
         module_id = uuid.UUID(module_id)
     
+    # Convert file_id to UUID if provided
+    if file_id and isinstance(file_id, str):
+        file_id = uuid.UUID(file_id)
+    
     max_ord = db.query(func.max(File.ordering)).filter(File.module_id == module_id).scalar() or 0
     f = File(
+        id=file_id,  # Use provided file_id or let database auto-generate
         module_id=module_id,
         title=title,
         filename=filename,
@@ -501,16 +507,24 @@ def delete_file(db: Session, file_id: str):
 
 # --- FileChunk CRUD ---
 
-def insert_file_chunks(db, file_id: str, course_id: str, chunks: list[str], vectors) -> int:
+def insert_file_chunks(db, file_id: str, course_id: str, chunks: list[str], vectors, start_index: int = 0) -> int:
     """
     Inserts chunked text and their embeddings into the FileChunk table.
     Returns the number of inserted chunks.
+    
+    Args:
+        db: Database session
+        file_id: File ID
+        course_id: Course ID
+        chunks: List of text chunks
+        vectors: List of embedding vectors
+        start_index: Starting index for chunk numbering (for batch processing)
     """
     rows = [
         FileChunk(
             file_id=file_id,
             course_id=course_id,
-            chunk_index=i,
+            chunk_index=start_index + i,
             content=chunk,
             embedding=vec
         )
@@ -643,15 +657,35 @@ def get_personalized_files_by_student(db: Session, user_id):
 
 
 def create_personalized_file(db: Session, user_id: str, original_file_id: str, content: dict):
-    if isinstance(user_id, str):
-        user_id = uuid.UUID(user_id)
-    if original_file_id and isinstance(original_file_id, str):
-        original_file_id = uuid.UUID(original_file_id)
-    pf = PersonalizedFile(user_id=user_id,
-                          original_file_id=original_file_id,
-                          content=content)
-    db.add(pf); db.commit(); db.refresh(pf)
-    return pf
+    try:
+        # Convert user_id to UUID if it's a string
+        if isinstance(user_id, str):
+            user_id = uuid.UUID(user_id)
+            
+        # Only convert original_file_id if it's not None and is a string
+        file_id = None
+        if original_file_id is not None:
+            if isinstance(original_file_id, str):
+                file_id = uuid.UUID(original_file_id)
+            else:
+                file_id = original_file_id
+                
+        # Create the personalized file
+        pf = PersonalizedFile(
+            user_id=user_id,
+            original_file_id=file_id,  # Can be None
+            content=content
+        )
+        
+        db.add(pf)
+        db.commit()
+        db.refresh(pf)
+        return pf
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating personalized file: {str(e)}")
+        raise
 
 
 def update_personalized_file(db: Session, pf_id: str, **kwargs):

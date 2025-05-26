@@ -16,7 +16,8 @@ import {
   Eye,
   CheckCircle2,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from "lucide-react";
 
 interface FileCardProps {
@@ -33,6 +34,7 @@ interface FileCardProps {
   onPreview?: (fileId: string) => void;
   onDownload?: (fileId: string) => void;
   onDelete?: (fileId: string) => void;
+  onPersonalize?: (fileId: string) => void;
   className?: string;
   isSelected?: boolean;
   onSelect?: (fileId: string, selected: boolean) => void;
@@ -96,6 +98,7 @@ export function EnterpriseFileCard({
   onPreview,
   onDownload,
   onDelete,
+  onPersonalize,
   className,
   isSelected = false,
   onSelect,
@@ -231,6 +234,21 @@ export function EnterpriseFileCard({
               aria-label={`Download ${file.title}`}
             >
               <Download className="h-4 w-4" />
+            </Button>
+          )}
+          
+          {onPersonalize && file.processed && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onPersonalize(file.id);
+              }}
+              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              aria-label={`Personalize ${file.title}`}
+            >
+              <Sparkles className="h-4 w-4" />
             </Button>
           )}
           

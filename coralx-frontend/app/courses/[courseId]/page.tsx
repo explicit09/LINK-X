@@ -594,10 +594,29 @@ export default function CoursePage() {
     
     // Distribute materials into modules
     materials.forEach(material => {
+      console.log(`Processing material: ${material.title}, moduleId: ${material.moduleId}`);
+      
       if (material.moduleId && moduleMap.has(material.moduleId)) {
+        // Material has a valid moduleId and the module exists - use it
+        console.log(`Assigning ${material.title} to existing module ${material.moduleId}`);
         moduleMap.get(material.moduleId)!.materials.push(material);
+      } else if (material.moduleId) {
+        // Material has moduleId but module doesn't exist in moduleMap
+        // This shouldn't happen if backend is working correctly, but let's handle it
+        console.warn(`Material ${material.title} has moduleId ${material.moduleId} but module not found in moduleMap`);
+        
+        // Create the missing module
+        moduleMap.set(material.moduleId, {
+          id: material.moduleId,
+          title: material.moduleName || `Module ${material.moduleId}`,
+          description: '',
+          materials: [material],
+          isExpanded: true
+        });
+        console.log(`Created missing module ${material.moduleId} for material ${material.title}`);
       } else {
-        // Assign to appropriate default module based on material characteristics
+        // Material has no moduleId - only then do smart assignment
+        console.log(`Material ${material.title} has no moduleId, doing smart assignment`);
         let targetModuleId = 'resources'; // default fallback
         
         // Smart assignment based on file name or type
@@ -624,6 +643,7 @@ export default function CoursePage() {
           });
         }
         
+        console.log(`Smart assignment: ${material.title} -> ${targetModuleId}`);
         moduleMap.get(targetModuleId)!.materials.push(material);
       }
     });
@@ -1332,85 +1352,116 @@ export default function CoursePage() {
         schedule: onboard_answers.schedule || "flexible learning",
       };
 
-      const pollForProcessing = async (attempt = 1): Promise<any> => {
+      // Step 1: Start the personalization task
+      const startResponse = await fetch("http://localhost:8080/generatepersonalizedfilecontent", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          name: name,
+          userProfile: userProfile,
+          fileId: material.id,
+        }),
+      });
+
+      if (!startResponse.ok) {
+        const errorText = await startResponse.text();
+        let errorData;
         try {
-          if (attempt === 1) {
-            sonnerToast.loading("Creating personalized learning experience...", {
-              description: "Analyzing your learning profile and preparing content",
-              id: loadingToast
-            });
-          } else if (attempt <= 3) {
-            sonnerToast.loading("Creating personalized learning experience...", {
-              description: "Processing course material (this may take a moment)...",
-              id: loadingToast
-            });
-          } else if (attempt <= 6) {
-            sonnerToast.loading("Creating personalized learning experience...", {
-              description: "Still processing... AI is analyzing the content thoroughly",
-              id: loadingToast
-            });
-          } else {
-            sonnerToast.loading("Creating personalized learning experience...", {
-              description: "Almost ready... finalizing your personalized content",
-              id: loadingToast
-            });
-          }
-
-          const personalizeRes = await fetch("http://localhost:8080/generatepersonalizedfilecontent", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-            body: JSON.stringify({
-              name: name,
-              userProfile: userProfile,
-              fileId: material.id,
-            }),
-          });
-
-          if (personalizeRes.status === 202) {
-            if (attempt > 12) {
-              throw new Error("The file is taking longer than expected to process. Please try again later or contact support.");
-            }
-            
-            const waitTime = Math.min(attempt * 1000, 5000);
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-            
-            return pollForProcessing(attempt + 1);
-          }
-
-          if (!personalizeRes.ok) {
-            const errorText = await personalizeRes.text();
-            let errorData;
-            try {
-              errorData = JSON.parse(errorText);
-            } catch {
-              errorData = { error: errorText };
-            }
-
-            throw new Error(`Failed to generate personalized content: ${errorData.error || 'Unknown error'}`);
-          }
-
-          return await personalizeRes.json();
-        } catch (error) {
-          if (error instanceof Error && (
-            error.message.includes("Failed to fetch") || 
-            error.message.includes("NetworkError") ||
-            error.message.includes("TypeError")
-          )) {
-            if (attempt > 12) {
-              throw new Error("Network connection issue. Please check your connection and try again.");
-            }
-            const waitTime = Math.min(attempt * 1000, 5000);
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-            return pollForProcessing(attempt + 1);
-          }
-          throw error;
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText };
         }
-      };
+        throw new Error(`Failed to start personalization: ${errorData.error || 'Unknown error'}`);
+      }
 
-      const personalizedData = await pollForProcessing();
+      const startData = await startResponse.json();
+      
+      // Check if we got a task_id (async processing) or direct result (sync processing)
+      let personalizedData;
+      
+      console.log("=== PERSONALIZATION RESPONSE ===", startData);
+      
+      if (startData.task_id) {
+        console.log("Using async processing with task_id:", startData.task_id);
+        // Async processing - poll the status endpoint
+        const pollForStatus = async (attempt = 1): Promise<any> => {
+          try {
+            if (attempt === 1) {
+              sonnerToast.loading("Creating personalized learning experience...", {
+                description: "Analyzing your learning profile and preparing content",
+                id: loadingToast
+              });
+            } else if (attempt <= 6) {
+              sonnerToast.loading("Creating personalized learning experience...", {
+                description: "Processing course material (this may take a moment)...",
+                id: loadingToast
+              });
+            } else if (attempt <= 12) {
+              sonnerToast.loading("Creating personalized learning experience...", {
+                description: "Still processing... AI is analyzing the content thoroughly",
+                id: loadingToast
+              });
+            } else {
+              sonnerToast.loading("Creating personalized learning experience...", {
+                description: "Almost ready... finalizing your personalized content",
+                id: loadingToast
+              });
+            }
+
+            const statusResponse = await fetch(`http://localhost:8080/api/personalization/status/${startData.task_id}`, {
+              method: "GET",
+              credentials: "include",
+            });
+
+            if (!statusResponse.ok) {
+              throw new Error("Failed to check personalization status");
+            }
+
+            const statusData = await statusResponse.json();
+
+            if (statusData.status === 'completed') {
+              return statusData.result;
+            } else if (statusData.status === 'failed') {
+              throw new Error(statusData.error || 'Personalization failed');
+            } else if (statusData.status === 'processing') {
+              if (attempt > 24) {
+                throw new Error("The file is taking longer than expected to process. Please try again later or contact support.");
+              }
+              
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              return pollForStatus(attempt + 1);
+            } else {
+              throw new Error(`Unknown status: ${statusData.status}`);
+            }
+          } catch (error) {
+            if (error instanceof Error && (
+              error.message.includes("Failed to fetch") || 
+              error.message.includes("NetworkError") ||
+              error.message.includes("TypeError")
+            )) {
+              if (attempt > 24) {
+                throw new Error("Network connection issue. Please check your connection and try again.");
+              }
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              return pollForStatus(attempt + 1);
+            }
+            throw error;
+          }
+        };
+
+        personalizedData = await pollForStatus();
+        console.log("Async processing completed, personalizedData:", personalizedData);
+      } else {
+        console.log("Using sync processing");
+        // Sync processing - return the result directly
+        personalizedData = startData;
+        console.log("Sync processing, personalizedData:", personalizedData);
+      }
+      
+      console.log("Final personalizedData before navigation:", personalizedData);
       
       sonnerToast.dismiss(loadingToast);
       sonnerToast.success("Personalized learning experience created!", {
@@ -1426,7 +1477,27 @@ export default function CoursePage() {
       });
 
       setTimeout(() => {
-        router.push(`/learn/${personalizedData.id}`);
+        // Extract file_id from different response structures
+        let fileId;
+        if (personalizedData?.result?.file_id) {
+          // Async task result structure
+          fileId = personalizedData.result.file_id;
+        } else if (personalizedData?.file_id) {
+          // Direct response structure
+          fileId = personalizedData.file_id;
+        } else if (personalizedData?.id) {
+          // Fallback to id field
+          fileId = personalizedData.id;
+        }
+        
+        console.log("Navigating to file ID:", fileId);
+        console.log("Full personalizedData structure:", personalizedData);
+        if (fileId) {
+          router.push(`/learn/${fileId}`);
+        } else {
+          console.error("No file ID found in personalizedData:", personalizedData);
+          sonnerToast.error("Failed to get personalized content ID");
+        }
       }, 1000);
 
     } catch (error) {

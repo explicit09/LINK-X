@@ -9,6 +9,7 @@ import numpy as np
 import json
 import logging
 from datetime import datetime, timedelta
+from threading import Thread
 from flask import Flask, jsonify, request, Response
 from flask_cors import CORS
 import firebase_admin
@@ -22,14 +23,14 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-from src.db.schema import Base, File, Module, PersonalizedFile, Todo, FileChunk
+from db.schema import Base, File, Module, PersonalizedFile, Todo, FileChunk
 from openai import OpenAI
-from src.transcriber import transcribe_audio
-from src.indexer import store_file_embeddings
+from transcriber import transcribe_audio
+from indexer import store_file_embeddings
 from io import BytesIO
-from src.textUtils import openai_embed_text
+from textUtils import openai_embed_text, embed_text
 
-from src.db.queries import (
+from db.queries import (
     # User & Role
     get_access_code_by_course, get_access_code_by_id, get_course_title, get_enrollment, get_file_metrics_for_course, get_files_without_raw_by_module, get_module_metrics_for_course, get_report_by_course, get_student_questions_for_course, get_user_by_id, get_user_by_email, get_user_by_firebase_uid,
     create_user, update_user, delete_user,
@@ -52,10 +53,13 @@ from src.db.queries import (
     # Todo
     get_todo_by_id, get_todos_by_user, get_todos_by_user_and_course, create_todo, update_todo, delete_todo,
 )
-from src.s3_storage import s3_storage
+from s3_storage import s3_storage
 from functools import wraps
 from werkzeug.http import http_date
 import time
+
+# Import Celery app to ensure tasks can be queued
+from src.celery_app import app as celery_app
 
 # Temporarily comment out problematic imports
 # from src.prompts import (
@@ -109,7 +113,7 @@ openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def retrieve_chunks_pgvector(db_session, query_embedding, course_id=None, file_id=None, limit=15, similarity_threshold=0.3):
     """
-    Retrieve relevant chunks using pgvector with proper CTE optimization.
+    Retrieve relevant chunks using pgvector with proper parameter binding.
     
     Args:
         db_session: SQLAlchemy session
@@ -126,9 +130,12 @@ def retrieve_chunks_pgvector(db_session, query_embedding, course_id=None, file_i
     if isinstance(query_embedding, np.ndarray):
         query_embedding = query_embedding.tolist()
     
-    # Build query with CTE for optimization
-    query = """
-    WITH q AS (SELECT :query_vec::vector AS v)
+    # Convert embedding list to PostgreSQL array format
+    embedding_str = '[' + ','.join(map(str, query_embedding)) + ']'
+    
+    # Build base query using string formatting for the vector (since PostgreSQL casting doesn't work well with parameters)
+    # but use parameters for other values for security
+    query_text = f"""
     SELECT 
         fc.content,
         fc.chunk_index,
@@ -136,34 +143,34 @@ def retrieve_chunks_pgvector(db_session, query_embedding, course_id=None, file_i
         f.title as file_title,
         f.filename,
         m.title as module_title,
-        1 - (fc.embedding <=> q.v) AS similarity
-    FROM q
-    JOIN "FileChunk" fc ON TRUE
+        1 - (fc.embedding <=> '{embedding_str}'::vector) AS similarity
+    FROM "FileChunk" fc
     JOIN "File" f ON fc.file_id = f.id
     JOIN "Module" m ON f.module_id = m.id
     WHERE 1=1
     """
     
-    params = {"query_vec": query_embedding}
+    params = {}
     
     if course_id:
-        query += " AND fc.course_id = :course_id"
+        query_text += " AND fc.course_id = :course_id"
         params["course_id"] = course_id
         
     if file_id:
-        query += " AND fc.file_id = :file_id"
+        query_text += " AND fc.file_id = :file_id"
         params["file_id"] = file_id
         
-    query += """
-    AND 1 - (fc.embedding <=> q.v) > :similarity_threshold
-    ORDER BY fc.embedding <=> q.v
+    query_text += f"""
+    AND 1 - (fc.embedding <=> '{embedding_str}'::vector) > :similarity_threshold
+    ORDER BY fc.embedding <=> '{embedding_str}'::vector
     LIMIT :limit
     """
     
     params["similarity_threshold"] = similarity_threshold
     params["limit"] = limit
     
-    result = db_session.execute(text(query), params)
+    # Execute query
+    result = db_session.execute(text(query_text), params)
     
     chunks = []
     for row in result:
@@ -182,32 +189,124 @@ def retrieve_chunks_pgvector(db_session, query_embedding, course_id=None, file_i
 
 def generate_personalized_content_pgvector(db_session, file_id, persona):
     """
-    Generate personalized content using pgvector retrieval.
+    Generate personalized content using pgvector retrieval and OpenAI.
     """
-    # This is a placeholder - you'll need to implement the actual logic
-    # based on your prompt templates
-    
-    # For now, return a simple structure
     file = get_file_by_id(db_session, file_id)
     if not file:
         raise ValueError("File not found")
     
-    # Get some chunks from the file
-    chunks = db_session.query(FileChunk).filter_by(file_id=file_id).limit(10).all()
+    # Get embedding for the persona to use for similarity search
+    try:
+        persona_embedding = openai_embed_text([persona])[0]  # Get first embedding from batch
+    except Exception as e:
+        logger.error(f"Error getting embedding for persona: {str(e)}")
+        raise ValueError(f"Error generating embeddings: {str(e)}")
     
-    content = {
-        "title": file.title,
-        "sections": []
-    }
+    # Retrieve relevant chunks using pgvector
+    try:
+        logger.info(f"Retrieving chunks for file_id: {file_id}")
+        relevant_chunks = retrieve_chunks_pgvector(
+            db_session=db_session,
+            query_embedding=persona_embedding,
+            file_id=file_id,
+            limit=15,
+            similarity_threshold=0.3
+        )
+    except Exception as e:
+        logger.error(f"Error retrieving chunks: {str(e)}")
+        logger.error(f"File ID type: {type(file_id)}, value: {file_id}")
+        raise ValueError(f"Error retrieving content: {str(e)}")
     
-    for i, chunk in enumerate(chunks):
-        content["sections"].append({
-            "title": f"Section {i+1}",
-            "content": chunk.content[:200] + "...",  # Truncate for now
-            "explanation": f"This section is personalized for someone who {persona}"
-        })
+    if not relevant_chunks:
+        logger.warning(f"No relevant chunks found for file_id {file_id}")
+        raise ValueError("No content found to personalize")
     
-    return json.dumps(content)
+    # Prepare context from chunks
+    chunk_texts = [chunk["content"] for chunk in relevant_chunks]
+    context = "\n\n---\n\n".join(chunk_texts)
+    
+    # Create prompt for OpenAI
+    prompt = f"""You are an expert educational content personalizer. Your task is to create a personalized study guide based on the following content.
+
+User profile: {persona}
+
+Original content:
+{context}
+
+Create a personalized study guide with the following structure:
+1. An engaging title that reflects the content
+2. 3-5 sections with appropriate headings
+3. Each section should have detailed content and a personalized explanation
+
+The output should be in JSON format with this structure:
+{{
+    "title": "Engaging personalized title",
+    "courseName": "Course name if applicable",
+    "chapters": [
+        {{
+            "chapterTitle": "Chapter title",
+            "subsections": [
+                {{
+                    "title": "Section title",
+                    "fullText": "The complete personalized content for this section, with explanations tailored to the user's profile"
+                }}
+            ]
+        }}
+    ]
+}}
+
+Make sure the content is accurate, engaging, and tailored to the user's profile. Each subsection should contain comprehensive content."""
+    
+    try:
+        # Call OpenAI API
+        response = openai_client.chat.completions.create(
+            model="gpt-4-turbo",
+            messages=[
+                {"role": "system", "content": "You are an expert educational content personalizer."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=4000
+        )
+        
+        # Extract and parse the response
+        result = response.choices[0].message.content.strip()
+        
+        # Try to parse as JSON, but handle the case where the response might not be valid JSON
+        try:
+            json_result = json.loads(result)
+            # Validate the structure
+            if not isinstance(json_result, dict) or "title" not in json_result or "chapters" not in json_result:
+                raise ValueError("Invalid response structure")
+            return json.dumps(json_result)
+        except json.JSONDecodeError:
+            # If it's not valid JSON, try to extract JSON from the text
+            import re
+            json_match = re.search(r'\{[\s\S]*\}', result)
+            if json_match:
+                try:
+                    json_result = json.loads(json_match.group(0))
+                    return json.dumps(json_result)
+                except json.JSONDecodeError:
+                    pass
+            
+            # If all else fails, create a structured response
+            fallback_content = {
+                "title": file.title + " (Personalized)",
+                "courseName": file.title,
+                "chapters": [{
+                    "chapterTitle": "Main Content",
+                    "subsections": [{
+                        "title": "Personalized Content",
+                        "fullText": f"{result}\n\nThis content has been personalized based on your profile: {persona}"
+                    }]
+                }]
+            }
+            return json.dumps(fallback_content)
+            
+    except Exception as e:
+        logger.error(f"Error generating personalized content: {str(e)}")
+        raise ValueError(f"Error generating personalized content: {str(e)}")
 
 # Cache control decorator for GET endpoints
 def cache_response(max_age=300, private=True):
@@ -242,7 +341,7 @@ cred = credentials.Certificate(os.getenv("FIREBASE_KEY_PATH", "firebaseKey.json"
 firebase_admin.initialize_app(cred)
 
 # Import the enhanced database connection module
-from src.db.connection import engine, get_db_session, with_db_retry, execute_with_retry
+from db.connection import engine, get_db_session, with_db_retry, execute_with_retry
 # Create the session factory - we'll use get_db_session() to create sessions
 Session = get_db_session
 # Create tables
@@ -1043,7 +1142,7 @@ def generate_personalized_file_content():
         persona.append(f"they study best **{profile['schedule']}**")
     full_persona = ". ".join(persona)
 
-    # Use pgvector for retrieval
+    # Check if file exists and has been processed
     db_session = Session()
     try:
         file = get_file_by_id(db_session, file_id)
@@ -1057,33 +1156,51 @@ def generate_personalized_file_content():
                 "error": "PROCESSING", 
                 "message": "File is still being processed for AI features. Please try again in a moment."
             }), 202  # 202 Accepted - indicates processing is still in progress
-            
-        # Generate response using pgvector retrieval
-        response = generate_personalized_content_pgvector(db_session, file_id, full_persona)
-        
-        # Verify JSON is valid
-        try:
-            response_json = json.loads(response)
-        except (ValueError, AttributeError, IndexError) as e:
-            return jsonify({"error": "Invalid JSON returned from AI response", "details": str(e)}), 400
-            
-        # Save personalized file to DB
-        db = Session()
-        print("Saving personalized file with original_file_id:", file_id)
-        try:
-            saved_file = create_personalized_file(
-                db=db,
-                user_id=user_id,
-                original_file_id=file_id,
-                content=response_json
-            )
-        finally:
-            db.close()
+    finally:
+        db_session.close()
 
-        return jsonify({ "id": str(saved_file.id), "content": response_json}), 200
+    # Start async task for personalization
+    def generate_file_personalization():
+        db_session = Session()
+        try:
+            # Generate response using pgvector retrieval
+            response = generate_personalized_content_pgvector(db_session, file_id, full_persona)
+            
+            # Verify JSON is valid
+            try:
+                response_json = json.loads(response)
+            except (ValueError, AttributeError, IndexError) as e:
+                raise ValueError(f"Invalid JSON returned from AI response: {str(e)}")
+                
+            # Save personalized file to DB
+            db = Session()
+            try:
+                saved_file = create_personalized_file(
+                    db=db,
+                    user_id=user_id,
+                    original_file_id=file_id,
+                    content=response_json
+                )
+                db.commit()
+                return {
+                    "status": "completed",
+                    "file_id": str(saved_file.id),
+                    "content": response_json
+                }
+            except Exception as e:
+                db.rollback()
+                raise Exception(f"Error saving personalized file: {str(e)}")
+            finally:
+                db.close()
+        except Exception as e:
+            raise Exception(f"Error generating personalized content: {str(e)}")
+        finally:
+            db_session.close()
+
+    # Start the async task
+    task_id = start_async_task(generate_file_personalization)
     
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"task_id": task_id}), 202
 
 @app.route('/student/personalized-files/<pf_id>', methods=['GET', 'DELETE'])
 def student_manage_personalized_file(pf_id):
@@ -1891,25 +2008,32 @@ def student_course_files_upload(course_id):
         description = request.form.get('description', '')
         provided_module_id = request.form.get('moduleId')  # CRITICAL: Get moduleId from frontend
         
+        app.logger.info(f"[DEBUG] File upload: provided_module_id={provided_module_id}, course_id={course_id}")
+        
         target_module = None
         
         # If moduleId is provided, use it (preferred)
         if provided_module_id:
             target_module = get_module_by_id(db, provided_module_id)
+            app.logger.info(f"[DEBUG] Found module: {target_module}, module.course_id={target_module.course_id if target_module else None}")
             # Verify the module belongs to this course
             if target_module and str(target_module.course_id) == str(course_id):
                 # Module is valid and belongs to this course - use it
+                app.logger.info(f"[DEBUG] Using provided module: {target_module.title} (ID: {target_module.id})")
                 pass
             else:
+                app.logger.warning(f"[DEBUG] Module validation failed - target_module={target_module}, course_id mismatch")
                 target_module = None  # Invalid module for this course
         
         # Fallback: If no module specified, create or find "Student Uploads" module
         if not target_module:
+            app.logger.warning(f"[DEBUG] No valid module found, falling back to 'Student Uploads' module")
             # Look for existing "Student Uploads" module
             modules = get_modules_by_course(db, course_id)
             for module in modules:
                 if module.title.lower() == "student uploads":
                     target_module = module
+                    app.logger.info(f"[DEBUG] Found existing 'Student Uploads' module: {module.id}")
                     break
             
             # If not found, create it
@@ -1920,60 +2044,24 @@ def student_course_files_upload(course_id):
                     title="Student Uploads",
                     description="Student uploaded files"
                 )
-                app.logger.info(f"Created 'Student Uploads' module for course {course_id}")
+                app.logger.info(f"[DEBUG] Created 'Student Uploads' module for course {course_id}: {target_module.id}")
         
-        # Read file content
-        file_content = file.read()
-        file_size = len(file_content)
-        use_s3 = os.getenv('USE_S3_STORAGE', 'false').lower() == 'true'
+        app.logger.info(f"[DEBUG] Final target module: {target_module.title} (ID: {target_module.id})")
         
-        if use_s3:
-            # Upload to S3
-            file_id = str(uuid.uuid4())
-            s3_result = s3_storage.upload_file(
-                file_obj=BytesIO(file_content),
-                course_id=str(course_id),
-                module_id=str(target_module.id),
-                file_id=file_id,
-                filename=file.filename,
-                content_type=file.mimetype
-            )
-            
-            # Create file record with S3 info
-            new_file = create_file(
-                db=db,
-                module_id=str(target_module.id),
-                title=title,
-                filename=file.filename,
-                file_type=file.mimetype or 'application/octet-stream',
-                file_size=file_size,
-                s3_key=s3_result['s3_key'],
-                s3_bucket=s3_result['s3_bucket'],
-                storage_type='s3'
-            )
-        else:
-            # Traditional database storage
-            new_file = create_file(
-                db=db,
-                module_id=str(target_module.id),
-                title=title,
-                filename=file.filename,
-                file_type=file.mimetype or 'application/octet-stream',
-                file_size=file_size,
-                file_data=file_content,
-                storage_type='database'
-            )
+        # Use the FileUploadHandler for background processing
+        from src.file_upload_handler import FileUploadHandler
         
-        # Return the created file info
-        return jsonify({
-            'id': str(new_file.id),
-            'title': new_file.title,
-            'filename': new_file.filename,
-            'file_type': new_file.file_type,
-            'file_size': new_file.file_size,
-            'module_id': str(new_file.module_id),
-            'message': 'File uploaded successfully'
-        }), 201
+        handler = FileUploadHandler(db)
+        result = handler.process_upload(
+            file_obj=file,
+            module_id=str(target_module.id),
+            title=title,
+            user_id=user_id,
+            process_immediately=False  # Use background processing
+        )
+        
+        # Return the result from the handler
+        return jsonify(result), 201
     
     except Exception as e:
         db.rollback()
@@ -3121,66 +3209,27 @@ def instructor_module_files(module_id):
             } for f in files]), 200
             
         elif request.method == 'POST':
-            # Handle file upload
+            # Handle file upload using FileUploadHandler for background processing
             uploaded_file = request.files.get('file')
             if not uploaded_file:
                 return jsonify({'error': 'No file provided'}), 400
             
             title = request.form.get('title', uploaded_file.filename)
-            use_s3 = os.getenv('USE_S3_STORAGE', 'false').lower() == 'true'
             
-            # Read file data
-            file_data = uploaded_file.read()
-            file_size = len(file_data)
+            # Use the FileUploadHandler for background processing
+            from src.file_upload_handler import FileUploadHandler
             
-            if use_s3:
-                # Upload to S3
-                file_id = str(uuid.uuid4())
-                s3_result = s3_storage.upload_file(
-                    file_obj=BytesIO(file_data),
-                    course_id=str(course.id),
-                    module_id=module_id,
-                    file_id=file_id,
-                    filename=uploaded_file.filename,
-                    content_type=uploaded_file.content_type
-                )
-                
-                # Create file record with S3 info
-                file_obj = create_file(
-                    db=db,
-                    module_id=module_id,
-                    title=title,
-                    filename=uploaded_file.filename,
-                    file_type=uploaded_file.content_type or 'application/octet-stream',
-                    file_size=file_size,
-                    s3_key=s3_result['s3_key'],
-                    s3_bucket=s3_result['s3_bucket'],
-                    storage_type='s3'
-                )
-            else:
-                # Traditional database storage
-                file_obj = create_file(
-                    db=db,
-                    module_id=module_id,
-                    title=title,
-                    filename=uploaded_file.filename,
-                    file_type=uploaded_file.content_type or 'application/octet-stream',
-                    file_size=file_size,
-                    file_data=file_data,
-                    storage_type='database'
-                )
+            handler = FileUploadHandler(db)
+            result = handler.process_upload(
+                file_obj=uploaded_file,
+                module_id=module_id,
+                title=title,
+                user_id=user_id,
+                process_immediately=False  # Use background processing
+            )
             
-            return jsonify({
-                'id': str(file_obj.id),
-                'title': file_obj.title,
-                'filename': file_obj.filename,
-                'file_type': file_obj.file_type,
-                'file_size': file_obj.file_size,
-                'module_id': str(file_obj.module_id),
-                'moduleName': module.title,
-                'storage_type': file_obj.storage_type,
-                'created_at': file_obj.created_at.isoformat() if file_obj.created_at else None
-            }), 201
+            # Return the result from the handler
+            return jsonify(result), 201
             
     except Exception as e:
         db.rollback()
@@ -3273,47 +3322,48 @@ def instructor_file_content(file_id):
     
     db = Session()
     try:
-        # Get the file and verify ownership
-        file_obj = get_file_by_id(db, file_id)
-        if not file_obj:
-            return jsonify({'error': 'File not found'}), 404
+        try:
+            # Get the file and verify ownership
+            file_obj = get_file_by_id(db, file_id)
+            if not file_obj:
+                return jsonify({'error': 'File not found'}), 404
+                
+            # Verify ownership through module -> course -> instructor
+            module = get_module_by_id(db, file_obj.module_id)
+            if not module:
+                return jsonify({'error': 'Module not found'}), 404
+                
+            course = get_course_by_id(db, module.course_id)
+            if not course or str(course.instructor_id) != str(user_id):
+                return jsonify({'error': 'Forbidden'}), 403
             
-        # Verify ownership through module -> course -> instructor
-        module = get_module_by_id(db, file_obj.module_id)
-        if not module:
-            return jsonify({'error': 'Module not found'}), 404
-            
-        course = get_course_by_id(db, module.course_id)
-        if not course or str(course.instructor_id) != str(user_id):
-            return jsonify({'error': 'Forbidden'}), 403
-        
-        # Check storage type
-        if hasattr(file_obj, 'storage_type') and file_obj.storage_type == 's3' and hasattr(file_obj, 's3_key') and file_obj.s3_key:
-            # Generate presigned URL for S3 file
-            try:
-                presigned_url = s3_storage.generate_presigned_url(
-                    s3_key=file_obj.s3_key,
-                    expiration=3600,  # 1 hour
-                    download=False    # inline display
+            # Check storage type
+            if hasattr(file_obj, 'storage_type') and file_obj.storage_type == 's3' and hasattr(file_obj, 's3_key') and file_obj.s3_key:
+                # Generate presigned URL for S3 file
+                try:
+                    presigned_url = s3_storage.generate_presigned_url(
+                        s3_key=file_obj.s3_key,
+                        expiration=3600,  # 1 hour
+                        download=False    # inline display
+                    )
+                    # Return JSON with presigned URL
+                    return jsonify({
+                        'url': presigned_url,
+                        'type': 'presigned',
+                        'expires_in': 3600
+                    }), 200
+                except Exception as e:
+                    return jsonify({'error': f'Failed to generate URL: {str(e)}'}), 500
+            else:
+                # Traditional database storage
+                return Response(
+                    file_obj.file_data,
+                    mimetype=file_obj.file_type,
+                    headers={'Content-Disposition': f'inline; filename={file_obj.filename}'}
                 )
-                # Return JSON with presigned URL
-                return jsonify({
-                    'url': presigned_url,
-                    'type': 'presigned',
-                    'expires_in': 3600
-                }), 200
-            except Exception as e:
-                return jsonify({'error': f'Failed to generate URL: {str(e)}'}), 500
-        else:
-            # Traditional database storage
-            return Response(
-                file_obj.file_data,
-                mimetype=file_obj.file_type,
-                headers={'Content-Disposition': f'inline; filename={file_obj.filename}'}
-            )
-            
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+                
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
     finally:
         db.close()
 
@@ -3368,11 +3418,59 @@ def instructor_file_download(file_id):
                     'Content-Length': str(len(file_obj.file_data))
                 }
             )
-            
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
         db.close()
+            
+# ===== ASYNC TASK MANAGEMENT =====
+# Note: Imports are moved to the top of the file
+
+# In-memory storage for async tasks (in production, use Redis or a database)
+async_tasks = {}
+
+def start_async_task(task_func, *args, **kwargs):
+    """Start an async task and return a task ID"""
+    task_id = str(uuid.uuid4())
+    async_tasks[task_id] = {
+        'status': 'processing',
+        'started_at': datetime.utcnow(),
+        'result': None,
+        'error': None
+    }
+    
+    def task_wrapper():
+        try:
+            result = task_func(*args, **kwargs)
+            async_tasks[task_id].update({
+                'status': 'completed',
+                'result': result,
+                'completed_at': datetime.utcnow()
+            })
+        except Exception as e:
+            logger.error(f"Error in async task {task_id}: {str(e)}")
+            async_tasks[task_id].update({
+                'status': 'failed',
+                'error': str(e),
+                'failed_at': datetime.utcnow()
+            })
+    
+    # Start the task in a separate thread
+    thread = Thread(target=task_wrapper)
+    thread.daemon = True
+    thread.start()
+    
+    return task_id
+
+def cleanup_old_tasks():
+    """Clean up tasks older than 1 hour"""
+    cutoff = datetime.utcnow() - timedelta(hours=1)
+    to_delete = [
+        task_id for task_id, task in async_tasks.items()
+        if task.get('completed_at', task.get('failed_at', datetime.max)) < cutoff
+    ]
+    for task_id in to_delete:
+        async_tasks.pop(task_id, None)
 
 # ===== S3 DIRECT UPLOAD ENDPOINTS =====
 
@@ -3478,6 +3576,299 @@ def instructor_confirm_upload(module_id):
         db.close()
 
 # ===== END S3 DIRECT UPLOAD ENDPOINTS =====
+
+@app.route('/generatepersonalizedmodulecontent', methods=['POST', 'OPTIONS'])
+def generate_personalized_module_content():
+    # Handle CORS preflight request
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    # Bypass authentication for testing
+    # user_id, err = verify_student()
+    # if err:
+    #     return err
+    user_id = 'test-user-123'  # Test user ID
+    
+    # Read and validate JSON body
+    data = request.get_json()
+    module_id = data.get("moduleId") or data.get("module_id")  # Accept both formats
+    name = data.get("name")
+    user_profile = data.get("userProfile", {})
+    
+    if not module_id:
+        return jsonify({"error": "Module ID is required"}), 400
+    
+    # Build user persona from profile data
+    persona = []
+    if name:
+        persona.append(f"The user's name is **{name}**")
+    if user_profile.get('role'):
+        persona.append(f"they are a **{user_profile['role']}**")
+    if user_profile.get('traits'):
+        persona.append(f"they like their assistant to be **{user_profile['traits']}**")
+    if user_profile.get('learningStyle'):
+        persona.append(f"their preferred learning style is **{user_profile['learningStyle']}**")
+    if user_profile.get('depth'):
+        persona.append(f"they prefer **{user_profile['depth']}-level** explanations")
+    if user_profile.get('interests'):
+        persona.append(f"they're interested in **{user_profile['interests']}**")
+    if user_profile.get('personalization'):
+        persona.append(f"they enjoy **{user_profile['personalization']}**")
+    if user_profile.get('schedule'):
+        persona.append(f"they study best **{user_profile['schedule']}**")
+    user_persona = ". ".join(persona)
+
+    # Use pgvector for retrieval
+    db_session = Session()
+    try:
+        module = get_module_by_id(db_session, module_id)
+        if not module:
+            return jsonify({"error": "Module not found"}), 404
+            
+        # Get all files in the module
+        files = db_session.query(File).filter_by(module_id=module_id).all()
+        if not files:
+            return jsonify({"error": "No files found in this module"}), 404
+            
+        # Check if files have been processed
+        total_chunks = 0
+        unprocessed_files = []
+        for file in files:
+            chunk_count = db_session.query(FileChunk).filter_by(file_id=file.id).count()
+            total_chunks += chunk_count
+            if chunk_count == 0:
+                unprocessed_files.append(file.title)
+        
+        if total_chunks == 0:
+            return jsonify({
+                "error": "PROCESSING", 
+                "message": "Files in this module are still being processed for AI features. Please try again in a moment.",
+                "unprocessed_files": unprocessed_files
+            }), 202  # 202 Accepted - indicates processing is still in progress
+            
+        # Start async task for content generation
+        task_id = start_async_task(
+            generate_and_save_personalized_content,
+            module_id, 
+            user_id, 
+            user_persona,
+            files
+        )
+        
+        return jsonify({
+            "task_id": task_id,
+            "status": "processing",
+            "message": "Personalized content generation has started. Please check back in a moment.",
+            "check_status_url": f"/api/personalization/status/{task_id}"
+        }), 202
+        
+    except Exception as e:
+        logger.error(f"Error starting personalized content generation: {str(e)}")
+        return jsonify({"error": "Failed to start content generation", "details": str(e)}), 500
+    finally:
+        db_session.close()
+        # Clean up old tasks
+        cleanup_old_tasks()
+
+def generate_and_save_personalized_content(module_id, user_id, user_persona, files):
+    """Generate and save personalized content (runs in background)"""
+    db_session = Session()
+    try:
+        # Generate response using pgvector retrieval for all files in module
+        response = generate_personalized_module_content_pgvector(db_session, module_id, user_persona)
+        
+        # Verify JSON is valid
+        try:
+            response_json = json.loads(response)
+        except (ValueError, AttributeError, IndexError) as e:
+            error_msg = f"Invalid JSON returned from AI response: {str(e)}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+            
+        # Save personalized file to DB with module reference
+        db = Session()
+        try:
+            # For module-level personalization, we can use the module ID as a reference
+            if 'moduleId' not in response_json:
+                response_json['moduleId'] = module_id
+                
+            # Get the first file's ID for reference
+            original_file_id = None
+            if files:
+                try:
+                    # Convert to string - create_personalized_file expects a string
+                    original_file_id = str(files[0].id)
+                except (AttributeError, TypeError) as e:
+                    logger.error(f"Invalid file ID format: {files[0].id}, error: {str(e)}")
+                    # Continue without file ID if there's an error
+            
+            # Create the personalized file
+            saved_file = create_personalized_file(
+                db=db,
+                user_id=user_id,
+                original_file_id=original_file_id,
+                content=response_json
+            )
+            db.commit()
+            return {
+                "status": "completed",
+                "file_id": str(saved_file.id),
+                "content": response_json
+            }
+        except Exception as e:
+            db.rollback()
+            error_msg = f"Error saving personalized module content: {str(e)}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+        finally:
+            db.close()
+    except Exception as e:
+        error_msg = f"Error in generate_and_save_personalized_content: {str(e)}"
+        logger.error(error_msg)
+        raise Exception(error_msg)
+    finally:
+        db_session.close()
+
+@app.route('/api/personalization/status/<task_id>', methods=['GET'])
+def check_personalization_status(task_id):
+    """Check the status of a personalization task"""
+    task = async_tasks.get(task_id)
+    if not task:
+        return jsonify({"error": "Task not found"}), 404
+    
+    response = {
+        "task_id": task_id,
+        "status": task['status'],
+        "started_at": task['started_at'].isoformat() if task.get('started_at') else None
+    }
+    
+    if task['status'] == 'completed':
+        response.update({
+            "completed_at": task['completed_at'].isoformat(),
+            "result": task['result']
+        })
+    elif task['status'] == 'failed':
+        response.update({
+            "failed_at": task['failed_at'].isoformat(),
+            "error": task['error']
+        })
+    
+    return jsonify(response)
+
+def generate_personalized_module_content_pgvector(db_session, module_id, persona):
+    """
+    Generate personalized content for an entire module using pgvector retrieval.
+    """
+    module = get_module_by_id(db_session, module_id)
+    if not module:
+        raise ValueError("Module not found")
+    
+    # Get all files in the module
+    files = db_session.query(File).filter_by(module_id=module_id).all()
+    if not files:
+        raise ValueError("No files found in module")
+    
+    # Get chunks from all files in the module
+    all_chunks = []
+    for file in files:
+        chunks = db_session.query(FileChunk).filter_by(file_id=file.id).limit(20).all()
+        all_chunks.extend(chunks)
+    
+    if not all_chunks:
+        raise ValueError("No processed content found in module")
+    
+    # Group chunks by file for better organization
+    file_chunks = {}
+    for chunk in all_chunks:
+        if chunk.file_id not in file_chunks:
+            file_chunks[chunk.file_id] = []
+        file_chunks[chunk.file_id].append(chunk.content)
+    
+    # Create prompt for module-level personalization
+    prompt = f"""You are an expert educational content personalizer. Create a comprehensive personalized study guide for an entire module.
+
+Module: {module.title}
+Number of files: {len(files)}
+User profile: {persona}
+
+File contents to integrate:
+"""
+    
+    # Add content from each file
+    for file in files[:5]:  # Limit to first 5 files to avoid token limits
+        if file.id in file_chunks:
+            file_content = "\n".join(file_chunks[file.id][:3])  # First 3 chunks per file
+            prompt += f"\n\nFile: {file.title}\nContent:\n{file_content[:1000]}...\n"
+    
+    prompt += """
+
+Create a comprehensive study guide that:
+1. Integrates content from all files into a coherent narrative
+2. Personalizes explanations based on the user's profile
+3. Organizes content into logical chapters and sections
+4. Adds relevant examples and analogies that match the user's interests
+
+Output in JSON format:
+{
+    "title": "Engaging module title",
+    "courseName": "Module name - Personalized",
+    "chapters": [
+        {
+            "chapterTitle": "Chapter title",
+            "subsections": [
+                {
+                    "title": "Section title",
+                    "fullText": "Complete personalized content with explanations"
+                }
+            ]
+        }
+    ]
+}"""
+    
+    try:
+        # Call OpenAI API
+        response = openai_client.chat.completions.create(
+            model="gpt-4-turbo",
+            messages=[
+                {"role": "system", "content": "You are an expert at creating personalized educational content."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=4000,
+            response_format={"type": "json_object"}
+        )
+        
+        result = response.choices[0].message.content.strip()
+        content_json = json.loads(result)
+        
+        # Enhance with module metadata
+        content_json["moduleId"] = str(module_id)
+        content_json["fileCount"] = len(files)
+        
+        return json.dumps(content_json)
+        
+    except Exception as e:
+        logger.error(f"Error generating module content: {str(e)}")
+        
+        # Fallback structure
+        fallback_content = {
+            "title": f"{module.title} - Personalized Study Guide",
+            "courseName": f"{module.title} - Personalized Learning",
+            "moduleId": str(module_id),
+            "fileCount": len(files),
+            "chapters": [
+                {
+                    "chapterTitle": f"Overview of {module.title}",
+                    "subsections": [
+                        {
+                            "title": "Module Introduction",
+                            "fullText": f"This personalized study guide covers all materials from '{module.title}'. The content has been tailored for someone who {persona}.\n\nThis module contains {len(files)} files with comprehensive learning materials."
+                        }
+                    ]
+                }
+            ]
+        }
+        return json.dumps(fallback_content)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)

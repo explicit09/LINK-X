@@ -33,6 +33,10 @@ COPY src $APP_HOME/src
 COPY run_migrations.sh /run_migrations.sh
 RUN chmod +x /run_migrations.sh
 
+# Copy Celery worker script
+COPY celery_worker.sh /app/celery_worker.sh
+RUN chmod +x /app/celery_worker.sh
+
 # Environment variables for Flask
 ENV MODULE=src.app
 ENV QT_X11_NO_MITSHM=1
