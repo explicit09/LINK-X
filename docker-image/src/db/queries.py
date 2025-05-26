@@ -306,7 +306,7 @@ def get_courses_by_student_id(db: Session, user_id: str):
 
 def create_course(db: Session, title: str, description: str, creator_id: str,
                   instructor_id: str = None, code: str = None, term: str = None,
-                  published: bool = False, index_pkl: bytes = None, index_faiss: bytes = None):
+                  published: bool = False):
     if isinstance(creator_id, str):
         creator_id = uuid.UUID(creator_id)
     if instructor_id and isinstance(instructor_id, str):
@@ -318,9 +318,7 @@ def create_course(db: Session, title: str, description: str, creator_id: str,
         creator_id=creator_id,
         code=code,
         term=term,
-        published=published,
-        index_pkl=index_pkl,
-        index_faiss=index_faiss
+        published=published
     )
     db.add(course)
     db.commit()
@@ -333,7 +331,7 @@ def update_course(db: Session, course_id: str, **kwargs):
     c = get_course_by_id(db, course_id)
     if not c:
         return None
-    for key in ('title', 'description', 'code', 'term', 'index_pkl', 'index_faiss', 'published'):
+    for key in ('title', 'description', 'code', 'term', 'published'):
         if key in kwargs:
             setattr(c, key, kwargs[key])
     db.commit()
@@ -476,7 +474,7 @@ def update_file(db: Session, file_id: str, **kwargs):
         return None
     for key in (
         'title','filename','file_type','file_size','file_data',
-        'transcription','index_pkl','index_faiss','ordering',
+        'transcription','ordering',
         's3_key','s3_bucket','storage_type'
     ):
         if key in kwargs:

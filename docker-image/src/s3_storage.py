@@ -192,6 +192,22 @@ class S3Storage:
             logger.error(f"Failed to get file metadata: {str(e)}")
             return None
     
+    def download_file(self, s3_key: str) -> Optional[bytes]:
+        """Download file content from S3"""
+        try:
+            response = self.s3_client.get_object(
+                Bucket=self.bucket_name,
+                Key=s3_key
+            )
+            
+            file_content = response['Body'].read()
+            logger.info(f"Successfully downloaded file from S3: {s3_key}")
+            return file_content
+            
+        except ClientError as e:
+            logger.error(f"Failed to download file from S3: {str(e)}")
+            return None
+    
     def _get_file_url(self, s3_key: str) -> str:
         """Get the file URL (CDN if available, otherwise S3)"""
         if self.cloudfront_domain:

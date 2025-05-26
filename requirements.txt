@@ -5,7 +5,8 @@ openai>=1.12.0
 python-dotenv>=1.0.0
 
 # Vector Stores
-faiss-cpu>=1.7.4  # Use faiss-gpu for GPU support
+# faiss-cpu>=1.7.4  # Use faiss-gpu for GPU support
+pgvector>=0.2.3  # PostgreSQL vector extension
 chromadb>=0.4.22
 
 # Document Processing
