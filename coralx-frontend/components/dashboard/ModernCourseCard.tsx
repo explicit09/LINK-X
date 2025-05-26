@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -123,7 +123,7 @@ const courseColors = [
   }
 ];
 
-export function ModernCourseCard({ 
+function ModernCourseCardComponent({ 
   course, 
   colorIndex = 0, 
   onClick, 
@@ -323,4 +323,6 @@ export function ModernCourseCard({
       </CardContent>
     </Card>
   );
-} 
+}
+
+export const ModernCourseCard = React.memo(ModernCourseCardComponent);

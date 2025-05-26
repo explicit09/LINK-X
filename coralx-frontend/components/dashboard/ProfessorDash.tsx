@@ -110,7 +110,7 @@ export default function ProfessorDashboard() {
       if (!selectedCourse) return;
       try {
         const res = await fetch(
-          `http://localhost:8081/instructor/courses/${selectedCourse.id}/modules`,
+          `http://localhost:8080/instructor/courses/${selectedCourse.id}/modules`,
           {
             credentials: "include",
           }
@@ -142,7 +142,7 @@ export default function ProfessorDashboard() {
 
       try {
         const res = await fetch(
-          `http://localhost:8081/instructor/courses/${selectedCourse.id}/students`,
+          `http://localhost:8080/instructor/courses/${selectedCourse.id}/students`,
           { credentials: "include" }
         );
         if (!res.ok) throw new Error("Failed to fetch students");
@@ -171,7 +171,7 @@ export default function ProfessorDashboard() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const res = await fetch("http://localhost:8081/instructor/courses", {
+        const res = await fetch("http://localhost:8080/instructor/courses", {
           credentials: "include",
         });
         if (!res.ok) throw new Error("Failed to fetch courses");
@@ -194,7 +194,7 @@ export default function ProfessorDashboard() {
 
     try {
       const res = await fetch(
-        `http://localhost:8081/instructor/courses/${selectedCourse.id}/modules`,
+        `http://localhost:8080/instructor/courses/${selectedCourse.id}/modules`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -249,7 +249,7 @@ export default function ProfessorDashboard() {
       formData.append("file", file);
 
       const res = await fetch(
-        `http://localhost:8081/instructor/modules/${moduleId}/files`,
+        `http://localhost:8080/instructor/modules/${moduleId}/files`,
         {
           method: "POST",
           body: formData,
@@ -266,7 +266,7 @@ export default function ProfessorDashboard() {
 
       // ✅ fetch just this module's files again
       const updatedFilesRes = await fetch(
-        `http://localhost:8081/instructor/modules/${moduleId}/files`,
+        `http://localhost:8080/instructor/modules/${moduleId}/files`,
         {
           credentials: "include",
         }
@@ -304,7 +304,7 @@ export default function ProfessorDashboard() {
       formData.append("title", file.name);
 
       const res = await fetch(
-        `http://localhost:8081/instructor/modules/${moduleId}/files`,
+        `http://localhost:8080/instructor/modules/${moduleId}/files`,
         {
           method: "POST",
           body: formData,
@@ -320,7 +320,7 @@ export default function ProfessorDashboard() {
       toast.success("Audio uploaded!");
 
       const updatedFilesRes = await fetch(
-        `http://localhost:8081/instructor/modules/${moduleId}/files`,
+        `http://localhost:8080/instructor/modules/${moduleId}/files`,
         {
           credentials: "include",
         }
@@ -347,7 +347,7 @@ export default function ProfessorDashboard() {
 
     try {
       const res = await fetch(
-        `http://localhost:8081/instructor/modules/${moduleId}`,
+        `http://localhost:8080/instructor/modules/${moduleId}`,
         {
           method: "DELETE",
           credentials: "include",
@@ -367,7 +367,7 @@ export default function ProfessorDashboard() {
 
     try {
       const res = await fetch(
-        `http://localhost:8081/instructor/files/${fileId}`,
+        `http://localhost:8080/instructor/files/${fileId}`,
         {
           method: "DELETE",
           credentials: "include",
@@ -401,7 +401,7 @@ export default function ProfessorDashboard() {
   const handleCreateCourse = async (courseData: any) => {
     try {
       // First check if instructor profile exists
-      const profileCheckRes = await fetch("http://localhost:8081/instructor/profile", {
+      const profileCheckRes = await fetch("http://localhost:8080/instructor/profile", {
         credentials: "include"
       });
       
@@ -418,7 +418,7 @@ export default function ProfessorDashboard() {
         useCreatorAsInstructor: !hasProfile
       };
       
-      const res = await fetch("http://localhost:8081/instructor/courses", {
+      const res = await fetch("http://localhost:8080/instructor/courses", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -433,7 +433,7 @@ export default function ProfessorDashboard() {
 
       // 🔄 Re-fetch all courses after successful creation
       const updatedRes = await fetch(
-        "http://localhost:8081/instructor/courses",
+        "http://localhost:8080/instructor/courses",
         {
           credentials: "include",
         }
@@ -475,7 +475,7 @@ export default function ProfessorDashboard() {
   const handleUpdateCourseInfo = async (updatedCourse: any) => {
     try {
       const res = await fetch(
-        `http://localhost:8081/instructor/courses/${updatedCourse.id}`,
+        `http://localhost:8080/instructor/courses/${updatedCourse.id}`,
         {
           method: "PATCH",
           headers: {
@@ -526,7 +526,7 @@ export default function ProfessorDashboard() {
 
     try {
       const res = await fetch(
-        `http://localhost:8081/instructor/courses/${id}`,
+        `http://localhost:8080/instructor/courses/${id}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -562,7 +562,7 @@ export default function ProfessorDashboard() {
   const handleCourseClick = async (course: any) => {
     try {
       const res = await fetch(
-        `http://localhost:8081/instructor/courses/${course.id}/details`,
+        `http://localhost:8080/instructor/courses/${course.id}/details`,
         {
           credentials: "include",
         }
@@ -595,7 +595,7 @@ export default function ProfessorDashboard() {
   const handleDeleteStudent = async (enrollmentId: string) => {
     try {
       const res = await fetch(
-        `http://localhost:8081/instructor/enrollments/${enrollmentId}`,
+        `http://localhost:8080/instructor/enrollments/${enrollmentId}`,
         {
           method: "DELETE",
           credentials: "include",
@@ -624,7 +624,7 @@ export default function ProfessorDashboard() {
 
         try {
           const res = await fetch(
-            `http://localhost:8081/instructor/modules/${modId}/files`,
+            `http://localhost:8080/instructor/modules/${modId}/files`,
             {
               credentials: "include",
             }
@@ -820,7 +820,7 @@ export default function ProfessorDashboard() {
                           {previewingFile.title}
                         </h2>
                         <iframe
-                          src={`http://localhost:8081/instructor/files/${previewingFile.id}/content`}
+                          src={`http://localhost:8080/instructor/files/${previewingFile.id}/content`}
                           title={previewingFile.title}
                           className="w-full h-[80vh] border rounded-lg shadow-sm"
                         />

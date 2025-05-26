@@ -102,7 +102,7 @@ export default function LearnPage() {
   
     const fetchCourseData = async () => {
       try {
-        const res = await fetch(`http://localhost:8081/student/personalized-files/${pfId}`, {
+        const res = await fetch(`http://localhost:8080/student/personalized-files/${pfId}`, {
           credentials: "include",
         });
   

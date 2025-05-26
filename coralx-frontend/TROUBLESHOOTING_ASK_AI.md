@@ -113,7 +113,7 @@ def processing_health():
 ### For Developers:
 1. Check backend logs: `docker logs backend`
 2. Monitor file processing: `SELECT id, title, index_faiss IS NOT NULL as has_index FROM "File";`
-3. Test with curl: `curl -X POST http://localhost:8081/generatepersonalizedfilecontent -d '{"fileId":"test"}'`
+3. Test with curl: `curl -X POST http://localhost:8080/generatepersonalizedfilecontent -d '{"fileId":"test"}'`
 
 ## 📊 Expected User Experience
 
@@ -133,8 +133,8 @@ Student clicks "Ask AI" →
 
 ### Check Backend Status
 ```bash
-curl http://localhost:8081  # Should return 404 (server running)
-curl http://localhost:8081/me  # Should return 401 (auth required)
+curl http://localhost:8080  # Should return 404 (server running)
+curl http://localhost:8080/me  # Should return 401 (auth required)
 ```
 
 ### Check Database

@@ -37,6 +37,7 @@ import { SmartSelection } from "@/components/ai/SmartSelection";
 import { toast as sonnerToast } from 'sonner';
 import { instructorAPI, studentAPI, adminAPI } from "@/lib/api";
 import CourseForm from "@/components/dashboard/CourseForm";
+import React from "react";
 
 interface Course {
   id: string;
@@ -79,7 +80,7 @@ interface ModernDashboardProps {
   courses?: Course[];
 }
 
-export default function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboardProps) {
+function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboardProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
@@ -832,3 +833,5 @@ export default function ModernDashboard({ userRole, currentUser, courses = [] }:
     </div>
   );
 }
+
+export default React.memo(ModernDashboard);

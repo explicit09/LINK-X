@@ -16,7 +16,7 @@ interface GoogleAuthButtonProps {
 export function GoogleAuthButton({ mode, onLoading, disabled }: GoogleAuthButtonProps) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
   const handleGoogleAuth = async () => {
     if (disabled || loading) return;

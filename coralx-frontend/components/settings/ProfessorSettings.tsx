@@ -89,7 +89,7 @@ const ProfessorSettings = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    fetch(`http://localhost:8081/me`, {
+    fetch(`http://localhost:8080/me`, {
       method: "GET",
       credentials: "include",
     }).then(res => {
@@ -108,7 +108,7 @@ const ProfessorSettings = () => {
 
   // Determine role
   useEffect(() => {
-    fetch(`http://localhost:8081/me`, {
+    fetch(`http://localhost:8080/me`, {
       method: "GET",
       credentials: "include",
     }).then(res => {
@@ -155,7 +155,7 @@ const ProfessorSettings = () => {
   // Fetch Account
   useEffect(() => {
     const path = isStudent ? "/student/profile" : "/professor/profile";
-    fetch(`http://localhost:8081${path}`, {
+    fetch(`http://localhost:8080${path}`, {
       method: "GET",
       credentials: "include",
     })
@@ -168,7 +168,7 @@ const ProfessorSettings = () => {
   }, [API, isStudent]);
 
   useEffect(() => {
-    fetch(`http://localhost:8081/me`, {
+    fetch(`http://localhost:8080/me`, {
       method: "GET",
       credentials: "include",
     })
@@ -204,7 +204,7 @@ const ProfessorSettings = () => {
     };
   
     try {
-      const res = await fetch(`http://localhost:8081/student/profile`, {
+      const res = await fetch(`http://localhost:8080/student/profile`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -227,7 +227,7 @@ const ProfessorSettings = () => {
   
   
     try {
-      const res = await fetch("http://localhost:8081/me", {
+      const res = await fetch("http://localhost:8080/me", {
         method: "PATCH",
         credentials: "include",
         headers: {

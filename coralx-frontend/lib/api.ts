@@ -1,6 +1,6 @@
 import { auth } from '../firebaseconfig';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 // Auth helpers
 export async function getAuthToken() {
@@ -213,26 +213,38 @@ export const studentAPI = {
   deleteFile: (fileId: string) => api.delete(`/student/files/${fileId}`),
   getFileUrl: async (fileId: string) => {
     try {
-      // For direct file access, we need to use the API call to get proper authentication
-      // Return the direct content URL but note that authentication will be handled by cookies
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
       
-      // First try to access the file to make sure it exists and we have permission
-      try {
-        await api.get(`/student/files/${fileId}`);
+      // First check if it's S3 storage by trying to get metadata
+      const response = await fetch(`${baseUrl}/student/files/${fileId}/content`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+      
+      if (response.ok) {
+        const contentType = response.headers.get('content-type');
+        
+        // If response is JSON, it's likely a presigned URL
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          if (data.type === 'presigned' && data.url) {
+            return { url: data.url };
+          }
+        }
+        
+        // Otherwise, use direct URL with credentials
         return {
           url: `${baseUrl}/student/files/${fileId}/content`
         };
-      } catch (studentError) {
-        // If student endpoint fails, the file might be instructor-owned, try instructor endpoint
-        await api.get(`/instructor/files/${fileId}`);
-        return {
-          url: `${baseUrl}/instructor/files/${fileId}/content`
-        };
       }
+      
+      throw new Error(`Failed to get file URL: ${response.statusText}`);
     } catch (error) {
-      console.warn('Failed to access file through any endpoint:', error);
-      throw new Error('File not accessible');
+      console.error('Failed to get file URL:', error);
+      throw error;
     }
   },
 
@@ -310,12 +322,17 @@ export const instructorAPI = {
   downloadFile: (fileId: string) => api.get(`/instructor/files/${fileId}/download`),
   getFileUrl: async (fileId: string) => {
     try {
-      // For direct file access, we need to use the API call to get proper authentication
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
       
-      // First try to access the file to make sure it exists and we have permission
-      await api.get(`/instructor/files/${fileId}`);
+      // Check if file has S3 storage
+      const response = await api.get(`/instructor/files/${fileId}/content`);
       
+      // Check if it's a presigned URL response (S3)
+      if (response.type === 'presigned' && response.url) {
+        return { url: response.url };
+      }
+      
+      // Otherwise, it's traditional file storage
       return {
         url: `${baseUrl}/instructor/files/${fileId}/content`
       };

@@ -19,8 +19,8 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from src.db.schema import Base, File, Module, PersonalizedFile, Todo
 from openai import OpenAI
-from transcriber import transcribe_audio
-from indexer import rebuild_course_index, rebuild_file_index, store_file_embeddings
+from src.transcriber import transcribe_audio
+from src.indexer import rebuild_course_index, rebuild_file_index, store_file_embeddings
 from io import BytesIO
 from src.textUtils import openai_embed_text
 
@@ -47,6 +47,10 @@ from src.db.queries import (
     # Todo
     get_todo_by_id, get_todos_by_user, get_todos_by_user_and_course, create_todo, update_todo, delete_todo,
 )
+from src.s3_storage import s3_storage
+from functools import wraps
+from werkzeug.http import http_date
+import time
 
 # Temporarily comment out problematic imports
 # from src.prompts import (
@@ -62,6 +66,29 @@ from src.db.queries import (
 
 # Initialize Flask app
 app = Flask(__name__)
+
+# Cache control decorator for GET endpoints
+def cache_response(max_age=300, private=True):
+    """Add cache control headers to responses"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            response = f(*args, **kwargs)
+            if isinstance(response, tuple):
+                response_obj, status_code = response[0], response[1]
+            else:
+                response_obj, status_code = response, 200
+            
+            # Only cache successful GET requests
+            if request.method == 'GET' and status_code == 200:
+                if isinstance(response_obj, Response):
+                    cache_type = 'private' if private else 'public'
+                    response_obj.headers['Cache-Control'] = f'{cache_type}, max-age={max_age}'
+                    response_obj.headers['Last-Modified'] = http_date(time.time())
+            
+            return (response_obj, status_code) if isinstance(response, tuple) else response_obj
+        return decorated_function
+    return decorator
 
 # Configure CORS to allow all origins during development
 # In production, this should be restricted to specific origins
@@ -153,6 +180,7 @@ def verify_student():   return verify_role('student')
 
 
 @app.route('/me', methods=['GET'])
+@cache_response(max_age=60, private=True)
 def me_get():
     session = get_user_session()
     if 'error' in session:
@@ -381,6 +409,7 @@ def instructor_profile():
     return resp, 200
 
 @app.route('/student/courses', methods=['GET'])
+@cache_response(max_age=300, private=True)
 def student_courses():
     user_id, err = verify_student()
     if err:
@@ -639,6 +668,7 @@ def student_manage_course(course_id):
         db.close()
 
 @app.route('/student/courses/<course_id>/modules', methods=['GET'])
+@cache_response(max_age=300, private=True)
 def student_modules(course_id):
     user_id, err = verify_student()
     if err:
@@ -715,6 +745,7 @@ def student_manage_single_module(module_id):
         db.close()
 
 @app.route('/student/modules/<module_id>/files', methods=['GET'])
+@cache_response(max_age=300, private=True)
 def student_files(module_id):
     user_id, err = verify_student()
     if err:
@@ -729,6 +760,7 @@ def student_files(module_id):
     return jsonify([{'id': str(f.id), 'title': f.title} for f in files]), 200
 
 @app.route('/student/personalized-files', methods=['GET'])
+@cache_response(max_age=60, private=True)
 def student_list_pfiles():
     user_id, err = verify_student()
     if err:
@@ -1671,17 +1703,44 @@ def student_course_files_upload(course_id):
         # Read file content
         file_content = file.read()
         file_size = len(file_content)
+        use_s3 = os.getenv('USE_S3_STORAGE', 'false').lower() == 'true'
         
-        # Create file record
-        new_file = create_file(
-            db=db,
-            module_id=str(target_module.id),
-            title=title,
-            filename=file.filename,
-            file_type=file.mimetype or 'application/octet-stream',
-            file_size=file_size,
-            file_data=file_content
-        )
+        if use_s3:
+            # Upload to S3
+            file_id = str(uuid.uuid4())
+            s3_result = s3_storage.upload_file(
+                file_obj=BytesIO(file_content),
+                course_id=str(course_id),
+                module_id=str(target_module.id),
+                file_id=file_id,
+                filename=file.filename,
+                content_type=file.mimetype
+            )
+            
+            # Create file record with S3 info
+            new_file = create_file(
+                db=db,
+                module_id=str(target_module.id),
+                title=title,
+                filename=file.filename,
+                file_type=file.mimetype or 'application/octet-stream',
+                file_size=file_size,
+                s3_key=s3_result['s3_key'],
+                s3_bucket=s3_result['s3_bucket'],
+                storage_type='s3'
+            )
+        else:
+            # Traditional database storage
+            new_file = create_file(
+                db=db,
+                module_id=str(target_module.id),
+                title=title,
+                filename=file.filename,
+                file_type=file.mimetype or 'application/octet-stream',
+                file_size=file_size,
+                file_data=file_content,
+                storage_type='database'
+            )
         
         # Return the created file info
         return jsonify({
@@ -1763,6 +1822,7 @@ def check_personalized_file_exists(file_id):
 
 # Add dashboard stats and activity tracking endpoints
 @app.route('/student/dashboard/stats', methods=['GET'])
+@cache_response(max_age=60, private=True)
 def student_dashboard_stats():
     user_id, err = verify_student()
     if err:
@@ -2379,13 +2439,34 @@ def student_file_content(file_id):
         db.close()
         return jsonify({'error': 'Forbidden'}), 403
 
-    data, mimetype, fname = f.file_data, f.file_type, f.filename
-    db.close()
-    return Response(
-        data,
-        mimetype=mimetype,
-        headers={'Content-Disposition': f'inline; filename={fname}'}
-    )
+    # Check storage type
+    if hasattr(f, 'storage_type') and f.storage_type == 's3' and hasattr(f, 's3_key') and f.s3_key:
+        # Generate presigned URL for S3 file
+        try:
+            presigned_url = s3_storage.generate_presigned_url(
+                s3_key=f.s3_key,
+                expiration=3600,  # 1 hour
+                download=False    # inline display
+            )
+            db.close()
+            # Return redirect to presigned URL
+            return jsonify({
+                'url': presigned_url,
+                'type': 'presigned',
+                'expires_in': 3600
+            }), 200
+        except Exception as e:
+            db.close()
+            return jsonify({'error': f'Failed to generate URL: {str(e)}'}), 500
+    else:
+        # Traditional database storage
+        data, mimetype, fname = f.file_data, f.file_type, f.filename
+        db.close()
+        return Response(
+            data,
+            mimetype=mimetype,
+            headers={'Content-Disposition': f'inline; filename={fname}'}
+        )
 
 @app.route('/student/enrollments/<enrollment_id>', methods=['DELETE'])
 def student_unenroll(enrollment_id):
@@ -2556,16 +2637,38 @@ def student_file_download(file_id):
         db.close()
         return jsonify({'error': 'Forbidden'}), 403
 
-    data, mimetype, fname = f.file_data, f.file_type, f.filename
-    db.close()
-    return Response(
-        data,
-        mimetype=mimetype,
-        headers={
-            'Content-Disposition': f'attachment; filename={fname}',
-            'Content-Length': str(len(data))
-        }
-    )
+    # Check storage type
+    if hasattr(f, 'storage_type') and f.storage_type == 's3' and hasattr(f, 's3_key') and f.s3_key:
+        # Generate presigned URL for S3 file download
+        try:
+            presigned_url = s3_storage.generate_presigned_url(
+                s3_key=f.s3_key,
+                expiration=3600,  # 1 hour
+                download=True     # force download
+            )
+            db.close()
+            # Return redirect to presigned URL
+            return jsonify({
+                'url': presigned_url,
+                'type': 'presigned_download',
+                'filename': f.filename,
+                'expires_in': 3600
+            }), 200
+        except Exception as e:
+            db.close()
+            return jsonify({'error': f'Failed to generate download URL: {str(e)}'}), 500
+    else:
+        # Traditional database storage
+        data, mimetype, fname = f.file_data, f.file_type, f.filename
+        db.close()
+        return Response(
+            data,
+            mimetype=mimetype,
+            headers={
+                'Content-Disposition': f'attachment; filename={fname}',
+                'Content-Length': str(len(data))
+            }
+        )
 
 @app.route('/student/files/<file_id>', methods=['GET', 'PATCH', 'DELETE'])
 def student_manage_file(file_id):
@@ -2778,21 +2881,48 @@ def instructor_module_files(module_id):
                 return jsonify({'error': 'No file provided'}), 400
             
             title = request.form.get('title', uploaded_file.filename)
+            use_s3 = os.getenv('USE_S3_STORAGE', 'false').lower() == 'true'
             
             # Read file data
             file_data = uploaded_file.read()
             file_size = len(file_data)
             
-            # Create file in database
-            file_obj = create_file(
-                db=db,
-                module_id=module_id,
-                title=title,
-                filename=uploaded_file.filename,
-                file_type=uploaded_file.content_type or 'application/octet-stream',
-                file_size=file_size,
-                file_data=file_data
-            )
+            if use_s3:
+                # Upload to S3
+                file_id = str(uuid.uuid4())
+                s3_result = s3_storage.upload_file(
+                    file_obj=BytesIO(file_data),
+                    course_id=str(course.id),
+                    module_id=module_id,
+                    file_id=file_id,
+                    filename=uploaded_file.filename,
+                    content_type=uploaded_file.content_type
+                )
+                
+                # Create file record with S3 info
+                file_obj = create_file(
+                    db=db,
+                    module_id=module_id,
+                    title=title,
+                    filename=uploaded_file.filename,
+                    file_type=uploaded_file.content_type or 'application/octet-stream',
+                    file_size=file_size,
+                    s3_key=s3_result['s3_key'],
+                    s3_bucket=s3_result['s3_bucket'],
+                    storage_type='s3'
+                )
+            else:
+                # Traditional database storage
+                file_obj = create_file(
+                    db=db,
+                    module_id=module_id,
+                    title=title,
+                    filename=uploaded_file.filename,
+                    file_type=uploaded_file.content_type or 'application/octet-stream',
+                    file_size=file_size,
+                    file_data=file_data,
+                    storage_type='database'
+                )
             
             return jsonify({
                 'id': str(file_obj.id),
@@ -2800,6 +2930,7 @@ def instructor_module_files(module_id):
                 'filename': file_obj.filename,
                 'file_type': file_obj.file_type,
                 'file_size': file_obj.file_size,
+                'storage_type': file_obj.storage_type,
                 'created_at': file_obj.created_at.isoformat() if file_obj.created_at else None
             }), 201
             
@@ -2882,6 +3013,221 @@ def instructor_manage_file(file_id):
         db.close()
 
 # ===== END NEW INSTRUCTOR ENDPOINTS =====
+
+@app.route('/instructor/files/<file_id>/content', methods=['GET'])
+def instructor_file_content(file_id):
+    """Get file content for instructors"""
+    user_id, err = verify_instructor()
+    if err:
+        return err
+    
+    db = Session()
+    try:
+        # Get the file and verify ownership
+        file_obj = get_file_by_id(db, file_id)
+        if not file_obj:
+            return jsonify({'error': 'File not found'}), 404
+            
+        # Verify ownership through module -> course -> instructor
+        module = get_module_by_id(db, file_obj.module_id)
+        if not module:
+            return jsonify({'error': 'Module not found'}), 404
+            
+        course = get_course_by_id(db, module.course_id)
+        if not course or str(course.instructor_id) != str(user_id):
+            return jsonify({'error': 'Forbidden'}), 403
+        
+        # Check storage type
+        if hasattr(file_obj, 'storage_type') and file_obj.storage_type == 's3' and hasattr(file_obj, 's3_key') and file_obj.s3_key:
+            # Generate presigned URL for S3 file
+            try:
+                presigned_url = s3_storage.generate_presigned_url(
+                    s3_key=file_obj.s3_key,
+                    expiration=3600,  # 1 hour
+                    download=False    # inline display
+                )
+                # Return JSON with presigned URL
+                return jsonify({
+                    'url': presigned_url,
+                    'type': 'presigned',
+                    'expires_in': 3600
+                }), 200
+            except Exception as e:
+                return jsonify({'error': f'Failed to generate URL: {str(e)}'}), 500
+        else:
+            # Traditional database storage
+            return Response(
+                file_obj.file_data,
+                mimetype=file_obj.file_type,
+                headers={'Content-Disposition': f'inline; filename={file_obj.filename}'}
+            )
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/instructor/files/<file_id>/download', methods=['GET'])
+def instructor_file_download(file_id):
+    """Download file for instructors"""
+    user_id, err = verify_instructor()
+    if err:
+        return err
+    
+    db = Session()
+    try:
+        # Get the file and verify ownership
+        file_obj = get_file_by_id(db, file_id)
+        if not file_obj:
+            return jsonify({'error': 'File not found'}), 404
+            
+        # Verify ownership through module -> course -> instructor
+        module = get_module_by_id(db, file_obj.module_id)
+        if not module:
+            return jsonify({'error': 'Module not found'}), 404
+            
+        course = get_course_by_id(db, module.course_id)
+        if not course or str(course.instructor_id) != str(user_id):
+            return jsonify({'error': 'Forbidden'}), 403
+        
+        # Check storage type
+        if hasattr(file_obj, 'storage_type') and file_obj.storage_type == 's3' and hasattr(file_obj, 's3_key') and file_obj.s3_key:
+            # Generate presigned URL for S3 file download
+            try:
+                presigned_url = s3_storage.generate_presigned_url(
+                    s3_key=file_obj.s3_key,
+                    expiration=3600,  # 1 hour
+                    download=True     # force download
+                )
+                # Return JSON with presigned URL
+                return jsonify({
+                    'url': presigned_url,
+                    'type': 'presigned_download',
+                    'filename': file_obj.filename,
+                    'expires_in': 3600
+                }), 200
+            except Exception as e:
+                return jsonify({'error': f'Failed to generate download URL: {str(e)}'}), 500
+        else:
+            # Traditional database storage
+            return Response(
+                file_obj.file_data,
+                mimetype=file_obj.file_type,
+                headers={
+                    'Content-Disposition': f'attachment; filename={file_obj.filename}',
+                    'Content-Length': str(len(file_obj.file_data))
+                }
+            )
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# ===== S3 DIRECT UPLOAD ENDPOINTS =====
+
+@app.route('/instructor/modules/<module_id>/files/upload-url', methods=['POST'])
+def instructor_get_upload_url(module_id):
+    """Generate presigned URL for direct browser upload to S3"""
+    user_id, err = verify_instructor()
+    if err:
+        return err
+    
+    db = Session()
+    try:
+        # Verify module ownership
+        module = get_module_by_id(db, module_id)
+        if not module:
+            return jsonify({'error': 'Module not found'}), 404
+            
+        course = get_course_by_id(db, module.course_id)
+        if not course or str(course.instructor_id) != str(user_id):
+            return jsonify({'error': 'Forbidden'}), 403
+        
+        # Get request data
+        data = request.get_json()
+        if not data or 'filename' not in data:
+            return jsonify({'error': 'Filename required'}), 400
+        
+        filename = data['filename']
+        content_type = data.get('content_type', 'application/octet-stream')
+        
+        # Generate upload URL
+        file_id = str(uuid.uuid4())
+        upload_data = s3_storage.generate_upload_url(
+            course_id=str(course.id),
+            module_id=module_id,
+            file_id=file_id,
+            filename=filename,
+            content_type=content_type
+        )
+        
+        return jsonify({
+            'file_id': file_id,
+            'upload_url': upload_data['upload_url'],
+            'upload_fields': upload_data['upload_fields'],
+            's3_key': upload_data['s3_key']
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+@app.route('/instructor/modules/<module_id>/files/confirm-upload', methods=['POST'])
+def instructor_confirm_upload(module_id):
+    """Confirm file upload and create database record"""
+    user_id, err = verify_instructor()
+    if err:
+        return err
+    
+    db = Session()
+    try:
+        # Verify module ownership
+        module = get_module_by_id(db, module_id)
+        if not module:
+            return jsonify({'error': 'Module not found'}), 404
+            
+        course = get_course_by_id(db, module.course_id)
+        if not course or str(course.instructor_id) != str(user_id):
+            return jsonify({'error': 'Forbidden'}), 403
+        
+        # Get confirmation data
+        data = request.get_json()
+        required_fields = ['file_id', 's3_key', 'filename', 'file_size']
+        if not all(field in data for field in required_fields):
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        # Create file record
+        file_obj = create_file(
+            db=db,
+            module_id=module_id,
+            title=data.get('title', data['filename']),
+            filename=data['filename'],
+            file_type=data.get('content_type', 'application/octet-stream'),
+            file_size=data['file_size'],
+            s3_key=data['s3_key'],
+            s3_bucket=s3_storage.bucket_name,
+            storage_type='s3'
+        )
+        
+        return jsonify({
+            'id': str(file_obj.id),
+            'title': file_obj.title,
+            'filename': file_obj.filename,
+            'file_type': file_obj.file_type,
+            'file_size': file_obj.file_size,
+            'storage_type': file_obj.storage_type,
+            'created_at': file_obj.created_at.isoformat() if file_obj.created_at else None
+        }), 201
+        
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# ===== END S3 DIRECT UPLOAD ENDPOINTS =====
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)

@@ -43,6 +43,8 @@ import { toast as sonnerToast } from 'sonner';
 
 import { studentAPI, instructorAPI, userAPI } from "@/lib/api";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
 interface Course {
   id: string;
   title: string;
@@ -229,22 +231,48 @@ export default function CoursePage() {
               courseData = enrolledCourses.find((c: any) => c.id === courseId);
               
               if (courseData) {
-                // Get modules and files for this course
+                // Use optimized endpoint to get modules with files in one call
                 try {
-                  modulesData = await studentAPI.getCourseModules(courseId);
-                  
-                  // Get files for each module
-                  for (const moduleItem of modulesData) {
-                    try {
-                      const moduleFiles = await studentAPI.getModuleFiles(moduleItem.id);
-                      filesData.push(...moduleFiles.map((file: any) => ({
-                        ...file,
-                        moduleId: moduleItem.id,
-                        moduleName: moduleItem.title
-                      })));
-                    } catch (fileError) {
-                      console.warn(`Failed to load files for module ${moduleItem.id}:`, fileError);
+                  const modulesWithFilesResponse = await fetch(
+                    `${API_URL}/courses/${courseId}/moduleswithfiles`,
+                    {
+                      method: 'GET',
+                      credentials: 'include',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
                     }
+                  );
+                  
+                  if (modulesWithFilesResponse.ok) {
+                    const modulesWithFiles = await modulesWithFilesResponse.json();
+                    modulesData = modulesWithFiles;
+                    
+                    // Extract all files from modules
+                    filesData = modulesWithFiles.flatMap((module: any) => 
+                      (module.files || []).map((file: any) => ({
+                        ...file,
+                        moduleId: module.id,
+                        moduleName: module.title
+                      }))
+                    );
+                  } else {
+                    // Fallback to old method if new endpoint fails
+                    modulesData = await studentAPI.getCourseModules(courseId);
+                    
+                    // Parallel load all module files instead of sequential
+                    const filePromises = modulesData.map((moduleItem: any) => 
+                      studentAPI.getModuleFiles(moduleItem.id)
+                        .then(files => files.map((file: any) => ({
+                          ...file,
+                          moduleId: moduleItem.id,
+                          moduleName: moduleItem.title
+                        })))
+                        .catch(() => [])
+                    );
+                    
+                    const filesArrays = await Promise.all(filePromises);
+                    filesData = filesArrays.flat();
                   }
                 } catch (moduleError) {
                   console.warn('Failed to load modules:', moduleError);
@@ -260,22 +288,48 @@ export default function CoursePage() {
               courseData = await instructorAPI.getCourse(courseId);
               
               if (courseData) {
-                // Get modules for this course
+                // Use optimized endpoint to get modules with files in one call
                 try {
-                  modulesData = await instructorAPI.getCourseModules(courseId);
-                  
-                  // Get files for each module
-                  for (const moduleItem of modulesData) {
-                    try {
-                      const moduleFiles = await instructorAPI.getModuleFiles(moduleItem.id);
-                      filesData.push(...moduleFiles.map((file: any) => ({
-                        ...file,
-                        moduleId: moduleItem.id,
-                        moduleName: moduleItem.title
-                      })));
-                    } catch (fileError) {
-                      console.warn(`Failed to load files for module ${moduleItem.id}:`, fileError);
+                  const modulesWithFilesResponse = await fetch(
+                    `${API_URL}/courses/${courseId}/moduleswithfiles`,
+                    {
+                      method: 'GET',
+                      credentials: 'include',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
                     }
+                  );
+                  
+                  if (modulesWithFilesResponse.ok) {
+                    const modulesWithFiles = await modulesWithFilesResponse.json();
+                    modulesData = modulesWithFiles;
+                    
+                    // Extract all files from modules
+                    filesData = modulesWithFiles.flatMap((module: any) => 
+                      (module.files || []).map((file: any) => ({
+                        ...file,
+                        moduleId: module.id,
+                        moduleName: module.title
+                      }))
+                    );
+                  } else {
+                    // Fallback to old method if new endpoint fails
+                    modulesData = await instructorAPI.getCourseModules(courseId);
+                    
+                    // Parallel load all module files instead of sequential
+                    const filePromises = modulesData.map((moduleItem: any) => 
+                      instructorAPI.getModuleFiles(moduleItem.id)
+                        .then(files => files.map((file: any) => ({
+                          ...file,
+                          moduleId: moduleItem.id,
+                          moduleName: moduleItem.title
+                        })))
+                        .catch(() => [])
+                    );
+                    
+                    const filesArrays = await Promise.all(filePromises);
+                    filesData = filesArrays.flat();
                   }
                 } catch (moduleError) {
                   console.warn('Failed to load modules:', moduleError);
@@ -564,7 +618,7 @@ export default function CoursePage() {
       });
 
       // First, fetch the user's onboarding profile
-      const profileRes = await fetch("http://localhost:8081/student/profile", {
+      const profileRes = await fetch("http://localhost:8080/student/profile", {
         method: "GET",
         credentials: "include",
       });
@@ -613,7 +667,7 @@ export default function CoursePage() {
             });
           }
 
-          const personalizeRes = await fetch("http://localhost:8081/generatepersonalizedfilecontent", {
+          const personalizeRes = await fetch("http://localhost:8080/generatepersonalizedfilecontent", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
