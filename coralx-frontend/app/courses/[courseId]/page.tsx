@@ -17,6 +17,11 @@ import { SmartRecommendations } from "@/components/ai/SmartRecommendations";
 import MaterialViewer from "@/components/course/MaterialViewer";
 import { StudentCourseUpload } from "@/components/course/StudentCourseUpload";
 import { StatsSidePanel } from "@/components/course/StatsSidePanel";
+import { ModuleCard } from "@/components/course/ModuleCard";
+import { EnhancedSidebar } from "@/components/course/EnhancedSidebar";
+import { SearchAndFilter } from "@/components/course/SearchAndFilter";
+import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
+import { designTokens } from "@/lib/design-system";
 import {
   ArrowLeft,
   BookOpen,
@@ -34,13 +39,15 @@ import {
   Plus,
   X,
   Download,
+  Search,
   Package,
   Zap,
   BarChart3,
   ChevronDown,
   ChevronRight,
   File,
-  Folder
+  Folder,
+  Loader2
 } from "lucide-react";
 import { toast as sonnerToast } from 'sonner';
 
@@ -193,8 +200,38 @@ export default function CoursePage() {
   const [aiChatOpen, setAiChatOpen] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<{ id: string; name: string; moduleId: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [moduleDeleteDialogOpen, setModuleDeleteDialogOpen] = useState(false);
+  const [moduleToDelete, setModuleToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeletingModule, setIsDeletingModule] = useState(false);
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
   const [useAdvancedUpload, setUseAdvancedUpload] = useState(false);
+  const [createModuleDialogOpen, setCreateModuleDialogOpen] = useState(false);
+  const [newModuleTitle, setNewModuleTitle] = useState("");
+  const [newModuleDescription, setNewModuleDescription] = useState("");
+  const [isCreatingModule, setIsCreatingModule] = useState(false);
+  const [courseDeleteDialogOpen, setCourseDeleteDialogOpen] = useState(false);
+  const [isDeletingCourse, setIsDeletingCourse] = useState(false);
+  
+  // P2: Search and filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState({
+    fileTypes: [] as string[],
+    aiProcessed: 'all' as 'all' | 'processed' | 'unprocessed',
+    dateRange: 'all' as 'all' | 'today' | 'week' | 'month',
+  });
+  
+  // User stats for gamification
+  const [userStats, setUserStats] = useState({
+    filesUploaded: 0,
+    weeksCompleted: 0,
+    studyStreak: 0,
+    aiQuestions: 0,
+    totalStudyTime: 0,
+    currentWeekProgress: 0
+  });
 
   const [courseProgress, setCourseProgress] = useState({
     completedMaterials: 0,
@@ -505,7 +542,7 @@ export default function CoursePage() {
         title: moduleData.title || moduleData.name || "Untitled Module",
         description: moduleData.description,
         materials: [],
-        isExpanded: true
+        isExpanded: true // Default to expanded, will be overridden by localStorage
       });
     });
     
@@ -524,7 +561,7 @@ export default function CoursePage() {
         moduleMap.set(module.id, {
           ...module,
           materials: [],
-          isExpanded: true
+          isExpanded: true // Default to expanded
         });
       });
     }
@@ -580,17 +617,103 @@ export default function CoursePage() {
       return getPriority(a.id) - getPriority(b.id);
     });
     
+    // Restore accordion state from localStorage
+    try {
+      const savedState = localStorage.getItem(`course-${courseId}-accordion`);
+      if (savedState) {
+        const accordionState = JSON.parse(savedState) as Record<string, boolean>;
+        moduleArray.forEach(module => {
+          if (accordionState.hasOwnProperty(module.id)) {
+            module.isExpanded = accordionState[module.id];
+          }
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to restore accordion state:', error);
+    }
+    
     return moduleArray;
   };
 
-  // Toggle module expansion
+  // Toggle module expansion with state persistence
   const toggleModule = (moduleId: string) => {
-    setModules(prev => prev.map(module => 
-      module.id === moduleId 
-        ? { ...module, isExpanded: !module.isExpanded }
-        : module
-    ));
+    setModules(prev => {
+      const updated = prev.map(module => 
+        module.id === moduleId 
+          ? { ...module, isExpanded: !module.isExpanded }
+          : module
+      );
+      
+      // Persist accordion state in localStorage
+      try {
+        const accordionState = updated.reduce((acc, module) => {
+          acc[module.id] = module.isExpanded;
+          return acc;
+        }, {} as Record<string, boolean>);
+        
+        localStorage.setItem(`course-${courseId}-accordion`, JSON.stringify(accordionState));
+      } catch (error) {
+        console.warn('Failed to persist accordion state:', error);
+      }
+      
+      return updated;
+    });
   };
+
+  // P2: Filter modules and materials based on search and filters
+  const filterMaterials = (materials: Material[]) => {
+    return materials.filter(material => {
+      // Search query filter
+      if (searchQuery && !material.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+        return false;
+      }
+      
+      // File type filter
+      if (filters.fileTypes.length > 0 && !filters.fileTypes.includes(material.type)) {
+        return false;
+      }
+      
+      // AI processed filter
+      if (filters.aiProcessed === 'processed' && !material.processed) {
+        return false;
+      }
+      if (filters.aiProcessed === 'unprocessed' && material.processed) {
+        return false;
+      }
+      
+      // Date range filter
+      if (filters.dateRange !== 'all') {
+        const uploadDate = new Date(material.uploadedAt);
+        const now = new Date();
+        const diffDays = Math.floor((now.getTime() - uploadDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        switch (filters.dateRange) {
+          case 'today':
+            if (diffDays > 0) return false;
+            break;
+          case 'week':
+            if (diffDays > 7) return false;
+            break;
+          case 'month':
+            if (diffDays > 30) return false;
+            break;
+        }
+      }
+      
+      return true;
+    });
+  };
+
+  const filteredModules = modules.map(module => ({
+    ...module,
+    materials: filterMaterials(module.materials)
+  })).filter(module => 
+    // Only show modules that have materials after filtering, or if no search/filters are active
+    module.materials.length > 0 || (!searchQuery && filters.fileTypes.length === 0 && filters.aiProcessed === 'all' && filters.dateRange === 'all')
+  );
+
+  const totalFiles = modules.reduce((total, module) => total + module.materials.length, 0);
+  const filteredFiles = filteredModules.reduce((total, module) => total + module.materials.length, 0);
 
   // Helper functions
   const formatRelativeTime = (dateString: string) => {
@@ -628,31 +751,340 @@ export default function CoursePage() {
     router.replace(url.pathname + url.search);
   };
 
-  const handleUploadComplete = (newFile: any) => {
+  const handleDeleteFile = async (fileId: string, moduleId: string) => {
+    // Find the file to get its name for the confirmation dialog
+    const file = modules
+      .find(module => module.id === moduleId)
+      ?.materials.find(material => material.id === fileId);
+    
+    if (!file) {
+      sonnerToast.error("File not found");
+      return;
+    }
+
+    // Set up the delete dialog
+    setFileToDelete({ id: fileId, name: file.title, moduleId });
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteFile = async () => {
+    if (!fileToDelete) return;
+
+    setIsDeleting(true);
+    
+    try {
+      // Call the appropriate API based on user role
+      if (currentUser?.role === "student") {
+        await studentAPI.deleteFile(fileToDelete.id);
+      } else {
+        await instructorAPI.deleteFile(fileToDelete.id);
+      }
+
+      // Remove the file from the local state
+      setModules(prev => 
+        prev.map(module => 
+          module.id === fileToDelete.moduleId 
+            ? {
+                ...module,
+                materials: module.materials.filter(material => material.id !== fileToDelete.id)
+              }
+            : module
+        )
+      );
+
+      // Show success message
+      sonnerToast.success("File deleted successfully");
+      
+      // Close dialog and reset state
+      setDeleteDialogOpen(false);
+      setFileToDelete(null);
+    } catch (error) {
+      console.error("Error deleting file:", error);
+      sonnerToast.error("Failed to delete file. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteModule = async (moduleId: string) => {
+    // Find the module to get its name and check if it has files
+    const module = modules.find(m => m.id === moduleId);
+    
+    if (!module) {
+      sonnerToast.error("Module not found");
+      return;
+    }
+
+    // Check if module has files
+    if (module.materials.length > 0) {
+      sonnerToast.error("Cannot delete module with files", {
+        description: "Please delete all files in the module first, then try again."
+      });
+      return;
+    }
+
+    // Set up the delete dialog
+    setModuleToDelete({ id: moduleId, name: module.title });
+    setModuleDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteModule = async () => {
+    if (!moduleToDelete) return;
+
+    setIsDeletingModule(true);
+    
+    try {
+      // Call the appropriate API based on user role
+      const endpoint = currentUser?.role === "student" 
+        ? `/student/modules/${moduleToDelete.id}`
+        : `/instructor/modules/${moduleToDelete.id}`;
+        
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete module: ${response.statusText}`);
+      }
+
+      // Remove the module from the local state
+      setModules(prev => prev.filter(module => module.id !== moduleToDelete.id));
+
+      // Show success message
+      sonnerToast.success("Module deleted successfully");
+      
+      // Close dialog and reset state
+      setModuleDeleteDialogOpen(false);
+      setModuleToDelete(null);
+    } catch (error) {
+      console.error("Error deleting module:", error);
+      sonnerToast.error("Failed to delete module. Please try again.");
+    } finally {
+      setIsDeletingModule(false);
+    }
+  };
+
+  const handleCreateModule = () => {
+    setCreateModuleDialogOpen(true);
+    setNewModuleTitle("");
+    setNewModuleDescription("");
+  };
+
+  const confirmCreateModule = async () => {
+    if (!newModuleTitle.trim()) {
+      sonnerToast.error("Module title is required");
+      return;
+    }
+
+    setIsCreatingModule(true);
+    
+    try {
+      // Call the appropriate API based on user role
+      const endpoint = currentUser?.role === "student" 
+        ? `/student/courses/${courseId}/modules`
+        : `/instructor/courses/${courseId}/modules`;
+        
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          title: newModuleTitle.trim(),
+          description: newModuleDescription.trim() || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create module: ${response.statusText}`);
+      }
+
+      const newModule = await response.json();
+
+      // Add the new module to the local state
+      const moduleToAdd = {
+        id: newModule.id,
+        title: newModule.title,
+        description: newModule.description,
+        materials: [],
+        isExpanded: true,
+      };
+
+      setModules(prev => [...prev, moduleToAdd]);
+
+      // Show success message
+      sonnerToast.success("Module created successfully");
+      
+      // Close dialog and reset state
+      setCreateModuleDialogOpen(false);
+      setNewModuleTitle("");
+      setNewModuleDescription("");
+    } catch (error) {
+      console.error("Error creating module:", error);
+      sonnerToast.error("Failed to create module. Please try again.");
+    } finally {
+      setIsCreatingModule(false);
+    }
+  };
+
+  const handleDeleteCourse = () => {
+    setCourseDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteCourse = async () => {
+    if (!course) return;
+
+    setIsDeletingCourse(true);
+    
+    try {
+      // Call the appropriate API based on user role
+      const endpoint = currentUser?.role === "student" 
+        ? `/student/courses/${courseId}`
+        : `/instructor/courses/${courseId}`;
+        
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete course: ${response.statusText}`);
+      }
+
+      // Show success message
+      sonnerToast.success("Course deleted successfully");
+      
+      // Redirect to dashboard
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("Error deleting course:", error);
+      sonnerToast.error("Failed to delete course. Please try again.");
+    } finally {
+      setIsDeletingCourse(false);
+      setCourseDeleteDialogOpen(false);
+    }
+  };
+
+  const handleUploadComplete = async (newFile: any) => {
     try {
       if (!newFile) {
         console.warn("Upload completed but no file data received");
         return;
       }
       
+      console.log("=== UPLOAD COMPLETE - FILE DATA ===", newFile);
+      
+      // Normalize the file data - handle both module_id and moduleId
+      const moduleId = newFile.moduleId || newFile.module_id;
+      
       // Add to appropriate module and refresh structure
       const newMaterial: Material = {
         id: newFile.id,
-        title: newFile.title || newFile.name,
+        title: newFile.title || newFile.name || newFile.filename,
         type: getFileType(newFile.file_type || newFile.type || ""),
-        size: formatFileSize(newFile.file_size || newFile.size || 0),
-        uploadedAt: formatRelativeTime(newFile.created_at || new Date().toISOString()),
+        size: newFile.size || formatFileSize(newFile.file_size || 0),
+        uploadedAt: formatRelativeTime(newFile.created_at || newFile.uploadedAt || new Date().toISOString()),
         processed: newFile.processed !== false,
-        moduleId: newFile.moduleId,
+        moduleId: moduleId,
         moduleName: newFile.moduleName,
       };
       
-      // Refresh modules with new material
-      setModules(prev => {
-        const updatedModules = [...prev];
-        const allMaterials = prev.flatMap(m => m.materials).concat(newMaterial);
-        return createModuleStructure([], allMaterials);
-      });
+      console.log("=== NEW MATERIAL CREATED ===", newMaterial);
+      
+      // Instead of just adding to existing materials, reload the modules from the server
+      // This ensures we get the latest data including the newly uploaded file
+      try {
+        if (currentUser?.role === "student") {
+          // Try the optimized endpoint first
+          const modulesWithFilesResponse = await fetch(
+            `${API_URL}/courses/${courseId}/moduleswithfiles`,
+            {
+              method: 'GET',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+          
+          if (modulesWithFilesResponse.ok) {
+            const modulesWithFiles = await modulesWithFilesResponse.json();
+            console.log("=== REFRESHED MODULES DATA ===", modulesWithFiles);
+            
+            const filesData = modulesWithFiles.flatMap((module: any) => 
+              (module.files || []).map((file: any) => ({
+                ...file,
+                moduleId: module.id,
+                moduleName: module.title
+              }))
+            );
+            
+            const transformedMaterials: Material[] = filesData
+              .filter((file: any) => file && file.id)
+              .map((file: any) => ({
+                id: file.id,
+                title: file.title || file.name || "Unknown File",
+                type: getFileType(file.file_type || file.type || ""),
+                size: file.size || formatFileSize(file.file_size || 0),
+                uploadedAt: formatRelativeTime(file.uploadedAt || file.created_at || new Date().toISOString()),
+                processed: file.processed !== false,
+                moduleId: file.moduleId,
+                moduleName: file.moduleName,
+              }));
+            
+            const organizedModules = createModuleStructure(modulesWithFiles, transformedMaterials);
+            setModules(organizedModules);
+            
+            sonnerToast.success(`${newMaterial.title} uploaded successfully!`);
+          } else {
+            // Fallback: just add the new material to existing modules
+            setModules(prev => {
+              const allMaterials = prev.flatMap(m => m.materials).concat(newMaterial);
+              return createModuleStructure(prev, allMaterials);
+            });
+          }
+        } else {
+          // For instructors, use a similar approach
+          const modulesData = await instructorAPI.getCourseModules(courseId);
+          const filePromises = modulesData.map((moduleItem: any) => 
+            instructorAPI.getModuleFiles(moduleItem.id)
+              .then(files => files.map((file: any) => ({
+                ...file,
+                moduleId: moduleItem.id,
+                moduleName: moduleItem.title
+              })))
+              .catch(() => [])
+          );
+          
+          const filesArrays = await Promise.all(filePromises);
+          const filesData = filesArrays.flat();
+          
+          const transformedMaterials: Material[] = filesData
+            .filter((file: any) => file && file.id)
+            .map((file: any) => ({
+              id: file.id,
+              title: file.title || file.name || "Unknown File",
+              type: getFileType(file.file_type || file.type || ""),
+              size: formatFileSize(file.file_size || file.size || 0),
+              uploadedAt: formatRelativeTime(file.created_at || new Date().toISOString()),
+              processed: file.processed !== false,
+              moduleId: file.moduleId,
+              moduleName: file.moduleName,
+            }));
+          
+          const organizedModules = createModuleStructure(modulesData, transformedMaterials);
+          setModules(organizedModules);
+        }
+      } catch (refreshError) {
+        console.error("Failed to refresh modules, using local update:", refreshError);
+        // Fallback: just add the new material to existing modules
+        setModules(prev => {
+          const allMaterials = prev.flatMap(m => m.materials).concat(newMaterial);
+          return createModuleStructure(prev, allMaterials);
+        });
+      }
       
       setTimeout(() => {
         setIsUploadDialogOpen(false);
@@ -1052,7 +1484,15 @@ export default function CoursePage() {
                       <span>•</span>
                       <span>{modules.reduce((total, module) => total + module.materials.length, 0)} material{modules.reduce((total, module) => total + module.materials.length, 0) !== 1 ? 's' : ''}</span>
                       <span>•</span>
-                      <span>{courseProgress.progressPercentage}% complete</span>
+                      <div className="flex items-center gap-2">
+                        <span>{courseProgress.progressPercentage}% complete</span>
+                        <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-indigo-600 transition-all duration-300"
+                            style={{ width: `${courseProgress.progressPercentage}%` }}
+                          />
+                        </div>
+                      </div>
                       <span>•</span>
                       <span>{Math.round(courseProgress.todayTimeMinutes)}m today</span>
                     </div>
@@ -1074,6 +1514,16 @@ export default function CoursePage() {
                 >
                   {isFocusMode ? 'Exit Focus' : 'Focus Mode'}
                 </Button>
+                {currentUser?.role === 'instructor' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    onClick={handleDeleteCourse}
+                  >
+                    Delete Course
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -1127,10 +1577,10 @@ export default function CoursePage() {
           <Tabs value={activeTab} onValueChange={handleTabChange}>
             {/* Home Tab - Structured Module Layout */}
             <TabsContent value="home" className="space-y-0">
-              <div className="flex min-h-screen">
-                {/* Main Content Area */}
-                <div className={cn("flex-1 mx-auto px-6 py-8 transition-all duration-200", 
-                  isFocusMode ? "max-w-none w-[90vw]" : "max-w-5xl"
+              <div className="min-h-screen">
+                {/* P0: Full-width content area - sidebar removed */}
+                <div className={cn("mx-auto px-6 py-8 transition-all duration-200", 
+                  isFocusMode ? "max-w-4xl" : "max-w-6xl"
                 )}>
                   <div className="space-y-6">
                     {/* Materials Section - Always Structured */}
@@ -1140,139 +1590,107 @@ export default function CoursePage() {
                           <div className={cn("w-2 h-6 rounded-full bg-gradient-to-b", colors.gradient)} />
                           Course Materials
                         </CardTitle>
-                        <Button
-                          onClick={() => setIsUploadDialogOpen(true)}
-                          size="sm"
-                          className="bg-[#7B61FF] hover:bg-[#6B51E5] text-white"
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Module
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={handleCreateModule}
+                            size="sm"
+                            className="bg-[#7B61FF] hover:bg-[#6B51E5] text-white"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Module
+                          </Button>
+                          <Button
+                            onClick={() => setIsUploadDialogOpen(true)}
+                            size="sm"
+                            variant="outline"
+                            className="border-[#7B61FF] text-[#7B61FF] hover:bg-[#7B61FF] hover:text-white"
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Upload Files
+                          </Button>
+                        </div>
                       </CardHeader>
                       <CardContent className="pt-0 px-4 pb-4">
-                        <div className="space-y-4">
-                          {modules.map((module) => (
-                            <div key={module.id} className="border border-gray-200 rounded-lg bg-white">
-                              {/* Module Header */}
-                              <div 
-                                className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                                onClick={() => toggleModule(module.id)}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div className="flex items-center gap-2">
-                                    {module.isExpanded ? (
-                                      <ChevronDown className="h-4 w-4 text-gray-500" />
-                                    ) : (
-                                      <ChevronRight className="h-4 w-4 text-gray-500" />
-                                    )}
-                                    <Folder className="h-5 w-5 text-blue-600" />
-                                  </div>
-                                  <div>
-                                    <h3 className="font-medium text-gray-900">{module.title}</h3>
-                                    {module.description && (
-                                      <p className="text-sm text-gray-500">{module.description}</p>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-4 text-sm text-gray-500">
-                                  <span>{module.materials.length} files</span>
-                                  <span className="text-gray-400">(Empty) Click to add files</span>
-                                </div>
-                              </div>
-
-                              {/* Module Content */}
-                              {module.isExpanded && (
-                                <div className="border-t border-gray-100">
-                                  {module.materials.length > 0 ? (
-                                    <div className="p-4 space-y-3">
-                                      {module.materials.map((material) => {
-                                        const FileIcon = getFileIcon(material.type);
-                                        const fileColor = getFileColor(material.type);
-                                        
-                                        return (
-                                          <div
-                                            key={material.id}
-                                            className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-all duration-200 cursor-pointer group"
-                                            onClick={() => handleViewMaterial(material)}
-                                          >
-                                            <div className="flex items-center gap-3">
-                                              <FileIcon className={cn("h-5 w-5", fileColor)} />
-                                              <div>
-                                                <p className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">
-                                                  {material.title}
-                                                </p>
-                                                <div className="flex items-center gap-2 text-sm text-gray-500">
-                                                  <span>{material.size}</span>
-                                                  <span>•</span>
-                                                  <span>{material.uploadedAt}</span>
-                                                  {material.processed && (
-                                                    <>
-                                                      <span>•</span>
-                                                      <CheckCircle className="h-3 w-3 text-green-500" />
-                                                      <span className="text-green-600">Processed</span>
-                                                    </>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            </div>
-                                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleAskAI(material);
-                                                }}
-                                                className="text-purple-600 border-purple-200 hover:bg-purple-50"
-                                              >
-                                                <Brain className="h-4 w-4 mr-1" />
-                                                Ask AI
-                                              </Button>
-                                            </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  ) : (
-                                    <div className="p-8 text-center">
-                                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-                                        <Upload className="h-6 w-6 text-gray-400" />
-                                      </div>
-                                      <h4 className="font-medium text-gray-900 mb-2">Add files</h4>
-                                      <p className="text-sm text-gray-500 mb-4">Drag & drop here</p>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => setIsUploadDialogOpen(true)}
-                                      >
-                                        <Upload className="h-4 w-4 mr-2" />
-                                        Upload Files
-                                      </Button>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
+                        {/* P2: Search and filter for large file collections */}
+                        {totalFiles > 0 && (
+                          <div className="mb-6">
+                            <SearchAndFilter
+                              onSearch={setSearchQuery}
+                              onFilterChange={setFilters}
+                              totalFiles={totalFiles}
+                              filteredFiles={filteredFiles}
+                            />
+                          </div>
+                        )}
+                        
+                        <div className="space-y-6">
+                          {filteredModules.map((module, index) => (
+                            <ModuleCard
+                              key={module.id}
+                              module={{
+                                ...module,
+                                weekNumber: index + 1
+                              }}
+                              onToggle={toggleModule}
+                              onViewMaterial={handleViewMaterial}
+                              onUploadFile={() => setIsUploadDialogOpen(true)}
+                              onAskAI={handleAskAI}
+                              onDeleteFile={handleDeleteFile}
+                              onDeleteModule={handleDeleteModule}
+                            />
                           ))}
+                          
+                          {filteredModules.length === 0 && modules.length === 0 && (
+                            <div className="text-center py-12">
+                              <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                                No modules yet
+                              </h3>
+                              <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">
+                                Create your first module to start organizing course materials and unlock AI-powered learning features.
+                              </p>
+                              <Button
+                                onClick={() => setIsUploadDialogOpen(true)}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Create First Module
+                              </Button>
+                            </div>
+                          )}
+                          
+                          {filteredModules.length === 0 && modules.length > 0 && (
+                            <div className="text-center py-12">
+                              <Search className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                                No files match your search
+                              </h3>
+                              <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">
+                                Try adjusting your search terms or filters to find what you're looking for.
+                              </p>
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  setSearchQuery("");
+                                  setFilters({
+                                    fileTypes: [],
+                                    aiProcessed: 'all',
+                                    dateRange: 'all',
+                                  });
+                                }}
+                                className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                              >
+                                Clear all filters
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
                   </div>
                 </div>
 
-                {/* Modern Stats Sidebar */}
-                {!isFocusMode && (
-                  <div className="w-80 bg-white/60 backdrop-blur-sm border-l border-gray-200/50 p-6 overflow-y-auto stats-sidebar transition-all duration-200">
-                    <StatsSidePanel 
-                      course={course}
-                      courseProgress={courseProgress}
-                      onUpdateDescription={(newDescription) => {
-                        setCourse(prev => prev ? { ...prev, description: newDescription } : null);
-                      }}
-                      userRole={currentUser?.role || 'student'}
-                    />
-                  </div>
-                )}
+                {/* P0: Right sidebar removed - progress moved to header breadcrumb */}
               </div>
             </TabsContent>
 
@@ -1746,6 +2164,104 @@ export default function CoursePage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={confirmDeleteFile}
+        itemName={fileToDelete?.name}
+        isLoading={isDeleting}
+      />
+
+      {/* Module Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        open={moduleDeleteDialogOpen}
+        onOpenChange={setModuleDeleteDialogOpen}
+        onConfirm={confirmDeleteModule}
+        title="Delete Module"
+        itemName={moduleToDelete?.name}
+        description={moduleToDelete?.name ? `Are you sure you want to delete the module "${moduleToDelete.name}"? This action cannot be undone.` : undefined}
+        isLoading={isDeletingModule}
+      />
+
+      {/* Create Module Dialog */}
+      <Dialog open={createModuleDialogOpen} onOpenChange={setCreateModuleDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Module</DialogTitle>
+            <DialogDescription>
+              Add a new module to organize your course materials.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="module-title" className="text-sm font-medium text-gray-700 block mb-2">
+                Module Title *
+              </label>
+              <Input
+                id="module-title"
+                value={newModuleTitle}
+                onChange={(e) => setNewModuleTitle(e.target.value)}
+                placeholder="e.g., Week 1: Introduction"
+                className="w-full"
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="module-description" className="text-sm font-medium text-gray-700 block mb-2">
+                Description (optional)
+              </label>
+              <Input
+                id="module-description"
+                value={newModuleDescription}
+                onChange={(e) => setNewModuleDescription(e.target.value)}
+                placeholder="Brief description of the module content"
+                className="w-full"
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setCreateModuleDialogOpen(false)}
+              disabled={isCreatingModule}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmCreateModule}
+              disabled={isCreatingModule || !newModuleTitle.trim()}
+              className="bg-[#7B61FF] hover:bg-[#6B51E5] text-white"
+            >
+              {isCreatingModule ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Module
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Course Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        open={courseDeleteDialogOpen}
+        onOpenChange={setCourseDeleteDialogOpen}
+        onConfirm={confirmDeleteCourse}
+        title="Delete Course"
+        itemName={course?.title}
+        description={course?.title ? `Are you sure you want to delete the course "${course.title}"? This will permanently delete all modules, files, and course data. This action cannot be undone.` : undefined}
+        isLoading={isDeletingCourse}
+      />
     </div>
   );
 }

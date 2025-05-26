@@ -184,14 +184,18 @@ export function StudentCourseUpload({ courseId, moduleId, onUploadComplete, clas
         // Call success callback with normalized data for parent components
         onUploadComplete?.({
           id: result.id,
-          title: uploadFile.file.name,
+          title: result.title || uploadFile.file.name,
+          filename: result.filename || uploadFile.file.name,
+          file_type: result.file_type || uploadFile.file.type,
+          file_size: result.file_size || uploadFile.file.size,
           type: uploadFile.file.type.includes('pdf') ? 'pdf' :
                 uploadFile.file.type.includes('audio') ? 'audio' :
                 uploadFile.file.type.includes('video') ? 'video' : 'document',
-          size: formatFileSize(uploadFile.file.size),
+          size: formatFileSize(result.file_size || uploadFile.file.size),
           uploadedAt: 'Just now',
           processed: true,
           moduleId: result.module_id || moduleId,
+          module_id: result.module_id || moduleId,  // Include both for compatibility
         });
         sonnerToast.success(`${uploadFile.file.name} uploaded successfully!`);
       }, 2000);
