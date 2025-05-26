@@ -27,6 +27,13 @@ def extract_text(file_data: bytes, filename: str) -> str:
         return file_data.decode('utf-8', errors='ignore')
     
 def clean_extracted_text(text: str) -> str:
+    # Remove NUL characters that cause PostgreSQL issues
+    text = text.replace('\x00', '')
+    
+    # Remove other problematic control characters
+    text = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', text)
+    
+    # Normalize whitespace
     text = re.sub(r'\s+', ' ', text)
     text = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', text)
     text = re.sub(r'(?<=[a-zA-Z])(?=[0-9])', ' ', text)

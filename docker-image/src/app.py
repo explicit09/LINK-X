@@ -209,8 +209,8 @@ def generate_personalized_content_pgvector(db_session, file_id, persona):
             db_session=db_session,
             query_embedding=persona_embedding,
             file_id=file_id,
-            limit=15,
-            similarity_threshold=0.3
+            limit=25,
+            similarity_threshold=0.1
         )
     except Exception as e:
         logger.error(f"Error retrieving chunks: {str(e)}")
@@ -221,51 +221,69 @@ def generate_personalized_content_pgvector(db_session, file_id, persona):
         logger.warning(f"No relevant chunks found for file_id {file_id}")
         raise ValueError("No content found to personalize")
     
+    # Log similarity scores for debugging
+    logger.info(f"Found {len(relevant_chunks)} chunks with similarities: {[chunk.get('similarity', 'N/A') for chunk in relevant_chunks[:5]]}")
+    
     # Prepare context from chunks
     chunk_texts = [chunk["content"] for chunk in relevant_chunks]
     context = "\n\n---\n\n".join(chunk_texts)
     
     # Create prompt for OpenAI
-    prompt = f"""You are an expert educational content personalizer. Your task is to create a personalized study guide based on the following content.
+    prompt = f"""You are an expert educational content personalizer who creates deeply engaging, tailored learning experiences.
 
-User profile: {persona}
+USER PROFILE (CRUCIAL - incorporate ALL these characteristics):
+{persona}
 
-Original content:
+ORIGINAL CONTENT:
 {context}
 
-Create a personalized study guide with the following structure:
-1. An engaging title that reflects the content
-2. 3-5 sections with appropriate headings
-3. Each section should have detailed content and a personalized explanation
+YOUR MISSION: Transform this content into a HIGHLY PERSONALIZED study guide that:
 
-The output should be in JSON format with this structure:
+1. **DIRECTLY ADDRESSES THE USER** - Use "you" and reference their specific traits
+2. **ADAPTS TO THEIR LEARNING STYLE** - Structure content to match their preferences
+3. **CONNECTS TO THEIR INTERESTS** - Use analogies and examples from their interest areas
+4. **MATCHES THEIR EXPERTISE LEVEL** - Adjust complexity and depth accordingly
+5. **REFLECTS THEIR PERSONALITY** - Mirror their preferred tone (formal/casual/enthusiastic)
+6. **CONSIDERS THEIR SCHEDULE** - Organize content for their study patterns
+
+REQUIREMENTS:
+- Create 4-6 comprehensive chapters (NOT just 3 short ones)
+- Each chapter must have 2-4 detailed subsections
+- Each subsection must contain AT LEAST 200 words of rich, personalized content
+- Include specific examples that relate to the user's interests
+- Add personal touches like "Since you're interested in [interest]..." or "As someone who prefers [style]..."
+- Make connections between concepts and the user's background/role
+
+OUTPUT FORMAT (JSON):
 {{
-    "title": "Engaging personalized title",
-    "courseName": "Course name if applicable",
+    "title": "[Personalized title that speaks to the user - e.g., 'Docker Mastery for the Night Owl Developer']",
+    "courseName": "[Course name]",
     "chapters": [
         {{
-            "chapterTitle": "Chapter title",
+            "chapterTitle": "[Chapter title that resonates with user]",
             "subsections": [
                 {{
-                    "title": "Section title",
-                    "fullText": "The complete personalized content for this section, with explanations tailored to the user's profile"
-                }}
+                    "title": "[Engaging subsection title]",
+                    "fullText": "[MINIMUM 200 words of deeply personalized content that directly addresses the user, uses their name if provided, references their interests, adapts to their learning style, and makes the content feel like it was written specifically for them. Include relevant examples from their field of interest.]"
+                }},
+                // 2-4 subsections per chapter
             ]
-        }}
+        }},
+        // 4-6 chapters total
     ]
 }}
 
-Make sure the content is accurate, engaging, and tailored to the user's profile. Each subsection should contain comprehensive content."""
+IMPORTANT: This is about creating a CONNECTION with the learner. Don't just explain concepts - make them feel like this content was crafted specifically for THEM."""
     
     try:
         # Call OpenAI API
         response = openai_client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[
-                {"role": "system", "content": "You are an expert educational content personalizer."},
+                {"role": "system", "content": "You are an expert educational content personalizer who creates deeply engaging, personalized learning experiences. You excel at understanding learner profiles and adapting content to create meaningful connections."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7,
+            temperature=0.8,
             max_tokens=4000
         )
         
@@ -338,7 +356,12 @@ CORS(app, supports_credentials=True, origins='*', allow_headers=['Content-Type',
 app.config['TESTING'] = False
 
 cred = credentials.Certificate(os.getenv("FIREBASE_KEY_PATH", "firebaseKey.json"))
-firebase_admin.initialize_app(cred)
+# Check if Firebase app is already initialized to prevent duplicate initialization
+try:
+    firebase_admin.get_app()
+except ValueError:
+    # Firebase app doesn't exist, so initialize it
+    firebase_admin.initialize_app(cred)
 
 # Import the enhanced database connection module
 from db.connection import engine, get_db_session, with_db_retry, execute_with_retry
