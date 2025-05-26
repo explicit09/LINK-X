@@ -1,0 +1,4 @@
+
+# Environment variables
+.env
+set_aws_env.sh
