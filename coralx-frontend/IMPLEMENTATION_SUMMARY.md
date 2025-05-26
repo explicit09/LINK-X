@@ -129,7 +129,7 @@ const handleAskAI = async (material) => {
 1. **Prerequisites Check**
    ```bash
    # Backend running
-   curl http://localhost:8081/generatepersonalizedfilecontent
+   curl http://localhost:8080/generatepersonalizedfilecontent
    # Should return 401 (authentication required)
    
    # Frontend running

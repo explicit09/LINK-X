@@ -33,7 +33,7 @@ const CoursesList = ({
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const res = await fetch("http://localhost:8081/student/courses", {
+        const res = await fetch("http://localhost:8080/student/courses", {
           credentials: "include",
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);

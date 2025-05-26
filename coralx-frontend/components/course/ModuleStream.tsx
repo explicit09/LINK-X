@@ -16,7 +16,8 @@ import {
   Mic, 
   Trash2,
   Edit,
-  Plus
+  Plus,
+  FolderOpen
 } from "lucide-react";
 import { 
   DropdownMenu,
@@ -86,7 +87,7 @@ export function ModuleStream({
           ? `/student/courses/${courseId}/modules`
           : `/instructor/courses/${courseId}/modules`;
           
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${endpoint}`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
           method: 'GET',
           credentials: 'include',
         });
@@ -149,62 +150,62 @@ export function ModuleStream({
 
   // Separate effect to update materials in modules
   useEffect(() => {
-    if (!hasInitialized) return;
+    if (!hasInitialized || materials.length === 0) return;
     
     console.log('Updating materials in modules:', materials);
+    console.log('Current modules:', modules);
     
-    // If we have materials but no modules, create a default module
-    if (materials.length > 0 && modules.length === 0) {
-      console.log('Creating default module for materials');
-      setModules([{
-        id: 'default',
-        title: 'Course Materials',
-        materials: [...materials], // Include all materials immediately
-        isExpanded: true
-      }]);
-      return;
-    }
-    
-    // Group materials by module ID to avoid duplicates
+    // Group materials by module ID
     const moduleMap = new Map<string, Material[]>();
-    const seenMaterials = new Set<string>();
+    const unmatchedMaterials: Material[] = [];
     
     materials.forEach(material => {
-      // Skip duplicate materials
-      if (seenMaterials.has(material.id)) {
-        return;
-      }
-      seenMaterials.add(material.id);
-      
-      // Use the material's moduleId, or assign to first available module or default
-      let moduleId = material.moduleId;
-      
-      // If no moduleId, assign to first existing module or default
-      if (!moduleId) {
-        if (modules.length > 0) {
-          moduleId = modules[0].id;
+      if (material.moduleId) {
+        // Check if we have a module with this ID
+        const moduleExists = modules.some(m => m.id === material.moduleId);
+        if (moduleExists) {
+          if (!moduleMap.has(material.moduleId)) {
+            moduleMap.set(material.moduleId, []);
+          }
+          moduleMap.get(material.moduleId)!.push(material);
         } else {
-          moduleId = 'default';
+          // Module doesn't exist yet, save for later
+          unmatchedMaterials.push(material);
         }
+      } else {
+        unmatchedMaterials.push(material);
       }
-      
-      if (!moduleMap.has(moduleId)) {
-        moduleMap.set(moduleId, []);
-      }
-      moduleMap.get(moduleId)!.push(material);
     });
 
     // Update modules with their materials
     setModules(prevModules => {
+      if (prevModules.length === 0 && materials.length > 0) {
+        // No modules exist, create a default one with all materials
+        return [{
+          id: 'default',
+          title: 'Course Materials',
+          materials: [...materials],
+          isExpanded: true
+        }];
+      }
+      
       const updatedModules = prevModules.map(module => ({
         ...module,
         materials: moduleMap.get(module.id) || []
       }));
       
+      // If we have unmatched materials, add them to the first module
+      if (unmatchedMaterials.length > 0 && updatedModules.length > 0) {
+        updatedModules[0] = {
+          ...updatedModules[0],
+          materials: [...updatedModules[0].materials, ...unmatchedMaterials]
+        };
+      }
+      
       console.log('Updated modules with materials:', updatedModules);
       return updatedModules;
     });
-  }, [materials, hasInitialized, modules.length]);
+  }, [materials, hasInitialized]);
 
   // File upload functionality
   const acceptedTypes = {
@@ -281,7 +282,7 @@ export function ModuleStream({
       
       if (userRole === 'student') {
         // For students, use the course upload endpoint but include moduleId
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}/student/courses/${courseId}/files`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/student/courses/${courseId}/files`, {
           method: 'POST',
           body: formData,
           credentials: 'include',
@@ -294,7 +295,7 @@ export function ModuleStream({
         result = await response.json();
       } else {
         // For instructors, upload directly to the module
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}/instructor/modules/${moduleId}/files/upload`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/instructor/modules/${moduleId}/files/upload`, {
           method: 'POST',
           body: formData,
           credentials: 'include',
@@ -310,15 +311,15 @@ export function ModuleStream({
       // Create new material object with proper module association
       const newMaterial: Material = {
         id: result.id || `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Ensure we have an ID
-        title: file.name,
+        title: result.title || file.name,
         type: file.type.includes('pdf') ? 'pdf' : 
               file.type.includes('audio') ? 'audio' : 
               file.type.includes('video') ? 'video' : 'document',
-        size: formatFileSize(file.size),
+        size: formatFileSize(result.file_size || file.size),
         uploadedAt: new Date().toISOString(), // Use ISO string for better persistence
         processed: true,
-        moduleId: moduleId,
-        moduleName: modules.find(m => m.id === moduleId)?.title || 'Course Materials'
+        moduleId: result.module_id || moduleId, // Use the module_id returned from backend
+        moduleName: modules.find(m => m.id === (result.module_id || moduleId))?.title || 'Course Materials'
       };
 
       console.log('Created new material:', newMaterial);
@@ -402,9 +403,7 @@ export function ModuleStream({
         - Materials without moduleId: ${materialsWithoutModuleId.length}
         - Materials currently in modules: ${totalMaterialsInModules}`);
       
-      if (materialsWithoutModuleId.length > 0) {
-        console.warn('Some materials are missing moduleId - this suggests backend is not properly associating files with modules:', materialsWithoutModuleId);
-      }
+      // Removed warning - files without moduleId are handled by the backend's "Student Uploads" module
       
       if (totalMaterialsInModules === 0) {
         console.log('Materials exist but not visible in modules, forcing update');
@@ -451,7 +450,7 @@ export function ModuleStream({
         ? `/student/courses/${courseId}/modules`
         : `/instructor/courses/${courseId}/modules`;
         
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${endpoint}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -520,7 +519,7 @@ export function ModuleStream({
       console.log(`Attempting to update module ${moduleId} title to: "${newModuleTitle.trim()}"`);
       
       // Try PUT method (most RESTful for updates)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${endpoint}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -612,7 +611,7 @@ export function ModuleStream({
         ? `/student/modules/${moduleId}`
         : `/instructor/modules/${moduleId}`;
         
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${endpoint}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -637,7 +636,7 @@ export function ModuleStream({
                   ? `/student/courses/${courseId}/modules`
                   : `/instructor/courses/${courseId}/modules`;
                   
-                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${endpoint}`, {
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
@@ -713,7 +712,7 @@ export function ModuleStream({
         ? `/student/files/${materialId}`
         : `/instructor/files/${materialId}`;
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081'}${endpoint}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -1050,6 +1049,13 @@ export function ModuleStream({
                               </span>
                               <span className="text-gray-400 whitespace-nowrap">
                                 {formatUploadTime(material.uploadedAt)}
+                              </span>
+                            </div>
+                            {/* Module association - Always show module title */}
+                            <div className="mt-1 text-xs text-gray-400">
+                              <span className="inline-flex items-center gap-1">
+                                <FolderOpen className="h-3 w-3" />
+                                {module.title}
                               </span>
                             </div>
                           </div>

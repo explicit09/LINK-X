@@ -124,7 +124,10 @@ class File(Base):
     filename = Column(String, nullable=False)
     file_type = Column(String, nullable=False)
     file_size = Column(Integer, nullable=False)
-    file_data = Column(BYTEA, nullable=False)
+    file_data = Column(BYTEA, nullable=True)  # Now nullable for S3 storage
+    s3_key = Column(String(512), nullable=True)
+    s3_bucket = Column(String(255), nullable=True)
+    storage_type = Column(String(20), nullable=False, default='database')
     transcription = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     index_pkl   = Column(BYTEA, nullable=True)

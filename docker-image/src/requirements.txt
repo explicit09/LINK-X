@@ -23,3 +23,5 @@ pytest
 unstructured[pdf, docx, pptx]
 python-docx
 python-pptx
+boto3>=1.26.0
+botocore>=1.29.0

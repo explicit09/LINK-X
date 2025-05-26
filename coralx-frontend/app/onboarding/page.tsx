@@ -35,7 +35,7 @@ import {
 import { toast } from "sonner";
 import { userAPI } from "@/lib/api";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8081';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 interface FormData {
   firstName: string;

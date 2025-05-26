@@ -101,7 +101,7 @@ const Sidebar = ({
 
   const fetchOnboarding = async (): Promise<OnboardingData | null> => {
     try {
-      const res = await fetch("http://localhost:8081/onboarding", {
+      const res = await fetch("http://localhost:8080/onboarding", {
         method: "GET",
         credentials: "include",
       });
@@ -143,9 +143,9 @@ const Sidebar = ({
       try {
         let url = "";
         if (pfId) {
-          url = `http://localhost:8081/student/personalized-files/${pfId}`;
+          url = `http://localhost:8080/student/personalized-files/${pfId}`;
         } else if (courseId) {
-          url = `http://localhost:8081/courses/${courseId}`;
+          url = `http://localhost:8080/courses/${courseId}`;
         } else {
           console.warn("No courseId or pfId provided.");
           return;

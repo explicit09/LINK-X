@@ -370,6 +370,10 @@ def get_modules_by_course(db: Session, course_id):
 
 
 def create_module(db: Session, course_id: str, title: str):
+    # Convert course_id to UUID if it's a string
+    if isinstance(course_id, str):
+        course_id = uuid.UUID(course_id)
+    
     max_ord = db.query(func.max(Module.ordering)).filter(Module.course_id == course_id).scalar() or 0
     m = Module(
         course_id=course_id,
@@ -428,6 +432,11 @@ def get_files_without_raw_by_module(db: Session, module_id):
         select(
             File.id.label("id"),
             File.title.label("title"),
+            File.filename.label("filename"),
+            File.file_type.label("file_type"),
+            File.file_size.label("file_size"),
+            File.module_id.label("module_id"),
+            File.created_at.label("created_at"),
             File.ordering.label("ordering"),
         )
         .filter_by(module_id=module_id)
@@ -437,7 +446,12 @@ def get_files_without_raw_by_module(db: Session, module_id):
 
 
 def create_file(db: Session, module_id: str, title: str, filename: str,
-                file_type: str, file_size: int, file_data: bytes):
+                file_type: str, file_size: int, file_data: bytes = None,
+                s3_key: str = None, s3_bucket: str = None, storage_type: str = 'database'):
+    # Convert module_id to UUID if it's a string
+    if isinstance(module_id, str):
+        module_id = uuid.UUID(module_id)
+    
     max_ord = db.query(func.max(File.ordering)).filter(File.module_id == module_id).scalar() or 0
     f = File(
         module_id=module_id,
@@ -446,6 +460,9 @@ def create_file(db: Session, module_id: str, title: str, filename: str,
         file_type=file_type,
         file_size=file_size,
         file_data=file_data,
+        s3_key=s3_key,
+        s3_bucket=s3_bucket,
+        storage_type=storage_type,
         ordering=max_ord + 1
     )
     db.add(f)
@@ -459,7 +476,8 @@ def update_file(db: Session, file_id: str, **kwargs):
         return None
     for key in (
         'title','filename','file_type','file_size','file_data',
-        'transcription','index_pkl','index_faiss','ordering'
+        'transcription','index_pkl','index_faiss','ordering',
+        's3_key','s3_bucket','storage_type'
     ):
         if key in kwargs:
             setattr(f, key, kwargs[key])

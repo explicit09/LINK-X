@@ -34,6 +34,19 @@ const nextConfig: NextConfig = {
   
   // Bundle optimization
   webpack: (config, { dev, isServer }) => {
+    // Suppress Next.js dev server CORS warnings
+    if (dev && !isServer) {
+      config.devServer = {
+        ...config.devServer,
+        client: {
+          overlay: {
+            warnings: false,
+            errors: true,
+          },
+        },
+      };
+    }
+    
     // Optimize bundle splitting
     if (!dev && !isServer) {
       config.optimization.splitChunks = {

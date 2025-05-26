@@ -35,7 +35,7 @@ export default function AccessCodePopup({ open, onClose, onSuccess }: Props) {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const res = await fetch("http://localhost:8081/student/enrollments", {
+      const res = await fetch("http://localhost:8080/student/enrollments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

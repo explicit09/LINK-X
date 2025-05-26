@@ -181,8 +181,8 @@ setRecentActivity(realActivities);  // No more "Uploaded assignment solution"
 3. **Activity Logging**: View materials and use "Ask AI" - activity gets tracked in database
 4. **API Endpoints**: Test the new endpoints directly:
    ```bash
-   curl -X GET "http://localhost:8081/student/dashboard/stats" --cookie-jar cookies.txt
-   curl -X GET "http://localhost:8081/student/courses/{courseId}/progress" --cookie-jar cookies.txt
+   curl -X GET "http://localhost:8080/student/dashboard/stats" --cookie-jar cookies.txt
+   curl -X GET "http://localhost:8080/student/courses/{courseId}/progress" --cookie-jar cookies.txt
    ```
 
 ### Expected Behavior:
