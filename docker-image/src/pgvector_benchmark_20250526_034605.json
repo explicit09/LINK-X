@@ -1,0 +1,28 @@
+{
+  "metrics": {
+    "total_queries": 100,
+    "avg_query_time_ms": 222.7635622024536,
+    "median_query_time_ms": 162.84406185150146,
+    "p95_query_time_ms": 525.7400512695311,
+    "p99_query_time_ms": 795.962927341464,
+    "min_query_time_ms": 62.73674964904785,
+    "max_query_time_ms": 1353.2989025115967,
+    "avg_results_returned": 0,
+    "timestamp": "2025-05-26T03:46:05.316397"
+  },
+  "health": {
+    "table_stats": {
+      "total_chunks": 0,
+      "unique_courses": 0,
+      "unique_files": 0,
+      "table_size": "0 bytes"
+    },
+    "vector_indexes": 0,
+    "has_indexes": false
+  },
+  "suggestions": [
+    "Consider increasing work_mem to at least 256MB for better vector operations",
+    "Current ivfflat.probes: 1 (default is 1, consider 10-50 for better recall)",
+    "Current hnsw.ef_search: 40 (default is 64, consider 100-500 for better recall)"
+  ]
+}

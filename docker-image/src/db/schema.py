@@ -86,8 +86,6 @@ class Course(Base):
     published = Column(Boolean, nullable=False, default=False)
     last_updated = Column(DateTime, nullable=False, default=datetime.utcnow)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    index_pkl = Column(BYTEA)
-    index_faiss = Column(BYTEA)
     instructor_id = Column(UUID(as_uuid=True),
                            ForeignKey('InstructorProfile.user_id', ondelete='SET NULL'),
                            nullable=True)
@@ -130,8 +128,6 @@ class File(Base):
     storage_type = Column(String(20), nullable=False, default='database')
     transcription = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    index_pkl   = Column(BYTEA, nullable=True)
-    index_faiss = Column(BYTEA, nullable=True)
     ordering = Column(Integer, nullable=False, default=0)
     view_count_raw = Column(Integer, nullable=False, default=0)
     view_count_personalized = Column(Integer, nullable=False, default=0)
@@ -153,6 +149,8 @@ class FileChunk(Base):
                        ForeignKey('Course.id', ondelete='CASCADE'),
                        nullable=False)
     chunk_index = Column(Integer, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    chunk_metadata = Column(JSONB, nullable=True)
 
     __table_args__ = (
         UniqueConstraint('file_id', 'chunk_index', name='uq_filechunk_file_index'),

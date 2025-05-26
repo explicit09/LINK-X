@@ -42,8 +42,8 @@ EXPOSE 8080
 # Install additional dependencies
 RUN pip install -U Flask flask-cors types-flask-cors
 
-# Install FAISS (CPU version)
-RUN pip install faiss-cpu
+# Install pgvector
+RUN pip install pgvector
 
 # Set the entry point to run migrations and then start the app
 ENTRYPOINT ["/run_migrations.sh"]

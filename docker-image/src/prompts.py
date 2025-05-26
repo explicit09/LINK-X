@@ -3,7 +3,7 @@ import os
 from flask import json
 from openai import OpenAI
 from dotenv import load_dotenv, find_dotenv
-from FAISS_retriever import answer_to_QA, answer_to_QA_all_chunks
+from app import retrieve_chunks_pgvector
 
 load_dotenv(find_dotenv())
 
@@ -70,13 +70,30 @@ def prompt2_generate_course_outline_RAG(working_dir, expertise):
     """
     )
 
-    response = answer_to_QA(query, working_dir)
-
-    # .choices[0].message.content.strip() already done in FAISS_retriever
-    return response
+    from db.database import SessionLocal
+    db = SessionLocal()
+    try:
+        from textUtils import openai_embed_text
+        query_embedding = openai_embed_text([query])[0]
+        
+        chunks = retrieve_chunks_pgvector(db, query_embedding, course_id=None, limit=20)
+        
+        context = "\n\n".join([chunk["content"] for chunk in chunks])
+        
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are an educational assistant creating course outlines."},
+                {"role": "user", "content": f"Based on this content:\n\n{context}\n\n{query}"}
+            ],
+            temperature=0
+        )
+        return response.choices[0].message.content.strip()
+    finally:
+        db.close()
 
 def prompt2_generate_course_outline(topic, expertise):
-    # “I’m a sophomore in finance and I want to learn about investing”
+    # "I'm a sophomore in finance and I want to learn about investing"
     system_query = ( 
     """
     You are an AI assistant generating an educational course outline.
@@ -166,8 +183,28 @@ def prompt_generate_personalized_file_content(working_dir, persona):
     """
     )
 
-    JSON_response = answer_to_QA_all_chunks(rag_query, working_dir)
-    print(JSON_response)
+    from db.database import SessionLocal
+    db = SessionLocal()
+    try:
+        from textUtils import openai_embed_text
+        query_embedding = openai_embed_text([rag_query])[0]
+        
+        chunks = retrieve_chunks_pgvector(db, query_embedding, course_id=None, limit=30)
+        
+        all_content = "\n\n".join([chunk["content"] for chunk in chunks])
+        
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are an educational content organizer."},
+                {"role": "user", "content": f"{rag_query}\n\nHere is the content to organize:\n\n{all_content}"}
+            ],
+            temperature=0
+        )
+        JSON_response = response.choices[0].message.content.strip()
+        print(JSON_response)
+    finally:
+        db.close()
 
     personalization_query = (
     f"""
@@ -179,9 +216,9 @@ def prompt_generate_personalized_file_content(working_dir, persona):
     - A **fullText** field containing the original explanation
 
     You will also receive:
-    - A description of the **user’s persona**
+    - A description of the **user's persona**
 
-    **Your task is to revise ONLY the fullText fields to match the user’s tone and background preferences.**
+    **Your task is to revise ONLY the fullText fields to match the user's tone and background preferences.**
 
     **INSTRUCTIONS**
     1. You must **retain the original explanation and meaning** in every subsection.

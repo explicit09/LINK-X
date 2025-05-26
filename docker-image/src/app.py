@@ -5,10 +5,7 @@ load_dotenv()  # Load environment variables before other imports
 import uuid
 import tempfile
 import pickle
-import faiss
 import numpy as np
-import tempfile
-import shutil
 import json
 from datetime import datetime, timedelta
 from flask import Flask, jsonify, request, Response
@@ -17,10 +14,10 @@ import firebase_admin
 from firebase_admin import auth, credentials
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from src.db.schema import Base, File, Module, PersonalizedFile, Todo
+from src.db.schema import Base, File, Module, PersonalizedFile, Todo, FileChunk
 from openai import OpenAI
 from src.transcriber import transcribe_audio
-from src.indexer import rebuild_course_index, rebuild_file_index, store_file_embeddings
+from src.indexer import store_file_embeddings
 from io import BytesIO
 from src.textUtils import openai_embed_text
 
@@ -62,10 +59,113 @@ import time
 #     prompt_generate_personalized_file_content
 # )
 
-# from FAISS_db_generation import create_database, generate_citations, replace_sources, file_cleanup
-
 # Initialize Flask app
 app = Flask(__name__)
+
+# Initialize OpenAI client
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def retrieve_chunks_pgvector(db_session, query_embedding, course_id=None, file_id=None, limit=15, similarity_threshold=0.3):
+    """
+    Retrieve relevant chunks using pgvector with proper CTE optimization.
+    
+    Args:
+        db_session: SQLAlchemy session
+        query_embedding: Query embedding vector
+        course_id: Optional course ID filter
+        file_id: Optional file ID filter
+        limit: Number of results to return
+        similarity_threshold: Minimum similarity score
+    
+    Returns:
+        List of (chunk, similarity_score) tuples
+    """
+    # Convert numpy array to list for PostgreSQL
+    if isinstance(query_embedding, np.ndarray):
+        query_embedding = query_embedding.tolist()
+    
+    # Build query with CTE for optimization
+    query = """
+    WITH q AS (SELECT :query_vec::vector AS v)
+    SELECT 
+        fc.content,
+        fc.chunk_index,
+        fc.chunk_metadata,
+        f.title as file_title,
+        f.filename,
+        m.title as module_title,
+        1 - (fc.embedding <=> q.v) AS similarity
+    FROM q
+    JOIN "FileChunk" fc ON TRUE
+    JOIN "File" f ON fc.file_id = f.id
+    JOIN "Module" m ON f.module_id = m.id
+    WHERE 1=1
+    """
+    
+    params = {"query_vec": query_embedding}
+    
+    if course_id:
+        query += " AND fc.course_id = :course_id"
+        params["course_id"] = course_id
+        
+    if file_id:
+        query += " AND fc.file_id = :file_id"
+        params["file_id"] = file_id
+        
+    query += """
+    AND 1 - (fc.embedding <=> q.v) > :similarity_threshold
+    ORDER BY fc.embedding <=> q.v
+    LIMIT :limit
+    """
+    
+    params["similarity_threshold"] = similarity_threshold
+    params["limit"] = limit
+    
+    result = db_session.execute(text(query), params)
+    
+    chunks = []
+    for row in result:
+        chunk_data = {
+            "content": row.content,
+            "chunk_index": row.chunk_index,
+            "metadata": row.chunk_metadata or {},
+            "file_title": row.file_title,
+            "filename": row.filename,
+            "module_title": row.module_title,
+            "similarity": row.similarity
+        }
+        chunks.append(chunk_data)
+    
+    return chunks
+
+def generate_personalized_content_pgvector(db_session, file_id, persona):
+    """
+    Generate personalized content using pgvector retrieval.
+    """
+    # This is a placeholder - you'll need to implement the actual logic
+    # based on your prompt templates
+    
+    # For now, return a simple structure
+    file = get_file_by_id(db_session, file_id)
+    if not file:
+        raise ValueError("File not found")
+    
+    # Get some chunks from the file
+    chunks = db_session.query(FileChunk).filter_by(file_id=file_id).limit(10).all()
+    
+    content = {
+        "title": file.title,
+        "sections": []
+    }
+    
+    for i, chunk in enumerate(chunks):
+        content["sections"].append({
+            "title": f"Section {i+1}",
+            "content": chunk.content[:200] + "...",  # Truncate for now
+            "explanation": f"This section is personalized for someone who {persona}"
+        })
+    
+    return json.dumps(content)
 
 # Cache control decorator for GET endpoints
 def cache_response(max_age=300, private=True):
@@ -816,7 +916,16 @@ def student_files(module_id):
         return jsonify({'error': 'Forbidden'}), 403
     files = get_files_by_module(db, module_id)
     db.close()
-    return jsonify([{'id': str(f.id), 'title': f.title} for f in files]), 200
+    return jsonify([{
+        'id': str(f.id), 
+        'title': f.title,
+        'filename': f.filename,
+        'file_type': f.file_type,
+        'file_size': f.file_size,
+        'module_id': str(f.module_id),
+        'moduleName': m.title,
+        'created_at': f.created_at.isoformat() if f.created_at else None
+    } for f in files]), 200
 
 @app.route('/student/personalized-files', methods=['GET'])
 @cache_response(max_age=60, private=True)
@@ -864,50 +973,29 @@ def generate_personalized_file_content():
         persona.append(f"they study best **{profile['schedule']}**")
     full_persona = ". ".join(persona)
 
-    # Fetch FAISS data from DB
+    # Use pgvector for retrieval
     db_session = Session()
     try:
         file = get_file_by_id(db_session, file_id)
         if not file:
             return jsonify({"error": "File not found"}), 404
             
-        faiss_bytes = file.index_faiss
-        pkl_bytes = file.index_pkl
-        
-        # Check if FAISS indexing is complete
-        if faiss_bytes is None or pkl_bytes is None:
+        # Check if file has been processed
+        chunk_count = db_session.query(FileChunk).filter_by(file_id=file_id).count()
+        if chunk_count == 0:
             return jsonify({
                 "error": "PROCESSING", 
                 "message": "File is still being processed for AI features. Please try again in a moment."
             }), 202  # 202 Accepted - indicates processing is still in progress
             
-        # Create temp directory
-        tmp_root = tempfile.mkdtemp(prefix=f"faiss_tmp_{file_id}_")
-        tmp_idx_dir = os.path.join(tmp_root, "faiss_index")
-        os.makedirs(tmp_idx_dir, exist_ok=True) 
-            
-    except Exception as e:
-        print(f"Error fetching file for ID {file_id}: {e}")
-        return jsonify({"error": "Failed to fetch file data"}), 500
-    finally:
-        db_session.close()
-
-    try:
-        with open(os.path.join(tmp_idx_dir, "index.faiss"), "wb") as idx_faiss:
-            idx_faiss.write(faiss_bytes)
-        with open(os.path.join(tmp_idx_dir, "index.pkl"), "wb") as idx_pkl:
-            idx_pkl.write(pkl_bytes)
-
-        # Generate response using the temp directory
-        response = prompt_generate_personalized_file_content(tmp_idx_dir, full_persona)
+        # Generate response using pgvector retrieval
+        response = generate_personalized_content_pgvector(db_session, file_id, full_persona)
+        
         # Verify JSON is valid
         try:
             response_json = json.loads(response)
         except (ValueError, AttributeError, IndexError) as e:
             return jsonify({"error": "Invalid JSON returned from AI response", "details": str(e)}), 400
-
-        # Recursively remove temp directory
-        shutil.rmtree(tmp_root)
             
         # Save personalized file to DB
         db = Session()
@@ -925,12 +1013,6 @@ def generate_personalized_file_content():
         return jsonify({ "id": str(saved_file.id), "content": response_json}), 200
     
     except Exception as e:
-        # Clean up temp directory if it exists
-        if 'tmp_root' in locals():
-            try:
-                shutil.rmtree(tmp_root)
-            except:
-                pass
         return jsonify({"error": str(e)}), 500
 
 @app.route('/student/personalized-files/<pf_id>', methods=['GET', 'DELETE'])
@@ -1319,16 +1401,27 @@ def ai_chat():
 
 @app.route('/courses/<course_id>/citations', methods=['GET'])
 def citations_route(course_id):
-    course = get_course_by_id(Session(), course_id)
-    if not course.index_pkl:
-        return jsonify({'error':'No index built'}), 404
-    metadata = pickle.loads(course.index_pkl)
-    citations = [
-      {'source': md.get('source','Unknown'),
-       'citation': f"Mock APA Citation for {md.get('filename')}"}
-      for md in metadata.values()
-    ]
-    return jsonify({'citations': citations}), 200
+    db = Session()
+    try:
+        course = get_course_by_id(db, course_id)
+        if not course:
+            return jsonify({'error': 'Course not found'}), 404
+            
+        # Get all files in the course
+        modules = get_modules_by_course(db, course_id)
+        citations = []
+        
+        for module in modules:
+            files = get_files_by_module(db, module.id)
+            for file in files:
+                citations.append({
+                    'source': file.filename,
+                    'citation': f"Mock APA Citation for {file.filename}"
+                })
+        
+        return jsonify({'citations': citations}), 200
+    finally:
+        db.close()
 
 @app.route('/sessionLogin', methods=['POST'])
 def session_login():
@@ -2756,6 +2849,7 @@ def student_manage_file(file_id):
             'file_type': f.file_type,
             'file_size': f.file_size,
             'module_id': str(f.module_id),
+            'moduleName': mod.title,
             'created_at': f.created_at.isoformat() if f.created_at else None
             }
             return jsonify(response), 200
@@ -2776,6 +2870,7 @@ def student_manage_file(file_id):
             'file_type': updated_file.file_type,
             'file_size': updated_file.file_size,
             'module_id': str(updated_file.module_id),
+            'moduleName': mod.title,
             'created_at': updated_file.created_at.isoformat() if updated_file.created_at else None
             }), 200
 
@@ -2846,7 +2941,7 @@ def instructor_course_modules(course_id):
     finally:
         db.close()
 
-@app.route('/instructor/modules/<module_id>', methods=['GET', 'PATCH', 'DELETE'])
+@app.route('/instructor/modules/<module_id>', methods=['GET', 'PATCH', 'PUT', 'DELETE'])
 def instructor_manage_module(module_id):
     """Handle individual module management for instructors"""
     user_id, err = verify_instructor()
@@ -2873,7 +2968,7 @@ def instructor_manage_module(module_id):
                 'ordering': module.ordering
             }), 200
             
-        elif request.method == 'PATCH':
+        elif request.method in ['PATCH', 'PUT']:
             data = request.get_json() or {}
             allowed_fields = ['title', 'ordering']
             update_data = {k: v for k, v in data.items() if k in allowed_fields}
@@ -2927,6 +3022,8 @@ def instructor_module_files(module_id):
                 'filename': f.filename,
                 'file_type': f.file_type,
                 'file_size': f.file_size,
+                'module_id': str(f.module_id),
+                'moduleName': module.title,
                 'created_at': f.created_at.isoformat() if f.created_at else None,
                 'view_count_raw': f.view_count_raw,
                 'view_count_personalized': f.view_count_personalized
@@ -2988,6 +3085,8 @@ def instructor_module_files(module_id):
                 'filename': file_obj.filename,
                 'file_type': file_obj.file_type,
                 'file_size': file_obj.file_size,
+                'module_id': str(file_obj.module_id),
+                'moduleName': module.title,
                 'storage_type': file_obj.storage_type,
                 'created_at': file_obj.created_at.isoformat() if file_obj.created_at else None
             }), 201
@@ -3034,6 +3133,7 @@ def instructor_manage_file(file_id):
                 'file_type': file_obj.file_type,
                 'file_size': file_obj.file_size,
                 'module_id': str(file_obj.module_id),
+                'moduleName': module.title,
                 'created_at': file_obj.created_at.isoformat() if file_obj.created_at else None,
                 'view_count_raw': file_obj.view_count_raw,
                 'view_count_personalized': file_obj.view_count_personalized
@@ -3056,6 +3156,7 @@ def instructor_manage_file(file_id):
                 'file_type': updated_file.file_type,
                 'file_size': updated_file.file_size,
                 'module_id': str(updated_file.module_id),
+                'moduleName': module.title,
                 'created_at': updated_file.created_at.isoformat() if updated_file.created_at else None
             }), 200
             
