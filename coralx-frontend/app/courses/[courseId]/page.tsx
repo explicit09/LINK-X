@@ -216,8 +216,16 @@ export default function CoursePage() {
   const [newModuleTitle, setNewModuleTitle] = useState("");
   const [newModuleDescription, setNewModuleDescription] = useState("");
   const [isCreatingModule, setIsCreatingModule] = useState(false);
+  
+  // Edit module state
+  const [editModuleDialogOpen, setEditModuleDialogOpen] = useState(false);
+  const [moduleToEdit, setModuleToEdit] = useState<Module | null>(null);
+  const [editModuleTitle, setEditModuleTitle] = useState("");
+  const [editModuleDescription, setEditModuleDescription] = useState("");
+  const [isUpdatingModule, setIsUpdatingModule] = useState(false);
   const [courseDeleteDialogOpen, setCourseDeleteDialogOpen] = useState(false);
   const [isDeletingCourse, setIsDeletingCourse] = useState(false);
+  const [uploadModuleId, setUploadModuleId] = useState<string | undefined>(undefined);
   
   // P2: Search and filter state
   const [searchQuery, setSearchQuery] = useState("");
@@ -879,6 +887,63 @@ export default function CoursePage() {
       sonnerToast.error("Failed to delete file. Please try again.");
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // Function to handle module editing
+  const handleEditModule = (module: Module) => {
+    setModuleToEdit(module);
+    setEditModuleTitle(module.title);
+    setEditModuleDescription(module.description || "");
+    setEditModuleDialogOpen(true);
+  };
+
+  // Function to confirm module update
+  const confirmUpdateModule = async () => {
+    if (!moduleToEdit || !editModuleTitle.trim()) return;
+    
+    setIsUpdatingModule(true);
+    
+    try {
+      const moduleId = moduleToEdit.id;
+      const updateData = {
+        title: editModuleTitle.trim(),
+        description: editModuleDescription.trim() || undefined
+      };
+      
+      // Determine which API to use based on user role
+      const api = currentUser?.role === 'instructor' ? instructorAPI : studentAPI;
+      
+      const response = await api.updateModule(courseId as string, moduleId, updateData);
+      
+      if (response.ok) {
+        // Update the module in the local state
+        setModules(prevModules => 
+          prevModules.map(m => 
+            m.id === moduleId ? {
+              ...m,
+              title: editModuleTitle.trim(),
+              description: editModuleDescription.trim() || undefined
+            } : m
+          )
+        );
+        
+        // Close the dialog and reset state
+        setEditModuleDialogOpen(false);
+        setModuleToEdit(null);
+        setEditModuleTitle("");
+        setEditModuleDescription("");
+        
+        sonnerToast.success("Module updated successfully");
+      } else {
+        const errorData = await response.json();
+        sonnerToast.error(errorData.error || "Failed to update module. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error updating module:", error);
+      sonnerToast.error("Failed to update module. Please try again.");
+    } finally {
+      setIsUpdatingModule(false);
     }
   };
 
@@ -1711,8 +1776,7 @@ export default function CoursePage() {
                             <EnterpriseModuleCard
                               key={module.id}
                               module={{
-                                ...module,
-                                weekNumber: index + 1
+                                ...module
                               }}
                               onToggle={toggleModule}
                               onViewMaterial={handleViewMaterial}
@@ -1720,6 +1784,7 @@ export default function CoursePage() {
                               onAskAI={handleAskAI}
                               onDeleteFile={handleDeleteFile}
                               onDeleteModule={handleDeleteModule}
+                              onEditModule={handleEditModule}
                               selectedFiles={selectedFiles}
                               onSelectFile={handleSelectFile}
                               onBulkAction={handleBulkAction}
@@ -2092,15 +2157,35 @@ export default function CoursePage() {
             </DialogDescription>
           </DialogHeader>
           
+          <div className="mb-4">
+            <label htmlFor="module-select" className="text-sm font-medium text-gray-700 block mb-2">
+              Select Module *
+            </label>
+            <select
+              id="module-select"
+              className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#7B61FF]"
+              value={uploadModuleId || ""}
+              onChange={(e) => setUploadModuleId(e.target.value || undefined)}
+            >
+              <option value="">Select a module</option>
+              {modules.map((module) => (
+                <option key={module.id} value={module.id}>
+                  {module.title}
+                </option>
+              ))}
+            </select>
+          </div>
+          
           {useAdvancedUpload && currentUser?.role === 'student' ? (
             <StudentCourseUpload
               courseId={courseId}
-              moduleId={selectedModuleId}
+              moduleId={uploadModuleId}
               onUploadComplete={handleUploadComplete}
             />
           ) : (
             <EnhancedFileUpload 
               courseId={courseId}
+              moduleId={uploadModuleId}
               userRole={currentUser?.role || 'student'}
               onUploadComplete={handleUploadComplete}
             />
@@ -2271,6 +2356,72 @@ export default function CoursePage() {
         isLoading={isDeletingModule}
       />
 
+      {/* Edit Module Dialog */}
+      <Dialog open={editModuleDialogOpen} onOpenChange={setEditModuleDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Module</DialogTitle>
+            <DialogDescription>
+              Update the module title and description.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="edit-module-title" className="text-sm font-medium text-gray-700 block mb-2">
+                Module Title *
+              </label>
+              <Input
+                id="edit-module-title"
+                value={editModuleTitle}
+                onChange={(e) => setEditModuleTitle(e.target.value)}
+                placeholder="e.g., Week 1: Introduction"
+                className="w-full"
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="edit-module-description" className="text-sm font-medium text-gray-700 block mb-2">
+                Description (optional)
+              </label>
+              <Input
+                id="edit-module-description"
+                value={editModuleDescription}
+                onChange={(e) => setEditModuleDescription(e.target.value)}
+                placeholder="Brief description of the module content"
+                className="w-full"
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-2 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setEditModuleDialogOpen(false)}
+              disabled={isUpdatingModule}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmUpdateModule}
+              disabled={isUpdatingModule || !editModuleTitle.trim()}
+              className="bg-[#7B61FF] hover:bg-[#6B51E5] text-white"
+            >
+              {isUpdatingModule ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
       {/* Create Module Dialog */}
       <Dialog open={createModuleDialogOpen} onOpenChange={setCreateModuleDialogOpen}>
         <DialogContent className="max-w-md">

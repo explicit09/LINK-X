@@ -70,8 +70,7 @@ import time
 # Initialize Flask app
 app = Flask(__name__)
 
-# Add CORS support
-CORS(app)
+# CORS will be configured below with detailed settings
 
 # Add database migration endpoint
 @app.route('/admin/migrate/add-module-description', methods=['POST'])
@@ -235,7 +234,7 @@ def cache_response(max_age=300, private=True):
 
 # Configure CORS to allow all origins during development
 # In production, this should be restricted to specific origins
-CORS(app, supports_credentials=True, origins='*', allow_headers=['Content-Type', 'Authorization'], expose_headers=['Content-Type'], methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
+CORS(app, supports_credentials=True, origins='*', allow_headers=['Content-Type', 'Authorization'], expose_headers=['Content-Type'], methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'])
 
 app.config['TESTING'] = False
 
@@ -604,11 +603,11 @@ def student_create_courses():
             access_code = uuid.uuid4().hex[:8]
             create_access_code(db, course_id=course.id, code=access_code)
             
-            # Create default "Week 1" module for new course
+            # Create default module for new course
             create_module(
                 db=db,
                 course_id=course.id,
-                title="Week 1 – Getting Started",
+                title="Getting Started",
                 description="Introduction to the course"
             )
             
@@ -685,11 +684,11 @@ def instructor_courses():
         access_code = uuid.uuid4().hex[:8]
         create_access_code(db, course_id=c.id, code=access_code)
         
-        # Create default "Week 1" module for new course
+        # Create default module for new course
         create_module(
             db=db,
             course_id=c.id,
-            title="Week 1 – Getting Started"
+            title="Getting Started"
         )
 
         db.close()
@@ -950,11 +949,9 @@ def student_manage_single_module(module_id):
             update_data = {k: v for k, v in data.items() if k in allowed_fields}
             
             if not update_data:
-                db.close()
                 return jsonify({'error': 'No valid fields to update'}), 400
                 
             updated_module = update_module(db, module_id, **update_data)
-            db.commit()
             
             return jsonify({
                 'id': str(updated_module.id),
@@ -3056,13 +3053,14 @@ def instructor_manage_module(module_id):
             return jsonify({
                 'id': str(module.id),
                 'title': module.title,
+                'description': module.description,
                 'course_id': str(module.course_id),
                 'ordering': module.ordering
             }), 200
             
         elif request.method in ['PATCH', 'PUT']:
             data = request.get_json() or {}
-            allowed_fields = ['title', 'ordering']
+            allowed_fields = ['title', 'description', 'ordering']
             update_data = {k: v for k, v in data.items() if k in allowed_fields}
             
             if not update_data:
@@ -3073,6 +3071,7 @@ def instructor_manage_module(module_id):
             return jsonify({
                 'id': str(updated_module.id),
                 'title': updated_module.title,
+                'description': updated_module.description,
                 'ordering': updated_module.ordering,
                 'course_id': str(updated_module.course_id)
             }), 200

@@ -398,6 +398,7 @@ def update_module(db: Session, module_id: str, **kwargs):
     if not m:
         return None
     if 'title' in kwargs: m.title = kwargs['title']
+    if 'description' in kwargs: m.description = kwargs['description']
     if 'ordering' in kwargs: m.ordering = kwargs['ordering']
     db.commit()
     db.refresh(m)

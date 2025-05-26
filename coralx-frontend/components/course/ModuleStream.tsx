@@ -409,18 +409,8 @@ export function ModuleStream({
   }, [materials, modules, hasInitialized]);
 
   const handleCreateModule = async () => {
-    // Smart module naming based on existing count
-    const moduleCount = modules.length;
-    const defaultNames = [
-      "Week 1 – Getting Started",
-      "Week 2 – Core Concepts", 
-      "Week 3 – Advanced Topics",
-      "Week 4 – Applications",
-      "Week 5 – Projects"
-    ];
-    const defaultTitle = moduleCount < defaultNames.length 
-      ? defaultNames[moduleCount]
-      : `Week ${moduleCount + 1} – New Topic`;
+    // Use a simple default title without week numbering
+    const defaultTitle = "New Module";
 
     console.log('Creating module:', defaultTitle);
     const createToast = toast.loading("Creating module...", {

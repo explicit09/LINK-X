@@ -262,6 +262,7 @@ export const studentAPI = {
   getCourseModules: (courseId: string) => api.get(`/student/courses/${courseId}/modules`),
   createModule: (courseId: string, data: any) => api.post(`/student/courses/${courseId}/modules`, data),
   getModule: (courseId: string, moduleId: string) => api.get(`/student/courses/${courseId}/modules/${moduleId}`),
+  updateModule: (courseId: string, moduleId: string, data: any) => api.patch(`/student/modules/${moduleId}`, data),
   getModuleFiles: (moduleId: string) => api.get(`/student/modules/${moduleId}/files`),
   
   // File operations
@@ -367,7 +368,9 @@ export const instructorAPI = {
   // Modules
   getCourseModules: (courseId: string) => api.get(`/instructor/courses/${courseId}/modules`),
   createModule: (courseId: string, data: any) => api.post(`/instructor/courses/${courseId}/modules`, data),
-  updateModule: (moduleId: string, data: any) => api.patch(`/instructor/modules/${moduleId}`, data),
+  updateModule: (courseId: string, moduleId: string, data: any) => {
+    return api.patch(`/instructor/modules/${moduleId}`, data);
+  },
   deleteModule: (moduleId: string) => api.delete(`/instructor/modules/${moduleId}`),
   
   // Files

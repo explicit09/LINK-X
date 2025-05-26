@@ -30,12 +30,13 @@ interface UploadFile {
 
 interface EnhancedFileUploadProps {
   courseId: string;
+  moduleId?: string;
   userRole?: 'student' | 'instructor' | 'admin';
   onUploadComplete?: (file: any) => void;
   className?: string;
 }
 
-export function EnhancedFileUpload({ courseId, userRole = 'student', onUploadComplete, className }: EnhancedFileUploadProps) {
+export function EnhancedFileUpload({ courseId, moduleId, userRole = 'student', onUploadComplete, className }: EnhancedFileUploadProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -115,6 +116,11 @@ export function EnhancedFileUpload({ courseId, userRole = 'student', onUploadCom
       const formData = new FormData();
       formData.append('file', uploadFile.file);
       formData.append('title', uploadFile.file.name);
+      
+      // Add module ID if provided
+      if (moduleId) {
+        formData.append('moduleId', moduleId);
+      }
       formData.append('description', `Uploaded by student: ${uploadFile.file.name}`);
       
       // Try student course file upload endpoint

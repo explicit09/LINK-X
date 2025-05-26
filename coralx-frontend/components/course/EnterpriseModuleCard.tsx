@@ -51,6 +51,7 @@ interface ModuleCardProps {
   onAskAI: (material: Material) => void;
   onDeleteFile?: (fileId: string, moduleId: string) => void;
   onDeleteModule?: (moduleId: string) => void;
+  onEditModule?: (module: any) => void;
   className?: string;
   selectedFiles?: Set<string>;
   onSelectFile?: (fileId: string, selected: boolean) => void;
@@ -65,6 +66,7 @@ export function EnterpriseModuleCard({
   onAskAI,
   onDeleteFile,
   onDeleteModule,
+  onEditModule,
   className,
   selectedFiles = new Set(),
   onSelectFile,
@@ -127,7 +129,7 @@ export function EnterpriseModuleCard({
 
             {/* Module Title and Progress */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-3 mb-1">
                 <h3 className="text-lg font-semibold text-gray-900 truncate">
                   {module.title}
                 </h3>
@@ -137,6 +139,13 @@ export function EnterpriseModuleCard({
                   </Badge>
                 )}
               </div>
+              
+              {/* Module Description */}
+              {module.description && (
+                <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                  {module.description}
+                </p>
+              )}
               
               {/* Progress Bar and Stats */}
               {module.materials.length > 0 && (
@@ -205,7 +214,7 @@ export function EnterpriseModuleCard({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => console.log('Edit module')}>
+                <DropdownMenuItem onClick={() => onEditModule?.(module)}>
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Module
                 </DropdownMenuItem>
