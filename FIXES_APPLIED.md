@@ -2,7 +2,7 @@
 
 ## 1. Removed ModuleId Warnings ✓
 - Removed the console warning about missing moduleId in `ModuleStream.tsx`
-- Files without moduleId are handled automatically by the backend's "Student Uploads" module
+- Files without moduleId now require explicit module creation (removed "Student Uploads" fallback)
 
 ## 2. Module Association Display ✓
 - Added module name display to each file card in `ModuleStream.tsx`

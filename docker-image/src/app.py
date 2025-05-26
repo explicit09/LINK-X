@@ -465,6 +465,14 @@ def student_create_courses():
             access_code = uuid.uuid4().hex[:8]
             create_access_code(db, course_id=course.id, code=access_code)
             
+            # Create default "Week 1" module for new course
+            create_module(
+                db=db,
+                course_id=course.id,
+                title="Week 1 – Getting Started",
+                ordering=0
+            )
+            
             # Enroll the student in their own course
             create_enrollment(db, user_id=user_id, course_id=course.id)
             
@@ -535,6 +543,14 @@ def instructor_courses():
 
         access_code = uuid.uuid4().hex[:8]
         create_access_code(db, course_id=c.id, code=access_code)
+        
+        # Create default "Week 1" module for new course
+        create_module(
+            db=db,
+            course_id=c.id,
+            title="Week 1 – Getting Started",
+            ordering=0
+        )
 
         db.close()
         return jsonify({'id': str(c.id), 'accessCode': access_code}), 201
@@ -1681,24 +1697,11 @@ def student_course_files_upload(course_id):
             else:
                 target_module = None  # Invalid module for this course
         
-        # Fallback: Find or create a default module for student uploads
+        # Fallback: If no module specified, require explicit module creation
         if not target_module:
-            course_modules = get_modules_by_course(db, course_id)
-            
-            # Look for a "Student Uploads" module
-            for module in course_modules:
-                if 'student' in module.title.lower() and 'upload' in module.title.lower():
-                    target_module = module
-                    break
-            
-            # If no student upload module exists, create one
-            if not target_module:
-                # Automatically create a "Student Uploads" module
-                target_module = create_module(
-                    db=db,
-                    course_id=course_id,
-                    title="Student Uploads"
-                )
+            return jsonify({
+                'error': 'No module specified. Please create a module first or specify a moduleId.'
+            }), 400
         
         # Read file content
         file_content = file.read()

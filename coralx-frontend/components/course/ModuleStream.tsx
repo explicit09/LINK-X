@@ -87,13 +87,17 @@ export function ModuleStream({
           ? `/student/courses/${courseId}/modules`
           : `/instructor/courses/${courseId}/modules`;
           
+        console.log('Loading modules from:', endpoint);
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
           method: 'GET',
           credentials: 'include',
         });
 
+        console.log('Modules API response:', response.status);
+
         if (response.ok) {
           const backendModules = await response.json();
+          console.log('Backend modules loaded:', backendModules);
           
           // Validate backend response
           if (!Array.isArray(backendModules)) {
@@ -111,34 +115,21 @@ export function ModuleStream({
               isExpanded: true // Default to expanded so users can see content
             }));
 
+          console.log('Setting modules:', moduleList);
           setModules(moduleList);
         } else if (response.status === 404) {
-          console.info('Modules endpoint not found, creating default module for materials');
-          // Create a default module if no backend modules exist
-          if (materials.length > 0) {
-            setModules([{
-              id: 'default',
-              title: 'Course Materials',
-              materials: [], // Will be populated when materials update
-              isExpanded: true
-            }]);
-          }
+          console.info('Modules endpoint not found - will handle in materials effect');
+          // Don't create modules here, let the materials effect handle it
+          setModules([]);
         } else {
           console.warn(`Modules API returned ${response.status}: ${response.statusText}`);
-          throw new Error(`Backend error: ${response.statusText}`);
+          // Don't throw error, just set empty modules and let materials effect handle it
+          setModules([]);
         }
       } catch (error) {
-        console.warn('Failed to load modules from backend, creating default module:', error);
-        
-        // Fallback to default module if API fails
-        if (materials.length > 0) {
-          setModules([{
-            id: 'default',
-            title: 'Course Materials',
-            materials: [], // Will be populated when materials update
-            isExpanded: true
-          }]);
-        }
+        console.warn('Failed to load modules from backend:', error);
+        // Don't create default module here, let the materials effect handle it
+        setModules([]);
       } finally {
         setIsLoading(false);
         setHasInitialized(true);
@@ -150,62 +141,77 @@ export function ModuleStream({
 
   // Separate effect to update materials in modules
   useEffect(() => {
-    if (!hasInitialized || materials.length === 0) return;
+    if (!hasInitialized) return;
     
     console.log('Updating materials in modules:', materials);
     console.log('Current modules:', modules);
     
-    // Group materials by module ID
-    const moduleMap = new Map<string, Material[]>();
-    const unmatchedMaterials: Material[] = [];
+    // If we have materials but no modules, create a default module
+    if (materials.length > 0 && modules.length === 0) {
+      console.log('Creating default module for materials without modules');
+      setModules([{
+        id: 'default',
+        title: 'Course Materials',
+        materials: [...materials],
+        isExpanded: true
+      }]);
+      return;
+    }
     
-    materials.forEach(material => {
-      if (material.moduleId) {
-        // Check if we have a module with this ID
-        const moduleExists = modules.some(m => m.id === material.moduleId);
-        if (moduleExists) {
-          if (!moduleMap.has(material.moduleId)) {
-            moduleMap.set(material.moduleId, []);
+    // If we have both materials and modules, group them properly
+    if (materials.length > 0 && modules.length > 0) {
+      // Group materials by module ID
+      const moduleMap = new Map<string, Material[]>();
+      const unmatchedMaterials: Material[] = [];
+      
+      materials.forEach(material => {
+        if (material.moduleId) {
+          // Check if we have a module with this ID
+          const moduleExists = modules.some(m => m.id === material.moduleId);
+          if (moduleExists) {
+            if (!moduleMap.has(material.moduleId)) {
+              moduleMap.set(material.moduleId, []);
+            }
+            moduleMap.get(material.moduleId)!.push(material);
+          } else {
+            // Module doesn't exist yet, save for later
+            unmatchedMaterials.push(material);
           }
-          moduleMap.get(material.moduleId)!.push(material);
         } else {
-          // Module doesn't exist yet, save for later
           unmatchedMaterials.push(material);
         }
-      } else {
-        unmatchedMaterials.push(material);
-      }
-    });
+      });
 
-    // Update modules with their materials
-    setModules(prevModules => {
-      if (prevModules.length === 0 && materials.length > 0) {
-        // No modules exist, create a default one with all materials
-        return [{
-          id: 'default',
-          title: 'Course Materials',
-          materials: [...materials],
-          isExpanded: true
-        }];
-      }
-      
-      const updatedModules = prevModules.map(module => ({
-        ...module,
-        materials: moduleMap.get(module.id) || []
-      }));
-      
-      // If we have unmatched materials, add them to the first module
-      if (unmatchedMaterials.length > 0 && updatedModules.length > 0) {
-        updatedModules[0] = {
-          ...updatedModules[0],
-          materials: [...updatedModules[0].materials, ...unmatchedMaterials]
-        };
-      }
-      
-      console.log('Updated modules with materials:', updatedModules);
-      return updatedModules;
-    });
-  }, [materials, hasInitialized]);
+      // Update modules with their materials
+      setModules(prevModules => {
+        const updatedModules = prevModules.map(module => ({
+          ...module,
+          materials: moduleMap.get(module.id) || []
+        }));
+        
+        // If we have unmatched materials, add them to the first module or create a default module
+        if (unmatchedMaterials.length > 0) {
+          if (updatedModules.length > 0) {
+            updatedModules[0] = {
+              ...updatedModules[0],
+              materials: [...updatedModules[0].materials, ...unmatchedMaterials]
+            };
+          } else {
+            // No modules exist, create a default one
+            updatedModules.push({
+              id: 'default',
+              title: 'Course Materials',
+              materials: [...unmatchedMaterials],
+              isExpanded: true
+            });
+          }
+        }
+        
+        console.log('Updated modules with materials:', updatedModules);
+        return updatedModules;
+      });
+    }
+  }, [materials, modules.length, hasInitialized]);
 
   // File upload functionality
   const acceptedTypes = {
@@ -384,16 +390,13 @@ export function ModuleStream({
     }
   }, [handleFiles]);
 
-  // Add debug logging and ensure materials are visible on load
+  // Debug logging for materials updates
   useEffect(() => {
     console.log('Materials prop updated:', materials);
     console.log('Current modules state:', modules);
     
-    // If we have materials but they're not showing in any module, force refresh
     if (hasInitialized && materials.length > 0) {
       const totalMaterialsInModules = modules.reduce((total, module) => total + module.materials.length, 0);
-      
-      // Debug: Check if materials have moduleId set
       const materialsWithModuleId = materials.filter(m => m.moduleId);
       const materialsWithoutModuleId = materials.filter(m => !m.moduleId);
       
@@ -402,27 +405,6 @@ export function ModuleStream({
         - Materials with moduleId: ${materialsWithModuleId.length}
         - Materials without moduleId: ${materialsWithoutModuleId.length}
         - Materials currently in modules: ${totalMaterialsInModules}`);
-      
-      // Removed warning - files without moduleId are handled by the backend's "Student Uploads" module
-      
-      if (totalMaterialsInModules === 0) {
-        console.log('Materials exist but not visible in modules, forcing update');
-        // Trigger a re-grouping of materials
-        setModules(prev => {
-          if (prev.length === 0) {
-            return [{
-              id: 'default',
-              title: 'Course Materials',
-              materials: [...materials],
-              isExpanded: true
-            }];
-          }
-          return prev.map((module, index) => ({
-            ...module,
-            materials: index === 0 ? [...materials] : module.materials
-          }));
-        });
-      }
     }
   }, [materials, modules, hasInitialized]);
 
@@ -440,6 +422,7 @@ export function ModuleStream({
       ? defaultNames[moduleCount]
       : `Week ${moduleCount + 1} – New Topic`;
 
+    console.log('Creating module:', defaultTitle);
     const createToast = toast.loading("Creating module...", {
       description: "Setting up your new course module"
     });
@@ -449,7 +432,8 @@ export function ModuleStream({
       const endpoint = userRole === 'student' 
         ? `/student/courses/${courseId}/modules`
         : `/instructor/courses/${courseId}/modules`;
-        
+      
+      console.log('Creating module at endpoint:', endpoint);
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
         method: 'POST',
         headers: {
@@ -461,11 +445,16 @@ export function ModuleStream({
         }),
       });
 
+      console.log('Create module response:', response.status);
+
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Create module error:', errorText);
         throw new Error(`Failed to create module: ${response.statusText}`);
       }
 
       const backendModule = await response.json();
+      console.log('Created module:', backendModule);
       
       // Create local module object with backend ID
       const newModule: Module = {
@@ -787,15 +776,18 @@ export function ModuleStream({
               'Create your first module to start organizing course materials.'
             }
           </p>
-          <Button onClick={handleCreateModule} className="bg-[#7B61FF] hover:bg-[#6B51E5] text-white">
-            <Plus className="h-4 w-4 mr-2" />
-            Create Module
-          </Button>
-          {materials.length > 0 && (
-            <p className="text-xs text-gray-400 mt-3">
-              Materials will be automatically organized when you create modules
-            </p>
-          )}
+          <div className="space-y-3">
+            <Button onClick={handleCreateModule} className="bg-[#7B61FF] hover:bg-[#6B51E5] text-white">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Module
+            </Button>
+            <div className="text-xs text-gray-400">
+              <p>💡 Tip: Modules help organize your course content by week or topic</p>
+              {materials.length > 0 && (
+                <p className="mt-1">Materials will be automatically organized when you create modules</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );

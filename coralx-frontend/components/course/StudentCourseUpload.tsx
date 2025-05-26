@@ -149,8 +149,10 @@ export function StudentCourseUpload({ courseId, moduleId, onUploadComplete, clas
       formData.append('file', uploadFile.file);
       formData.append('title', uploadFile.file.name);
       formData.append('description', `Student upload: ${uploadFile.file.name}`);
-      // Always include moduleId - backend will create "Student Uploads" module if needed
-      formData.append('moduleId', moduleId || 'student-uploads');
+      // Include moduleId if provided, otherwise backend will require explicit module creation
+      if (moduleId) {
+        formData.append('moduleId', moduleId);
+      }
       
       // Upload to student's course and parse JSON response
       const response = await studentAPI.uploadFile(courseId, formData);
