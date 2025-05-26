@@ -683,19 +683,62 @@ def student_manage_course(course_id):
     finally:
         db.close()
 
-@app.route('/student/courses/<course_id>/modules', methods=['GET'])
-@cache_response(max_age=300, private=True)
+@app.route('/student/courses/<course_id>/modules', methods=['GET', 'POST'])
 def student_modules(course_id):
     user_id, err = verify_student()
     if err:
         return err
+    
     db = Session()
-    if not get_enrollment_by_student_course(db, user_id, course_id):
+    try:
+        # Verify the course is owned by the student (for POST) or student is enrolled (for GET)
+        course = get_course_by_id(db, course_id)
+        if not course:
+            return jsonify({'error': 'Course not found'}), 404
+            
+        if request.method == 'POST':
+            # For creating modules, student must own the course
+            if str(course.creator_id) != str(user_id):
+                return jsonify({'error': 'Access denied - you can only create modules in courses you created'}), 403
+                
+            data = request.get_json() or {}
+            title = data.get('title')
+            description = data.get('description', '')
+            
+            if not title:
+                return jsonify({'error': 'Title is required'}), 400
+                
+            # Get the next ordering number
+            existing_modules = get_modules_by_course(db, course_id)
+            next_ordering = max([m.ordering for m in existing_modules], default=-1) + 1
+            
+            module = create_module(
+                db=db,
+                course_id=course_id,
+                title=title,
+                ordering=next_ordering
+            )
+            
+            return jsonify({
+                'id': str(module.id),
+                'title': module.title,
+                'course_id': str(module.course_id),
+                'ordering': module.ordering,
+                'description': description
+            }), 201
+            
+        else:  # GET request
+            # For viewing modules, student must be enrolled
+            if not get_enrollment_by_student_course(db, user_id, course_id):
+                return jsonify({'error': 'Forbidden'}), 403
+            mods = get_modules_by_course(db, course_id)
+            return jsonify([{'id': str(m.id), 'title': m.title, 'ordering': m.ordering} for m in mods]), 200
+            
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
         db.close()
-        return jsonify({'error': 'Forbidden'}), 403
-    mods = get_modules_by_course(db, course_id)
-    db.close()
-    return jsonify([{'id': str(m.id), 'title': m.title} for m in mods]), 200
 
 @app.route('/student/modules/<module_id>', methods=['GET', 'PATCH', 'PUT', 'DELETE'])
 def student_manage_single_module(module_id):
