@@ -1697,11 +1697,23 @@ def student_course_files_upload(course_id):
             else:
                 target_module = None  # Invalid module for this course
         
-        # Fallback: If no module specified, require explicit module creation
+        # Fallback: If no module specified, create or find "Student Uploads" module
         if not target_module:
-            return jsonify({
-                'error': 'No module specified. Please create a module first or specify a moduleId.'
-            }), 400
+            # Look for existing "Student Uploads" module
+            modules = get_modules_by_course(db, course_id)
+            for module in modules:
+                if module.title.lower() == "student uploads":
+                    target_module = module
+                    break
+            
+            # If not found, create it
+            if not target_module:
+                target_module = create_module(
+                    db=db,
+                    course_id=course_id,
+                    title="Student Uploads"
+                )
+                app.logger.info(f"Created 'Student Uploads' module for course {course_id}")
         
         # Read file content
         file_content = file.read()
