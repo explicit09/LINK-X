@@ -188,7 +188,7 @@ export default function Page() {
       console.error("Firebase Registration Error:", error.message);
       if (error.code === "auth/email-already-in-use") {
         setState("user_exists");
-        toast.error("This email is already registered. Please try logging in instead.");
+        toast.error("Email is already registered!");
       } else if (error.code === "auth/weak-password") {
         setState("invalid_data");
         toast.error("Password is too weak!");
