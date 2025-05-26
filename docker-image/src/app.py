@@ -805,7 +805,7 @@ def student_files(module_id):
         return jsonify({'error': 'Forbidden'}), 403
     files = get_files_by_module(db, module_id)
     db.close()
-    return jsonify([{'id': str(f.id), 'title': f.title} for f in files]), 200
+    return jsonify([{'id': str(f.id), 'title': f.title, 'module_id': str(f.module_id)} for f in files]), 200
 
 @app.route('/student/personalized-files', methods=['GET'])
 def student_list_pfiles():
@@ -2760,7 +2760,7 @@ def instructor_course_modules(course_id):
     finally:
         db.close()
 
-@app.route('/instructor/modules/<module_id>', methods=['GET', 'PATCH', 'DELETE'])
+@app.route('/instructor/modules/<module_id>', methods=['GET', 'PATCH', 'PUT', 'DELETE'])
 def instructor_manage_module(module_id):
     """Handle individual module management for instructors"""
     user_id, err = verify_instructor()
@@ -2787,7 +2787,7 @@ def instructor_manage_module(module_id):
                 'ordering': module.ordering
             }), 200
             
-        elif request.method == 'PATCH':
+        elif request.method in ['PATCH', 'PUT']:
             data = request.get_json() or {}
             allowed_fields = ['title', 'ordering']
             update_data = {k: v for k, v in data.items() if k in allowed_fields}
@@ -2841,6 +2841,7 @@ def instructor_module_files(module_id):
                 'filename': f.filename,
                 'file_type': f.file_type,
                 'file_size': f.file_size,
+                'module_id': str(f.module_id),
                 'created_at': f.created_at.isoformat() if f.created_at else None,
                 'view_count_raw': f.view_count_raw,
                 'view_count_personalized': f.view_count_personalized
@@ -2875,6 +2876,7 @@ def instructor_module_files(module_id):
                 'filename': file_obj.filename,
                 'file_type': file_obj.file_type,
                 'file_size': file_obj.file_size,
+                'module_id': str(file_obj.module_id),
                 'created_at': file_obj.created_at.isoformat() if file_obj.created_at else None
             }), 201
             
