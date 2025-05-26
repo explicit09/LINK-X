@@ -88,6 +88,7 @@ export function ModuleStream({
           : `/instructor/courses/${courseId}/modules`;
           
         console.log('Loading modules from:', endpoint);
+        
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
           method: 'GET',
           credentials: 'include',
@@ -432,8 +433,9 @@ export function ModuleStream({
       const endpoint = userRole === 'student' 
         ? `/student/courses/${courseId}/modules`
         : `/instructor/courses/${courseId}/modules`;
-      
+        
       console.log('Creating module at endpoint:', endpoint);
+        
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
         method: 'POST',
         headers: {

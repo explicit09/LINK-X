@@ -189,6 +189,10 @@ def me_get():
     firebase_uid = session['uid']
     db = Session()
     user = get_user_by_firebase_uid(db, firebase_uid)
+    if not user:
+        app.logger.error(f"User with firebase_uid {firebase_uid} not found in local DB.")
+        db.close()
+        return jsonify({'error': 'User not found in local database'}), 404
     role = get_role_by_user_id(db, user.id)
     profile_data = None
     if role.role_type == 'instructor':
@@ -326,6 +330,19 @@ def register_instructor():
         return jsonify({'error':'Email, password, and name required'}), 400
 
     db = Session()
+    existing_user = get_user_by_firebase_uid(db, firebase_uid)
+    if not existing_user:
+        existing_user = get_user_by_email(db, email)
+
+    if existing_user:
+        app.logger.warning(f"User with email {email} or firebase_uid {firebase_uid} already exists in local DB during registration attempt.")
+        if existing_user.firebase_uid != firebase_uid:
+            update_user(db, existing_user.id, firebase_uid=firebase_uid)
+        # Ensure role is correct - for now, assume if user exists, role is acceptable or handled by linking.
+        # More complex role conflict logic could be added here.
+        db.close()
+        return jsonify({'id': str(existing_user.id), 'email': existing_user.email, 'message': 'User already registered and linked.'}), 200
+
     user = create_user(db, email, pwd, firebase_uid, 'instructor')
     create_instructor_profile(db, user.id, name, university)
     db.close()
@@ -351,7 +368,23 @@ def register_student():
         return jsonify({'error':'Email and password required'}), 400
 
     db = Session()
+    existing_user = get_user_by_firebase_uid(db, firebase_uid)
+    if not existing_user:
+        existing_user = get_user_by_email(db, email)
+
+    if existing_user:
+        app.logger.warning(f"User with email {email} or firebase_uid {firebase_uid} already exists in local DB during registration attempt.")
+        if existing_user.firebase_uid != firebase_uid:
+            update_user(db, existing_user.id, firebase_uid=firebase_uid)
+        # Ensure role is correct - for now, assume if user exists, role is acceptable or handled by linking.
+        # More complex role conflict logic could be added here.
+        db.close()
+        return jsonify({'id': str(existing_user.id), 'email': existing_user.email, 'message': 'User already registered and linked.'}), 200
+
     user = create_user(db, email, pwd, firebase_uid, 'student')
+    # Assuming create_student_profile should be called here if it's part of new student registration.
+    # Based on the instructor route, a profile is created. If students also have a default profile, it should be created here.
+    # For now, sticking to the direct task of user registration/linking.
     db.close()
 
     return jsonify({'id': str(user.id), 'email': user.email}), 201
@@ -690,22 +723,35 @@ def student_modules(course_id):
         return err
     
     db = Session()
+    
     try:
-        # Verify the course is owned by the student (for POST) or student is enrolled (for GET)
+        # Verify the course exists
         course = get_course_by_id(db, course_id)
         if not course:
+            db.close()
             return jsonify({'error': 'Course not found'}), 404
+        
+        # Check if student has access (enrolled or creator)
+        enrollment = get_enrollment_by_student_course(db, user_id, course_id)
+        is_creator = course and str(course.creator_id) == str(user_id)
+        has_access = enrollment or is_creator
+        
+        if not has_access:
+            db.close()
+            return jsonify({'error': 'Forbidden'}), 403
             
         if request.method == 'POST':
-            # For creating modules, student must own the course
-            if str(course.creator_id) != str(user_id):
-                return jsonify({'error': 'Access denied - you can only create modules in courses you created'}), 403
+            # Only allow module creation if the student created the course
+            if not is_creator:
+                db.close()
+                return jsonify({'error': 'Only course creators can add modules'}), 403
                 
             data = request.get_json() or {}
             title = data.get('title')
             description = data.get('description', '')
             
             if not title:
+                db.close()
                 return jsonify({'error': 'Title is required'}), 400
                 
             # Get the next ordering number
@@ -718,27 +764,58 @@ def student_modules(course_id):
                 title=title,
                 ordering=next_ordering
             )
+            db.commit()
             
-            return jsonify({
+            response = {
                 'id': str(module.id),
                 'title': module.title,
                 'course_id': str(module.course_id),
                 'ordering': module.ordering,
                 'description': description
-            }), 201
+            }
+            db.close()
+            return jsonify(response), 201
             
         else:  # GET request
-            # For viewing modules, student must be enrolled
-            if not get_enrollment_by_student_course(db, user_id, course_id):
-                return jsonify({'error': 'Forbidden'}), 403
             mods = get_modules_by_course(db, course_id)
-            return jsonify([{'id': str(m.id), 'title': m.title, 'ordering': m.ordering} for m in mods]), 200
+            db.close()
+            return jsonify([{
+                'id': str(m.id), 
+                'title': m.title, 
+                'ordering': m.ordering
+            } for m in mods]), 200
             
     except Exception as e:
         db.rollback()
-        return jsonify({'error': str(e)}), 500
-    finally:
         db.close()
+        return jsonify({'error': str(e)}), 500
+            data = request.get_json() or {}
+            title = data.get('title')
+            
+            if not title:
+                db.close()
+                return jsonify({'error': 'Title is required'}), 400
+                
+            # Create module (ordering is handled automatically by create_module)
+            module = create_module(
+                db=db,
+                course_id=course_id,
+                title=title
+            )
+            
+            db.commit()
+            return jsonify({
+                'id': str(module.id),
+                'title': module.title,
+                'course_id': str(module.course_id),
+                'ordering': module.ordering
+            }), 201
+            
+        except Exception as e:
+            db.rollback()
+            return jsonify({'error': str(e)}), 500
+        finally:
+            db.close()
 
 @app.route('/student/modules/<module_id>', methods=['GET', 'PATCH', 'PUT', 'DELETE'])
 def student_manage_single_module(module_id):
@@ -816,7 +893,7 @@ def student_files(module_id):
         return jsonify({'error': 'Forbidden'}), 403
     files = get_files_by_module(db, module_id)
     db.close()
-    return jsonify([{'id': str(f.id), 'title': f.title} for f in files]), 200
+    return jsonify([{'id': str(f.id), 'title': f.title, 'module_id': str(f.module_id)} for f in files]), 200
 
 @app.route('/student/personalized-files', methods=['GET'])
 @cache_response(max_age=60, private=True)
@@ -948,11 +1025,11 @@ def student_manage_personalized_file(pf_id):
 
         if request.method == 'GET':
             response = {
-        'id': str(pf.id),
-        'originalFileId': str(pf.original_file_id) if pf.original_file_id else None,
-        'createdAt': pf.created_at.isoformat(),
-        'content': pf.content  
-    }
+                'id': str(pf.id),
+                'originalFileId': str(pf.original_file_id) if pf.original_file_id else None,
+                'createdAt': pf.created_at.isoformat(),
+                'content': pf.content  
+            }
             return jsonify(response), 200
 
         elif request.method == 'DELETE':
@@ -2738,7 +2815,7 @@ def student_manage_file(file_id):
     try:
         f = get_file_by_id(db, file_id)
         if not f:
-            return jsonify({"error": "Not found"}), 404
+            return jsonify({'error': 'Not found'}), 404
 
         mod = get_module_by_id(db, f.module_id)
         if not mod:
@@ -2750,13 +2827,13 @@ def student_manage_file(file_id):
 
         if request.method == 'GET':
             response = {
-            'id': str(f.id),
-            'title': f.title,
-            'filename': f.filename,
-            'file_type': f.file_type,
-            'file_size': f.file_size,
-            'module_id': str(f.module_id),
-            'created_at': f.created_at.isoformat() if f.created_at else None
+                'id': str(f.id),
+                'title': f.title,
+                'filename': f.filename,
+                'file_type': f.file_type,
+                'file_size': f.file_size,
+                'module_id': str(f.module_id),
+                'created_at': f.created_at.isoformat() if f.created_at else None
             }
             return jsonify(response), 200
 
@@ -2822,15 +2899,11 @@ def instructor_course_modules(course_id):
             if not title:
                 return jsonify({'error': 'Title is required'}), 400
                 
-            # Get the next ordering number
-            existing_modules = get_modules_by_course(db, course_id)
-            next_ordering = max([m.ordering for m in existing_modules], default=-1) + 1
-            
+            # Create module (ordering is handled automatically by create_module)
             module = create_module(
                 db=db,
                 course_id=course_id,
-                title=title,
-                ordering=next_ordering
+                title=title
             )
             
             return jsonify({
@@ -2846,7 +2919,7 @@ def instructor_course_modules(course_id):
     finally:
         db.close()
 
-@app.route('/instructor/modules/<module_id>', methods=['GET', 'PATCH', 'DELETE'])
+@app.route('/instructor/modules/<module_id>', methods=['GET', 'PATCH', 'PUT', 'DELETE'])
 def instructor_manage_module(module_id):
     """Handle individual module management for instructors"""
     user_id, err = verify_instructor()
@@ -2873,7 +2946,7 @@ def instructor_manage_module(module_id):
                 'ordering': module.ordering
             }), 200
             
-        elif request.method == 'PATCH':
+        elif request.method in ['PATCH', 'PUT']:
             data = request.get_json() or {}
             allowed_fields = ['title', 'ordering']
             update_data = {k: v for k, v in data.items() if k in allowed_fields}
@@ -2927,6 +3000,7 @@ def instructor_module_files(module_id):
                 'filename': f.filename,
                 'file_type': f.file_type,
                 'file_size': f.file_size,
+                'module_id': str(f.module_id),
                 'created_at': f.created_at.isoformat() if f.created_at else None,
                 'view_count_raw': f.view_count_raw,
                 'view_count_personalized': f.view_count_personalized
@@ -2988,7 +3062,8 @@ def instructor_module_files(module_id):
                 'filename': file_obj.filename,
                 'file_type': file_obj.file_type,
                 'file_size': file_obj.file_size,
-                'storage_type': file_obj.storage_type,
+                'storage_type': file_obj.storage_type if hasattr(file_obj, 'storage_type') else None,
+                'module_id': str(file_obj.module_id),
                 'created_at': file_obj.created_at.isoformat() if file_obj.created_at else None
             }), 201
             
