@@ -1,4 +1,9 @@
-
 # Environment variables
 .env
 set_aws_env.sh
+node_modules
+
+# Virtual environment
+.venv/
+__pycache__/
+*.pyc
