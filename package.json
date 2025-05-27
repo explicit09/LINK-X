@@ -1,5 +1,10 @@
 {
   "dependencies": {
     "sonner": "^2.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "@types/react": "^19.1.6",
+    "@types/react-window": "^1.8.8"
   }
 }

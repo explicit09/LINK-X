@@ -25,6 +25,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Suggestion {
   id: string;
@@ -34,14 +35,23 @@ interface Suggestion {
   action: () => void;
 }
 
+interface Message {
+  role: string;
+  content: string;
+  id?: string;
+}
+
 export default function AIChatbot({ fileId }: { fileId: string }) {
   const [isMinimized, setIsMinimized] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [streamingContent, setStreamingContent] = useState("");
+  const [generationTime, setGenerationTime] = useState<number | null>(null);
+  const [showLatency, setShowLatency] = useState(false);
 
   const auth = getAuth();
   const user = auth.currentUser;
@@ -148,7 +158,13 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
     setMessages(updatedConversation);
     setIsLoading(true);
     setShowSuggestions(false);
+    setStreamingContent("");
+    setGenerationTime(null);
+    setShowLatency(false);
   
+    // Add optimistic assistant message
+    const assistantId = Date.now().toString() + '-assistant';
+    
     try {
       const requestBody: any = {
         id: chatId,
@@ -159,43 +175,135 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
       if (fileId) {
         requestBody.fileId = fileId;
       }
-  
-      const response = await fetch("http://localhost:8080/ai-chat", {
-        method: "POST",
+      const optimisticAssistantMessage: Message = { 
+        role: 'assistant', 
+        content: '',
+        id: assistantId
+      };
+      setMessages(prev => [...prev, optimisticAssistantMessage]);
+
+      const response = await fetch('http://localhost:8080/ai-chat-stream', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
-        credentials: "include",
+        credentials: 'include',
         body: JSON.stringify(requestBody),
       });
-  
-      const data = await response.json();
-      if (data.error) {
-        console.error("AI chat error:", data.error);
+
+      if (!response.ok) {
+        throw new Error(`Streaming failed: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      
+      if (reader) {
+        let buffer = '';
+        let accumulatedContent = '';
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          // Add new chunk to buffer
+          buffer += decoder.decode(value, { stream: true });
+          
+          // Process complete lines
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep last incomplete line
+          
+          for (const line of lines) {
+            if (line.trim().startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.trim().slice(6));
+                
+                if (data.type === 'metadata' && data.chatId) {
+                  setChatId(data.chatId);
+                  if (firebaseUid) {
+                    localStorage.setItem(`chatId_${firebaseUid}`, data.chatId);
+                  }
+                } else if (data.type === 'token') {
+                  accumulatedContent += data.content;
+                  
+                  // Update message content immediately for smooth streaming
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === assistantId 
+                      ? { ...msg, content: accumulatedContent }
+                      : msg
+                  ));
+                } else if (data.type === 'done') {
+                  setGenerationTime(data.elapsed);
+                  setShowLatency(true);
+                  setTimeout(() => setShowLatency(false), 3000);
+                }
+              } catch (e) {
+                console.error('SSE parse error:', e);
+              }
+            }
+          }
+        }
+        
+        reader.releaseLock();
+      }
+      
+      setInput("");
+      setStreamingContent(""); // Clear streaming content
+    } catch (err) {
+      console.error('Streaming error, falling back to regular endpoint:', err);
+      
+      // Remove the optimistic message
+      setMessages(prev => prev.filter(msg => msg.id !== assistantId));
+      
+      // Fallback to non-streaming endpoint
+      try {
+        const requestBody: any = {
+          id: chatId,
+          userMessage: content,
+          messages,
+        };
+    
+        if (fileId) {
+          requestBody.fileId = fileId;
+        }
+        
+        const response = await fetch("http://localhost:8080/ai-chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(requestBody),
+        });
+    
+        const data = await response.json();
+        if (data.error) {
+          console.error("AI chat error:", data.error);
+          const errorMessage = { 
+            role: "assistant", 
+            content: "I'm sorry, I encountered an error. Please try again." 
+          };
+          setMessages((prev) => [...prev, errorMessage]);
+          return;
+        }
+    
+        const assistantMessage = { role: "assistant", content: data.assistant };
+        setMessages((prev) => [...prev, assistantMessage]);
+    
+        if (data.chatId && !chatId && firebaseUid) {
+          setChatId(data.chatId);
+          localStorage.setItem(`chatId_${firebaseUid}`, data.chatId);
+        }
+    
+        setInput("");
+      } catch (fallbackError) {
+        console.error("Failed to call /ai-chat:", fallbackError);
         const errorMessage = { 
           role: "assistant", 
-          content: "I'm sorry, I encountered an error. Please try again." 
+          content: "I'm sorry, I couldn't connect to the AI service. Please check your connection and try again." 
         };
         setMessages((prev) => [...prev, errorMessage]);
-        return;
       }
-  
-      const assistantMessage = { role: "assistant", content: data.assistant };
-      setMessages((prev) => [...prev, assistantMessage]);
-  
-      if (data.chatId && !chatId && firebaseUid) {
-        setChatId(data.chatId);
-        localStorage.setItem(`chatId_${firebaseUid}`, data.chatId);
-      }
-  
-      setInput("");
-    } catch (err) {
-      console.error("Failed to call /ai-chat:", err);
-      const errorMessage = { 
-        role: "assistant", 
-        content: "I'm sorry, I couldn't connect to the AI service. Please check your connection and try again." 
-      };
-      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -267,44 +375,43 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
                     )}
                   >
                     <div className="prose prose-sm max-w-none dark:prose-invert">
-                      <ReactMarkdown 
-                        components={{
-                          p: ({children}) => (
-                            <p className={cn(
-                              "mb-2 last:mb-0",
-                              message.role === "user" ? "text-white" : "canvas-body text-gray-700"
-                            )}>
-                              {children}
-                            </p>
-                          ),
-                          strong: ({children}) => (
-                            <strong className={cn(
-                              "font-semibold",
-                              message.role === "user" ? "text-white" : "text-gray-900"
-                            )}>
-                              {children}
-                            </strong>
-                          ),
-                          code: ({children}) => (
-                            <code className={cn(
-                              "px-1 py-0.5 rounded text-sm font-mono",
-                              message.role === "user" 
-                                ? "bg-blue-500 text-white" 
-                                : "bg-gray-100 text-gray-800"
-                            )}>
-                              {children}
-                            </code>
-                          ),
-                        }}
-                      >
-                        {message.content}
-                      </ReactMarkdown>
+                      {message.role === 'user' ? (
+                        // User messages
+                        <p className="mb-0 text-white whitespace-pre-wrap">{message.content}</p>
+                      ) : (
+                        // Assistant messages with streaming support
+                        <>
+                          {message.content ? (
+                            <div className="relative">
+                              <ReactMarkdown className="text-gray-700">
+                                {message.content}
+                              </ReactMarkdown>
+                              {/* Blinking cursor for streaming messages */}
+                              {isLoading && index === messages.length - 1 && (
+                                <span className="inline-block w-0.5 h-4 bg-gray-600 animate-pulse ml-1" />
+                              )}
+                            </div>
+                          ) : (
+                            // Skeleton while waiting for first token
+                            isLoading && index === messages.length - 1 && (
+                              <div className="space-y-2">
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-[90%]" />
+                                <Skeleton className="h-4 w-[80%]" />
+                              </div>
+                            )
+                          )}
+                        </>
+                      )}
                     </div>
                     <div className={cn(
                       "text-xs mt-2 opacity-70",
                       message.role === "user" ? "text-blue-100" : "text-gray-500"
                     )}>
                       {formatTimestamp()}
+                      {showLatency && generationTime && index === messages.length - 1 && message.role === "assistant" && (
+                        <span className="ml-2">• Generated in {generationTime.toFixed(1)}s</span>
+                      )}
                     </div>
                   </div>
 
@@ -318,24 +425,25 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
                 </div>
               ))}
 
-              {/* Typing Indicator */}
+              {/* Progress Bar for Streaming */}
               {isLoading && (
-                <div className="flex gap-3 justify-start">
-                  <Avatar className="h-8 w-8 border-2 border-blue-200 shadow-sm">
-                    <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600">
-                      <Bot className="h-4 w-4 text-white" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="bg-white rounded-xl px-4 py-3 shadow-sm border border-gray-200">
-                    <div className="flex items-center space-x-2">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      </div>
-                      <span className="canvas-small text-blue-600 font-medium">AI is thinking...</span>
+                <div className="px-4 pb-2">
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+                    <div 
+                      className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-300 relative"
+                      style={{ 
+                        width: streamingContent ? `${Math.min((streamingContent.length / 600) * 100, 95)}%` : '5%',
+                      }}
+                    >
+                      <div className="absolute inset-0 bg-white/20 animate-pulse" />
                     </div>
                   </div>
+                  <p className="text-xs text-gray-500 mt-1 text-center">
+                    {streamingContent 
+                      ? `Generating response... ${Math.round((streamingContent.length / 600) * 100)}%`
+                      : 'Connecting to AI...'
+                    }
+                  </p>
                 </div>
               )}
 

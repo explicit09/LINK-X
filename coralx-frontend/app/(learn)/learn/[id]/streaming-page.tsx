@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   BookOpen,
   Clock,
@@ -29,35 +30,75 @@ import {
   Circle,
   Timer,
   Flame,
-  Star
+  Star,
+  Loader2
 } from "lucide-react";
 
 interface Subsection {
+  id: string;
   title: string;
-  fullText: string;
-  type: 'text' | 'video' | 'quiz';
-  completed: boolean;
-  timeToComplete: number;
+  content?: string;
+  isLoading?: boolean;
+  isStreaming?: boolean;
+  type?: 'text' | 'video' | 'quiz';
+  completed?: boolean;
+  timeToComplete?: number;
   lastVisited?: string;
   score?: number;
+  estimatedTokens?: number;
 }
 
 interface Chapter {
-  chapterTitle: string;
+  id: string;
+  title: string;
   subsections: Subsection[];
-  progress: number;
+  progress?: number;
+  estimatedTokens?: number;
 }
 
-export default function LearnPage() {
+interface StreamToken {
+  type: 'start' | 'token' | 'complete' | 'error';
+  content?: string;
+  message?: string;
+  chapterId?: string;
+  subsectionId?: string;
+}
+
+// Skeleton loader for content sections
+const ContentSkeleton = () => (
+  <div className="space-y-4 animate-pulse">
+    <div className="space-y-3">
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-[95%]" />
+      <Skeleton className="h-4 w-[90%]" />
+    </div>
+    <div className="space-y-3">
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-[93%]" />
+      <Skeleton className="h-4 w-[88%]" />
+    </div>
+    <div className="space-y-3">
+      <Skeleton className="h-4 w-[97%]" />
+      <Skeleton className="h-4 w-[92%]" />
+      <Skeleton className="h-4 w-[85%]" />
+    </div>
+  </div>
+);
+
+// Blinking cursor component
+const BlinkingCursor = () => (
+  <span className="inline-block w-0.5 h-5 bg-gray-600 animate-pulse ml-0.5 align-middle" />
+);
+
+export default function StreamingLearnPage() {
   const params = useParams();
   const pfId = typeof params?.id === "string" ? params.id : null;
 
   // Core state
-  const [courseName, setCourseName] = useState<string | null>(null);
+  const [courseName, setCourseName] = useState<string>("Loading...");
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [currentModuleIndex, setCurrentModuleIndex] = useState<number | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<{ moduleIndex: number; lessonIndex: number } | null>(null);
-  const [currentContent, setCurrentContent] = useState<string | null>(null);
   const [sidebarVisible, setSidebarVisible] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
@@ -72,6 +113,10 @@ export default function LearnPage() {
   const [studyTime, setStudyTime] = useState(1);
   const [currentStreak, setCurrentStreak] = useState(3);
   const [recommendedLesson, setRecommendedLesson] = useState<{ moduleIndex: number; lessonIndex: number } | null>(null);
+  
+  // Streaming state
+  const [loadedSections, setLoadedSections] = useState<Set<string>>(new Set());
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Auto-scroll chat to bottom when new messages arrive
   useEffect(() => {
@@ -98,97 +143,271 @@ export default function LearnPage() {
       }
     };
 
-    handleResize(); // Check on mount
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Fetch course data
+  // Fetch initial outline
   useEffect(() => {
     if (!pfId) return;
-  
-    const fetchCourseData = async () => {
+
+    const fetchOutline = async () => {
       try {
-        const res = await fetch(`http://localhost:8080/student/personalized-files/${pfId}`, {
+        const res = await fetch(`http://localhost:8080/api/personalize/${pfId}/outline`, {
           credentials: "include",
         });
-  
-        if (!res.ok) {
-          throw new Error(`Failed to fetch personalized file`);
-        }
-  
-        const data = await res.json();
-  
-        if (data.content) {
-          const parsedContent = typeof data.content === "string" ? JSON.parse(data.content) : data.content;
-          
-          if (parsedContent.courseName || parsedContent.title) {
-            setCourseName(parsedContent.courseName || parsedContent.title || "Course Materials");
-          }
-          
-          if (parsedContent.chapters) {
-            const formattedChapters: Chapter[] = parsedContent.chapters.map((ch: any, index: number) => ({
-              chapterTitle: ch.chapterTitle,
-              subsections: ch.subsections.map((sub: any, subIndex: number) => ({
-                title: sub.title,
-                fullText: sub.fullText,
-                type: subIndex % 3 === 0 ? 'video' : subIndex % 3 === 1 ? 'quiz' : 'text',
-                completed: Math.random() > 0.7,
-                timeToComplete: Math.floor(Math.random() * 15) + 5,
-                lastVisited: Math.random() > 0.5 ? `${Math.floor(Math.random() * 7)} days ago` : undefined,
-                score: Math.random() > 0.6 ? Math.floor(Math.random() * 30) + 70 : undefined
-              })),
-              progress: Math.floor(Math.random() * 100)
-            }));
-            
-            setChapters(formattedChapters);
-            
-            const total = formattedChapters.reduce((acc, chapter) => acc + chapter.subsections.length, 0);
-            const completed = formattedChapters.reduce((acc, chapter) => 
-              acc + chapter.subsections.filter(sub => sub.completed).length, 0);
-            
-            setTotalLessons(total);
-            setCompletedLessons(completed);
 
-            // Find recommended lesson (first incomplete)
-            for (let i = 0; i < formattedChapters.length; i++) {
-              for (let j = 0; j < formattedChapters[i].subsections.length; j++) {
-                if (!formattedChapters[i].subsections[j].completed) {
-                  setRecommendedLesson({ moduleIndex: i, lessonIndex: j });
-                  setCurrentModuleIndex(i);
-                  return;
+        if (!res.ok) {
+          throw new Error(`Failed to fetch outline`);
+        }
+
+        const data = await res.json();
+        
+        setCourseName(data.fileName || "Course Materials");
+        
+        // Transform outline data to our format
+        const formattedChapters: Chapter[] = data.chapters.map((ch: any, index: number) => ({
+          id: ch.id,
+          title: ch.title || ch.chapterTitle,
+          subsections: ch.subsections.map((sub: any) => ({
+            id: sub.id,
+            title: sub.title,
+            estimatedTokens: sub.estimatedTokens,
+            type: 'text',
+            completed: false,
+            timeToComplete: Math.ceil(sub.estimatedTokens / 150), // Estimate reading time
+            isLoading: false,
+            isStreaming: false
+          })),
+          progress: 0,
+          estimatedTokens: ch.estimatedTokens
+        }));
+        
+        setChapters(formattedChapters);
+        
+        const total = formattedChapters.reduce((acc, chapter) => acc + chapter.subsections.length, 0);
+        setTotalLessons(total);
+        setCompletedLessons(0);
+        
+        // Set first lesson as recommended
+        if (formattedChapters.length > 0 && formattedChapters[0].subsections.length > 0) {
+          setRecommendedLesson({ moduleIndex: 0, lessonIndex: 0 });
+          setCurrentModuleIndex(0);
+        }
+        
+      } catch (err) {
+        console.error("Error fetching outline:", err);
+      }
+    };
+
+    fetchOutline();
+  }, [pfId]);
+
+  // Stream content for a specific section
+  const streamSectionContent = useCallback(async (chapterId: string, subsectionId: string) => {
+    if (!pfId) return;
+    
+    // Mark as already loaded
+    const sectionKey = `${chapterId}-${subsectionId}`;
+    if (loadedSections.has(sectionKey)) return;
+    
+    // Abort any existing stream
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    abortControllerRef.current = new AbortController();
+    
+    try {
+      // Mark section as loading
+      setChapters(prev => prev.map(chapter => {
+        if (chapter.id === chapterId) {
+          return {
+            ...chapter,
+            subsections: chapter.subsections.map(sub => {
+              if (sub.id === subsectionId) {
+                return { ...sub, isLoading: true, isStreaming: false, content: '' };
+              }
+              return sub;
+            })
+          };
+        }
+        return chapter;
+      }));
+      
+      // Collect previous sections for context
+      const previousSections: Array<{section: string, content: string}> = [];
+      chapters.forEach(chapter => {
+        chapter.subsections.forEach(sub => {
+          if (sub.content && sub.id !== subsectionId) {
+            previousSections.push({
+              section: sub.id,
+              content: sub.content
+            });
+          }
+        });
+      });
+      
+      const response = await fetch(`http://localhost:8080/api/personalize/${pfId}/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          userId: 'current-user', // This should come from auth context
+          chapterId,
+          subsectionId,
+          previousSections
+        }),
+        signal: abortControllerRef.current.signal
+      });
+
+      if (!response.ok) {
+        throw new Error('Streaming failed');
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      
+      if (reader) {
+        let buffer = '';
+        let accumulatedContent = '';
+        let firstTokenTime: number | null = null;
+        
+        // Mark as streaming (removes skeleton)
+        setChapters(prev => prev.map(chapter => {
+          if (chapter.id === chapterId) {
+            return {
+              ...chapter,
+              subsections: chapter.subsections.map(sub => {
+                if (sub.id === subsectionId) {
+                  return { ...sub, isLoading: false, isStreaming: true };
                 }
+                return sub;
+              })
+            };
+          }
+          return chapter;
+        }));
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          
+          for (const line of lines) {
+            if (line.trim().startsWith('data: ')) {
+              try {
+                const data: StreamToken = JSON.parse(line.trim().slice(6));
+                
+                if (data.type === 'token' && data.content) {
+                  if (firstTokenTime === null) {
+                    firstTokenTime = Date.now();
+                    console.log(`First token latency: ${firstTokenTime - Date.now()}ms`);
+                  }
+                  
+                  accumulatedContent += data.content;
+                  
+                  // Update content in real-time
+                  setChapters(prev => prev.map(chapter => {
+                    if (chapter.id === chapterId) {
+                      return {
+                        ...chapter,
+                        subsections: chapter.subsections.map(sub => {
+                          if (sub.id === subsectionId) {
+                            return { ...sub, content: accumulatedContent };
+                          }
+                          return sub;
+                        })
+                      };
+                    }
+                    return chapter;
+                  }));
+                } else if (data.type === 'complete') {
+                  // Mark as complete
+                  setChapters(prev => prev.map(chapter => {
+                    if (chapter.id === chapterId) {
+                      return {
+                        ...chapter,
+                        subsections: chapter.subsections.map(sub => {
+                          if (sub.id === subsectionId) {
+                            return { ...sub, isStreaming: false };
+                          }
+                          return sub;
+                        })
+                      };
+                    }
+                    return chapter;
+                  }));
+                  
+                  setLoadedSections(prev => new Set([...prev, sectionKey]));
+                } else if (data.type === 'error') {
+                  console.error('Stream error:', data.message);
+                  throw new Error(data.message || 'Stream error');
+                }
+              } catch (e) {
+                console.error('SSE parse error:', e);
               }
             }
           }
         }
-      } catch (err) {
-        console.error("Error fetching course data:", err);
+        
+        reader.releaseLock();
       }
-    };
-  
-    fetchCourseData();
-  }, [pfId]);
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('Streaming error:', error);
+        
+        // Show error state
+        setChapters(prev => prev.map(chapter => {
+          if (chapter.id === chapterId) {
+            return {
+              ...chapter,
+              subsections: chapter.subsections.map(sub => {
+                if (sub.id === subsectionId) {
+                  return { 
+                    ...sub, 
+                    isLoading: false, 
+                    isStreaming: false,
+                    content: "Error loading content. Please try again." 
+                  };
+                }
+                return sub;
+              })
+            };
+          }
+          return chapter;
+        }));
+      }
+    }
+  }, [pfId, chapters, loadedSections]);
 
   const handleModuleClick = (moduleIndex: number) => {
     if (currentModuleIndex === moduleIndex) {
       setCurrentModuleIndex(null);
       setSelectedLesson(null);
-      setCurrentContent(null);
     } else {
       setCurrentModuleIndex(moduleIndex);
       setSelectedLesson(null);
-      setCurrentContent(null);
     }
   };
 
-  const handleLessonSelect = (moduleIndex: number, lessonIndex: number) => {
+  const handleLessonSelect = async (moduleIndex: number, lessonIndex: number) => {
     setSelectedLesson({ moduleIndex, lessonIndex });
     setCurrentModuleIndex(moduleIndex);
     
-    // Set content immediately without loading delay
-    const lesson = chapters[moduleIndex].subsections[lessonIndex];
-    setCurrentContent(lesson.fullText);
+    // Stream content if not already loaded
+    const chapter = chapters[moduleIndex];
+    const lesson = chapter.subsections[lessonIndex];
+    
+    if (!lesson.content && !lesson.isLoading && !lesson.isStreaming) {
+      await streamSectionContent(chapter.id, lesson.id);
+    }
   };
 
   const startRecommendedLesson = () => {
@@ -207,7 +426,7 @@ export default function LearnPage() {
     const aiMessage = { role: 'ai' as const, content: '' };
     setChatMessages(prev => [...prev, aiMessage]);
     
-    const messageIndex = chatMessages.length + 1; // Index of the AI message we just added
+    const messageIndex = chatMessages.length + 1;
     setChatInput("");
     setIsStreaming(true);
     
@@ -220,7 +439,7 @@ export default function LearnPage() {
         credentials: 'include',
         body: JSON.stringify({
           userMessage: chatInput,
-          fileId: pfId, // Use the file ID from the URL
+          fileId: pfId,
           messages: chatMessages.map(m => ({
             role: m.role === 'user' ? 'user' : 'assistant',
             content: m.content
@@ -229,7 +448,7 @@ export default function LearnPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Streaming failed');
+        throw new Error('Chat streaming failed');
       }
 
       const reader = response.body?.getReader();
@@ -255,7 +474,6 @@ export default function LearnPage() {
                 if (data.type === 'token') {
                   accumulatedContent += data.content;
                   
-                  // Update message content in real-time
                   setChatMessages(prev => {
                     const newMessages = [...prev];
                     if (newMessages[messageIndex]) {
@@ -268,7 +486,7 @@ export default function LearnPage() {
                   });
                 }
               } catch (e) {
-                console.error('SSE parse error:', e);
+                console.error('Chat SSE parse error:', e);
               }
             }
           }
@@ -277,15 +495,13 @@ export default function LearnPage() {
         reader.releaseLock();
         setIsStreaming(false);
         
-        // Increment unread if chat is closed
         if (!chatOpen) {
           setUnreadMessages(prev => prev + 1);
         }
       }
     } catch (error) {
       setIsStreaming(false);
-      console.error('Streaming error:', error);
-      // Fallback to error message
+      console.error('Chat streaming error:', error);
       setChatMessages(prev => {
         const newMessages = [...prev];
         if (newMessages[messageIndex]) {
@@ -366,11 +582,11 @@ export default function LearnPage() {
               
               {/* Dynamic Breadcrumb */}
               <div className="flex items-center space-x-2 text-sm">
-                <span className="font-semibold text-gray-900">{courseName || "Loading..."}</span>
+                <span className="font-semibold text-gray-900">{courseName}</span>
                 {currentModule && (
                   <>
                     <span className="text-gray-400">›</span>
-                    <span className="text-gray-700">{currentModule.chapterTitle}</span>
+                    <span className="text-gray-700">{currentModule.title}</span>
                   </>
                 )}
                 {currentLesson && (
@@ -380,11 +596,6 @@ export default function LearnPage() {
                   </>
                 )}
               </div>
-            </div>
-
-            {/* Contextual Actions */}
-            <div className="flex items-center space-x-3">
-              {/* Removed contextual action buttons */}
             </div>
           </div>
 
@@ -452,7 +663,7 @@ export default function LearnPage() {
                               "text-sm font-semibold leading-tight line-clamp-2",
                               currentModuleIndex === moduleIndex ? "text-blue-900" : "text-gray-900"
                             )}>
-                              {chapter.chapterTitle}
+                              {chapter.title}
                             </CardTitle>
                             <div className="flex items-center space-x-3 mt-2">
                               <span className={cn(
@@ -468,14 +679,14 @@ export default function LearnPage() {
                                       "h-full transition-all duration-300",
                                       currentModuleIndex === moduleIndex ? "bg-blue-600" : "bg-gray-400"
                                     )}
-                                    style={{ width: `${chapter.progress}%` }}
+                                    style={{ width: `${chapter.progress || 0}%` }}
                                   />
                                 </div>
                                 <span className={cn(
                                   "text-xs font-medium",
                                   currentModuleIndex === moduleIndex ? "text-blue-700" : "text-gray-600"
                                 )}>
-                                  {chapter.progress}%
+                                  {chapter.progress || 0}%
                                 </span>
                               </div>
                             </div>
@@ -495,7 +706,7 @@ export default function LearnPage() {
                     {currentModuleIndex === moduleIndex && (
                       <div className="mt-2 ml-4 space-y-2">
                         {chapter.subsections.map((lesson, lessonIndex) => {
-                          const TypeIcon = getTypeIcon(lesson.type);
+                          const TypeIcon = getTypeIcon(lesson.type || 'text');
                           const isSelected = selectedLesson?.moduleIndex === moduleIndex && selectedLesson?.lessonIndex === lessonIndex;
                           const isRecommended = recommendedLesson?.moduleIndex === moduleIndex && recommendedLesson?.lessonIndex === lessonIndex;
                           
@@ -533,13 +744,12 @@ export default function LearnPage() {
                                         ? "bg-orange-500 text-white shadow-lg"
                                         : "bg-gray-100 text-gray-600 group-hover:bg-blue-100 group-hover:text-blue-600 group-hover:shadow-md"
                                     )}>
-                                      {lesson.completed ? (
+                                      {lesson.isLoading || lesson.isStreaming ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : lesson.completed ? (
                                         <CheckCircle2 className="h-4 w-4" />
                                       ) : (
                                         <TypeIcon className="h-4 w-4" />
-                                      )}
-                                      {lesson.completed && (
-                                        <div className="absolute -inset-1 rounded-xl bg-green-500 opacity-20 animate-pulse"></div>
                                       )}
                                     </div>
                                     
@@ -554,7 +764,7 @@ export default function LearnPage() {
                                       <div className="flex items-center space-x-3">
                                         <div className="flex items-center space-x-1 text-xs text-gray-600">
                                           <Timer className="h-3 w-3" />
-                                          <span className="font-medium">{lesson.timeToComplete}m</span>
+                                          <span className="font-medium">{lesson.timeToComplete || 5}m</span>
                                         </div>
                                         
                                         {lesson.score && (
@@ -571,8 +781,6 @@ export default function LearnPage() {
                                     </div>
                                   </div>
                                 </div>
-
-                                {/* Removed Enhanced Action Bar */}
                               </CardContent>
                             </Card>
                           );
@@ -602,7 +810,7 @@ export default function LearnPage() {
                         
                         <div>
                           <h1 className="text-3xl font-bold text-gray-900 mb-4">
-                            {courseName || "Course Materials"}
+                            {courseName}
                           </h1>
                           
                           {recommendedLesson ? (
@@ -616,7 +824,7 @@ export default function LearnPage() {
                                 <p className="text-orange-800 mb-4">
                                   <span className="font-medium">{chapters[recommendedLesson.moduleIndex]?.subsections[recommendedLesson.lessonIndex]?.title}</span>
                                   <span className="text-orange-600 ml-2">
-                                    ({chapters[recommendedLesson.moduleIndex]?.subsections[recommendedLesson.lessonIndex]?.timeToComplete}m)
+                                    ({chapters[recommendedLesson.moduleIndex]?.subsections[recommendedLesson.lessonIndex]?.timeToComplete || 5}m)
                                   </span>
                                 </p>
                                 
@@ -655,7 +863,7 @@ export default function LearnPage() {
                           <div className="flex items-center space-x-4 text-sm text-gray-600">
                             <div className="flex items-center space-x-1">
                               <Timer className="h-4 w-4" />
-                              <span>{currentLesson?.timeToComplete} minutes</span>
+                              <span>{currentLesson?.timeToComplete || 5} minutes</span>
                             </div>
                             
                             {currentLesson?.score && (
@@ -677,14 +885,17 @@ export default function LearnPage() {
                         {/* Lesson Content */}
                         <div className="bg-gray-50 border border-gray-200 rounded-xl p-8">
                           <div className="prose prose-lg max-w-none text-gray-800 leading-relaxed">
-                            {currentContent ? (
-                              <div dangerouslySetInnerHTML={{ 
-                                __html: currentContent.replace(/\n/g, '<br />') 
-                              }} />
+                            {currentLesson?.isLoading ? (
+                              <ContentSkeleton />
+                            ) : currentLesson?.content ? (
+                              <div className="whitespace-pre-wrap">
+                                {currentLesson.content}
+                                {currentLesson.isStreaming && <BlinkingCursor />}
+                              </div>
                             ) : (
                               <div className="text-center py-8">
                                 <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                <p className="text-gray-600">Select a lesson to begin learning</p>
+                                <p className="text-gray-600">Loading content...</p>
                               </div>
                             )}
                           </div>
@@ -756,13 +967,11 @@ export default function LearnPage() {
                       {message.content ? (
                         <>
                           <span>{message.content}</span>
-                          {/* Show blinking cursor for streaming AI messages */}
                           {isStreaming && message.role === 'ai' && index === chatMessages.length - 1 && (
-                            <span className="inline-block w-0.5 h-4 bg-gray-600 animate-pulse ml-0.5 align-middle" />
+                            <BlinkingCursor />
                           )}
                         </>
                       ) : (
-                        // Show typing indicator while waiting for first token
                         isStreaming && message.role === 'ai' && index === chatMessages.length - 1 && (
                           <div className="flex items-center space-x-1">
                             <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>

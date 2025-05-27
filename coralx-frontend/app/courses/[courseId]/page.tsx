@@ -1325,147 +1325,10 @@ export default function CoursePage() {
         return;
       }
 
-      const loadingToast = sonnerToast.loading("Creating personalized learning experience...", {
-        description: "Analyzing your learning profile and preparing content",
-        duration: 0
-      });
-
-      const profileRes = await fetch("http://localhost:8080/student/profile", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!profileRes.ok) {
-        throw new Error("Failed to fetch student profile. Please complete your onboarding first.");
-      }
-
-      const profileData = await profileRes.json();
-      const { name, onboard_answers } = profileData;
-
-      const userProfile = {
-        role: onboard_answers.job || "student",
-        traits: onboard_answers.traits || "helpful and encouraging",
-        learningStyle: onboard_answers.learningStyle || "visual",
-        depth: onboard_answers.depth || "intermediate",
-        interests: onboard_answers.topics || "general learning",
-        personalization: onboard_answers.interests || "using practical examples",
-        schedule: onboard_answers.schedule || "flexible learning",
-      };
-
-      // Step 1: Start the personalization task
-      const startResponse = await fetch("http://localhost:8080/generatepersonalizedfilecontent", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          name: name,
-          userProfile: userProfile,
-          fileId: material.id,
-        }),
-      });
-
-      if (!startResponse.ok) {
-        const errorText = await startResponse.text();
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch {
-          errorData = { error: errorText };
-        }
-        throw new Error(`Failed to start personalization: ${errorData.error || 'Unknown error'}`);
-      }
-
-      const startData = await startResponse.json();
-      
-      // Check if we got a task_id (async processing) or direct result (sync processing)
-      let personalizedData;
-      
-      console.log("=== PERSONALIZATION RESPONSE ===", startData);
-      
-      if (startData.task_id) {
-        console.log("Using async processing with task_id:", startData.task_id);
-        // Async processing - poll the status endpoint
-        const pollForStatus = async (attempt = 1): Promise<any> => {
-          try {
-            if (attempt === 1) {
-              sonnerToast.loading("Creating personalized learning experience...", {
-                description: "Analyzing your learning profile and preparing content",
-                id: loadingToast
-              });
-            } else if (attempt <= 6) {
-              sonnerToast.loading("Creating personalized learning experience...", {
-                description: "Processing course material (this may take a moment)...",
-                id: loadingToast
-              });
-            } else if (attempt <= 12) {
-              sonnerToast.loading("Creating personalized learning experience...", {
-                description: "Still processing... AI is analyzing the content thoroughly",
-                id: loadingToast
-              });
-            } else {
-              sonnerToast.loading("Creating personalized learning experience...", {
-                description: "Almost ready... finalizing your personalized content",
-                id: loadingToast
-              });
-            }
-
-            const statusResponse = await fetch(`http://localhost:8080/api/personalization/status/${startData.task_id}`, {
-              method: "GET",
-              credentials: "include",
-            });
-
-            if (!statusResponse.ok) {
-              throw new Error("Failed to check personalization status");
-            }
-
-            const statusData = await statusResponse.json();
-
-            if (statusData.status === 'completed') {
-              return statusData.result;
-            } else if (statusData.status === 'failed') {
-              throw new Error(statusData.error || 'Personalization failed');
-            } else if (statusData.status === 'processing') {
-              if (attempt > 24) {
-                throw new Error("The file is taking longer than expected to process. Please try again later or contact support.");
-              }
-              
-              await new Promise(resolve => setTimeout(resolve, 5000));
-              return pollForStatus(attempt + 1);
-            } else {
-              throw new Error(`Unknown status: ${statusData.status}`);
-            }
-          } catch (error) {
-            if (error instanceof Error && (
-              error.message.includes("Failed to fetch") || 
-              error.message.includes("NetworkError") ||
-              error.message.includes("TypeError")
-            )) {
-              if (attempt > 24) {
-                throw new Error("Network connection issue. Please check your connection and try again.");
-              }
-              await new Promise(resolve => setTimeout(resolve, 5000));
-              return pollForStatus(attempt + 1);
-            }
-            throw error;
-          }
-        };
-
-        personalizedData = await pollForStatus();
-        console.log("Async processing completed, personalizedData:", personalizedData);
-      } else {
-        console.log("Using sync processing");
-        // Sync processing - return the result directly
-        personalizedData = startData;
-        console.log("Sync processing, personalizedData:", personalizedData);
-      }
-      
-      console.log("Final personalizedData before navigation:", personalizedData);
-      
-      sonnerToast.dismiss(loadingToast);
-      sonnerToast.success("Personalized learning experience created!", {
-        description: `Redirecting to your customized version of "${material.title}"`,
+      // New streaming approach - go directly to streaming page
+      // The streaming page will handle fetching user profile and generating content in real-time
+      const loadingToast = sonnerToast.loading("Opening personalized learning experience...", {
+        description: "Redirecting to your personalized content"
       });
 
       studentAPI.logActivity({
@@ -1476,29 +1339,11 @@ export default function CoursePage() {
         console.warn("Failed to log AI activity:", error);
       });
 
+      // Small delay for better UX
       setTimeout(() => {
-        // Extract file_id from different response structures
-        let fileId;
-        if (personalizedData?.result?.file_id) {
-          // Async task result structure
-          fileId = personalizedData.result.file_id;
-        } else if (personalizedData?.file_id) {
-          // Direct response structure
-          fileId = personalizedData.file_id;
-        } else if (personalizedData?.id) {
-          // Fallback to id field
-          fileId = personalizedData.id;
-        }
-        
-        console.log("Navigating to file ID:", fileId);
-        console.log("Full personalizedData structure:", personalizedData);
-        if (fileId) {
-          router.push(`/learn/${fileId}`);
-        } else {
-          console.error("No file ID found in personalizedData:", personalizedData);
-          sonnerToast.error("Failed to get personalized content ID");
-        }
-      }, 1000);
+        sonnerToast.dismiss(loadingToast);
+        router.push(`/learn/streaming/${material.id}?courseId=${courseId}`);
+      }, 500);
 
     } catch (error) {
       sonnerToast.dismiss();

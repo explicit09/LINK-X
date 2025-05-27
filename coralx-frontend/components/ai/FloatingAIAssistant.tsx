@@ -152,25 +152,93 @@ export function FloatingAIAssistant({
     setInputValue("");
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = generateAIResponse(content);
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: aiResponse,
-        sender: "ai",
-        timestamp: new Date(),
-        type: "text"
-      };
+    // Add empty AI message for streaming
+    const aiMessageId = (Date.now() + 1).toString();
+    const aiMessage: Message = {
+      id: aiMessageId,
+      content: "",
+      sender: "ai",
+      timestamp: new Date(),
+      type: "text"
+    };
+    setMessages(prev => [...prev, aiMessage]);
 
-      setMessages(prev => [...prev, aiMessage]);
+    try {
+      const response = await fetch('http://localhost:8080/ai-chat-stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          userMessage: content,
+          messages: messages.slice(-10).map(m => ({
+            role: m.sender === 'user' ? 'user' : 'assistant',
+            content: m.content
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Streaming failed');
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      
+      if (reader) {
+        let buffer = '';
+        let accumulatedContent = '';
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          
+          for (const line of lines) {
+            if (line.trim().startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.trim().slice(6));
+                
+                if (data.type === 'token') {
+                  accumulatedContent += data.content;
+                  
+                  // Update message content
+                  setMessages(prev => prev.map(msg => 
+                    msg.id === aiMessageId 
+                      ? { ...msg, content: accumulatedContent }
+                      : msg
+                  ));
+                }
+              } catch (e) {
+                console.error('SSE parse error:', e);
+              }
+            }
+          }
+        }
+        
+        reader.releaseLock();
+      }
+    } catch (error) {
+      console.error('Streaming error:', error);
+      // Fallback to simulated response
+      const fallbackResponse = generateAIResponse(content);
+      setMessages(prev => prev.map(msg => 
+        msg.id === aiMessageId 
+          ? { ...msg, content: fallbackResponse }
+          : msg
+      ));
+    } finally {
       setIsTyping(false);
-
+      
       // If chat is minimized, increase unread count
       if (isMinimized) {
         setUnreadCount(prev => prev + 1);
       }
-    }, 1500);
+    }
   };
 
   const generateAIResponse = (userInput: string): string => {
@@ -345,7 +413,13 @@ export function FloatingAIAssistant({
                         : "bg-gray-100 text-gray-800"
                     )}
                   >
-                    <p className="whitespace-pre-wrap">{message.content}</p>
+                    <p className="whitespace-pre-wrap">
+                      {message.content}
+                      {/* Show cursor for streaming AI messages */}
+                      {isTyping && message.sender === "ai" && message === messages[messages.length - 1] && (
+                        <span className="inline-block w-0.5 h-4 bg-gray-600 animate-pulse ml-0.5" />
+                      )}
+                    </p>
                     <p className={cn(
                       "text-xs mt-1 opacity-70",
                       message.sender === "user" ? "text-blue-100" : "text-gray-500"

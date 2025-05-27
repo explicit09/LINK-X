@@ -73,6 +73,8 @@ from src.celery_app import app as celery_app
 
 # Initialize Flask app
 app = Flask(__name__)
+# Disable response buffering for streaming
+app.config['RESPONSE_BUFFERING'] = False
 
 # CORS will be configured below with detailed settings
 
@@ -2069,6 +2071,393 @@ def ai_chat():
         traceback.print_exc()
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
+
+@app.route('/ai-chat-stream', methods=['POST', 'OPTIONS'])
+def ai_chat_stream():
+    """Streaming version of AI chat endpoint using Server-Sent Events"""
+    import time
+    from flask import Response, stream_with_context
+    
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        response = Response()
+        response.headers['Access-Control-Allow-Origin'] = 'http://localhost:3001'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        return response
+    
+    try:
+        # 1. Verify student session
+        user_id, err = verify_student()
+        if err:
+            print(f"Auth error in ai-chat-stream: {err}")
+            return err
+
+        # 2. Parse request
+        data = request.get_json() or {}
+        chat_id      = data.get('id')
+        file_id      = data.get('fileId')
+        user_message = data.get('userMessage') or data.get('message')
+        history      = data.get('messages', [])
+
+        if not user_message:
+            return jsonify({'error': 'User message is required'}), 400
+
+        db = Session()
+        
+        # 3-8. Same logic as ai_chat endpoint for setup
+        course_id = None
+        f = get_file_by_id(db, file_id)
+        
+        # Get or create Chat
+        if chat_id:
+            chat = get_chat_by_id(db, chat_id)
+            if not chat or str(chat.user_id) != str(user_id):
+                db.close()
+                return jsonify({'error': 'Forbidden'}), 403
+        else:
+            if not file_id:
+                db.close()
+                return jsonify({'error': 'Missing fileId for new chat'}), 400
+
+            files = get_personalized_files_by_student(db, user_id)
+            personalized_file = next(
+                (pf for pf in files if str(pf.original_file_id) == str(file_id)),
+                None
+            )
+            if not personalized_file:
+                db.close()
+                return jsonify({'error': 'No personalized file found for this original fileId'}), 404
+
+            chat = create_chat(db, user_id, file_id, title='New Chat')
+            chat_id = str(chat.id)
+
+            if f:
+                f.chat_count += 1
+                db.commit()
+
+        if not f or not f.module:
+            db.close()
+            return jsonify({'error': 'File or module not found'}), 404
+
+        course_id = f.module.course_id
+        create_message(db, chat_id, role='user', content=user_message)
+
+        # Embed query and retrieve chunks
+        vector_list = openai_embed_text([user_message])[0].tolist()
+        pgvector_str = f"[{','.join(map(str, vector_list))}]"
+
+        sql = text("""
+            SELECT content
+            FROM "FileChunk"
+            WHERE course_id = :cid
+            ORDER BY embedding <-> :query_vec
+            LIMIT 3
+        """)
+        rows = db.execute(sql, {"cid": course_id, "query_vec": pgvector_str}).fetchall()
+        retrieved_chunks = [row[0] for row in rows if row[0]]
+
+        # Build messages (same as original)
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a knowledgeable AI tutor who understands concepts deeply and teaches with clarity."
+                )
+            }
+        ]
+
+        if retrieved_chunks:
+            material_prompt = {
+                "role": "system",
+                "content": f"Course material:\n" + "\n".join(retrieved_chunks)
+            }
+            messages.append(material_prompt)
+
+        for m in history:
+            if m.get("role") and m.get("content"):
+                messages.append({
+                    "role": m["role"],
+                    "content": m["content"]
+                })
+
+        messages.append({"role": "user", "content": user_message})
+
+        # Build persona prompt
+        sp = get_student_profile(db, user_id)
+        if not sp:
+            db.close()
+            return jsonify({'error': 'Student profile not found'}), 404
+
+        answers = sp.onboard_answers or {}
+        name           = sp.name
+        job            = answers.get('job')
+        traits         = answers.get('traits')
+        learning_style = answers.get('learningStyle')
+        depth          = answers.get('depth')
+        topics         = answers.get('topics')
+        interests      = answers.get('interests')
+        schedule       = answers.get('schedule')
+
+        persona_bits = []
+        if name:           persona_bits.append(f"Name: {name}")
+        if job:            persona_bits.append(f"Occupation: {job}")
+        if traits:         persona_bits.append(f"Preferred tone: {traits}")
+        if learning_style: persona_bits.append(f"Learning style: {learning_style}")
+        if depth:          persona_bits.append(f"Depth: {depth}")
+        if topics:         persona_bits.append(f"Topics: {topics}")
+        if interests:      persona_bits.append(f"Interests: {interests}")
+        if schedule:       persona_bits.append(f"Schedule: {schedule}")
+        persona_string = " • ".join(persona_bits)
+
+        expertise_map = {
+            'beginner':     'They prefer simple, clear explanations.',
+            'intermediate': 'They want moderate technical depth.',
+            'advanced':     'They want in-depth, technical explanations.',
+        }
+        expertise_summary = expertise_map.get(
+            (depth or '').lower(),
+            expertise_map['beginner']
+        )
+
+        persona_msg = {
+            "role": "system",
+            "content": f"Student profile: {persona_string}. {expertise_summary}"
+        }
+        messages.append(persona_msg)
+
+        def generate():
+            start_time = time.time()
+            full_response = ""
+            print(f"Starting stream generation for chat_id: {chat_id}")
+            
+            try:
+                # Send initial metadata
+                yield f"data: {json.dumps({'type': 'metadata', 'chatId': chat_id})}\n\n"
+                print("Sent metadata")
+                
+                # Small delay to ensure skeleton shows
+                time.sleep(0.1)
+                
+                # Stream the OpenAI response
+                stream = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=messages,
+                    temperature=0.5,
+                    max_tokens=300,
+                    stream=True
+                )
+                
+                for chunk in stream:
+                    if chunk.choices[0].delta.content:
+                        text = chunk.choices[0].delta.content
+                        full_response += text
+                        # Send as SSE data with explicit flush
+                        data = f"data: {json.dumps({'type': 'token', 'content': text})}\n\n"
+                        print(f"Sending token: {text}")
+                        yield data
+                
+                # Save the complete response
+                create_message(db, chat_id, role="assistant", content=full_response)
+                
+                # Send completion event with timing
+                elapsed = time.time() - start_time
+                yield f"data: {json.dumps({'type': 'done', 'elapsed': elapsed})}\n\n"
+            except Exception as e:
+                print(f"Streaming error: {e}")
+                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            finally:
+                db.close()
+
+        response = Response(
+            generate(), 
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no',
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': 'http://localhost:3001',
+                'Access-Control-Allow-Credentials': 'true'
+            }
+        )
+        return response
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Internal server error", "details": str(e)}), 500
+
+
+@app.route('/documents/<file_id>/outline', methods=['GET'])
+def get_document_outline(file_id):
+    """Get document outline with headings and estimated token counts"""
+    db = Session()
+    try:
+        # Verify access
+        user_id, err = verify_student()
+        if err:
+            user_id, err = verify_instructor()
+            if err:
+                return err
+        
+        # Get file
+        file_obj = get_file_by_id(db, file_id)
+        if not file_obj:
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Get chunks grouped by heading
+        chunks = db.query(FileChunk).filter_by(file_id=file_id).order_by(FileChunk.ordering).all()
+        
+        outline = []
+        current_heading = None
+        token_count = 0
+        
+        for chunk in chunks:
+            # Simple heading detection (you may want to improve this)
+            lines = chunk.content.split('\n')
+            for line in lines:
+                if line.strip() and (line.startswith('#') or line.isupper()):
+                    if current_heading:
+                        outline.append({
+                            'heading_id': f'heading-{len(outline)}',
+                            'title': current_heading,
+                            'est_tokens': token_count
+                        })
+                    current_heading = line.strip('#').strip()
+                    token_count = 0
+            
+            # Estimate tokens (rough approximation)
+            token_count += len(chunk.content.split()) * 1.3
+        
+        # Add last heading
+        if current_heading:
+            outline.append({
+                'heading_id': f'heading-{len(outline)}',
+                'title': current_heading,
+                'est_tokens': int(token_count)
+            })
+        
+        # If no headings found, create a single entry
+        if not outline:
+            total_tokens = sum(len(chunk.content.split()) * 1.3 for chunk in chunks)
+            outline.append({
+                'heading_id': 'heading-0',
+                'title': file_obj.filename,
+                'est_tokens': int(total_tokens)
+            })
+        
+        return jsonify(outline), 200
+    finally:
+        db.close()
+
+
+@app.route('/chunks', methods=['GET'])
+def stream_chunks():
+    """Stream document chunks as NDJSON"""
+    from flask import Response, stream_with_context
+    
+    db = Session()
+    try:
+        # Verify access
+        user_id, err = verify_student()
+        if err:
+            user_id, err = verify_instructor()
+            if err:
+                return err
+        
+        # Get parameters
+        doc_id = request.args.get('doc_id')
+        from_chunk = int(request.args.get('from', 0))
+        limit = int(request.args.get('limit', 10))
+        
+        if not doc_id:
+            return jsonify({'error': 'doc_id required'}), 400
+        
+        # Get chunks
+        chunks = db.query(FileChunk).filter_by(file_id=doc_id)\
+            .order_by(FileChunk.ordering)\
+            .offset(from_chunk)\
+            .limit(limit)\
+            .all()
+        
+        def generate():
+            for chunk in chunks:
+                # Split content into smaller pieces for streaming
+                words = chunk.content.split()
+                chunk_data = {
+                    'chunk_id': str(chunk.id),
+                    'ordering': chunk.ordering,
+                    'tokens': []
+                }
+                
+                # Stream in batches of 20 words
+                for i in range(0, len(words), 20):
+                    batch = words[i:i+20]
+                    chunk_data['tokens'] = batch
+                    yield json.dumps(chunk_data) + '\n'
+                    
+                # Send completion marker
+                yield json.dumps({'chunk_id': str(chunk.id), 'complete': True}) + '\n'
+        
+        return Response(
+            stream_with_context(generate()),
+            mimetype='application/x-ndjson',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Access-Control-Allow-Origin': 'http://localhost:3001',
+                'Access-Control-Allow-Credentials': 'true'
+            }
+        )
+    finally:
+        db.close()
+
+
+@app.route('/chunks/<chunk_id>', methods=['HEAD'])
+def get_chunk_info(chunk_id):
+    """Get chunk token count for progress tracking"""
+    db = Session()
+    try:
+        chunk = db.query(FileChunk).filter_by(id=chunk_id).first()
+        if not chunk:
+            return '', 404
+        
+        # Estimate token count
+        token_count = len(chunk.content.split()) * 1.3
+        
+        response = Response('')
+        response.headers['X-Total-Tokens'] = str(int(token_count))
+        return response
+    finally:
+        db.close()
+
+
+@app.route('/test-stream', methods=['GET'])
+def test_stream():
+    """Test SSE streaming endpoint"""
+    import time
+    from flask import Response
+    
+    def generate():
+        yield f"data: {json.dumps({'type': 'start', 'message': 'Starting stream'})}\n\n"
+        time.sleep(0.5)
+        
+        words = "This is a test of the streaming endpoint. Words should appear one by one.".split()
+        for word in words:
+            yield f"data: {json.dumps({'type': 'token', 'content': word + ' '})}\n\n"
+            time.sleep(0.1)
+        
+        yield f"data: {json.dumps({'type': 'done', 'message': 'Stream complete'})}\n\n"
+    
+    return Response(
+        generate(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Access-Control-Allow-Origin': 'http://localhost:3001',
+            'Access-Control-Allow-Credentials': 'true'
+        }
+    )
 
 @app.route('/courses/<course_id>/citations', methods=['GET'])
 def citations_route(course_id):
@@ -4364,5 +4753,10 @@ Output in JSON format:
         }
         return json.dumps(fallback_content)
 
+# Register streaming personalization routes
+from streaming_personalization import register_streaming_routes
+register_streaming_routes(app, Session, openai_client)
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8080)
+    # Run without debug mode to prevent buffering for streaming
+    app.run(debug=False, host='0.0.0.0', port=8080, threaded=True)
