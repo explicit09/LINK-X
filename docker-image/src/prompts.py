@@ -76,7 +76,7 @@ def prompt2_generate_course_outline_RAG(working_dir, expertise):
         from textUtils import openai_embed_text
         query_embedding = openai_embed_text([query])[0]
         
-        chunks = retrieve_chunks_pgvector(db, query_embedding, course_id=None, limit=20)
+        chunks = retrieve_chunks_pgvector(db, query_embedding, course_id=None, limit=40)  # Increased with gpt-4o
         
         context = "\n\n".join([chunk["content"] for chunk in chunks])
         
@@ -151,7 +151,7 @@ def prompt_generate_personalized_file_content(working_dir, persona):
     1. Provide a **concise chapter title** (3–7 words).
     2. Include **2–4 comprehensive subsections**, each with:
         - A **short title** summarizing the subsection's focus.
-        - A **fullText** explanation that presents the relevant information in **at least 10 sentences with subsections**.
+        - A **fullText** explanation that presents the relevant information in **at least 500-600 words with detailed subsections, examples, and comprehensive coverage**.
 
     **INSTRUCTIONS**
     - Use language that is **clear, precise, and faithful** to the original material. Rephrase only to improve structure or flow.
@@ -189,7 +189,7 @@ def prompt_generate_personalized_file_content(working_dir, persona):
         from textUtils import openai_embed_text
         query_embedding = openai_embed_text([rag_query])[0]
         
-        chunks = retrieve_chunks_pgvector(db, query_embedding, course_id=None, limit=30)
+        chunks = retrieve_chunks_pgvector(db, query_embedding, course_id=None, limit=50)  # Increased with gpt-4o
         
         all_content = "\n\n".join([chunk["content"] for chunk in chunks])
         

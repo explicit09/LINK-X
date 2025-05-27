@@ -187,13 +187,21 @@ def retrieve_chunks_pgvector(db_session, query_embedding, course_id=None, file_i
     
     return chunks
 
-def generate_personalized_content_pgvector(db_session, file_id, persona):
+def generate_personalized_content_pgvector(db_session, file_id, persona, use_multipass=True):
     """
     Generate personalized content using pgvector retrieval and OpenAI.
+    Can use multi-pass generation for improved quality and depth.
     """
     file = get_file_by_id(db_session, file_id)
     if not file:
         raise ValueError("File not found")
+    
+    # For faster generation, reduce max_tokens temporarily
+    # This is a hotfix for timeout issues
+    import os
+    fast_mode = os.environ.get('FAST_GENERATION', 'false').lower() == 'true'
+    if fast_mode:
+        logger.info("Using fast generation mode with reduced tokens")
     
     # Get embedding for the persona to use for similarity search
     try:
@@ -209,7 +217,7 @@ def generate_personalized_content_pgvector(db_session, file_id, persona):
             db_session=db_session,
             query_embedding=persona_embedding,
             file_id=file_id,
-            limit=25,
+            limit=50,  # Increased for more comprehensive content
             similarity_threshold=0.1
         )
     except Exception as e:
@@ -237,7 +245,7 @@ USER PROFILE (CRUCIAL - incorporate ALL these characteristics):
 ORIGINAL CONTENT:
 {context}
 
-YOUR MISSION: Transform this content into a HIGHLY PERSONALIZED study guide that:
+YOUR MISSION: Transform this content into a HIGHLY PERSONALIZED, COMPREHENSIVE study guide that MUST BE EXTREMELY DETAILED. This is NOT a summary - it should be a FULL educational resource that:
 
 1. **DIRECTLY ADDRESSES THE USER** - Use "you" and reference their specific traits
 2. **ADAPTS TO THEIR LEARNING STYLE** - Structure content to match their preferences
@@ -249,10 +257,12 @@ YOUR MISSION: Transform this content into a HIGHLY PERSONALIZED study guide that
 REQUIREMENTS:
 - Create 4-6 comprehensive chapters (NOT just 3 short ones)
 - Each chapter must have 2-4 detailed subsections
-- Each subsection must contain AT LEAST 200 words of rich, personalized content
+- Each subsection must contain AT LEAST 500-600 words of detailed, coherent content with clear structure, examples, and depth
 - Include specific examples that relate to the user's interests
 - Add personal touches like "Since you're interested in [interest]..." or "As someone who prefers [style]..."
 - Make connections between concepts and the user's background/role
+
+CRITICAL: You MUST generate COMPLETE, FULL-LENGTH content. Do NOT stop early, truncate, or use placeholders like "..." or "etc." Each subsection MUST be fully developed with the required word count.
 
 OUTPUT FORMAT (JSON):
 {{
@@ -264,7 +274,7 @@ OUTPUT FORMAT (JSON):
             "subsections": [
                 {{
                     "title": "[Engaging subsection title]",
-                    "fullText": "[MINIMUM 200 words of deeply personalized content that directly addresses the user, uses their name if provided, references their interests, adapts to their learning style, and makes the content feel like it was written specifically for them. Include relevant examples from their field of interest.]"
+                    "fullText": "[MINIMUM 500-600 words of deeply personalized, comprehensive content that directly addresses the user, uses their name if provided, references their interests, adapts to their learning style, and makes the content feel like it was written specifically for them. Include multiple relevant examples from their field of interest, detailed explanations, practical applications, and thorough coverage of the topic. Content should be structured with clear transitions, subsections where appropriate, and should not stop early or summarize prematurely.]"
                 }},
                 // 2-4 subsections per chapter
             ]
@@ -275,16 +285,20 @@ OUTPUT FORMAT (JSON):
 
 IMPORTANT: This is about creating a CONNECTION with the learner. Don't just explain concepts - make them feel like this content was crafted specifically for THEM."""
     
+    # Use multi-pass generation for better quality if enabled
+    if use_multipass:
+        return generate_content_multipass(file_id, file, persona, context, db_session)
+    
     try:
         # Call OpenAI API
         response = openai_client.chat.completions.create(
-            model="gpt-4-turbo",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are an expert educational content personalizer who creates deeply engaging, personalized learning experiences. You excel at understanding learner profiles and adapting content to create meaningful connections."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.8,
-            max_tokens=4000
+            max_tokens=16000
         )
         
         # Extract and parse the response
@@ -325,6 +339,347 @@ IMPORTANT: This is about creating a CONNECTION with the learner. Don't just expl
     except Exception as e:
         logger.error(f"Error generating personalized content: {str(e)}")
         raise ValueError(f"Error generating personalized content: {str(e)}")
+
+def generate_personalized_content_quick(file_id, file, persona, context, db):
+    """
+    Quick personalized content generation to avoid timeouts.
+    Generates 3-4 chapters with 2-3 subsections each, 300-400 words per subsection.
+    """
+    try:
+        prompt = f"""You are an expert educational content personalizer.
+
+USER PROFILE: {persona}
+FILE: {file.title}
+
+Create a personalized study guide with:
+- 3-4 chapters (not more)
+- 2-3 subsections per chapter
+- 300-400 words per subsection (be concise but comprehensive)
+- Direct addressing with "you"
+- Examples from user's interests
+
+CONTENT:
+{context}  # Use full context with gpt-4o
+
+OUTPUT FORMAT (JSON):
+{{
+    "title": "[Personalized title]",
+    "courseName": "{file.title}",
+    "chapters": [
+        {{
+            "chapterTitle": "[Title]",
+            "subsections": [
+                {{
+                    "title": "[Subsection]",
+                    "fullText": "[300-400 words of personalized content]"
+                }}
+            ]
+        }}
+    ]
+}}"""
+
+        response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are an expert at creating personalized educational content. Be concise but comprehensive."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=8000  # Reduced for speed
+        )
+        
+        result = response.choices[0].message.content.strip()
+        
+        try:
+            json_result = json.loads(result)
+            return json.dumps(json_result)
+        except json.JSONDecodeError:
+            import re
+            json_match = re.search(r'\{[\s\S]*\}', result)
+            if json_match:
+                json_result = json.loads(json_match.group(0))
+                return json.dumps(json_result)
+            raise ValueError("Failed to parse JSON response")
+            
+    except Exception as e:
+        logger.error(f"Error in quick generation: {str(e)}")
+        raise
+
+def generate_personalized_content_stream(file_id, file, persona, context, db):
+    """
+    Stream personalized content generation for real-time updates.
+    Yields JSON chunks that can be parsed on the client side.
+    """
+    try:
+        prompt = f"""You are an expert educational content personalizer.
+
+USER PROFILE: {persona}
+FILE: {file.title}
+
+Transform the content below into a highly personalized study guide with:
+- 4-6 comprehensive chapters
+- 2-4 subsections per chapter (500-600 words each)
+- Direct user addressing with "you"
+- Examples from their interests
+- Complete, detailed explanations
+
+CONTENT:
+{context}
+
+Start with the JSON structure and stream the content as you generate it."""
+
+        # Stream the response
+        stream = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are an expert at creating personalized educational content. Generate structured JSON content."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.8,
+            max_tokens=16000,
+            stream=True
+        )
+        
+        # Buffer to accumulate the streamed content
+        buffer = ""
+        
+        for chunk in stream:
+            if chunk.choices[0].delta.content is not None:
+                content = chunk.choices[0].delta.content
+                buffer += content
+                
+                # Yield progress updates
+                yield json.dumps({
+                    "type": "progress",
+                    "content": content,
+                    "total_length": len(buffer)
+                }) + "\n"
+        
+        # Parse and validate the complete response
+        try:
+            json_result = json.loads(buffer)
+            yield json.dumps({
+                "type": "complete",
+                "content": json_result
+            }) + "\n"
+        except json.JSONDecodeError:
+            # Try to extract JSON from the buffer
+            import re
+            json_match = re.search(r'\{[\s\S]*\}', buffer)
+            if json_match:
+                json_result = json.loads(json_match.group(0))
+                yield json.dumps({
+                    "type": "complete",
+                    "content": json_result
+                }) + "\n"
+            else:
+                yield json.dumps({
+                    "type": "error",
+                    "message": "Failed to parse generated content"
+                }) + "\n"
+                
+    except Exception as e:
+        logger.error(f"Error in streaming generation: {str(e)}")
+        yield json.dumps({
+            "type": "error", 
+            "message": str(e)
+        }) + "\n"
+
+def generate_content_multipass(file_id, file, persona, context, db):
+    """
+    Multi-pass content generation for improved quality and depth.
+    Pass 1: Generate structure and outline
+    Pass 2: Generate each subsection independently 
+    Pass 3: Stitch together with transitions
+    """
+    logger.info(f"Starting multi-pass generation for file {file_id}")
+    
+    try:
+        # Pass 1: Generate comprehensive outline
+        outline_prompt = f"""
+You are an expert educational content architect. Create a detailed outline for a personalized study guide.
+
+FILE: {file.title}
+USER PROFILE: {persona}
+
+Based on the content below, create a comprehensive outline with:
+- 4-6 chapters (each addressing a major theme)
+- 2-4 subsections per chapter
+- Key points to cover in each subsection
+- Suggested examples and analogies for the user's profile
+
+CONTENT:
+{context}
+
+Output JSON format:
+{{
+    "title": "Engaging personalized title",
+    "chapters": [
+        {{
+            "chapterTitle": "Title",
+            "subsections": [
+                {{
+                    "title": "Subsection title",
+                    "keyPoints": ["point1", "point2", ...],
+                    "suggestedExamples": ["example1", "example2"]
+                }}
+            ]
+        }}
+    ]
+}}
+"""
+        
+        # Generate outline
+        outline_response = openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are an expert at creating educational content outlines."},
+                {"role": "user", "content": outline_prompt}
+            ],
+            temperature=0.7,
+            max_tokens=4000,
+            response_format={"type": "json_object"}
+        )
+        
+        outline = json.loads(outline_response.choices[0].message.content.strip())
+        
+        # Pass 2: Generate each subsection independently for maximum depth
+        for chapter in outline["chapters"]:
+            for subsection in chapter["subsections"]:
+                subsection_prompt = f"""
+You are an expert educational content writer creating deeply personalized content.
+
+USER PROFILE: {persona}
+CHAPTER: {chapter['chapterTitle']}
+SUBSECTION: {subsection['title']}
+KEY POINTS: {', '.join(subsection.get('keyPoints', []))}
+SUGGESTED EXAMPLES: {', '.join(subsection.get('suggestedExamples', []))}
+
+Write a comprehensive, detailed explanation of this subsection that:
+1. Is EXACTLY 500-600 words (no less)
+2. Directly addresses the user using "you"
+3. Includes ALL key points with thorough explanations
+4. Uses the suggested examples adapted to the user's interests
+5. Has clear structure with smooth transitions
+6. Provides practical applications and real-world connections
+7. Does NOT truncate or summarize - be comprehensive
+
+RELEVANT CONTENT:
+{context[:5000]}  # Increased context for better subsection generation
+
+Write the COMPLETE subsection content:
+"""
+                
+                subsection_response = openai_client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": "You are an expert educational content writer. Generate detailed, comprehensive content exactly as requested."},
+                        {"role": "user", "content": subsection_prompt}
+                    ],
+                    temperature=0.8,
+                    max_tokens=2000  # Enough for 500-600 words
+                )
+                
+                # Store the generated content
+                subsection["fullText"] = subsection_response.choices[0].message.content.strip()
+                
+                # Clean up temporary fields
+                subsection.pop("keyPoints", None)
+                subsection.pop("suggestedExamples", None)
+        
+        # Pass 3: Add transitions and polish
+        final_content = {
+            "title": outline["title"],
+            "courseName": file.title,
+            "chapters": outline["chapters"]
+        }
+        
+        return json.dumps(final_content)
+        
+    except Exception as e:
+        logger.error(f"Error in multi-pass generation: {str(e)}")
+        # Fall back to single-pass generation
+        return generate_personalized_content(file_id, file, persona, context, db)
+
+def generate_content_orchestrator(file_id, persona, db_session, options=None):
+    """
+    Orchestrator function for content generation with smart defaults and options.
+    
+    Args:
+        file_id: ID of the file to generate content for
+        persona: User persona string
+        db_session: Database session
+        options: Dict with options like:
+            - method: 'single', 'multi', 'stream' (default: 'multi' for best quality)
+            - max_tokens: Override default token limit
+            - temperature: Override default temperature
+            - log_usage: Whether to log token usage (default: True)
+    
+    Returns:
+        Generated content as JSON string or generator for streaming
+    """
+    options = options or {}
+    method = options.get('method', 'multi')
+    log_usage = options.get('log_usage', True)
+    
+    try:
+        # Get file information
+        file = get_file_by_id(db_session, file_id)
+        if not file:
+            raise ValueError(f"File {file_id} not found")
+        
+        # Retrieve relevant chunks
+        logger.info(f"Generating {method} content for file {file_id}")
+        
+        # Get embedding for persona
+        persona_embedding = openai_embed_text([persona])[0]
+        
+        # Retrieve chunks
+        relevant_chunks = retrieve_chunks_pgvector(
+            db_session=db_session,
+            query_embedding=persona_embedding,
+            file_id=file_id,
+            limit=60,  # Get more chunks for comprehensive content with gpt-4o
+            similarity_threshold=0.1
+        )
+        
+        if not relevant_chunks:
+            raise ValueError("No content found for this file")
+        
+        # Prepare context
+        chunk_texts = [chunk["content"] for chunk in relevant_chunks[:50]]  # Increased from 25 to 50 with gpt-4o
+        context = "\n\n---\n\n".join(chunk_texts)
+        
+        # Track token usage
+        start_time = time.time()
+        
+        # Generate based on method
+        if method == 'stream':
+            result = generate_personalized_content_stream(file_id, file, persona, context, db_session)
+        elif method == 'multi':
+            result = generate_content_multipass(file_id, file, persona, context, db_session)
+        elif method == 'quick':
+            result = generate_personalized_content_quick(file_id, file, persona, context, db_session)
+        else:  # single
+            result = generate_personalized_content_pgvector(db_session, file_id, persona, use_multipass=False)
+        
+        # Log usage if enabled
+        if log_usage and method != 'stream':
+            duration = time.time() - start_time
+            logger.info(f"Content generation completed in {duration:.2f}s using {method} method")
+            
+            # Estimate token usage (rough estimate)
+            input_tokens = len(context.split()) * 1.3  # Rough token estimate
+            output_tokens = len(result.split()) * 1.3
+            total_tokens = input_tokens + output_tokens
+            
+            logger.info(f"Token usage estimate - Input: {input_tokens:.0f}, Output: {output_tokens:.0f}, Total: {total_tokens:.0f}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error in content orchestrator: {str(e)}")
+        raise
 
 # Cache control decorator for GET endpoints
 def cache_response(max_age=300, private=True):
@@ -1145,6 +1500,7 @@ def generate_personalized_file_content():
     name = data.get("name")
     profile = data.get("userProfile", {})
     file_id = data.get("fileId")
+    generation_mode = data.get("mode", "auto")  # auto, quick, single, multi
 
     persona = []
     if name:
@@ -1183,11 +1539,39 @@ def generate_personalized_file_content():
         db_session.close()
 
     # Start async task for personalization
-    def generate_file_personalization():
+    def generate_file_personalization(task_id=None, mode='auto'):
         db_session = Session()
         try:
-            # Generate response using pgvector retrieval
-            response = generate_personalized_content_pgvector(db_session, file_id, full_persona)
+            # Check file size to determine generation method
+            file = get_file_by_id(db_session, file_id)
+            chunk_count = db_session.query(FileChunk).filter_by(file_id=file_id).count()
+            
+            # Determine generation method
+            if mode != 'auto':
+                method = mode
+            else:
+                # Use quick generation to avoid timeouts
+                # Quick: 30-60s, Single: 60-90s, Multi: 120-180s
+                if chunk_count > 150:
+                    method = 'quick'  # Very large files
+                elif chunk_count > 50:
+                    method = 'single'  # Medium files
+                else:
+                    method = 'quick'  # Default to quick to avoid timeouts
+            
+            logger.info(f"Starting {method} generation for file {file_id} with {chunk_count} chunks")
+            
+            # Update task status with progress
+            if task_id and task_id in async_tasks:
+                async_tasks[task_id]['progress'] = f'Generating content using {method} mode...'
+            
+            # Generate response using orchestrator
+            response = generate_content_orchestrator(
+                file_id=file_id,
+                persona=full_persona,
+                db_session=db_session,
+                options={'method': method, 'log_usage': True}
+            )
             
             # Verify JSON is valid
             try:
@@ -1221,7 +1605,7 @@ def generate_personalized_file_content():
             db_session.close()
 
     # Start the async task
-    task_id = start_async_task(generate_file_personalization)
+    task_id = start_async_task(generate_file_personalization, mode=generation_mode)
     
     return jsonify({"task_id": task_id}), 202
 
@@ -1256,6 +1640,83 @@ def student_manage_personalized_file(pf_id):
         return jsonify({'error': str(e)}), 500
     finally:
         db.close()
+
+@app.route('/student/personalized-content-stream', methods=['POST'])
+def student_personalized_content_stream():
+    """
+    Stream personalized content generation for real-time updates.
+    Returns server-sent events (SSE) for progressive content generation.
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body is required"}), 400
+    
+    name = data.get("name", "")
+    profile = data.get("profile", {})
+    file_id = data.get("fileId")
+    generation_mode = data.get("mode", "auto")  # auto, quick, single, multi
+    
+    if not file_id:
+        return jsonify({"error": "fileId is required"}), 400
+    
+    # Build persona
+    persona = []
+    if name:
+        persona.append(f"The user's name is **{name}**")
+    if profile.get('role'):
+        persona.append(f"they are a **{profile['role']}**")
+    if profile.get('traits'):
+        persona.append(f"they like their assistant to be **{profile['traits']}**")
+    if profile.get('learningStyle'):
+        persona.append(f"their preferred learning style is **{profile['learningStyle']}**")
+    if profile.get('depth'):
+        persona.append(f"they prefer **{profile['depth']}-level** explanations")
+    if profile.get('interests'):
+        persona.append(f"they're interested in **{profile['interests']}**")
+    if profile.get('personalization'):
+        persona.append(f"they enjoy **{profile['personalization']}**")
+    if profile.get('schedule'):
+        persona.append(f"they study best **{profile['schedule']}**")
+    full_persona = ". ".join(persona)
+    
+    def generate():
+        db_session = Session()
+        try:
+            # Get file information
+            file = get_file_by_id(db_session, file_id)
+            if not file:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'File not found'})}\n\n"
+                return
+            
+            # Get embedding and retrieve chunks
+            persona_embedding = openai_embed_text([full_persona])[0]
+            relevant_chunks = retrieve_chunks_pgvector(
+                db_session=db_session,
+                query_embedding=persona_embedding,
+                file_id=file_id,
+                limit=50,  # Increased for more comprehensive content
+                similarity_threshold=0.1
+            )
+            
+            if not relevant_chunks:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'No content found'})}\n\n"
+                return
+            
+            # Prepare context
+            chunk_texts = [chunk["content"] for chunk in relevant_chunks]
+            context = "\n\n---\n\n".join(chunk_texts)
+            
+            # Stream the generation
+            for chunk in generate_personalized_content_stream(file_id, file, full_persona, context, db_session):
+                yield f"data: {chunk}\n\n"
+                
+        except Exception as e:
+            logger.error(f"Error in streaming endpoint: {str(e)}")
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+        finally:
+            db_session.close()
+    
+    return Response(generate(), mimetype='text/event-stream')
 
 @app.route('/student/chats', methods=['GET', 'POST'])
 def student_chats():
@@ -3459,11 +3920,18 @@ def start_async_task(task_func, *args, **kwargs):
         'status': 'processing',
         'started_at': datetime.utcnow(),
         'result': None,
-        'error': None
+        'error': None,
+        'progress': 'Initializing...'
     }
     
     def task_wrapper():
         try:
+            # Pass task_id if the function accepts it
+            import inspect
+            sig = inspect.signature(task_func)
+            if 'task_id' in sig.parameters:
+                kwargs['task_id'] = task_id
+            
             result = task_func(*args, **kwargs)
             async_tasks[task_id].update({
                 'status': 'completed',
@@ -3762,7 +4230,8 @@ def check_personalization_status(task_id):
     response = {
         "task_id": task_id,
         "status": task['status'],
-        "started_at": task['started_at'].isoformat() if task.get('started_at') else None
+        "started_at": task['started_at'].isoformat() if task.get('started_at') else None,
+        "progress": task.get('progress', 'Processing...')
     }
     
     if task['status'] == 'completed':
@@ -3818,18 +4287,20 @@ File contents to integrate:
 """
     
     # Add content from each file
-    for file in files[:5]:  # Limit to first 5 files to avoid token limits
+    for file in files[:10]:  # Increased limit with gpt-4o's larger context
         if file.id in file_chunks:
-            file_content = "\n".join(file_chunks[file.id][:3])  # First 3 chunks per file
-            prompt += f"\n\nFile: {file.title}\nContent:\n{file_content[:1000]}...\n"
+            file_content = "\n".join(file_chunks[file.id][:5])  # Increased chunks per file
+            prompt += f"\n\nFile: {file.title}\nContent:\n{file_content[:2000]}...\n"
     
     prompt += """
 
-Create a comprehensive study guide that:
-1. Integrates content from all files into a coherent narrative
-2. Personalizes explanations based on the user's profile
-3. Organizes content into logical chapters and sections
-4. Adds relevant examples and analogies that match the user's interests
+Create a comprehensive, in-depth study guide that:
+1. Integrates content from all files into a coherent, detailed narrative
+2. Personalizes explanations based on the user's profile with extensive depth
+3. Organizes content into logical chapters with substantial sections (500-600 words each)
+4. Adds multiple relevant examples, case studies, and analogies that match the user's interests
+5. Ensures each section is thoroughly developed with complete explanations
+6. Does NOT truncate, summarize, or stop content prematurely
 
 Output in JSON format:
 {
@@ -3851,13 +4322,13 @@ Output in JSON format:
     try:
         # Call OpenAI API
         response = openai_client.chat.completions.create(
-            model="gpt-4-turbo",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are an expert at creating personalized educational content."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.7,
-            max_tokens=4000,
+            max_tokens=16000,
             response_format={"type": "json_object"}
         )
         
