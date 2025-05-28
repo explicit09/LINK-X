@@ -775,7 +775,7 @@ export default function CoursePage() {
 
   const filteredModules = modules.map(module => ({
     ...module,
-    materials: filterMaterials(module.materials)
+    materials: filterMaterials(module.materials || [])
   })).filter(module => 
     // Only show modules that have materials after filtering, or if no search/filters are active
     module.materials.length > 0 || (!searchQuery && filters.fileTypes.length === 0 && filters.aiProcessed === 'all' && filters.dateRange === 'all')
@@ -1090,18 +1090,28 @@ export default function CoursePage() {
         return;
       }
 
-      const newModule = await response.json();
+      const responseData = await response.json();
+      console.log('Module creation response:', responseData);
+      const newModule = responseData.module;
 
-      // Add the new module to the local state
-      const moduleToAdd = {
-        id: newModule.id,
-        title: newModule.title,
+      // Add the new module to the local state with proper structure
+      const moduleToAdd: Module = {
+        id: newModule.id || `temp-${Date.now()}`,
+        title: newModule.title || 'New Module',
         description: newModule.description || '',
         materials: [],
         isExpanded: true,
       };
+      
+      console.log('Adding new module:', moduleToAdd);
 
-      setModules(prev => [...prev, moduleToAdd]);
+      setModules(prev => {
+        // Ensure we don't have duplicate IDs
+        const filtered = prev.filter(m => m.id !== moduleToAdd.id);
+        const updated = [...filtered, moduleToAdd];
+        console.log('Updated modules:', updated);
+        return updated;
+      });
 
       // Show success message
       sonnerToast.success("Module created successfully");
