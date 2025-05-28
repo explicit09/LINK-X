@@ -323,8 +323,8 @@ Happy learning!`;
       
       // If not using mock data, proceed with real API call
       const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') as string;
-      console.log('Making API request to:', `${apiUrl}/api/personalize/${fileId}/stream`);
-      const response = await fetch(`${apiUrl}/api/personalize/${fileId}/stream`, {
+      console.log('Making API request to:', `${apiUrl}/api/v1/personalize/stream/${fileId}`);
+      const response = await fetch(`${apiUrl}/api/v1/personalize/stream/${fileId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -360,11 +360,11 @@ Happy learning!`;
               try {
                 const data = JSON.parse(line.trim().slice(6));
                 
-                if (data.type === 'token') {
+                if (data.type === 'content') {
                   if (!firstTokenTime) {
                     firstTokenTime = Date.now();
                     const latency = firstTokenTime - startTime;
-                    console.log(`First token for ${sectionKey} in ${latency}ms`);
+                    console.log(`First content for ${sectionKey} in ${latency}ms`);
                     
                     // Update metrics
                     const metrics = metricsRef.current.get(sectionKey);
@@ -372,22 +372,16 @@ Happy learning!`;
                       metrics.firstTokenTime = latency;
                     }
                   }
-                  accumulatedContent += data.content;
+                  // For content type, the data is in data.data field
+                  accumulatedContent += data.data || '';
                   setStreamingContent((prev: Map<string, string>) => new Map(prev).set(sectionKey, accumulatedContent));
-                } else if (data.type === 'complete') {
-                  const completeTime = Date.now();
-                  const totalTime = completeTime - startTime;
-                  console.log(`Section ${sectionKey} complete in ${totalTime}ms`);
-                  
-                  // Update metrics
-                  const metrics = metricsRef.current.get(sectionKey);
-                  if (metrics) {
-                    metrics.completionTime = totalTime;
-                  }
-                  
-                  setStreamingStates((prev: Map<string, 'waiting' | 'streaming' | 'complete'>) => new Map(prev).set(sectionKey, 'complete'));
-                  setActiveSectionKey(null);
-                  setGeneratedSections((prev: string[]) => [...prev, sectionKey]);
+                } else if (data.type === 'example') {
+                  // Add examples to content
+                  accumulatedContent += '\n\n**Example:**\n' + (data.data || '');
+                  setStreamingContent((prev: Map<string, string>) => new Map(prev).set(sectionKey, accumulatedContent));
+                } else if (data.type === 'error') {
+                  console.error('Streaming error:', data.message);
+                  throw new Error(data.message || 'Streaming failed');
                 }
               } catch (e) {
                 console.error('Parse error:', e);
@@ -395,6 +389,21 @@ Happy learning!`;
             }
           }
         }
+        
+        // When stream is done, mark as complete
+        const completeTime = Date.now();
+        const totalTime = completeTime - startTime;
+        console.log(`Section ${sectionKey} complete in ${totalTime}ms`);
+        
+        // Update metrics
+        const metrics = metricsRef.current.get(sectionKey);
+        if (metrics) {
+          metrics.completionTime = totalTime;
+        }
+        
+        setStreamingStates((prev: Map<string, 'waiting' | 'streaming' | 'complete'>) => new Map(prev).set(sectionKey, 'complete'));
+        setActiveSectionKey(null);
+        setGeneratedSections((prev: string[]) => [...prev, sectionKey]);
         
         reader.releaseLock();
       }
@@ -503,23 +512,16 @@ Happy learning!`;
   const loadOutline = async () => {
     const startTime = Date.now();
     try {
-      const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') as string;
-      const response = await fetch(`${apiUrl}/api/v1/streaming/outline/${fileId}`, {
-        credentials: 'include'
-      });
+      const { fetchWithAuth } = await import('@/lib/api');
+      const data = await fetchWithAuth(`/api/v1/personalize/outline/${fileId}`);
       
       const loadTime = Date.now() - startTime;
       console.log(`Outline loaded in ${loadTime}ms`);
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(errorData.error || 'Failed to load outline');
-      }
-      
-      const data = await response.json();
+      // The personalization API returns the outline directly
       const enhancedData = {
         ...data,
-        chapters: data.chapters.map((ch: any, idx: number) => ({
+        chapters: (data.chapters || []).map((ch: any, idx: number) => ({
           ...ch,
           isExpanded: true
         }))
@@ -548,32 +550,27 @@ Happy learning!`;
 
   const checkExistingContent = async () => {
     try {
-      const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') as string;
-      const response = await fetch(`${apiUrl}/api/v1/streaming/check/${fileId}`, {
-        credentials: 'include'
-      });
+      const { fetchWithAuth } = await import('@/lib/api');
+      const data = await fetchWithAuth(`/api/v1/personalize/check/${fileId}`);
       
-      if (response.ok) {
-        const data = await response.json();
-        if (data.exists && data.content) {
-          // Load existing personalized content
-          const content = data.content;
-          
-          // Populate streamingContent and streamingStates from saved content
-          Object.entries(content).forEach(([sectionKey, sectionContent]: [string, any]) => {
-            streamingContent.set(sectionKey, sectionContent as string);
-            streamingStates.set(sectionKey, 'complete');
-            generatedSections.push(sectionKey);
-          });
-          
-          setStreamingContent(new Map(streamingContent));
-          setStreamingStates(new Map(streamingStates));
-          setGeneratedSections([...generatedSections]);
-          
-          toast.success('Loaded your personalized content', {
-            description: 'Continue learning where you left off'
-          });
-        }
+      if (data.exists && data.content) {
+        // Load existing personalized content
+        const content = data.content;
+        
+        // Populate streamingContent and streamingStates from saved content
+        Object.entries(content).forEach(([sectionKey, sectionContent]: [string, any]) => {
+          streamingContent.set(sectionKey, sectionContent as string);
+          streamingStates.set(sectionKey, 'complete');
+          generatedSections.push(sectionKey);
+        });
+        
+        setStreamingContent(new Map(streamingContent));
+        setStreamingStates(new Map(streamingStates));
+        setGeneratedSections([...generatedSections]);
+        
+        toast.success('Loaded your personalized content', {
+          description: 'Continue learning where you left off'
+        });
       }
     } catch (error) {
       console.error('Error checking existing content:', error);
@@ -590,11 +587,9 @@ Happy learning!`;
         }
       });
       
-      const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') as string;
-      await fetch(`${apiUrl}/api/personalize/${fileId}/save`, {
+      const { fetchWithAuth } = await import('@/lib/api');
+      await fetchWithAuth(`/api/v1/personalize/save/${fileId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({
           content: contentObj
         })

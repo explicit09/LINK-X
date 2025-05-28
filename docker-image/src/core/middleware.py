@@ -2,7 +2,6 @@ from flask import request, g, make_response
 import time
 import uuid
 import logging
-from .cors import cors_after_request
 
 logger = logging.getLogger(__name__)
 
@@ -14,13 +13,19 @@ def setup_middleware(app):
         """Middleware that runs before each request"""
         # Handle OPTIONS requests for CORS preflight
         if request.method == 'OPTIONS':
-            response = make_response()
-            response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
-            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
-            response.headers['Access-Control-Allow-Credentials'] = 'true'
-            response.headers['Access-Control-Max-Age'] = '3600'
-            return response, 200
+            # Simple, robust CORS preflight response
+            response = make_response('', 200)
+            origin = request.headers.get('Origin', '')
+            
+            # Allow all localhost origins for development
+            if 'localhost' in origin or '127.0.0.1' in origin:
+                response.headers['Access-Control-Allow-Origin'] = origin
+                response.headers['Access-Control-Allow-Credentials'] = 'true'
+                response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+                response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept'
+                response.headers['Access-Control-Max-Age'] = '86400'
+                
+            return response
         
         # Add request ID
         g.request_id = str(uuid.uuid4())
@@ -39,6 +44,15 @@ def setup_middleware(app):
     @app.after_request
     def after_request(response):
         """Middleware that runs after each request"""
+        # Always apply CORS headers for development
+        origin = request.headers.get('Origin', '')
+        if 'localhost' in origin or '127.0.0.1' in origin:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept'
+            response.headers['Access-Control-Expose-Headers'] = 'Content-Length, Content-Type, X-Request-ID'
+        
         # Calculate request duration
         if hasattr(g, 'start_time'):
             duration = time.time() - g.start_time
@@ -52,9 +66,6 @@ def setup_middleware(app):
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'DENY'
         response.headers['X-XSS-Protection'] = '1; mode=block'
-        
-        # Apply CORS headers using our utility
-        response = cors_after_request(response)
         
         # Log response
         logger.info(f"Request completed: {request.method} {request.path}", extra={

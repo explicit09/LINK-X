@@ -1,6 +1,6 @@
 """Health check endpoints for monitoring and load balancer integration."""
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from sqlalchemy import text
 import redis
 import time
@@ -104,4 +104,14 @@ def liveness_check():
     return jsonify({
         'status': 'alive',
         'timestamp': time.time()
+    }), 200
+
+@bp.route('/cors-test', methods=['GET', 'OPTIONS'])
+def cors_test():
+    """Test endpoint for CORS functionality."""
+    return jsonify({
+        'message': 'CORS test successful',
+        'timestamp': time.time(),
+        'origin': request.headers.get('Origin'),
+        'method': request.method
     }), 200

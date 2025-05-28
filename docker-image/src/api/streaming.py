@@ -121,15 +121,42 @@ def stream_section_content():
     data = request.get_json()
     streaming_service = StreamingService()
     
+    # Pre-validate access within the request context
+    try:
+        file = streaming_service._verify_file_access(
+            file_id=data['fileId'],
+            user_id=g.current_user.id
+        )
+        section_content = streaming_service._get_section_content(file, data['sectionId'])
+        
+        if not section_content:
+            return jsonify({'error': 'Section not found'}), 404
+            
+        # Get user profile for examples
+        user = streaming_service.user_repo.get_with_profile(g.current_user.id)
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+    
     def generate():
         try:
-            for chunk in streaming_service.stream_section_content(
-                file_id=data['fileId'],
-                section_id=data['sectionId'],
-                user_id=g.current_user.id,
-                include_examples=data.get('includeExamples', True)
-            ):
-                yield f"data: {json.dumps(chunk)}\n\n"
+            # Stream main content
+            yield f"data: {json.dumps({'type': 'content', 'data': section_content['main']})}\n\n"
+            
+            # Stream examples if requested
+            if data.get('includeExamples', True):
+                try:
+                    examples = streaming_service.ai_service.generate_examples(
+                        section_content['main'],
+                        user.student_profile if user.role.role_type == 'student' else None
+                    )
+                    
+                    for example in examples:
+                        yield f"data: {json.dumps({'type': 'example', 'data': example})}\n\n"
+                        time.sleep(0.1)
+                except Exception as ex:
+                    # Don't fail the entire stream if examples fail
+                    yield f"data: {json.dumps({'type': 'info', 'message': 'Examples unavailable'})}\n\n"
                 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"

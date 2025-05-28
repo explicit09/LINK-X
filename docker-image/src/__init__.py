@@ -66,7 +66,7 @@ def initialize_extensions(app):
 
 def register_blueprints(app):
     """Register all blueprints"""
-    from .api import auth, courses, files, streaming, admin, health, todos, activities, modules, legacy, test
+    from .api import auth, courses, files, streaming, admin, health, todos, activities, modules, legacy, test, personalization
     
     # Health check endpoints (no prefix for load balancer compatibility)
     app.register_blueprint(health.bp)
@@ -86,6 +86,7 @@ def register_blueprints(app):
     app.register_blueprint(todos.bp, url_prefix='/api/v1/todo-items')
     app.register_blueprint(activities.bp, url_prefix='/api/v1/activities')
     app.register_blueprint(modules.bp, url_prefix='/api/v1/modules')
+    app.register_blueprint(personalization.bp, url_prefix='/api/v1/personalize')
     
     logger.info("Blueprints registered")
 

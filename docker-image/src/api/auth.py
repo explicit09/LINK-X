@@ -86,7 +86,7 @@ def refresh_token():
     except Exception as e:
         return jsonify({'error': 'Token refresh failed'}), 500
 
-@bp.route('/sessionLogin', methods=['POST'])
+@bp.route('/sessionLogin', methods=['POST', 'OPTIONS'])
 @validate_json(['idToken'])
 def session_login():
     """Session login endpoint for cookie-based authentication"""

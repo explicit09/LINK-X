@@ -1,8 +1,9 @@
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Generator
 import openai
 from openai import OpenAI
 import json
 import re
+import time
 from queue import Queue
 
 from ..config import Config
@@ -26,15 +27,54 @@ class AIService:
             if cached:
                 return cached
             
+            # If no OpenAI API key, return mock outline
+            if not Config.OPENAI_API_KEY or Config.OPENAI_API_KEY == "your-openai-api-key-here":
+                mock_outline = {
+                    "title": "Document Overview",
+                    "chapters": [
+                        {
+                            "id": "chapter-1",
+                            "title": "Introduction",
+                            "subsections": [
+                                {
+                                    "id": "subsection-1-1",
+                                    "title": "Getting Started"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "chapter-2",
+                            "title": "Main Content",
+                            "subsections": [
+                                {
+                                    "id": "subsection-2-1",
+                                    "title": "Key Concepts"
+                                },
+                                {
+                                    "id": "subsection-2-2",
+                                    "title": "Examples"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "chapter-3",
+                            "title": "Summary",
+                            "subsections": []
+                        }
+                    ]
+                }
+                cache.set(cache_key, mock_outline, timeout=3600)
+                return mock_outline
+            
             prompt = f"""
             Analyze the following content and generate a structured outline.
             Return a JSON object with the following structure:
             {{
                 "title": "Document Title",
-                "sections": [
+                "chapters": [
                     {{
-                        "id": "section-1",
-                        "title": "Section Title",
+                        "id": "chapter-1",
+                        "title": "Chapter Title",
                         "subsections": [
                             {{
                                 "id": "subsection-1-1",
@@ -398,6 +438,66 @@ class AIService:
             })
             response_queue.put(None)
     
+    def stream_personalized_content(self, prompt: str, system_message: str, temperature: float = 0.8) -> Generator[Dict, None, None]:
+        """Stream personalized content generation"""
+        try:
+            # Check if OpenAI is available
+            if not Config.OPENAI_API_KEY or Config.OPENAI_API_KEY == "your-openai-api-key-here":
+                # Return mock streaming data
+                mock_content = """This is a personalized learning section tailored to your learning style and interests. 
+
+The content has been customized based on your profile and preferences to help you understand the material more effectively.
+
+This section builds upon previous concepts while introducing new ideas that align with your learning objectives."""
+                
+                # Simulate streaming by yielding chunks
+                words = mock_content.split()
+                for i in range(0, len(words), 3):
+                    chunk = ' '.join(words[i:i+3]) + ' '
+                    yield {'type': 'token', 'content': chunk}
+                    time.sleep(0.1)
+                
+                yield {'type': 'complete'}
+                return
+            
+            # Stream response from OpenAI
+            stream = self.client.chat.completions.create(
+                model=self.default_model,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": prompt}
+                ],
+                stream=True,
+                temperature=temperature,
+                max_tokens=600
+            )
+            
+            # Buffer to batch tokens for better performance
+            token_buffer = ""
+            token_count = 0
+            
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    token = chunk.choices[0].delta.content
+                    token_buffer += token
+                    token_count += 1
+                    
+                    # Send immediately for first few tokens (fast first paint)
+                    # Then batch in groups of 5-10 for efficiency
+                    if token_count <= 3 or len(token_buffer) >= 20:
+                        yield {'type': 'token', 'content': token_buffer}
+                        token_buffer = ""
+            
+            # Flush any remaining tokens
+            if token_buffer:
+                yield {'type': 'token', 'content': token_buffer}
+            
+            # Send completion signal
+            yield {'type': 'complete'}
+            
+        except Exception as e:
+            yield {'type': 'error', 'message': str(e)}
+
     def generate_embeddings(self, text: str) -> List[float]:
         """Generate embeddings for text"""
         try:

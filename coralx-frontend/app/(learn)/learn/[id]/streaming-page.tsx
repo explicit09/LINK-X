@@ -154,9 +154,8 @@ export default function StreamingLearnPage() {
 
     const fetchOutline = async () => {
       try {
-        const res = await fetch(`http://localhost:8080/api/v1/streaming/outline/${pfId}`, {
-          credentials: "include",
-        });
+        const { fetchWithAuth } = await import('@/lib/api');
+        const res = await fetchWithAuth(`/api/v1/streaming/outline/${pfId}`);
 
         if (!res.ok) {
           throw new Error(`Failed to fetch outline`);

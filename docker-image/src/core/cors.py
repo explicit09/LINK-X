@@ -19,12 +19,17 @@ def get_allowed_origin():
     # Get allowed origins from config
     allowed_origins = current_app.config.get('CORS_OPTIONS', {}).get('origins', [])
     
+    # Debug logging
+    logger.info(f"CORS: Request origin: {origin}")
+    logger.info(f"CORS: Allowed origins: {allowed_origins[:5]}...")  # Log first 5 to avoid spam
+    
     # Check if the origin is allowed
     if origin in allowed_origins:
+        logger.info(f"CORS: Allowed origin {origin}")
         return origin
     
     # Log denied origin for debugging
-    logger.warning(f"CORS: Denied origin {origin}")
+    logger.warning(f"CORS: Denied origin {origin}. Not in allowed list.")
     return None
 
 def cors_after_request(response):
@@ -32,10 +37,25 @@ def cors_after_request(response):
     Add CORS headers to response based on configuration.
     This should be used in after_request handlers.
     """
-    origin = get_allowed_origin()
-    if origin:
+    origin = request.headers.get('Origin')
+    
+    # For development, be more permissive with CORS
+    if current_app.config.get('DEBUG', False):
+        # In debug mode, allow any localhost origin
+        if origin and 'localhost' in origin:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+            response.headers['Access-Control-Max-Age'] = '3600'
+            logger.info(f"CORS: Debug mode - allowed localhost origin {origin}")
+            return response
+    
+    # Production mode - use strict origin checking
+    allowed_origin = get_allowed_origin()
+    if allowed_origin:
         # Set allowed origin (never use *)
-        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Origin'] = allowed_origin
         
         # Always set credentials when origin is specified
         response.headers['Access-Control-Allow-Credentials'] = 'true'
@@ -67,7 +87,24 @@ def handle_preflight():
     """
     from flask import make_response
     
-    response = make_response('', 204)
+    response = make_response('', 200)
+    
+    # Apply CORS headers
+    origin = request.headers.get('Origin')
+    
+    # For development, be more permissive with CORS
+    if current_app.config.get('DEBUG', False):
+        # In debug mode, allow any localhost origin
+        if origin and 'localhost' in origin:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+            response.headers['Access-Control-Max-Age'] = '3600'
+            logger.info(f"CORS: Preflight - allowed localhost origin {origin}")
+            return response
+    
+    # Apply regular CORS logic
     response = cors_after_request(response)
     return response
 

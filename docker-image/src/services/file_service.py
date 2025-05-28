@@ -222,7 +222,16 @@ class FileService:
                 personalize_file_async.delay(file_id, user_id)
             
             # For now, stream original content
-            content = file.extracted_text or "Content is being processed..."
+            # Get content from file chunks
+            from ..db.schema import FileChunk
+            chunks = session.query(FileChunk).filter(
+                FileChunk.file_id == file.id
+            ).order_by(FileChunk.chunk_index).all()
+            
+            if chunks:
+                content = " ".join([chunk.content for chunk in chunks])
+            else:
+                content = file.transcription or f"Content for {file.title} is being processed..."
         
         # Stream content in chunks
         chunk_size = 100  # characters

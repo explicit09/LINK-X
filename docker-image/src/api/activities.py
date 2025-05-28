@@ -90,15 +90,12 @@ def get_dashboard_stats():
         session.close()
 
 @bp.route('/log', methods=['POST', 'OPTIONS'])
+@firebase_auth_required
 def log_activity():
     """Log user activity"""
     # Handle preflight OPTIONS request
     if request.method == 'OPTIONS':
         return jsonify({'status': 'ok'}), 200
-    
-    # For POST requests, check authentication
-    if not hasattr(g, 'current_user') or not g.current_user:
-        return jsonify({'error': 'Authentication required'}), 401
     
     data = request.get_json()
     if not data:

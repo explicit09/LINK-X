@@ -315,7 +315,7 @@ export const studentAPI = {
     };
   },
   getCourseProgress: (courseId: string) => api.get(`/api/v1/courses/${courseId}/progress`),
-  logActivity: (data: any) => api.post('/api/v1/activity/log', data),
+  logActivity: (data: any) => api.post('/api/v1/activities/log', data),
   
   // Dashboard content (TODO: implement backend endpoints)
   getRecentActivities: async () => {

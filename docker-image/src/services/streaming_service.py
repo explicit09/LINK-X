@@ -31,7 +31,9 @@ class StreamingService:
             return cached_outline
         
         # Generate outline from file content
-        outline = self.ai_service.generate_outline(file.extracted_text or "")
+        # Get text content from file chunks
+        file_content = self._get_file_content(file)
+        outline = self.ai_service.generate_outline(file_content)
         
         # Cache for 1 hour
         cache.set(cache_key, outline, timeout=3600)
@@ -183,6 +185,31 @@ class StreamingService:
             'section_progress': progress,
             'overall_progress': overall_progress
         }
+    
+    def _get_file_content(self, file) -> str:
+        """Get file content from chunks or transcription"""
+        from ..db.connection import get_db_session
+        from ..db.schema import FileChunk
+        
+        session = get_db_session()
+        try:
+            # Try to get content from file chunks
+            chunks = session.query(FileChunk).filter(
+                FileChunk.file_id == file.id
+            ).order_by(FileChunk.chunk_index).all()
+            
+            if chunks:
+                # Combine all chunks
+                content = " ".join([chunk.content for chunk in chunks])
+                return content
+            elif file.transcription:
+                # Fall back to transcription for audio/video files
+                return file.transcription
+            else:
+                # Default content
+                return f"Content for {file.title}"
+        finally:
+            session.close()
     
     def _verify_file_access(self, file_id: str, user_id: str) -> Dict:
         """Verify user has access to file"""

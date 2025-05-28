@@ -125,14 +125,13 @@ class UserRepository(BaseRepository[User]):
     
     def get_with_profile(self, user_id: str) -> Optional[User]:
         """Get user with their profile"""
+        from sqlalchemy.orm import joinedload
         try:
-            user = self.db.query(User).filter_by(id=user_id).first()
-            if user:
-                # Eagerly load profile based on role
-                if user.role == Role.STUDENT:
-                    self.db.query(StudentProfile).filter_by(user_id=user_id).first()
-                elif user.role == Role.INSTRUCTOR:
-                    self.db.query(InstructorProfile).filter_by(user_id=user_id).first()
+            user = self.db.query(User).options(
+                joinedload(User.role),
+                joinedload(User.student_profile),
+                joinedload(User.instructor_profile)
+            ).filter_by(id=user_id).first()
             return user
         finally:
             self.db.close()
@@ -145,7 +144,7 @@ class UserRepository(BaseRepository[User]):
             
             # Filter by role if specified
             if role:
-                q = q.filter(User.role == Role[role.upper()])
+                q = q.join(Role).filter(Role.role_type == role.lower())
             
             # Search in email and profiles
             q = q.filter(
@@ -181,8 +180,8 @@ class UserRepository(BaseRepository[User]):
     def get_users_by_role(self, role: str, offset: int = 0, limit: int = 20) -> List[User]:
         """Get users by role with pagination"""
         try:
-            return self.db.query(User).filter(
-                User.role == Role[role.upper()]
+            return self.db.query(User).join(Role).filter(
+                Role.role_type == role.lower()
             ).offset(offset).limit(limit).all()
         finally:
             self.db.close()
@@ -228,15 +227,15 @@ class UserRepository(BaseRepository[User]):
             stats = {
                 'created_at': user.created_at,
                 'last_login': user.last_login,
-                'role': user.role.value
+                'role': user.role.role_type if user.role else 'student'
             }
             
-            if user.role == Role.STUDENT:
+            if user.role and user.role.role_type == 'student':
                 # Add student-specific stats
                 from .enrollment_repository import EnrollmentRepository
                 enrollment_repo = EnrollmentRepository()
                 stats['enrolled_courses'] = enrollment_repo.count(user_id=user_id)
-            elif user.role == Role.INSTRUCTOR:
+            elif user.role and user.role.role_type == 'instructor':
                 # Add instructor-specific stats
                 from .course_repository import CourseRepository
                 course_repo = CourseRepository()

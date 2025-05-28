@@ -14,6 +14,10 @@ def validate_json(required_fields):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            # Skip validation for OPTIONS requests (CORS preflight)
+            if request.method == 'OPTIONS':
+                return f(*args, **kwargs)
+                
             if not request.is_json:
                 return jsonify({'error': 'Content-Type must be application/json'}), 400
             
@@ -36,6 +40,10 @@ def rate_limit(limit=60, per=60):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            # Skip rate limiting for OPTIONS requests (CORS preflight)
+            if request.method == 'OPTIONS':
+                return f(*args, **kwargs)
+                
             # Get client identifier (IP or user ID)
             client_id = request.remote_addr
             if hasattr(g, 'current_user') and g.current_user:

@@ -63,27 +63,44 @@ class DatabaseError(LinkXException):
 
 def register_error_handlers(app):
     """Register error handlers with Flask app"""
+    
+    def apply_cors_to_error_response(response_data, status_code):
+        """Apply CORS headers to error responses"""
+        from flask import jsonify, request, make_response
+        
+        response = make_response(jsonify(response_data), status_code)
+        
+        # Always apply CORS headers for localhost origins
+        origin = request.headers.get('Origin', '')
+        if 'localhost' in origin or '127.0.0.1' in origin:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept'
+        
+        return response
+    
     @app.errorhandler(LinkXException)
     def handle_linkx_exception(error):
-        response = error.to_dict()
-        return response, error.status_code
+        response_data = error.to_dict()
+        return apply_cors_to_error_response(response_data, error.status_code)
     
     @app.errorhandler(404)
     def handle_not_found(error):
-        return {'error': 'Endpoint not found'}, 404
+        return apply_cors_to_error_response({'error': 'Endpoint not found'}, 404)
     
     @app.errorhandler(405)
     def handle_method_not_allowed(error):
-        return {'error': 'Method not allowed'}, 405
+        return apply_cors_to_error_response({'error': 'Method not allowed'}, 405)
     
     @app.errorhandler(500)
     def handle_internal_error(error):
         # Log the error
         app.logger.error(f"Internal error: {error}")
-        return {'error': 'Internal server error'}, 500
+        return apply_cors_to_error_response({'error': 'Internal server error'}, 500)
     
     @app.errorhandler(Exception)
     def handle_unexpected_error(error):
         # Log the error
         app.logger.error(f"Unexpected error: {error}", exc_info=True)
-        return {'error': 'An unexpected error occurred'}, 500
+        return apply_cors_to_error_response({'error': 'An unexpected error occurred'}, 500)
