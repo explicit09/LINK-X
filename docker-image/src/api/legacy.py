@@ -10,6 +10,12 @@ bp = Blueprint('legacy', __name__)
 def get_modules_with_files_legacy(course_id):
     """Get all modules for a course with their files (legacy endpoint)"""
     
+    # Debug logging
+    print(f"[LEGACY MODULESWITHFILES] Course ID: {course_id}")
+    print(f"[LEGACY MODULESWITHFILES] Has current_user: {hasattr(g, 'current_user')}")
+    if hasattr(g, 'current_user') and g.current_user:
+        print(f"[LEGACY MODULESWITHFILES] User ID: {g.current_user.id}, Email: {g.current_user.email}")
+    
     course_service = CourseService()
     
     try:

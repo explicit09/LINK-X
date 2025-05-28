@@ -151,8 +151,12 @@ def firebase_auth_required(f):
             
             # Verify Firebase token
             print(f"Verifying Firebase token: {token[:20]}...")
-            decoded_token = firebase_auth.verify_id_token(token)
-            print(f"Token verified successfully for uid: {decoded_token['uid']}")
+            try:
+                decoded_token = firebase_auth.verify_id_token(token)
+                print(f"Token verified successfully for uid: {decoded_token['uid']}")
+            except Exception as token_error:
+                print(f"Token verification failed: {str(token_error)}")
+                raise
             g.firebase_user = decoded_token
             g.firebase_uid = decoded_token['uid']
             
@@ -184,19 +188,25 @@ def firebase_auth_required(f):
                 g.current_user = user
                 g.db_session = session  # Keep session alive for the request
                 
-                result = f(*args, **kwargs)
-                
-                # Close session after request completes
-                session.close()
-                
-                return result
+                # Execute the decorated function
+                try:
+                    result = f(*args, **kwargs)
+                    return result
+                except Exception as func_error:
+                    print(f"Error in decorated function: {str(func_error)}")
+                    raise
+                finally:
+                    # Always close session
+                    session.close()
             except Exception as e:
                 session.close()
                 raise
             
-        except firebase_auth.InvalidIdTokenError:
+        except firebase_auth.InvalidIdTokenError as e:
+            print(f"Firebase token validation failed - InvalidIdTokenError: {str(e)}")
             return jsonify({'error': 'Invalid authentication token'}), 401
-        except firebase_auth.ExpiredIdTokenError:
+        except firebase_auth.ExpiredIdTokenError as e:
+            print(f"Firebase token validation failed - ExpiredIdTokenError: {str(e)}")
             return jsonify({'error': 'Authentication token expired'}), 401
         except Exception as e:
             print(f"Authentication error: {str(e)}")

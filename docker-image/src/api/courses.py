@@ -183,6 +183,12 @@ def get_course_modules(course_id):
     """Get all modules for a course"""
     course_service = CourseService()
     
+    # Debug logging
+    print(f"[MODULES ENDPOINT] Course ID: {course_id}")
+    print(f"[MODULES ENDPOINT] Has current_user: {hasattr(g, 'current_user')}")
+    if hasattr(g, 'current_user') and g.current_user:
+        print(f"[MODULES ENDPOINT] User ID: {g.current_user.id}, Email: {g.current_user.email}")
+    
     try:
         modules = course_service.get_course_modules(
             course_id=course_id,

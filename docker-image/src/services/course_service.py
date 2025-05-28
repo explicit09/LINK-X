@@ -18,10 +18,13 @@ class CourseService:
     
     def get_course_with_access_check(self, course_id: str, user_id: str) -> Dict:
         """Get course details with access verification"""
+        print(f"[ACCESS CHECK] Course ID: {course_id}, User ID: {user_id}")
         course = self.course_repo.get_with_modules(course_id)
         
         if not course:
             raise NotFoundError("Course not found")
+        
+        print(f"[ACCESS CHECK] Course found: {course.title}, Published: {course.published}, Instructor: {course.instructor_id}")
         
         # Check access based on user role
         # Re-fetch user to ensure we have a fresh instance with relationships loaded
@@ -29,6 +32,8 @@ class CourseService:
         
         if not user:
             raise AuthorizationError("User not found")
+        
+        print(f"[ACCESS CHECK] User found: {user.email}, Role: {user.role.role_type if user.role else 'No role'}")
             
         if user.role.role_type == 'admin':
             # Admin has access to all courses
@@ -40,6 +45,7 @@ class CourseService:
         else:  # Student
             # Check if student is enrolled
             enrollment = self.enrollment_repo.get_by_student_course(user_id, course_id)
+            print(f"[ACCESS CHECK] Student enrollment check: {enrollment is not None}")
             if not enrollment and course.published:
                 # Allow viewing published courses
                 pass

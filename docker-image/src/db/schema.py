@@ -99,6 +99,20 @@ class Course(Base):
     access_code = relationship('AccessCode', back_populates='course', uselist=False)
     enrollments = relationship('Enrollment', back_populates='course')
     report = relationship('Report', back_populates='course', uselist=False, cascade='all, delete-orphan')
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'title': self.title,
+            'description': self.description,
+            'code': self.code,
+            'term': self.term,
+            'published': self.published,
+            'last_updated': self.last_updated.isoformat() if self.last_updated else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'instructor_id': str(self.instructor_id) if self.instructor_id else None,
+            'creator_id': str(self.creator_id) if self.creator_id else None
+        }
 
 class Module(Base):
     __tablename__ = 'Module'
@@ -112,6 +126,15 @@ class Module(Base):
 
     course = relationship('Course', back_populates='modules')
     files = relationship('File', back_populates='module')
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'course_id': str(self.course_id),
+            'title': self.title,
+            'description': self.description,
+            'ordering': self.ordering
+        }
 
 class File(Base):
     __tablename__ = 'File'
@@ -137,6 +160,25 @@ class File(Base):
     module = relationship('Module', back_populates='files')
     chats = relationship('Chat', back_populates='file')
     personalized_files = relationship('PersonalizedFile', back_populates='original_file')
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'module_id': str(self.module_id),
+            'title': self.title,
+            'filename': self.filename,
+            'file_type': self.file_type,
+            'file_size': self.file_size,
+            's3_key': self.s3_key,
+            's3_bucket': self.s3_bucket,
+            'storage_type': self.storage_type,
+            'transcription': self.transcription,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'ordering': self.ordering,
+            'view_count_raw': self.view_count_raw,
+            'view_count_personalized': self.view_count_personalized,
+            'chat_count': self.chat_count
+        }
 
 class FileChunk(Base):
     __tablename__ = 'FileChunk'

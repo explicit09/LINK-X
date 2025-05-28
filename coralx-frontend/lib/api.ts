@@ -215,7 +215,7 @@ export const studentAPI = {
   
   // Course content upload - for students creating their own courses
   uploadCourseContent: (courseId: string, data: FormData) => {
-    return fetchWithAuth(`/student/courses/${courseId}/upload-content`, {
+    return fetchWithAuth(`/api/v1/courses/${courseId}/upload-content`, {
       method: 'POST', 
       body: data,
       headers: {}, // Let browser set Content-Type for FormData
@@ -224,7 +224,7 @@ export const studentAPI = {
   
   // Bulk course upload - for students uploading entire course packages
   uploadCoursePackage: (data: FormData) => {
-    return fetchWithAuth(`/student/courses/upload-package`, {
+    return fetchWithAuth(`/api/v1/courses/upload-package`, {
       method: 'POST',
       body: data,
       headers: {}, // Let browser set Content-Type for FormData
@@ -258,7 +258,7 @@ export const studentAPI = {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
       
       // First check if it's S3 storage by trying to get metadata
-      const response = await fetch(`${baseUrl}/student/files/${fileId}/content`, {
+      const response = await fetch(`${baseUrl}/api/v1/files/${fileId}/content`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -282,7 +282,7 @@ export const studentAPI = {
       
       // Otherwise, use direct URL with credentials
       return {
-        url: `${baseUrl}/student/files/${fileId}/content`
+        url: `${baseUrl}/api/v1/files/${fileId}/content`
       };
     } catch (error) {
       console.error('Failed to get file URL:', error);
@@ -291,16 +291,16 @@ export const studentAPI = {
   },
 
   // Personalized files
-  deletePersonalizedFile: (pfId: string) => api.delete(`/student/personalized-files/${pfId}`),
+  deletePersonalizedFile: (pfId: string) => api.delete(`/api/v1/personalized-files/${pfId}`),
   
   // Submissions
-  submitAssignment: (assignmentId: string, data: any) => api.post(`/student/assignments/${assignmentId}/submit`, data),
-  getSubmissions: (assignmentId: string) => api.get(`/student/assignments/${assignmentId}/submissions`),
+  submitAssignment: (assignmentId: string, data: any) => api.post(`/api/v1/assignments/${assignmentId}/submit`, data),
+  getSubmissions: (assignmentId: string) => api.get(`/api/v1/assignments/${assignmentId}/submissions`),
   
   // Discussions and chat
-  getCourseDiscussions: (courseId: string) => api.get(`/student/courses/${courseId}/discussions`),
-  postDiscussion: (courseId: string, data: any) => api.post(`/student/courses/${courseId}/discussions`, data),
-  chatWithAI: (data: any) => api.post('/student/ai/chat', data),
+  getCourseDiscussions: (courseId: string) => api.get(`/api/v1/courses/${courseId}/discussions`),
+  postDiscussion: (courseId: string, data: any) => api.post(`/api/v1/courses/${courseId}/discussions`, data),
+  chatWithAI: (data: any) => api.post('/api/v1/ai/chat', data),
   
   // Dashboard statistics (TODO: implement backend endpoints)
   getDashboardStats: async () => {
@@ -332,13 +332,13 @@ export const studentAPI = {
   deleteTodoItem: (todoId: string) => api.delete(`/api/v1/todo-items/${todoId}`),
   
   // Quizzes (to be implemented)
-  getCourseQuizzes: (courseId: string) => api.get(`/student/courses/${courseId}/quizzes`),
-  generateCourseQuiz: (courseId: string, options?: any) => api.post(`/student/courses/${courseId}/quizzes/generate`, options),
-  getQuiz: (quizId: string) => api.get(`/student/quizzes/${quizId}`),
-  startQuizSession: (quizId: string) => api.post(`/student/quizzes/${quizId}/start`),
-  submitQuizAnswer: (quizId: string, questionId: string, answer: any) => api.post(`/student/quizzes/${quizId}/questions/${questionId}/answer`, { answer }),
-  submitQuiz: (quizId: string) => api.post(`/student/quizzes/${quizId}/submit`),
-  getQuizResults: (quizId: string) => api.get(`/student/quizzes/${quizId}/results`),
+  getCourseQuizzes: (courseId: string) => api.get(`/api/v1/courses/${courseId}/quizzes`),
+  generateCourseQuiz: (courseId: string, options?: any) => api.post(`/api/v1/courses/${courseId}/quizzes/generate`, options),
+  getQuiz: (quizId: string) => api.get(`/api/v1/quizzes/${quizId}`),
+  startQuizSession: (quizId: string) => api.post(`/api/v1/quizzes/${quizId}/start`),
+  submitQuizAnswer: (quizId: string, questionId: string, answer: any) => api.post(`/api/v1/quizzes/${quizId}/questions/${questionId}/answer`, { answer }),
+  submitQuiz: (quizId: string) => api.post(`/api/v1/quizzes/${quizId}/submit`),
+  getQuizResults: (quizId: string) => api.get(`/api/v1/quizzes/${quizId}/results`),
 };
 
 // Instructor-specific APIs
@@ -359,37 +359,37 @@ export const instructorAPI = {
   deleteCourse: (courseId: string) => api.delete(`/api/v1/courses/${courseId}`),
   
   // Course management
-  getCourseStudents: (courseId: string) => api.get(`/instructor/courses/${courseId}/students`),
-  unenrollStudent: (enrollmentId: string) => api.delete(`/instructor/enrollments/${enrollmentId}`),
+  getCourseStudents: (courseId: string) => api.get(`/api/v1/courses/${courseId}/students`),
+  unenrollStudent: (enrollmentId: string) => api.delete(`/api/v1/enrollments/${enrollmentId}`),
   
   // Modules
-  getCourseModules: (courseId: string) => api.get(`/instructor/courses/${courseId}/modules`),
-  createModule: (courseId: string, data: any) => api.post(`/instructor/courses/${courseId}/modules`, data),
+  getCourseModules: (courseId: string) => api.get(`/api/v1/courses/${courseId}/modules`),
+  createModule: (courseId: string, data: any) => api.post(`/api/v1/courses/${courseId}/modules`, data),
   updateModule: (courseId: string, moduleId: string, data: any) => {
-    return api.patch(`/instructor/modules/${moduleId}`, data);
+    return api.patch(`/api/v1/modules/${moduleId}`, data);
   },
-  deleteModule: (moduleId: string) => api.delete(`/instructor/modules/${moduleId}`),
+  deleteModule: (moduleId: string) => api.delete(`/api/v1/modules/${moduleId}`),
   
   // Files
-  getModuleFiles: (moduleId: string) => api.get(`/instructor/modules/${moduleId}/files`),
+  getModuleFiles: (moduleId: string) => api.get(`/api/v1/modules/${moduleId}/files`),
   uploadFile: (moduleId: string, formData: FormData) => {
-    return fetchWithAuth(`/instructor/modules/${moduleId}/files/upload`, {
+    return fetchWithAuth(`/api/v1/files/upload`, {
       method: 'POST',
       body: formData,
       headers: {}, // Let browser set Content-Type for FormData
     });
   },
-  getFile: (fileId: string) => api.get(`/instructor/files/${fileId}`),
-  updateFile: (fileId: string, data: any) => api.patch(`/instructor/files/${fileId}`, data),
-  deleteFile: (fileId: string) => api.delete(`/instructor/files/${fileId}`),
-  getFileContent: (fileId: string) => api.get(`/instructor/files/${fileId}/content`),
-  downloadFile: (fileId: string) => api.get(`/instructor/files/${fileId}/download`),
+  getFile: (fileId: string) => api.get(`/api/v1/files/${fileId}`),
+  updateFile: (fileId: string, data: any) => api.patch(`/api/v1/files/${fileId}`, data),
+  deleteFile: (fileId: string) => api.delete(`/api/v1/files/${fileId}`),
+  getFileContent: (fileId: string) => api.get(`/api/v1/files/${fileId}/content`),
+  downloadFile: (fileId: string) => api.get(`/api/v1/files/${fileId}/download`),
   getFileUrl: async (fileId: string) => {
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
       
       // Check if file has S3 storage
-      const response = await fetch(`${baseUrl}/instructor/files/${fileId}/content`, {
+      const response = await fetch(`${baseUrl}/api/v1/files/${fileId}/content`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -413,7 +413,7 @@ export const instructorAPI = {
       
       // Otherwise, it's traditional file storage
       return {
-        url: `${baseUrl}/instructor/files/${fileId}/content`
+        url: `${baseUrl}/api/v1/files/${fileId}/content`
       };
     } catch (error) {
       console.error('Failed to access instructor file:', error);
