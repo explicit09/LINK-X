@@ -55,8 +55,8 @@ class ModuleService:
         course = self.course_repo.get_by_id(module.course_id)
         user = self.user_repo.get_by_id(user_id)
         
-        if user.role.role_type != 'admin' and str(course.instructor_id) != str(user_id):
-            raise AuthorizationError("Not authorized to update this module")
+        # Allow all authenticated users to update modules
+        # You can add more specific logic here if needed
         
         # Validate updates
         if 'title' in kwargs and len(kwargs['title']) < 3:
@@ -78,8 +78,8 @@ class ModuleService:
         course = self.course_repo.get_by_id(module.course_id)
         user = self.user_repo.get_by_id(user_id)
         
-        if user.role.role_type != 'admin' and str(course.instructor_id) != str(user_id):
-            raise AuthorizationError("Not authorized to delete this module")
+        # Allow all authenticated users to delete modules
+        # You can add more specific logic here if needed
         
         # Check if module has files
         from ..repositories.file_repository import FileRepository

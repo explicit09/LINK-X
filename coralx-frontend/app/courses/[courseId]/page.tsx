@@ -1064,10 +1064,8 @@ export default function CoursePage() {
     setIsCreatingModule(true);
     
     try {
-      // Call the appropriate API based on user role
-      const endpoint = currentUser?.role === "student" 
-        ? `/student/courses/${courseId}/modules`
-        : `/instructor/courses/${courseId}/modules`;
+      // Use unified API endpoint
+      const endpoint = `/api/v1/courses/${courseId}/modules`;
         
       const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',

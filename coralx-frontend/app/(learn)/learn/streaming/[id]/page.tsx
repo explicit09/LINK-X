@@ -504,7 +504,7 @@ Happy learning!`;
     const startTime = Date.now();
     try {
       const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') as string;
-      const response = await fetch(`${apiUrl}/api/personalize/${fileId}/outline`, {
+      const response = await fetch(`${apiUrl}/api/v1/streaming/outline/${fileId}`, {
         credentials: 'include'
       });
       
@@ -549,7 +549,7 @@ Happy learning!`;
   const checkExistingContent = async () => {
     try {
       const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') as string;
-      const response = await fetch(`${apiUrl}/api/personalize/${fileId}/check`, {
+      const response = await fetch(`${apiUrl}/api/v1/streaming/check/${fileId}`, {
         credentials: 'include'
       });
       

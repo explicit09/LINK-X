@@ -1,4 +1,4 @@
-from flask import request, g
+from flask import request, g, make_response
 import time
 import uuid
 import logging
@@ -12,6 +12,16 @@ def setup_middleware(app):
     @app.before_request
     def before_request():
         """Middleware that runs before each request"""
+        # Handle OPTIONS requests for CORS preflight
+        if request.method == 'OPTIONS':
+            response = make_response()
+            response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Max-Age'] = '3600'
+            return response, 200
+        
         # Add request ID
         g.request_id = str(uuid.uuid4())
         

@@ -83,10 +83,8 @@ export function ModuleStream({
       try {
         setIsLoading(true);
         
-        // Fetch modules from the appropriate API based on user role
-        const endpoint = userRole === 'student' 
-          ? `/student/courses/${courseId}/modules`
-          : `/instructor/courses/${courseId}/modules`;
+        // Use unified API endpoint for modules
+        const endpoint = `/api/v1/courses/${courseId}/modules`;
           
         console.log('Loading modules from:', endpoint);
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
@@ -311,8 +309,8 @@ export function ModuleStream({
       let result;
       
       if (userRole === 'student') {
-        // For students, use the course upload endpoint but include moduleId
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/student/courses/${courseId}/files`, {
+        // For students, use the unified API endpoint
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/files/upload`, {
           method: 'POST',
           body: formData,
           credentials: 'include',
@@ -324,8 +322,8 @@ export function ModuleStream({
 
         result = await response.json();
       } else {
-        // For instructors, upload directly to the module
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/instructor/modules/${moduleId}/files/upload`, {
+        // For instructors, use the unified API endpoint
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/files/upload`, {
           method: 'POST',
           body: formData,
           credentials: 'include',
@@ -458,10 +456,8 @@ export function ModuleStream({
     });
 
     try {
-      // Create module on backend
-      const endpoint = userRole === 'student' 
-        ? `/student/courses/${courseId}/modules`
-        : `/instructor/courses/${courseId}/modules`;
+      // Use unified API endpoint for module creation
+      const endpoint = `/api/v1/courses/${courseId}/modules`;
       
       console.log('Creating module at endpoint:', endpoint);
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
@@ -530,16 +526,14 @@ export function ModuleStream({
     const updateToast = toast.loading("Saving module title to backend...");
 
     try {
-      // Use the proper endpoint based on user role
-      const endpoint = userRole === 'student' 
-        ? `/student/modules/${moduleId}`
-        : `/instructor/modules/${moduleId}`;
+      // Use unified API endpoint for module update
+      const endpoint = `/api/v1/modules/${moduleId}`;
       
       console.log(`Attempting to update module ${moduleId} title to: "${newModuleTitle.trim()}"`);
       
-      // Try PUT method (most RESTful for updates)
+      // Use PATCH method for updates (backend uses PATCH, not PUT)
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -567,23 +561,6 @@ export function ModuleStream({
         toast.success("Module renamed and saved", {
           id: updateToast,
           description: "Changes saved to database"
-        });
-      } else if (response.status === 405) {
-        // Method not allowed - backend doesn't support PUT for this endpoint
-        console.warn('Backend does not support PUT method for module updates');
-        
-        // Update locally but warn user
-        setModules(prev => 
-          prev.map(module => 
-            module.id === moduleId 
-              ? { ...module, title: newModuleTitle.trim() }
-              : module
-          )
-        );
-        
-        toast.error("Backend doesn't support module renaming", {
-          id: updateToast,
-          description: "Changes saved locally only - will reset on refresh"
         });
       } else {
         // Other error
@@ -625,10 +602,8 @@ export function ModuleStream({
     const deleteToast = toast.loading("Deleting module...");
 
     try {
-      // Delete module from backend
-      const endpoint = userRole === 'student' 
-        ? `/student/modules/${moduleId}`
-        : `/instructor/modules/${moduleId}`;
+      // Use unified API endpoint for module deletion
+      const endpoint = `/api/v1/modules/${moduleId}`;
         
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
         method: 'DELETE',
@@ -651,9 +626,8 @@ export function ModuleStream({
             // Re-create the module
             if (moduleToDelete) {
               try {
-                const endpoint = userRole === 'student' 
-                  ? `/student/courses/${courseId}/modules`
-                  : `/instructor/courses/${courseId}/modules`;
+                // Use unified API endpoint
+                const endpoint = `/api/v1/courses/${courseId}/modules`;
                   
                 const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
                   method: 'POST',
@@ -737,9 +711,8 @@ export function ModuleStream({
     );
 
     try {
-      const endpoint = userRole === 'student'
-        ? `/student/files/${materialId}`
-        : `/instructor/files/${materialId}`;
+      // Use unified API endpoint for file deletion
+      const endpoint = `/api/v1/files/${materialId}`;
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
         method: 'DELETE',
@@ -1132,7 +1105,7 @@ export function ModuleStream({
         ))}
       </div>
 
-      {/* Add Module Button - Smart positioning */}
+      {/* Add Module Button - Available to all users */}
       <div className={cn("mt-6", 
         modules.length === 0 ? "text-center" : "flex justify-start"
       )}>

@@ -124,7 +124,7 @@ export function EnhancedFileUpload({ courseId, moduleId, userRole = 'student', o
       formData.append('description', `Uploaded by student: ${uploadFile.file.name}`);
       
       // Try student course file upload endpoint
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/student/courses/${courseId}/files`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/files/upload`, {
         method: 'POST',
         body: formData,
         credentials: 'include',
@@ -214,7 +214,7 @@ export function EnhancedFileUpload({ courseId, moduleId, userRole = 'student', o
       // First, get the course modules to find where to upload
       let moduleId = null;
       try {
-        const modulesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/instructor/courses/${courseId}/modules`, {
+        const modulesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/courses/${courseId}/modules`, {
           method: 'GET',
           credentials: 'include',
         });
@@ -231,7 +231,7 @@ export function EnhancedFileUpload({ courseId, moduleId, userRole = 'student', o
       // If no module found, try to create a default "Materials" module
       if (!moduleId) {
         try {
-          const createModuleResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/instructor/courses/${courseId}/modules`, {
+          const createModuleResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/courses/${courseId}/modules`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -265,7 +265,7 @@ export function EnhancedFileUpload({ courseId, moduleId, userRole = 'student', o
       formData.append('file', uploadFile.file);
       
       // Try the module-based upload endpoint
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/instructor/modules/${moduleId}/files/upload`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/files/upload`, {
         method: 'POST',
         body: formData,
         credentials: 'include',

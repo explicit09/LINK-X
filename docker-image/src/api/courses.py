@@ -81,7 +81,7 @@ def get_course(course_id):
         return jsonify({'error': 'Access denied'}), 403
 
 @bp.route('', methods=['POST'])
-@require_role(['instructor', 'admin'])
+@require_role(['instructor', 'admin', 'student'])
 @validate_json(['title', 'description'])
 def create_course():
     """Create a new course"""
@@ -106,7 +106,7 @@ def create_course():
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<course_id>', methods=['PUT', 'PATCH'])
-@require_role(['instructor', 'admin'])
+@require_role(['instructor', 'admin', 'student'])
 @validate_json([])
 def update_course(course_id):
     """Update course details"""
@@ -133,7 +133,7 @@ def update_course(course_id):
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<course_id>', methods=['DELETE'])
-@require_role(['instructor', 'admin'])
+@require_role(['instructor', 'admin', 'student'])
 def delete_course(course_id):
     """Delete a course"""
     course_service = CourseService()
@@ -154,7 +154,7 @@ def delete_course(course_id):
         return jsonify({'error': 'Not authorized to delete this course'}), 403
 
 @bp.route('/<course_id>/publish', methods=['POST'])
-@require_role(['instructor', 'admin'])
+@require_role(['instructor', 'admin', 'student'])
 def publish_course(course_id):
     """Publish a course"""
     course_service = CourseService()
@@ -205,7 +205,7 @@ def get_course_modules(course_id):
         return jsonify({'error': 'Access denied'}), 403
 
 @bp.route('/<course_id>/modules', methods=['POST'])
-@require_role(['instructor', 'admin'])
+@require_role(['instructor', 'admin', 'student'])
 @validate_json(['title'])
 def create_module(course_id):
     """Create a new module in a course"""

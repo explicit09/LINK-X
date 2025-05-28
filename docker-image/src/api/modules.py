@@ -32,7 +32,7 @@ def get_module_files(module_id):
         return jsonify({'error': 'Access denied'}), 403
 
 @bp.route('/<module_id>', methods=['PATCH'])
-@require_role(['instructor', 'admin'])
+@require_role(['instructor', 'admin', 'student'])
 @validate_json([])
 def update_module(module_id):
     """Update module details"""
@@ -59,7 +59,7 @@ def update_module(module_id):
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<module_id>', methods=['DELETE'])
-@require_role(['instructor', 'admin'])
+@require_role(['instructor', 'admin', 'student'])
 def delete_module(module_id):
     """Delete a module"""
     module_service = ModuleService()

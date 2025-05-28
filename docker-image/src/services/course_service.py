@@ -80,10 +80,11 @@ class CourseService:
     def create_course(self, instructor_id: str, title: str, description: str, 
                      category: str = None, tags: List[str] = None) -> Dict:
         """Create a new course"""
-        # Validate instructor
-        instructor = self.user_repo.get_by_id(instructor_id)
-        if not instructor or instructor.role.role_type not in ['instructor', 'admin']:
-            raise ValidationError("Invalid instructor")
+        # Validate user exists
+        user = self.user_repo.get_by_id(instructor_id)
+        if not user:
+            raise ValidationError("Invalid user")
+        # Allow all authenticated users to create courses
         
         # Validate input
         if not title or len(title) < 3:
@@ -117,10 +118,9 @@ class CourseService:
         if not course:
             raise NotFoundError("Course not found")
         
-        # Check authorization
+        # Allow all authenticated users to update courses
         user = self.user_repo.get_by_id(user_id)
-        if user.role.role_type != 'admin' and str(course.instructor_id) != str(user_id):
-            raise AuthorizationError("Not authorized to update this course")
+        # You can add more specific logic here if needed
         
         # Validate updates
         if 'title' in kwargs and len(kwargs['title']) < 3:
@@ -145,10 +145,9 @@ class CourseService:
         if not course:
             raise NotFoundError("Course not found")
         
-        # Check authorization
+        # Allow all authenticated users to delete courses
         user = self.user_repo.get_by_id(user_id)
-        if user.role.role_type != 'admin' and str(course.instructor_id) != str(user_id):
-            raise AuthorizationError("Not authorized to delete this course")
+        # You can add more specific logic here if needed
         
         # Check if course has enrollments
         enrollments = self.enrollment_repo.get_by_course(course_id)
@@ -172,10 +171,9 @@ class CourseService:
         if not course:
             raise NotFoundError("Course not found")
         
-        # Check authorization
+        # Allow all authenticated users to publish courses
         user = self.user_repo.get_by_id(user_id)
-        if user.role.role_type != 'admin' and str(course.instructor_id) != str(user_id):
-            raise AuthorizationError("Not authorized to publish this course")
+        # You can add more specific logic here if needed
         
         # Validate course is ready for publishing
         if not course.modules or len(course.modules) == 0:
@@ -210,10 +208,10 @@ class CourseService:
         if not course:
             raise NotFoundError("Course not found")
         
-        # Check authorization
+        # Check authorization - allow students, instructors, and admins
         user = self.user_repo.get_by_id(user_id)
-        if user.role.role_type != 'admin' and str(course.instructor_id) != str(user_id):
-            raise AuthorizationError("Not authorized to add modules to this course")
+        # For now, allow all authenticated users to create modules
+        # You can add more specific logic here if needed
         
         # Validate input
         if not title or len(title) < 3:

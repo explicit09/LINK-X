@@ -176,7 +176,7 @@ def stream_file(file_id):
     )
 
 @bp.route('/<file_id>', methods=['DELETE'])
-@require_role(['instructor', 'admin'])
+@require_role(['instructor', 'admin', 'student'])
 def delete_file(file_id):
     """Delete a file"""
     file_service = FileService()

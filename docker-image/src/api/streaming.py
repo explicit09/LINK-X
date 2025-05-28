@@ -198,6 +198,20 @@ def stream_content_summary(file_id):
         }
     )
 
+@bp.route('/check/<file_id>', methods=['GET'])
+@firebase_auth_required
+def check_existing_content(file_id):
+    """Check if personalized content exists for this file"""
+    try:
+        # For now, return that content doesn't exist
+        # In a real implementation, you would check if personalized content has been generated
+        return jsonify({
+            'exists': False,
+            'message': 'No existing personalized content found'
+        }), 200
+    except Exception as e:
+        return jsonify({'error': 'Failed to check content'}), 500
+
 @bp.route('/progress', methods=['POST'])
 @firebase_auth_required
 @validate_json(['fileId', 'sectionId', 'progress'])

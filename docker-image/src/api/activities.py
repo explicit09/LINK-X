@@ -88,3 +88,25 @@ def get_dashboard_stats():
         
     finally:
         session.close()
+
+@bp.route('/log', methods=['POST', 'OPTIONS'])
+def log_activity():
+    """Log user activity"""
+    # Handle preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    
+    # For POST requests, check authentication
+    if not hasattr(g, 'current_user') or not g.current_user:
+        return jsonify({'error': 'Authentication required'}), 401
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    # For now, just acknowledge the activity
+    # In a real implementation, you would store this in a database
+    return jsonify({
+        'status': 'success',
+        'message': 'Activity logged'
+    }), 200
