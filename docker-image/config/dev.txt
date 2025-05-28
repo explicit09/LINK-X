@@ -1,0 +1,24 @@
+# Include base requirements
+-r base.txt
+
+# Development & Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+pytest-asyncio==0.21.1
+black==23.11.0
+flake8==6.1.0
+mypy==1.7.1
+
+# Development Tools
+flower==2.0.1  # Celery monitoring
+streamlit==1.29.0  # For debugging UI
+ipython==8.17.2  # Interactive shell
+ipdb==0.13.13  # Debugger
+
+# Documentation
+sphinx==7.2.6
+sphinx-rtd-theme==2.0.0
+
+# Pre-commit hooks
+pre-commit==3.5.0

@@ -14,7 +14,8 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy requirements
-COPY src/requirements_optimized.txt /tmp/requirements.txt
+COPY config/prod.txt config/base.txt /tmp/
+RUN mv /tmp/prod.txt /tmp/requirements.txt && mv /tmp/base.txt /tmp/
 
 # Install Python dependencies
 RUN pip install --upgrade pip wheel setuptools && \

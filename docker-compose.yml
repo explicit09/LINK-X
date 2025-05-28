@@ -12,6 +12,7 @@ services:
   backend:
     build:
       context: ./docker-image
+      dockerfile: docker/Dockerfile
     image: dev7
     container_name: backend
     env_file:
@@ -36,6 +37,7 @@ services:
   celery-worker:
     build:
       context: ./docker-image
+      dockerfile: docker/Dockerfile
     image: dev7
     container_name: celery-worker
     env_file:

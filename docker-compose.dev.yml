@@ -3,7 +3,7 @@ services:
   backend:
     build:
       context: ./docker-image
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
     image: linkx-backend:dev
     container_name: linkx-backend-dev
     env_file:

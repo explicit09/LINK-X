@@ -1,0 +1,13 @@
+# Include base requirements
+-r base.txt
+
+# Production Server
+gunicorn==21.2.0
+gevent==23.9.1  # For WebSocket support
+
+# Production Monitoring
+sentry-sdk[flask]==1.38.0
+
+# Production optimizations
+uwsgi==2.0.23  # Alternative to gunicorn
+supervisor==4.2.5  # Process management

@@ -3,7 +3,7 @@ services:
   backend:
     build:
       context: ./docker-image
-      dockerfile: Dockerfile.optimized
+      dockerfile: docker/Dockerfile.optimized
       cache_from:
         - python:3.10-slim
     image: linkx-backend:latest

@@ -10,11 +10,13 @@ ENV PYTHONPATH="/app:/app/src"
 ENV APP_HOME=/app
 WORKDIR $APP_HOME
 
-# Copy requirements file and install dependencies
+# Copy requirements files and install dependencies
 COPY src/requirements.txt ./
+COPY src/requirements-migration.txt ./
 
 RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -r requirements-migration.txt
 
 # Copy environment files, Firebase credentials, and code
 COPY src/.env ./
@@ -24,23 +26,28 @@ COPY src/textUtils.py ./
 COPY src/indexer.py ./
 COPY src/transcriber.py ./
 
-# Copy the application source code
+# Copy the application source code and migrations
 COPY src $APP_HOME/src
 
-# Copy entrypoint script
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Copy migration scripts
+COPY run_migrations.sh /run_migrations.sh
+RUN chmod +x /run_migrations.sh
+
+# Copy Celery worker script
+COPY celery_worker.sh /app/celery_worker.sh
+RUN chmod +x /app/celery_worker.sh
 
 # Environment variables for Flask
-ENV MODULE=src.wsgi:app
+ENV MODULE=src.app
 ENV QT_X11_NO_MITSHM=1
 ENV PORT=8080
 EXPOSE 8080
 
-# Note: All dependencies are already installed from requirements.txt
+# Install additional dependencies
+RUN pip install -U Flask flask-cors types-flask-cors
 
-# Set entrypoint
-ENTRYPOINT ["/entrypoint.sh"]
+# Install pgvector
+RUN pip install pgvector
 
-# Set the command to run the app with gunicorn
-CMD ["gunicorn", "--bind", ":8080", "--workers", "1", "--threads", "8", "--timeout", "0", "src.wsgi:app"]
+# Set the command to run migrations in the background and start the app
+CMD ["bash", "-c", "/run_migrations.sh & gunicorn --bind :8080 --workers 1 --threads 8 --timeout 0 app:app"]
