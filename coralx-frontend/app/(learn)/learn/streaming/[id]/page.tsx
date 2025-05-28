@@ -56,6 +56,108 @@ interface ChatMessage {
   timestamp: Date;
 }
 
+// Performance Metrics Panel Component
+interface PerformanceMetricsPanelProps {
+  metricsData: Map<string, { startTime: number; firstTokenTime?: number; completionTime?: number }>;
+  onClose: () => void;
+}
+
+function PerformanceMetricsPanel({ metricsData, onClose }: PerformanceMetricsPanelProps) {
+  const [frameStats, setFrameStats] = useState({ dropped: 0, total: 0 });
+  const [memoryUsage, setMemoryUsage] = useState(0);
+  
+  // Performance monitoring effect
+  useEffect(() => {
+    let frameCount = 0;
+    let droppedFrames = 0;
+    let lastFrameTime = performance.now();
+    let rafId: number;
+    
+    const checkPerformance = () => {
+      frameCount++;
+      const now = performance.now();
+      const frameDuration = now - lastFrameTime;
+      
+      if (frameDuration > 16.67) {
+        droppedFrames++;
+      }
+      
+      setFrameStats({ dropped: droppedFrames, total: frameCount });
+      
+      // Check memory if available
+      if ('memory' in performance) {
+        const memory = (performance as any).memory;
+        setMemoryUsage(Math.round(memory.usedJSHeapSize / 1048576));
+      }
+      
+      lastFrameTime = now;
+      rafId = requestAnimationFrame(checkPerformance);
+    };
+    
+    rafId = requestAnimationFrame(checkPerformance);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
+  
+  const allMetrics = Array.from(metricsData.entries());
+  const avgFirstToken = allMetrics.filter(([_, m]) => m.firstTokenTime).reduce((acc, [_, m]) => acc + (m.firstTokenTime || 0), 0) / allMetrics.filter(([_, m]) => m.firstTokenTime).length || 0;
+  const p95Completion = allMetrics.filter(([_, m]) => m.completionTime)
+    .map(([_, m]) => m.completionTime || 0)
+    .sort((a, b) => a - b)[Math.floor(allMetrics.length * 0.95)] || 0;
+  
+  const getColor = (metric: string, value: number) => {
+    switch (metric) {
+      case 'firstToken': return value < 300 ? 'text-green-600' : value < 500 ? 'text-yellow-600' : 'text-red-600';
+      case 'completion': return value < 4000 ? 'text-green-600' : value < 6000 ? 'text-yellow-600' : 'text-red-600';
+      case 'frames': return value < 5 ? 'text-green-600' : value < 10 ? 'text-yellow-600' : 'text-red-600';
+      case 'memory': return value < 150 ? 'text-green-600' : value < 200 ? 'text-yellow-600' : 'text-red-600';
+      default: return 'text-gray-600';
+    }
+  };
+  
+  return (
+    <Card className="fixed bottom-4 right-4 w-80 shadow-lg bg-white/95 backdrop-blur z-50">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold">Performance Metrics</h3>
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        <div className="space-y-2 text-xs">
+          <div className="flex justify-between">
+            <span>Avg First Token</span>
+            <span className={`font-mono ${getColor('firstToken', avgFirstToken)}`}>
+              {avgFirstToken.toFixed(0)}ms
+            </span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span>P95 Completion</span>
+            <span className={`font-mono ${getColor('completion', p95Completion)}`}>
+              {p95Completion.toFixed(0)}ms
+            </span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span>Dropped Frames</span>
+            <span className={`font-mono ${getColor('frames', (frameStats.dropped / frameStats.total) * 100)}`}>
+              {frameStats.total > 0 ? ((frameStats.dropped / frameStats.total) * 100).toFixed(1) : 0}%
+            </span>
+          </div>
+          
+          <div className="flex justify-between">
+            <span>Memory Usage</span>
+            <span className={`font-mono ${getColor('memory', memoryUsage)}`}>
+              {memoryUsage}MB
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function StreamingLearnPage() {
   const { id: fileId } = useParams();
   const router = useRouter();
@@ -127,8 +229,8 @@ export default function StreamingLearnPage() {
   // Create a ref to hold the streamSection function
   const streamSectionRef = useRef<((chapterId: string, subsectionId: string) => Promise<void>) | null>(null);
 
-  // Define streamSection function first to avoid ReferenceError
-  const streamSection = useCallback(async (chapterId: string, subsectionId: string, regenerate: boolean = false) => {
+  // Define streamSection function without useCallback to avoid dependency issues
+  const streamSection = async (chapterId: string, subsectionId: string, regenerate: boolean = false) => {
     const sectionKey = `${chapterId}-${subsectionId}`;
 
     // Don't stream if already streaming (unless regenerating)
@@ -165,7 +267,63 @@ export default function StreamingLearnPage() {
           content: streamingContent.get(key)?.slice(0, 200) || ''
         }));
       
+      // Check if we should use mock data
+      if (useMockData) {
+        console.log('Using mock data for content generation');
+        
+        // Create a mock response reader that simulates streaming content
+        const mockContent = `# Generated Content for ${chapterId} - ${subsectionId}
+
+This is mock content generated for testing purposes. The real API server at http://localhost:8080 is not running.
+
+## Key Points
+
+- This is a simulated response
+- In production, this would come from the actual API
+- The content would be personalized based on user preferences
+- You can add more sections and customize this content
+
+## Next Steps
+
+1. Start the actual backend server
+2. Configure the API endpoint correctly
+3. Test with real data
+
+Happy learning!`;
+        
+        // Simulate streaming by sending content in chunks with delays
+        let currentContent = '';
+        const mockChunks = mockContent.split(' ');
+        
+        // Set streaming state to streaming
+        setStreamingStates(prev => new Map(prev).set(sectionKey, 'streaming'));
+        
+        // Stream mock content with delays
+        for (let i = 0; i < mockChunks.length; i++) {
+          // Check if aborted
+          if (abortControllers.current.get(sectionKey)?.signal.aborted) {
+            console.log('Streaming aborted');
+            break;
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 50)); // Simulate network delay
+          
+          currentContent += mockChunks[i] + ' ';
+          setStreamingContent(prev => new Map(prev).set(sectionKey, currentContent));
+        }
+        
+        // Set streaming state to complete
+        setStreamingStates(prev => new Map(prev).set(sectionKey, 'complete'));
+        
+        // Add to generated sections
+        setGeneratedSections(prev => [...prev, sectionKey]);
+        
+        return;
+      }
+      
+      // If not using mock data, proceed with real API call
       const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') as string;
+      console.log('Making API request to:', `${apiUrl}/api/personalize/${fileId}/stream`);
       const response = await fetch(`${apiUrl}/api/personalize/${fileId}/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -248,12 +406,15 @@ export default function StreamingLearnPage() {
     } finally {
       abortControllers.current.delete(sectionKey);
     }
-  }, [fileId, streamingStates, generatedSections, streamingContent]);
+  };
 
-  // Update the ref when streamSection changes
+  // Set the streamSectionRef on component mount
   useEffect(() => {
     streamSectionRef.current = streamSection;
   }, [streamSection]);
+
+  // Add a mock implementation for development when API server is not available
+  const useMockData = false; // Set to false when real API is available
 
   // Setup IntersectionObserver for auto-prefetch
   useEffect(() => {
@@ -291,9 +452,8 @@ export default function StreamingLearnPage() {
                   
                   // Delay prefetch slightly to prioritize current content
                   setTimeout(() => {
-                    if (streamSectionRef.current) {
-                      streamSectionRef.current(chapterId, subsectionId);
-                    }
+                    // Direct call to streamSection instead of using the ref
+                    streamSection(chapterId, subsectionId);
                     prefetchQueue.current = prefetchQueue.current.filter(k => k !== nextSectionKey);
                   }, 500 * i);
                 }
@@ -461,7 +621,8 @@ export default function StreamingLearnPage() {
     streamSectionRef.current = streamSection;
   }, [streamSection]);
 
-  const handleSectionClick = useCallback((chapterId: string, subsectionId: string, regenerate: boolean = false) => {
+  const handleSectionClick = (chapterId: string, subsectionId: string, regenerate: boolean = false) => {
+    console.log('handleSectionClick called with:', { chapterId, subsectionId, regenerate });
     const sectionKey = `${chapterId}-${subsectionId}`;
     
     // Set as focused section (show only this one)
@@ -469,14 +630,15 @@ export default function StreamingLearnPage() {
     
     // Stream if not already complete or if regenerating
     if (regenerate || streamingStates.get(sectionKey) !== 'complete') {
+      // Direct call to streamSection function
       streamSection(chapterId, subsectionId, regenerate);
     }
     
     // Scroll to top of content area
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [streamSection, streamingStates]);
+  };
 
-  const regenerateSection = useCallback((chapterId: string, subsectionId: string) => {
+  const regenerateSection = (chapterId: string, subsectionId: string) => {
     const sectionKey = `${chapterId}-${subsectionId}`;
     
     // Clear existing content
@@ -494,7 +656,7 @@ export default function StreamingLearnPage() {
     
     // Regenerate with new content
     handleSectionClick(chapterId, subsectionId, true);
-  }, [handleSectionClick]);
+  };
 
   const toggleChapter = (chapterId: string) => {
     setOutline(prev => {
@@ -760,146 +922,54 @@ export default function StreamingLearnPage() {
     );
   }
 
-  // Performance Metrics Dashboard
-  const PerformanceMetrics = () => {
-    const [frameStats, setFrameStats] = useState({ dropped: 0, total: 0 });
-    const [memoryUsage, setMemoryUsage] = useState(0);
-    
-    useEffect(() => {
-      if (!showMetrics) return;
-      
-      let frameCount = 0;
-      let droppedFrames = 0;
-      let lastFrameTime = performance.now();
-      let rafId: number;
-      
-      const checkPerformance = () => {
-        frameCount++;
-        const now = performance.now();
-        const frameDuration = now - lastFrameTime;
-        
-        if (frameDuration > 16.67) {
-          droppedFrames++;
-        }
-        
-        setFrameStats({ dropped: droppedFrames, total: frameCount });
-        
-        // Check memory if available
-        if ('memory' in performance) {
-          const memory = (performance as any).memory;
-          setMemoryUsage(Math.round(memory.usedJSHeapSize / 1048576));
-        }
-        
-        lastFrameTime = now;
-        rafId = requestAnimationFrame(checkPerformance);
-      };
-      
-      rafId = requestAnimationFrame(checkPerformance);
-      return () => cancelAnimationFrame(rafId);
-    }, [showMetrics]);
-    
-    const allMetrics = Array.from(metricsRef.current.entries());
-    const avgFirstToken = allMetrics.filter(([_, m]) => m.firstTokenTime).reduce((acc, [_, m]) => acc + (m.firstTokenTime || 0), 0) / allMetrics.filter(([_, m]) => m.firstTokenTime).length || 0;
-    const p95Completion = allMetrics.filter(([_, m]) => m.completionTime)
-      .map(([_, m]) => m.completionTime || 0)
-      .sort((a, b) => a - b)[Math.floor(allMetrics.length * 0.95)] || 0;
-    
-    const getColor = (metric: string, value: number) => {
-      switch (metric) {
-        case 'firstToken': return value < 300 ? 'text-green-600' : value < 500 ? 'text-yellow-600' : 'text-red-600';
-        case 'completion': return value < 4000 ? 'text-green-600' : value < 6000 ? 'text-yellow-600' : 'text-red-600';
-        case 'frames': return value < 5 ? 'text-green-600' : value < 10 ? 'text-yellow-600' : 'text-red-600';
-        case 'memory': return value < 150 ? 'text-green-600' : value < 200 ? 'text-yellow-600' : 'text-red-600';
-        default: return 'text-gray-600';
-      }
-    };
-    
-    return (
-      <Card className="fixed bottom-4 right-4 w-80 shadow-lg bg-white/95 backdrop-blur z-50">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold">Performance Metrics</h3>
-            <Button size="sm" variant="ghost" onClick={() => setShowMetrics(false)}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between">
-              <span>Avg First Token</span>
-              <span className={`font-mono ${getColor('firstToken', avgFirstToken)}`}>
-                {avgFirstToken.toFixed(0)}ms
-              </span>
-            </div>
-            
-            <div className="flex justify-between">
-              <span>P95 Completion</span>
-              <span className={`font-mono ${getColor('completion', p95Completion)}`}>
-                {p95Completion.toFixed(0)}ms
-              </span>
-            </div>
-            
-            <div className="flex justify-between">
-              <span>Dropped Frames</span>
-              <span className={`font-mono ${getColor('frames', (frameStats.dropped / frameStats.total) * 100)}`}>
-                {frameStats.total > 0 ? ((frameStats.dropped / frameStats.total) * 100).toFixed(1) : 0}%
-              </span>
-            </div>
-            
-            <div className="flex justify-between">
-              <span>Memory Usage</span>
-              <span className={`font-mono ${getColor('memory', memoryUsage)}`}>
-                {memoryUsage}MB
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
 
-  // Update XP when sections complete
-  useEffect(() => {
-    const completed = Array.from(streamingStates.values()).filter(state => state === 'complete').length;
-    const newXP = completed * xpPerSection;
+
+  // XP Update Manager component
+  const XPUpdateManager = () => {
+    useEffect(() => {
+      const completed = Array.from(streamingStates.values()).filter(state => state === 'complete').length;
+      const newXP = completed * xpPerSection;
+      
+      if (newXP > userXP) {
+        const xpGained = newXP - userXP;
+        setUserXP(newXP);
+        setLastXPGain(xpGained);
+        setShowXPAnimation(true);
+        
+        // Hide XP animation after 2 seconds
+        setTimeout(() => setShowXPAnimation(false), 2000);
+        
+        // Check for level up
+        const newLevel = Math.floor(newXP / 500) + 1;
+        if (newLevel > userLevel) {
+          setUserLevel(newLevel);
+          toast.success(`Level Up! You're now level ${newLevel}!`, {
+            description: `Keep learning to reach level ${newLevel + 1}`,
+            icon: <Trophy className="h-4 w-4 text-yellow-500" />
+          });
+        }
+        
+        // Achievement checks
+        if (completed === 1 && !achievements.includes('first_section')) {
+          setAchievements([...achievements, 'first_section']);
+          toast.success('Achievement Unlocked: First Steps!', {
+            description: 'You completed your first section',
+            icon: <Star className="h-4 w-4 text-yellow-500" />
+          });
+        }
+        
+        if (completed === totalSections && !achievements.includes('complete_doc')) {
+          setAchievements([...achievements, 'complete_doc']);
+          toast.success('Achievement Unlocked: Document Master!', {
+            description: 'You completed all sections',
+            icon: <Award className="h-4 w-4 text-purple-500" />
+          });
+        }
+      }
+    }, [streamingStates, userXP, userLevel, achievements, totalSections, xpPerSection]);
     
-    if (newXP > userXP) {
-      const xpGained = newXP - userXP;
-      setUserXP(newXP);
-      setLastXPGain(xpGained);
-      setShowXPAnimation(true);
-      
-      // Hide XP animation after 2 seconds
-      setTimeout(() => setShowXPAnimation(false), 2000);
-      
-      // Check for level up
-      const newLevel = Math.floor(newXP / 500) + 1;
-      if (newLevel > userLevel) {
-        setUserLevel(newLevel);
-        toast.success(`Level Up! You're now level ${newLevel}!`, {
-          description: `Keep learning to reach level ${newLevel + 1}`,
-          icon: <Trophy className="h-4 w-4 text-yellow-500" />
-        });
-      }
-      
-      // Achievement checks
-      if (completed === 1 && !achievements.includes('first_section')) {
-        setAchievements([...achievements, 'first_section']);
-        toast.success('Achievement Unlocked: First Steps!', {
-          description: 'You completed your first section',
-          icon: <Star className="h-4 w-4 text-yellow-500" />
-        });
-      }
-      
-      if (completed === totalSections && !achievements.includes('complete_doc')) {
-        setAchievements([...achievements, 'complete_doc']);
-        toast.success('Achievement Unlocked: Document Master!', {
-          description: 'You completed all sections',
-          icon: <Award className="h-4 w-4 text-purple-500" />
-        });
-      }
-    }
-  }, [streamingStates, userXP, userLevel, achievements, totalSections, xpForLevel, xpPerSection]);
+    return null; // This component doesn't render anything
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
@@ -1557,7 +1627,10 @@ export default function StreamingLearnPage() {
       )}
       
       {/* Performance Metrics Dashboard */}
-      {showMetrics && <PerformanceMetrics />}
+      {showMetrics && <PerformanceMetricsPanel metricsData={metricsRef.current} onClose={() => setShowMetrics(false)} />}
+      
+      {/* XP Update Manager */}
+      <XPUpdateManager />
       </div>
     </div>
   );
