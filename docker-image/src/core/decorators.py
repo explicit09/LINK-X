@@ -1,6 +1,7 @@
 from functools import wraps
 from flask import request, jsonify, g
-from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
+from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity, decode_token
+import jwt
 import time
 import redis
 from datetime import datetime, timedelta
@@ -70,13 +71,84 @@ def firebase_auth_required(f):
     """Decorator to require Firebase authentication"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Skip authentication for OPTIONS requests (CORS preflight)
+        if request.method == 'OPTIONS':
+            return f(*args, **kwargs)
+            
         auth_header = request.headers.get('Authorization')
-        print(f"Auth header received: {auth_header[:50] if auth_header else 'None'}...")
-        if not auth_header or not auth_header.startswith('Bearer '):
+        session_cookie = request.cookies.get('session_token')
+        
+        token = None
+        is_jwt_token = False
+        
+        # Debug logging
+        print(f"Auth check - Method: {request.method}, Path: {request.path}")
+        print(f"Auth header present: {bool(auth_header)}")
+        print(f"Session cookie present: {bool(session_cookie)}")
+        print(f"All cookies: {list(request.cookies.keys())}")
+        
+        # Try Authorization header first
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+            print(f"Using Authorization header token: {token[:20]}...")
+        # Fallback to session cookie (which contains JWT token)
+        elif session_cookie:
+            token = session_cookie
+            is_jwt_token = True
+            print(f"Using session cookie (JWT) token: {token[:20]}...")
+        else:
+            print("No authentication token found in header or cookie")
             return jsonify({'error': 'Authorization header missing or invalid'}), 401
         
-        token = auth_header.split(' ')[1]
         try:
+            # If it's a JWT token from session cookie, verify it differently
+            if is_jwt_token:
+                try:
+                    from flask import current_app
+                    # Decode JWT token manually
+                    decoded_jwt = jwt.decode(
+                        token, 
+                        current_app.config['JWT_SECRET_KEY'], 
+                        algorithms=['HS256']
+                    )
+                    user_id = decoded_jwt.get('sub') or decoded_jwt.get('identity')
+                    print(f"JWT token verified for user: {user_id}")
+                    
+                    # Get user from database
+                    from ..db.connection import get_db_session
+                    from ..db.schema import User
+                    from sqlalchemy.orm import joinedload
+                    
+                    session = get_db_session()
+                    try:
+                        user = session.query(User).options(
+                            joinedload(User.role)
+                        ).filter_by(id=user_id).first()
+                        
+                        if not user:
+                            print(f"User not found in database for ID: {user_id}")
+                            session.close()
+                            return jsonify({'error': 'User not found'}), 404
+                        
+                        print(f"User found: {user.id}, email: {user.email}, role: {user.role.role_type if user.role else 'No role'}")
+                        g.current_user = user
+                        g.firebase_uid = user.firebase_uid
+                        g.db_session = session  # Keep session alive
+                        
+                        result = f(*args, **kwargs)
+                        session.close()
+                        return result
+                    except Exception as e:
+                        session.close()
+                        raise
+                except jwt.ExpiredSignatureError:
+                    print("JWT token expired")
+                    return jsonify({'error': 'Session expired. Please login again.'}), 401
+                except jwt.InvalidTokenError as e:
+                    print(f"JWT verification failed: {str(e)}")
+                    # JWT verification failed, try as Firebase token
+                    is_jwt_token = False
+            
             # Verify Firebase token
             print(f"Verifying Firebase token: {token[:20]}...")
             decoded_token = firebase_auth.verify_id_token(token)
@@ -86,17 +158,41 @@ def firebase_auth_required(f):
             
             # Get user from database
             from ..repositories.user_repository import UserRepository
-            user_repo = UserRepository()
-            print(f"Looking for user with Firebase UID: {g.firebase_uid}")
-            user = user_repo.find_by_firebase_uid(g.firebase_uid)
+            from ..db.connection import get_db_session
             
-            if not user:
-                print(f"User not found in database for Firebase UID: {g.firebase_uid}")
-                return jsonify({'error': 'User not found'}), 404
-            
-            print(f"User found: {user.id}, email: {user.email}")
-            g.current_user = user
-            return f(*args, **kwargs)
+            # Use a fresh session for the request
+            session = get_db_session()
+            try:
+                user_repo = UserRepository()
+                print(f"Looking for user with Firebase UID: {g.firebase_uid}")
+                
+                # Get user with role eagerly loaded
+                from ..db.schema import User, Role
+                from sqlalchemy.orm import joinedload
+                
+                user = session.query(User).options(
+                    joinedload(User.role)
+                ).filter_by(firebase_uid=g.firebase_uid).first()
+                
+                if not user:
+                    print(f"User not found in database for Firebase UID: {g.firebase_uid}")
+                    return jsonify({'error': 'User not found'}), 404
+                
+                print(f"User found: {user.id}, email: {user.email}, role: {user.role.role_type if user.role else 'No role'}")
+                
+                # Store user in g without closing session yet
+                g.current_user = user
+                g.db_session = session  # Keep session alive for the request
+                
+                result = f(*args, **kwargs)
+                
+                # Close session after request completes
+                session.close()
+                
+                return result
+            except Exception as e:
+                session.close()
+                raise
             
         except firebase_auth.InvalidIdTokenError:
             return jsonify({'error': 'Invalid authentication token'}), 401
@@ -122,7 +218,7 @@ def require_role(roles):
             if not hasattr(g, 'current_user') or not g.current_user:
                 return jsonify({'error': 'Authentication required'}), 401
             
-            user_role = g.current_user.role.name.lower()
+            user_role = g.current_user.role.role_type.lower() if g.current_user.role else 'student'
             if user_role not in [r.lower() for r in roles]:
                 return jsonify({
                     'error': 'Insufficient permissions',

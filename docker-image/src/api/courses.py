@@ -272,3 +272,65 @@ def get_course_stats(course_id):
         return jsonify({'error': 'Course not found'}), 404
     except AuthorizationError:
         return jsonify({'error': 'Not authorized to view course statistics'}), 403
+
+@bp.route('/<course_id>/progress', methods=['GET', 'OPTIONS'])
+@firebase_auth_required
+def get_course_progress(course_id):
+    """Get course progress for current user"""
+    try:
+        # For now, return mock progress data
+        # In a real implementation, this would track actual student progress
+        return jsonify({
+            'courseId': course_id,
+            'overallProgress': 0,
+            'modulesCompleted': 0,
+            'totalModules': 0,
+            'filesViewed': 0,
+            'totalFiles': 0,
+            'lastActivity': None
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': 'Failed to get course progress'}), 500
+
+@bp.route('/<course_id>/discussions', methods=['GET', 'OPTIONS'])
+@firebase_auth_required
+def get_course_discussions(course_id):
+    """Get course discussions"""
+    try:
+        # For now, return empty discussions
+        # In a real implementation, this would query a discussions table
+        return jsonify([]), 200
+        
+    except Exception as e:
+        return jsonify({'error': 'Failed to get discussions'}), 500
+
+@bp.route('/<course_id>/moduleswithfiles', methods=['GET', 'OPTIONS'])
+@firebase_auth_required
+def get_modules_with_files(course_id):
+    """Get all modules for a course with their files"""
+    course_service = CourseService()
+    
+    try:
+        modules = course_service.get_course_modules(
+            course_id=course_id,
+            user_id=g.current_user.id
+        )
+        
+        # Get files for each module
+        from ..repositories.file_repository import FileRepository
+        file_repo = FileRepository()
+        
+        modules_with_files = []
+        for module in modules:
+            files = file_repo.get_by_module(module.id)
+            module_dict = module.to_dict()
+            module_dict['files'] = [f.to_dict() for f in files]
+            modules_with_files.append(module_dict)
+        
+        return jsonify(modules_with_files), 200
+        
+    except NotFoundError:
+        return jsonify({'error': 'Course not found'}), 404
+    except AuthorizationError:
+        return jsonify({'error': 'Access denied'}), 403

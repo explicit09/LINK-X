@@ -2,6 +2,7 @@ from flask import request, g
 import time
 import uuid
 import logging
+from .cors import cors_after_request
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,9 @@ def setup_middleware(app):
         response.headers['X-Frame-Options'] = 'DENY'
         response.headers['X-XSS-Protection'] = '1; mode=block'
         
+        # Apply CORS headers using our utility
+        response = cors_after_request(response)
+        
         # Log response
         logger.info(f"Request completed: {request.method} {request.path}", extra={
             'request_id': getattr(g, 'request_id', None),
@@ -58,6 +62,13 @@ def setup_middleware(app):
         """Close database session after each request"""
         from .database import db_manager
         db_manager.close_session()
+        
+        # Also close the session stored in g if any
+        if hasattr(g, 'db_session') and g.db_session:
+            try:
+                g.db_session.close()
+            except:
+                pass
         
         if exception:
             logger.error(f"Request ended with exception: {exception}", extra={

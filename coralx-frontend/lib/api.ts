@@ -1,70 +1,20 @@
 import { auth } from '../firebaseconfig';
+import { authService } from './auth-service';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 // Auth helpers
 export async function getAuthToken() {
-  const user = auth.currentUser;
-  if (!user) return null;
-  try {
-    return await user.getIdToken();
-  } catch (error) {
-    console.error('Error getting auth token:', error);
-    return null;
-  }
+  return await authService.getValidToken();
 }
 
-// Session login - establishes a session cookie with the backend
-export async function sessionLogin() {
-  const token = await getAuthToken();
-  if (!token) {
-    console.error('No auth token available for session login');
+// Session login - now handled by auth service
+export async function sessionLogin(forceEstablish = false) {
+  console.warn('sessionLogin is deprecated, use authService.login() instead');
+  if (!auth.currentUser) {
     return false;
   }
-  
-  try {
-    console.log('Attempting to establish session with backend...');
-    const response = await fetch(`${API_URL}/api/v1/auth/sessionLogin`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ idToken: token }),
-      credentials: 'include',
-      mode: 'cors',
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Session login failed: ${response.status}`, errorText);
-      return false;
-    }
-    
-    // Verify the session was established by making a test request
-    try {
-      const verifyResponse = await fetch(`${API_URL}/api/v1/auth/me`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (verifyResponse.ok) {
-        console.log('Session verified successfully');
-        return true;
-      } else {
-        console.error('Session verification failed:', verifyResponse.status);
-        return false;
-      }
-    } catch (verifyError) {
-      console.error('Session verification error:', verifyError);
-      return false;
-    }
-  } catch (error) {
-    console.error('Session login error:', error);
-    return false;
-  }
+  return await authService.login(auth.currentUser);
 }
 
 // Default timeout and retry settings
@@ -116,23 +66,44 @@ export async function fetchWithAuth(
       // Clear timeout since request completed
       clearTimeout(timeoutId);
 
-      // If we get a 401 and we haven't tried session login yet, try to establish a session
+      // If we get a 401, use auth service to handle it properly
       if (response.status === 401 && retryWithSessionLogin) {
-        console.log('Received 401, attempting to establish session...');
-        const sessionSuccess = await sessionLogin();
-        
-        if (sessionSuccess) {
-          // Retry the original request with the new session cookie
-          console.log('Session established, retrying original request');
-          return fetchWithAuth(endpoint, options, false);  // Prevent infinite recursion
-        } else {
-          console.error('Failed to establish session after 401 response');
-          // Try to refresh the page if we're in the browser
-          if (typeof window !== 'undefined' && window.location) {
-            console.log('Refreshing page to attempt re-authentication');
-            // Give user a chance to see error messages before refresh
-            setTimeout(() => window.location.reload(), 2000);
+        // Check if we should retry with refreshed tokens
+        if (authService.isAuthenticated()) {
+          console.log('Received 401, attempting to refresh tokens...');
+          const refreshed = await authService.refreshTokens();
+          
+          if (refreshed) {
+            // Get new token and retry
+            const newToken = await authService.getValidToken();
+            if (newToken) {
+              headers['Authorization'] = `Bearer ${newToken}`;
+              console.log('Retrying request with refreshed token');
+              
+              const retryResponse = await fetch(`${API_URL}${endpoint}`, {
+                ...options,
+                headers,
+                credentials: 'include',
+                mode: 'cors',
+                signal: controller.signal
+              });
+              
+              clearTimeout(timeoutId);
+              return retryResponse;
+            }
           }
+        }
+        
+        // If not authenticated or refresh failed, don't auto-redirect on public pages
+        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+        const publicPaths = ['/', '/login', '/register', '/forgot-password'];
+        const isPublicPage = publicPaths.some(path => currentPath === path || currentPath.startsWith(path));
+        
+        if (!isPublicPage && typeof window !== 'undefined') {
+          console.log('Authentication required, redirecting to login...');
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 1000);
         }
       }
 
@@ -265,23 +236,23 @@ export const studentAPI = {
   updateProfile: (data: any) => api.patch('/api/v1/auth/me', data),
   
   // Course modules management
-  getCourseModules: (courseId: string) => api.get(`/student/courses/${courseId}/modules`),
-  createModule: (courseId: string, data: any) => api.post(`/student/courses/${courseId}/modules`, data),
-  getModule: (courseId: string, moduleId: string) => api.get(`/student/courses/${courseId}/modules/${moduleId}`),
-  updateModule: (courseId: string, moduleId: string, data: any) => api.patch(`/student/modules/${moduleId}`, data),
-  getModuleFiles: (moduleId: string) => api.get(`/student/modules/${moduleId}/files`),
+  getCourseModules: (courseId: string) => api.get(`/api/v1/courses/${courseId}/modules`),
+  createModule: (courseId: string, data: any) => api.post(`/api/v1/courses/${courseId}/modules`, data),
+  getModule: (courseId: string, moduleId: string) => api.get(`/api/v1/courses/${courseId}/modules/${moduleId}`),
+  updateModule: (courseId: string, moduleId: string, data: any) => api.patch(`/api/v1/modules/${moduleId}`, data),
+  getModuleFiles: (moduleId: string) => api.get(`/api/v1/modules/${moduleId}/files`),
   
   // File operations
-  downloadFile: (fileId: string) => api.get(`/student/files/${fileId}/download`),
+  downloadFile: (fileId: string) => api.get(`/api/v1/files/${fileId}/download`),
   uploadFile: (courseId: string, data: FormData) => {
-    return fetchWithAuth(`/student/courses/${courseId}/files`, {
+    return fetchWithAuth(`/api/v1/files/upload`, {
       method: 'POST',
       body: data,
       headers: {}, // Let browser set Content-Type for FormData
     });
   },
-  getFileContent: (fileId: string) => api.get(`/student/files/${fileId}/content`),
-  deleteFile: (fileId: string) => api.delete(`/student/files/${fileId}`),
+  getFileContent: (fileId: string) => api.get(`/api/v1/files/${fileId}/content`),
+  deleteFile: (fileId: string) => api.delete(`/api/v1/files/${fileId}`),
   getFileUrl: async (fileId: string) => {
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -348,12 +319,13 @@ export const studentAPI = {
   
   // Dashboard content (TODO: implement backend endpoints)
   getRecentActivities: async () => {
-    // Mock data until backend endpoints are implemented
-    return [];
+    return api.get('/api/v1/activities/recent');
   },
   getTodoItems: async () => {
-    // Mock data until backend endpoints are implemented
-    return [];
+    return api.get('/api/v1/todo-items');
+  },
+  getDashboardStats: async () => {
+    return api.get('/api/v1/activities/stats');
   },
   createTodoItem: (data: any) => api.post('/api/v1/todo-items', data),
   updateTodoItem: (todoId: string, data: any) => api.patch(`/api/v1/todo-items/${todoId}`, data),

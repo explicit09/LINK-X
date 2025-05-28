@@ -119,6 +119,39 @@ class FileService:
         
         return file
     
+    def get_file_content(self, file_id: str, user_id: str) -> Dict:
+        """Get file content for viewing"""
+        # Check access
+        file = self._verify_file_access(file_id, user_id)
+        
+        # If file is stored in S3, generate presigned URL
+        if file.storage_type == 's3' and file.s3_key:
+            try:
+                presigned_url = self.s3_client.generate_presigned_url(
+                    'get_object',
+                    Params={
+                        'Bucket': file.s3_bucket,
+                        'Key': file.s3_key
+                    },
+                    ExpiresIn=3600  # 1 hour
+                )
+                return {
+                    'type': 'presigned',
+                    'url': presigned_url
+                }
+            except Exception as e:
+                raise FileProcessingError(f"Failed to generate file URL: {str(e)}")
+        
+        # For database-stored files
+        elif file.file_data:
+            return {
+                'type': 'direct',
+                'content': file.file_data,
+                'mimetype': self._get_mimetype(file.file_type)
+            }
+        else:
+            raise NotFoundError("File content not found")
+    
     def get_file_for_download(self, file_id: str, user_id: str) -> tuple:
         """Get file for download"""
         file = self.get_file_with_access_check(file_id, user_id)
@@ -317,3 +350,19 @@ class FileService:
             return enrollment is not None
         
         return False
+    
+    def _get_mimetype(self, file_type: str) -> str:
+        """Get MIME type from file extension"""
+        mime_types = {
+            'pdf': 'application/pdf',
+            'doc': 'application/msword',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'txt': 'text/plain',
+            'mp3': 'audio/mp3',
+            'mp4': 'video/mp4',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'gif': 'image/gif'
+        }
+        return mime_types.get(file_type.lower(), 'application/octet-stream')

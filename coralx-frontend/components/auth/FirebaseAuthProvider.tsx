@@ -67,6 +67,8 @@ export function FirebaseAuthProvider({ children }: FirebaseAuthProviderProps) {
         await establishSession(user);
       } else {
         console.log('No user authenticated with Firebase');
+        // Don't try to establish session when there's no user
+        setLoading(false);
       }
       
       setAuthInitialized(true);

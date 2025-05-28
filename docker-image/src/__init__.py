@@ -56,8 +56,8 @@ def initialize_extensions(app):
     # Cache
     cache.init_app(app)
     
-    # CORS
-    CORS(app, **app.config['CORS_OPTIONS'])
+    # CORS - Handled manually in middleware for better control
+    # CORS(app, **app.config['CORS_OPTIONS'])
     
     # JWT (if using JWT instead of Firebase only)
     jwt = JWTManager(app)
@@ -66,10 +66,16 @@ def initialize_extensions(app):
 
 def register_blueprints(app):
     """Register all blueprints"""
-    from .api import auth, courses, files, streaming, admin, health
+    from .api import auth, courses, files, streaming, admin, health, todos, activities, modules, legacy, test
     
     # Health check endpoints (no prefix for load balancer compatibility)
     app.register_blueprint(health.bp)
+    
+    # Legacy endpoints (for backward compatibility)
+    app.register_blueprint(legacy.bp, url_prefix='/api/v1')
+    
+    # Test endpoints
+    app.register_blueprint(test.bp, url_prefix='/api/v1/test')
     
     # API v1 blueprints
     app.register_blueprint(auth.bp, url_prefix='/api/v1/auth')
@@ -77,6 +83,9 @@ def register_blueprints(app):
     app.register_blueprint(files.bp, url_prefix='/api/v1/files')
     app.register_blueprint(streaming.bp, url_prefix='/api/v1/streaming')
     app.register_blueprint(admin.bp, url_prefix='/api/v1/admin')
+    app.register_blueprint(todos.bp, url_prefix='/api/v1/todo-items')
+    app.register_blueprint(activities.bp, url_prefix='/api/v1/activities')
+    app.register_blueprint(modules.bp, url_prefix='/api/v1/modules')
     
     logger.info("Blueprints registered")
 

@@ -24,8 +24,12 @@ class CourseService:
             raise NotFoundError("Course not found")
         
         # Check access based on user role
+        # Re-fetch user to ensure we have a fresh instance with relationships loaded
         user = self.user_repo.get_by_id(user_id)
         
+        if not user:
+            raise AuthorizationError("User not found")
+            
         if user.role.role_type == 'admin':
             # Admin has access to all courses
             return course

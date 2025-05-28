@@ -48,6 +48,19 @@ class UserRepository(BaseRepository[User]):
         finally:
             self.db.close()
     
+    def get_by_id(self, id: str) -> Optional[User]:
+        """Get user by ID with eager loading of relationships"""
+        from sqlalchemy.orm import joinedload
+        try:
+            user = self.db.query(User).options(
+                joinedload(User.role),
+                joinedload(User.student_profile),
+                joinedload(User.instructor_profile)
+            ).filter_by(id=id).first()
+            return user
+        finally:
+            self.db.close()
+    
     def find_by_email(self, email: str) -> Optional[User]:
         """Find user by email"""
         return self.find_by(email=email)

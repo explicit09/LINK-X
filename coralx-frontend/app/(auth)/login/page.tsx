@@ -11,6 +11,7 @@ import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/firebaseconfig";
+import { authService } from "@/lib/auth-service";
 
 export default function Page() {
   const router = useRouter();
@@ -45,27 +46,17 @@ export default function Page() {
 
       const token = await userCredential.user.getIdToken();
 
-      const sessionRes = await fetch(`${API}/sessionLogin`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // important for cookies
-        body: JSON.stringify({ idToken: token }),
-      });
-
-      if (!sessionRes.ok) {
-        // Attempt to parse JSON; fall back to plain text otherwise.
-        let errorPayload: any = {};
-        try {
-          errorPayload = await sessionRes.clone().json();
-        } catch (_) {
-          errorPayload.error = await sessionRes.text();
-        }
-
-        console.error("Session login error:", errorPayload.error || errorPayload.message || errorPayload);
+      // Establish session using auth service
+      const sessionSuccess = await authService.login(userCredential.user);
+      
+      if (!sessionSuccess) {
         setState("failed");
         toast.error("Session setup failed. Please try again.");
         return;
       }
+
+      // If login succeeded, user is registered (backend returned 200, not 404)
+      // No need to check registration status again
 
       setState("success");
       // router.push("/dashboard") will happen inside useEffect

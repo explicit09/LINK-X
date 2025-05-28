@@ -204,6 +204,24 @@ class PersonalizedFile(Base):
     student = relationship('StudentProfile', back_populates='personalized_files', foreign_keys=[user_id])
     original_file = relationship('File', back_populates='personalized_files')
 
+class Todo(Base):
+    __tablename__ = 'Todo'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True),
+                     ForeignKey('User.id', ondelete='CASCADE'),
+                     nullable=False)
+    title = Column(String(255), nullable=False)
+    course = Column(String(255), nullable=True)  # Course name, not ID
+    type = Column(String(50), nullable=False)  # quiz, assignment, reading, review
+    priority = Column(String(20), nullable=False)  # high, medium, low
+    due_date = Column(DateTime, nullable=True)
+    completed = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship('User')
+
 class Chat(Base):
     __tablename__ = 'Chat'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -250,26 +268,6 @@ class Market(Base):
     snp500 = Column(Numeric, nullable=False)
     date = Column(Date, nullable=False)
 
-class Todo(Base):
-    __tablename__ = 'Todo'
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True),
-                     ForeignKey('StudentProfile.user_id', ondelete='CASCADE'),
-                     nullable=False)
-    course_id = Column(UUID(as_uuid=True),
-                       ForeignKey('Course.id', ondelete='CASCADE'),
-                       nullable=True)  # Can be null for general todos
-    title = Column(String(256), nullable=False)
-    description = Column(Text, nullable=True)
-    todo_type = Column(String(32), nullable=False, default='reading')  # reading, quiz, assignment, review, upload
-    priority = Column(String(16), nullable=False, default='medium')  # high, medium, low
-    completed = Column(Boolean, nullable=False, default=False)
-    due_date = Column(String(64), nullable=True)  # Store as string for flexibility
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    completed_at = Column(DateTime, nullable=True)
-
-    student = relationship('StudentProfile', foreign_keys=[user_id])
-    course = relationship('Course', foreign_keys=[course_id])
 
 class News(Base):
     __tablename__ = 'News'

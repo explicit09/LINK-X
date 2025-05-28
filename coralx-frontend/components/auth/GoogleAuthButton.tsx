@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { LogoGoogle } from '@/components/icons';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { sessionLogin, userAPI } from '@/lib/api';
+import { userAPI } from '@/lib/api';
+import { authService } from '@/lib/auth-service';
 
 interface GoogleAuthButtonProps {
   mode: 'login' | 'register';
@@ -32,19 +33,20 @@ export function GoogleAuthButton({ mode, onLoading, disabled }: GoogleAuthButton
 
       if (mode === 'login') {
         // Try to establish session - if it works, user exists and is logged in
-        const sessionSuccess = await sessionLogin();
+        const sessionSuccess = await authService.login(user);
         
         if (!sessionSuccess) {
           toast.error('Account not found or login failed. Please sign up first.');
           return;
         }
 
+        // Login succeeded - user is registered
         toast.success('Successfully signed in with Google!');
         router.push('/dashboard');
 
       } else { // register mode
-        // For Google auth, establish session first (this creates user if needed)
-        const sessionSuccess = await sessionLogin();
+        // For Google auth, establish session first
+        const sessionSuccess = await authService.login(user);
         if (!sessionSuccess) {
           throw new Error('Failed to establish session');
         }

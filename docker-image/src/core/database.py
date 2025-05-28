@@ -26,7 +26,7 @@ class DatabaseManager:
             pool_size=10,
             max_overflow=20
         )
-        self.session_factory = sessionmaker(bind=self.engine)
+        self.session_factory = sessionmaker(bind=self.engine, expire_on_commit=False)
         self.Session = scoped_session(self.session_factory)
     
     def get_session(self):

@@ -52,7 +52,7 @@ import {
 } from "lucide-react";
 import { toast as sonnerToast } from 'sonner';
 
-import { studentAPI, instructorAPI, userAPI } from "@/lib/api";
+import { studentAPI, instructorAPI, userAPI, getAuthToken } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -289,13 +289,16 @@ export default function CoursePage() {
               if (courseData) {
                 try {
                   console.log('=== TRYING OPTIMIZED ENDPOINT ===');
+                  // Get auth token
+                  const token = await getAuthToken();
                   const modulesWithFilesResponse = await fetch(
-                    `${API_URL}/courses/${courseId}/moduleswithfiles`,
+                    `${API_URL}/api/v1/courses/${courseId}/moduleswithfiles`,
                     {
                       method: 'GET',
                       credentials: 'include',
                       headers: {
                         'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                       },
                     }
                   );
@@ -318,6 +321,12 @@ export default function CoursePage() {
                   } else {
                     console.log('Optimized endpoint failed, falling back to modules API');
                     modulesData = await studentAPI.getCourseModules(courseId);
+                    
+                    // Ensure modulesData is an array
+                    if (!Array.isArray(modulesData)) {
+                      console.error('Invalid modules data received:', modulesData);
+                      modulesData = [];
+                    }
                     
                     const filePromises = modulesData.map((moduleItem: any) => 
                       studentAPI.getModuleFiles(moduleItem.id)
@@ -348,13 +357,15 @@ export default function CoursePage() {
               
               if (courseData) {
                 try {
+                  const token = await getAuthToken();
                   const modulesWithFilesResponse = await fetch(
-                    `${API_URL}/courses/${courseId}/moduleswithfiles`,
+                    `${API_URL}/api/v1/courses/${courseId}/moduleswithfiles`,
                     {
                       method: 'GET',
                       credentials: 'include',
                       headers: {
                         'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                       },
                     }
                   );
@@ -372,6 +383,12 @@ export default function CoursePage() {
                     );
                   } else {
                     modulesData = await instructorAPI.getCourseModules(courseId);
+                    
+                    // Ensure modulesData is an array
+                    if (!Array.isArray(modulesData)) {
+                      console.error('Invalid modules data received:', modulesData);
+                      modulesData = [];
+                    }
                     
                     const filePromises = modulesData.map((moduleItem: any) => 
                       instructorAPI.getModuleFiles(moduleItem.id)
@@ -560,6 +577,12 @@ export default function CoursePage() {
   // Create structured module layout - ALWAYS show modules
   const createModuleStructure = (modulesData: any[], materials: Material[]): Module[] => {
     const moduleMap = new Map<string, Module>();
+    
+    // Ensure modulesData is an array
+    if (!Array.isArray(modulesData)) {
+      console.warn('modulesData is not an array:', modulesData);
+      modulesData = [];
+    }
     
     // First, create modules from API data
     modulesData.forEach(moduleData => {

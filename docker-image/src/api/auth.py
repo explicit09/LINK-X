@@ -57,10 +57,40 @@ def login():
     except Exception as e:
         return jsonify({'error': 'Authentication failed'}), 500
 
+@bp.route('/refresh', methods=['POST'])
+@firebase_auth_required
+def refresh_token():
+    """Refresh authentication tokens"""
+    try:
+        user = g.current_user
+        
+        # Create new JWT token
+        access_token = create_access_token(
+            identity=str(user.id),
+            additional_claims={
+                'email': user.email,
+                'role': user.role.role_type if user.role else 'student'
+            }
+        )
+        
+        return jsonify({
+            'access_token': access_token,
+            'expires_in': 3600,  # 1 hour
+            'user': {
+                'id': str(user.id),
+                'email': user.email,
+                'role': user.role.role_type if user.role else 'student'
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': 'Token refresh failed'}), 500
+
 @bp.route('/sessionLogin', methods=['POST'])
 @validate_json(['idToken'])
 def session_login():
     """Session login endpoint for cookie-based authentication"""
+    from flask import make_response
     data = request.get_json()
     
     try:
@@ -73,54 +103,81 @@ def session_login():
         user = user_repo.find_by_firebase_uid(firebase_uid)
         
         if not user:
-            # Create new user from Firebase data
+            # Don't auto-create user, return 404 to indicate registration needed
             email = decoded_token.get('email', '')
-            user_data = AuthService.create_firebase_user(
-                firebase_uid=firebase_uid,
-                email=email,
-                name=decoded_token.get('name', email.split('@')[0])
-            )
-            user_id = user_data['id']
+            return jsonify({
+                'error': 'User not found. Please complete registration.',
+                'needs_registration': True,
+                'firebase_uid': firebase_uid,
+                'email': email
+            }), 404
         else:
-            # Extract user data while in session
+            # Extract user data - need to get it all before session closes
             user_id = str(user.id)
-            # Get role value
+            user_email = user.email
+            
+            # Get role and profile data in one place to avoid session issues
             role_value = 'student'  # default
-            if user.role:
-                role_value = user.role.role_type
+            profile_data = None
             
-            user_data = {
-                'id': user_id,
-                'email': user.email,
-                'role': role_value
-            }
-            
-            # Try to get profile
             try:
+                # Access all attributes while potentially in session
+                if user.role:
+                    role_value = user.role.role_type
+                
                 if role_value == 'student' and user.student_profile:
                     profile = user.student_profile
-                    user_data['profile'] = {
+                    profile_data = {
                         'name': profile.name,
                         'grade_level': getattr(profile, 'grade_level', None)
                     }
                 elif role_value == 'instructor' and user.instructor_profile:
                     profile = user.instructor_profile
-                    user_data['profile'] = {
+                    profile_data = {
                         'name': profile.name,
                         'department': getattr(profile, 'department', None)
                     }
             except Exception as e:
-                print(f"Error getting profile: {e}")
+                print(f"Error accessing user relationships: {e}")
+                # If we can't access relationships, user still exists so continue
                 pass
+            
+            user_data = {
+                'id': user_id,
+                'email': user_email,
+                'role': role_value
+            }
+            
+            if profile_data:
+                user_data['profile'] = profile_data
         
         # Create JWT token for internal use
         access_token = create_access_token(identity=user_id)
         
-        return jsonify({
+        # Create response with session cookie
+        response_data = {
             'success': True,
             'user': user_data,
             'access_token': access_token
-        }), 200
+        }
+        
+        response = make_response(jsonify(response_data), 200)
+        
+        # Set session cookie for persistent authentication
+        response.set_cookie(
+            'session_token',
+            access_token,
+            max_age=24*60*60,  # 24 hours
+            httponly=True,
+            secure=False,  # Set to True in production with HTTPS
+            samesite='Lax',
+            path='/'  # Ensure cookie is available for all paths
+        )
+        
+        print(f"Session cookie set for user {user_id}")
+        print(f"Cookie domain: default (should be localhost)")
+        
+        return response
         
     except firebase_auth.InvalidIdTokenError:
         return jsonify({'error': 'Invalid authentication token'}), 401
@@ -160,13 +217,6 @@ def register(role):
     except Exception as e:
         return jsonify({'error': 'Registration failed'}), 500
 
-@bp.route('/logout', methods=['POST'])
-@jwt_required()
-def logout():
-    """Logout endpoint"""
-    # In a stateless JWT system, logout is handled client-side
-    # Here we could blacklist the token if needed
-    return jsonify({'message': 'Logout successful'}), 200
 
 @bp.route('/verify', methods=['GET'])
 def verify_token():
@@ -210,6 +260,28 @@ def forgot_password():
         return jsonify({
             'message': 'Password reset email sent if account exists'
         }), 200
+
+@bp.route('/logout', methods=['POST'])
+@firebase_auth_required
+def logout():
+    """Logout endpoint"""
+    try:
+        response = make_response(jsonify({'message': 'Logged out successfully'}), 200)
+        
+        # Clear session cookie
+        response.set_cookie(
+            'session_token',
+            '',
+            max_age=0,
+            httponly=True,
+            secure=False,
+            samesite='Lax',
+            path='/'
+        )
+        
+        return response
+    except Exception as e:
+        return jsonify({'error': 'Logout failed'}), 500
 
 @bp.route('/reset-password', methods=['POST'])
 @validate_json(['token', 'password'])

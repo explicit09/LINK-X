@@ -100,6 +100,37 @@ def download_file(file_id):
     except Exception as e:
         return jsonify({'error': 'File download failed'}), 500
 
+@bp.route('/<file_id>/content', methods=['GET'])
+@firebase_auth_required
+def get_file_content(file_id):
+    """Get file content for viewing"""
+    file_service = FileService()
+    
+    try:
+        file_data = file_service.get_file_content(
+            file_id=file_id,
+            user_id=g.current_user.id
+        )
+        
+        # Return file content based on storage type
+        if file_data.get('type') == 'presigned':
+            # For S3 files, return presigned URL
+            return jsonify({
+                'type': 'presigned',
+                'url': file_data['url']
+            }), 200
+        else:
+            # For database-stored files, return actual content
+            return Response(
+                file_data['content'],
+                mimetype=file_data.get('mimetype', 'application/octet-stream')
+            )
+        
+    except NotFoundError:
+        return jsonify({'error': 'File not found'}), 404
+    except Exception as e:
+        return jsonify({'error': 'Failed to get file content'}), 500
+
 @bp.route('/<file_id>/preview', methods=['GET'])
 @firebase_auth_required
 def preview_file(file_id):
