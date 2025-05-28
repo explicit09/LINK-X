@@ -76,41 +76,25 @@ export default function StudentDash({ currentUser }: StudentDashProps) {
 
         // Check if student has completed onboarding by checking for student profile
         if (user.role === 'student') {
-          try {
-            const profileResponse = await fetch('http://localhost:8080/student/profile', {
-              method: 'GET',
-              credentials: 'include',
-            });
+          // The user profile is already loaded from userAPI.getMe() above
+          // Check if the user has a student profile
+          if (!user.profile || !user.profile.name) {
+            // Profile truly doesn't exist - this is likely a new user
+            // Check if user has previously completed onboarding (in case of data loss)
+            const hasCompletedOnboarding = localStorage.getItem(`onboarding_completed_${user.id}`) === 'true';
             
-            if (!profileResponse.ok) {
-              // Check if this is a 404 (profile doesn't exist) vs other errors
-              if (profileResponse.status === 404) {
-                // Profile truly doesn't exist - this is likely a new user
-                // Check if user has previously completed onboarding (in case of data loss)
-                const hasCompletedOnboarding = localStorage.getItem(`onboarding_completed_${user.id}`) === 'true';
-                
-                if (!hasCompletedOnboarding) {
-                  console.log("No student profile found and no onboarding completion record, redirecting to onboarding");
-                  router.push('/onboarding');
-                  return;
-                } else {
-                  // User completed onboarding before but profile is missing - show a recreate prompt
-                  console.log("Profile missing but user previously completed onboarding");
-                  setShowOnboardingPrompt(true);
-                }
-              } else {
-                // Server error (500, 503, etc.) - don't redirect, just log and continue
-                console.error("Server error fetching student profile:", profileResponse.status);
-                sonnerToast.error("Unable to load your profile. Some features may be limited.");
-              }
+            if (!hasCompletedOnboarding) {
+              console.log("No student profile found and no onboarding completion record, redirecting to onboarding");
+              router.push('/onboarding');
+              return;
             } else {
-              // Profile exists - mark onboarding as completed in localStorage for future reference
-              localStorage.setItem(`onboarding_completed_${user.id}`, 'true');
+              // User completed onboarding before but profile is missing - show a recreate prompt
+              console.log("Profile missing but user previously completed onboarding");
+              setShowOnboardingPrompt(true);
             }
-          } catch (error) {
-            // Network error or other issues - don't redirect, just log and continue
-            console.error("Network error fetching student profile:", error);
-            sonnerToast.error("Connection issue loading your profile. Please check your internet connection.");
+          } else {
+            // Profile exists - mark onboarding as completed in localStorage for future reference
+            localStorage.setItem(`onboarding_completed_${user.id}`, 'true');
           }
         }
         

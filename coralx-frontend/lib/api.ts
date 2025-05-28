@@ -24,7 +24,7 @@ export async function sessionLogin() {
   
   try {
     console.log('Attempting to establish session with backend...');
-    const response = await fetch(`${API_URL}/sessionLogin`, {
+    const response = await fetch(`${API_URL}/api/v1/auth/sessionLogin`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -42,9 +42,12 @@ export async function sessionLogin() {
     
     // Verify the session was established by making a test request
     try {
-      const verifyResponse = await fetch(`${API_URL}/me`, {
+      const verifyResponse = await fetch(`${API_URL}/api/v1/auth/me`, {
         method: 'GET',
         credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       
       if (verifyResponse.ok) {
@@ -222,19 +225,22 @@ export const api = {
 
 // User management
 export const userAPI = {
-  getMe: () => api.get('/me'),
-  updateMe: (data: any) => api.patch('/me', data),
-  deleteMe: () => api.delete('/me'),
+  getMe: () => api.get('/api/v1/auth/me'),
+  updateMe: (data: any) => api.patch('/api/v1/auth/me', data),
+  deleteMe: () => api.delete('/api/v1/auth/me'),
 };
 
 // Student-specific APIs
 export const studentAPI = {
   // Course creation and management
-  getCourses: () => api.get('/student/courses'),
-  createCourse: (data: any) => api.post('/student/courses', data),
-  getCourse: (courseId: string) => api.get(`/student/courses/${courseId}`),
-  updateCourse: (courseId: string, data: any) => api.patch(`/student/courses/${courseId}`, data),
-  deleteCourse: (courseId: string) => api.delete(`/student/courses/${courseId}`),
+  getCourses: async () => {
+    const response = await api.get('/api/v1/courses');
+    return response.courses || [];
+  },
+  createCourse: (data: any) => api.post('/api/v1/courses', data),
+  getCourse: (courseId: string) => api.get(`/api/v1/courses/${courseId}`),
+  updateCourse: (courseId: string, data: any) => api.patch(`/api/v1/courses/${courseId}`, data),
+  deleteCourse: (courseId: string) => api.delete(`/api/v1/courses/${courseId}`),
   
   // Course content upload - for students creating their own courses
   uploadCourseContent: (courseId: string, data: FormData) => {
@@ -255,8 +261,8 @@ export const studentAPI = {
   },
   
   // Profile management
-  getProfile: () => api.get('/student/profile'),
-  updateProfile: (data: any) => api.patch('/student/profile', data),
+  getProfile: () => api.get('/api/v1/auth/me'),
+  updateProfile: (data: any) => api.patch('/api/v1/auth/me', data),
   
   // Course modules management
   getCourseModules: (courseId: string) => api.get(`/student/courses/${courseId}/modules`),
@@ -325,17 +331,33 @@ export const studentAPI = {
   postDiscussion: (courseId: string, data: any) => api.post(`/student/courses/${courseId}/discussions`, data),
   chatWithAI: (data: any) => api.post('/student/ai/chat', data),
   
-  // Dashboard statistics
-  getDashboardStats: () => api.get('/student/dashboard/stats'),
-  getCourseProgress: (courseId: string) => api.get(`/student/courses/${courseId}/progress`),
-  logActivity: (data: any) => api.post('/student/activity/log', data),
+  // Dashboard statistics (TODO: implement backend endpoints)
+  getDashboardStats: async () => {
+    // Mock data until backend endpoints are implemented
+    return {
+      totalCourses: 0,
+      completedCourses: 0,
+      inProgressCourses: 0,
+      totalHoursLearned: 0,
+      averageScore: 0,
+      weeklyProgress: []
+    };
+  },
+  getCourseProgress: (courseId: string) => api.get(`/api/v1/courses/${courseId}/progress`),
+  logActivity: (data: any) => api.post('/api/v1/activity/log', data),
   
-  // Dashboard content
-  getRecentActivities: () => api.get('/student/recent-activities'),
-  getTodoItems: () => api.get('/student/todo-items'),
-  createTodoItem: (data: any) => api.post('/student/todo-items', data),
-  updateTodoItem: (todoId: string, data: any) => api.patch(`/student/todo-items/${todoId}`, data),
-  deleteTodoItem: (todoId: string) => api.delete(`/student/todo-items/${todoId}`),
+  // Dashboard content (TODO: implement backend endpoints)
+  getRecentActivities: async () => {
+    // Mock data until backend endpoints are implemented
+    return [];
+  },
+  getTodoItems: async () => {
+    // Mock data until backend endpoints are implemented
+    return [];
+  },
+  createTodoItem: (data: any) => api.post('/api/v1/todo-items', data),
+  updateTodoItem: (todoId: string, data: any) => api.patch(`/api/v1/todo-items/${todoId}`, data),
+  deleteTodoItem: (todoId: string) => api.delete(`/api/v1/todo-items/${todoId}`),
   
   // Quizzes (to be implemented)
   getCourseQuizzes: (courseId: string) => api.get(`/student/courses/${courseId}/quizzes`),
@@ -349,17 +371,20 @@ export const studentAPI = {
 
 // Instructor-specific APIs
 export const instructorAPI = {
-  getProfile: () => api.get('/instructor/profile'),
-  createProfile: (data: any) => api.post('/instructor/profile', data),
-  updateProfile: (data: any) => api.patch('/instructor/profile', data),
-  deleteProfile: () => api.delete('/instructor/profile'),
+  getProfile: () => api.get('/api/v1/auth/me'),
+  createProfile: (data: any) => api.post('/api/v1/auth/me', data),
+  updateProfile: (data: any) => api.patch('/api/v1/auth/me', data),
+  deleteProfile: () => api.delete('/api/v1/auth/me'),
   
-  // Courses
-  getCourses: () => api.get('/instructor/courses'),
-  createCourse: (data: any) => api.post('/instructor/courses', data),
-  getCourse: (courseId: string) => api.get(`/instructor/courses/${courseId}`),
-  updateCourse: (courseId: string, data: any) => api.patch(`/instructor/courses/${courseId}`, data),
-  deleteCourse: (courseId: string) => api.delete(`/instructor/courses/${courseId}`),
+  // Courses (using the same endpoints as students, backend handles role-based filtering)
+  getCourses: async () => {
+    const response = await api.get('/api/v1/courses');
+    return response.courses || [];
+  },
+  createCourse: (data: any) => api.post('/api/v1/courses', data),
+  getCourse: (courseId: string) => api.get(`/api/v1/courses/${courseId}`),
+  updateCourse: (courseId: string, data: any) => api.patch(`/api/v1/courses/${courseId}`, data),
+  deleteCourse: (courseId: string) => api.delete(`/api/v1/courses/${courseId}`),
   
   // Course management
   getCourseStudents: (courseId: string) => api.get(`/instructor/courses/${courseId}/students`),

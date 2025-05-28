@@ -7,7 +7,7 @@ Learn-X is a project developed to solve a common issue in higher education: lear
 - 🔐 **Persona-Based Personalization**: Students receive customized content tailored to their learning style, experience, and preferences.
 - 🧑‍🏫 **Instructor Dashboard**: Professors can upload files, organize modules, and monitor anonymized engagement analytics.
 - 🤖 **AI Chatbot Assistance**: GPT-4o-powered chatbot allows students to ask follow-up questions relevant to course material.
-- 📂 **RAG System**: Content is chunked and embedded using FAISS, then retrieved for AI responses with high relevance.
+- 📂 **RAG System**: Content is chunked and embedded using pgvector, then retrieved for AI responses with high relevance.
 - 📊 **Analytics & Engagement**: Anonymous tracking gives professors insight into student usage and behavior patterns.
 
 ## Tech Stack
@@ -16,136 +16,164 @@ Learn-X is a project developed to solve a common issue in higher education: lear
 | Frontend         | Next.js                           |
 | Backend          | Python, Flask                     |
 | AI Integration   | OpenAI (GPT-4o). Retrieval-Augmented Generation (RAG) |
-| Embedding Store  | FAISS, Pgvector                   |
+| Embedding Store  | PostgreSQL with pgvector          |
 | Primary DB       | PostgreSQL  (hosted on NeonDB)    |
 | Authentication   | Firebase                          |
 | Containerization | Docker                            |
 
-## Running locally
+## Quick Start
 
-You will need to use the environment variables to use the database & AI integrations.
-Create these two files:
+All operations are managed through the unified `manage.sh` script:
+
+```bash
+# Make the script executable (first time only)
+chmod +x manage.sh
+
+# Show all available commands
+./manage.sh help
+
+# Run backend in development mode
+./manage.sh backend
+
+# Run frontend
+./manage.sh frontend
+
+# Run tests
+./manage.sh test
+```
+
+For detailed instructions, see [SCRIPTS_GUIDE.md](./SCRIPTS_GUIDE.md).
+
+## Environment Setup
+
+Create these two files with your environment variables:
 - `coralx-frontend/.env.local`
 - `docker-image/src/.env`
 
-both should include the following:
- ```env
- OPENAI_API_KEY=your_api_key_here
-
- AUTH_SECRET=your_auth_secret_here
-
- POSTGRES_URL=your_postgres_url_here
- ```
-
-> Note: You should not commit your `.env` file or it will expose secrets that will allow others to control access to your various OpenAI and authentication provider accounts.
-
-### Before running frontend:
-```bash
-cd coralx-frontend
-
-pnpm install
+Both should include:
+```env
+OPENAI_API_KEY=your_api_key_here
+AUTH_SECRET=your_auth_secret_here
+POSTGRES_URL=your_postgres_url_here
+DATABASE_URL=your_postgres_url_here
+REDIS_URL=redis://localhost:6379
+AWS_ACCESS_KEY_ID=your_aws_key_id
+AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+AWS_REGION=us-east-1
+S3_BUCKET_NAME=your_s3_bucket_name
 ```
 
-### To run frontend: 
-```bash
-cd <project root directory>
+> Note: Never commit `.env` files to version control.
 
-bash run_frontend.sh
+## Running the Application
+
+### Development Mode
+```bash
+# Run backend with auto-reload
+./manage.sh backend
+
+# In another terminal, run frontend
+./manage.sh frontend
 ```
 
-The frontend should now be running on [localhost:3000](http://localhost:3000/).
+The frontend will be available at [localhost:3000](http://localhost:3000/).
+The backend API will be available at [localhost:8000](http://localhost:8000).
 
-### To run backend:
+### Production Mode
 ```bash
-cd <project root directory>
-
-docker-compose up --build
+# Run with production configuration
+./manage.sh backend production
 ```
-This starts the Flask API server and installs all dependencies inside a Docker container.
 
-### To open a new interactive shell in the backend container (for testing FAISS):
+### Database Operations
 ```bash
-docker exec -it backend /bin/bash
+# Run migrations
+./manage.sh db-migrate
+
+# Reset database (interactive)
+./manage.sh db-reset
+
+# Backup database
+./manage.sh db-backup
+```
+
+### Testing
+```bash
+# Run all tests
+./manage.sh test
+
+# Run specific test suite
+./manage.sh test-backend
+./manage.sh test-frontend
+```
+
+### Container Access
+```bash
+# View logs
+./manage.sh logs backend
+
+# Open shell in container
+./manage.sh shell backend
 ```
 
 # Backend AI Pipeline (Document Processing + Question Answering)
 
-A sophisticated document processing and retrieval system that leverages FAISS (Facebook AI Similarity Search) and OpenAI embeddings to generate personalized course content provide an interactive question-answering interface for course documents.
+A sophisticated document processing and retrieval system that leverages PostgreSQL with pgvector extension and OpenAI embeddings to generate personalized course content and provide an interactive question-answering interface for course documents.
 
 ## Overview
 
-The backend implements a Retrieval-Augmented Generation (RAG) pipeline powered by FAISS and OpenAI's GPT-4o-mini. This enables semantic search over course materials and personalized responses to student questions.
+The backend implements a Retrieval-Augmented Generation (RAG) pipeline powered by pgvector and OpenAI's GPT-4o. This enables semantic search over course materials and personalized responses to student questions.
 
 ## System Architecture
 
-### 1. Generate FAISS Vector Database (`FAISS_db_generation.py`)
-- **Data Collection & Processing** (`FAISS_db_generation.py`: `create_db(<path_to_working_dir>)`)
-  - Loads all documents in the provided path
+### 1. Document Processing & Vector Storage
+- **Data Collection & Processing** (`indexer.py`)
+  - Loads documents from S3 or local storage
   - Splits documents into smaller chunks
-  - Creates embeddings using OpenAI's model: Ada-002
-  - Stores vectors in FAISS database: FlatL2-index
+  - Creates embeddings using OpenAI's text-embedding-ada-002
+  - Stores vectors in PostgreSQL using pgvector extension
 
-- **Citation Management** (`docker-image/src/FAISS_db_generation.py`: `generate_citations(<path_to_working_dir>)` & `replace_sources(<path_to_working_dir>)`)
-  - Generates APA citations using LLM: GPT-4o-mini
-  - Updates vector storage with proper citations
+- **Citation Management**
+  - Maintains document metadata and sources
+  - Tracks chunk origins for accurate citations
 
 ### 2. Query the Knowledge Base
-- **Query Processing** (`docker-image/src/FAISS_retriever.py`)
+- **Query Processing**
   - Processes user queries
-  - Creates query embeddings: Ada-002
-  - Checks similarity with stored vectors: Euclidean-distance
+  - Creates query embeddings using OpenAI
+  - Performs vector similarity search using pgvector
   - Selects top k most similar chunks
-  - Generates context-aware prompts: GPT-4o-mini
-  - Uses LLM to generate answers: GPT-4o-mini
+  - Generates context-aware responses using GPT-4o
 
-## Testing the FAISS & RAG Pipeline
+## Testing the RAG Pipeline
 
-You will need to run the docker container and open a new interactive shell (shown above)
-
-From the shell in the container, enter the src folder:
+From the backend container:
 
 ```bash
-cd src
+# Run backend
+./manage.sh backend
+
+# Access container shell
+./manage.sh shell backend
 ```
 
-### 1. Generate FAISS database from desired PDFs
+### 1. Process documents for vector storage
 ```bash
-python -i FAISS_db_generation.py
-create_database("<path_to_working_dir>")
-generate_citations("<path_to_working_dir>") 
-file_cleanup("<path_to_working_dir>")
+# Documents are automatically processed when uploaded through the API
+# Vectors are stored in PostgreSQL with pgvector
 ```
-- `create_database()`
-  - Loads documents from `<path_to_working_dir>`
-  - Splits text into chunks and creates FAISS vector embeddings using OpenA
-  - Saves files `index.faiss` and `index.pkl` in `<path_to_working_dir>` within the container
-- `generate_citations()`
-  - Generates APA citations using LLM: GPT-4o-mini
-  - Saves `citations.csv` in `<path_to_working_dir>` within the container
-- `file_cleanup()`
-  - Recursively removes all files except for `index.faiss` & `index.pkl` from `<path_to_working_dir>`
 
-### 2. FAISS index retrieval and RAG
-> Note: Step 1. should be complete for the desired pdf before Step 2.
+### 2. Query the knowledge base
 ```bash
-python -i FAISS_retriever.py
-
-# To generate an answer based on the top 5 most relevant chunks
-answer_to_qa("<query>", <path_to_working_dir>)
-
-# To generate an answer based on **ALL** chunks
-answer_to_QA_all_chunks("<query>", <path_to_working_dir>)
+# Use the API endpoints or frontend interface
+# Vector search is performed using pgvector's similarity functions
 ```
-- Outputs an answer based on the supplied Vector DB
-### 3. Launch the Web Interface for testing RAG (Optional)
-> Note: Step 1. should be complete for the desired pdf before Step 3.
+
+### 3. Monitor vector storage
 ```bash
-bash run_streamlit_ui.sh <path_to_working_dir>
+# Check vector storage statistics
+python -m src.monitor_pgvector
 ```
-- The streamlit web interface should now be running on [localhost:8501](http://localhost:8501/).
-- From here, you can:
-  - Ask questions about the supplied content
-  - Receive AI-generated answers
 
 ## Development Tools
 | Area             | Tool / Platform                   |

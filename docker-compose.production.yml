@@ -1,0 +1,119 @@
+
+services:
+  backend:
+    image: ghcr.io/${GITHUB_REPOSITORY}:${TAG:-latest}
+    restart: always
+    environment:
+      - FLASK_ENV=production
+      - PORT=8000
+      - WORKERS=4
+      - WORKER_CLASS=gevent
+      - WORKER_CONNECTIONS=1000
+      - MAX_REQUESTS=1000
+      - MAX_REQUESTS_JITTER=50
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SECRET_KEY=${SECRET_KEY}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - SENTRY_DSN=${SENTRY_DSN}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  celery-worker:
+    image: ghcr.io/${GITHUB_REPOSITORY}:${TAG:-latest}
+    restart: always
+    command: celery -A celery_app worker --loglevel=info --concurrency=4
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SENTRY_DSN=${SENTRY_DSN}
+    depends_on:
+      - backend
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  celery-beat:
+    image: ghcr.io/${GITHUB_REPOSITORY}:${TAG:-latest}
+    restart: always
+    command: celery -A celery_app beat --loglevel=info
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SENTRY_DSN=${SENTRY_DSN}
+    depends_on:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  flower:
+    image: ghcr.io/${GITHUB_REPOSITORY}:${TAG:-latest}
+    restart: always
+    command: celery -A celery_app flower --port=5555 --basic_auth=${FLOWER_BASIC_AUTH}
+    environment:
+      - FLASK_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+    ports:
+      - "5555:5555"
+    depends_on:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+networks:
+  default:
+    driver: bridge

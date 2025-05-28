@@ -1,4 +1,0 @@
-# Ignore all generated files
-*
-# But allow the empty folder to be tracked
-!.gitignore

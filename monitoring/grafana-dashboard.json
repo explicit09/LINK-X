@@ -1,0 +1,103 @@
+{
+  "dashboard": {
+    "title": "LINK-X Monitoring Dashboard",
+    "uid": "link-x-monitoring",
+    "version": 1,
+    "timezone": "browser",
+    "panels": [
+      {
+        "title": "Request Rate",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total[5m])) by (method)",
+            "legendFormat": "{{method}}"
+          }
+        ]
+      },
+      {
+        "title": "Response Time (95th percentile)",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "95th percentile"
+          }
+        ]
+      },
+      {
+        "title": "Error Rate",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m]))",
+            "legendFormat": "5xx errors"
+          },
+          {
+            "expr": "sum(rate(http_requests_total{status=~\"4..\"}[5m]))",
+            "legendFormat": "4xx errors"
+          }
+        ]
+      },
+      {
+        "title": "Active Users",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 8, "w": 6, "h": 8},
+        "targets": [
+          {
+            "expr": "active_users",
+            "legendFormat": "Active Users"
+          }
+        ]
+      },
+      {
+        "title": "Database Connections",
+        "type": "gauge",
+        "gridPos": {"x": 18, "y": 8, "w": 6, "h": 8},
+        "targets": [
+          {
+            "expr": "database_pool_size",
+            "legendFormat": "Pool Size"
+          }
+        ]
+      },
+      {
+        "title": "Celery Task Queue",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "celery_tasks_total",
+            "legendFormat": "Total Tasks"
+          },
+          {
+            "expr": "celery_tasks_pending",
+            "legendFormat": "Pending"
+          },
+          {
+            "expr": "celery_tasks_failed",
+            "legendFormat": "Failed"
+          }
+        ]
+      },
+      {
+        "title": "System Resources",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes / 1024 / 1024",
+            "legendFormat": "Memory (MB)"
+          },
+          {
+            "expr": "rate(process_cpu_seconds_total[5m]) * 100",
+            "legendFormat": "CPU %"
+          }
+        ]
+      }
+    ]
+  }
+}
