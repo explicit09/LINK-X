@@ -2350,6 +2350,199 @@ def api_module_details(module_id):
     finally:
         db.close()
 
+# File content endpoint
+@app.route('/api/v1/files/<file_id>/content', methods=['GET'])
+def api_file_content(file_id):
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+    
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        file = get_file_by_id(db, file_id)
+        if not file:
+            return jsonify({'error': 'File not found'}), 404
+            
+        # Check access via module and course
+        module = get_module_by_id(db, file.module_id)
+        course = get_course_by_id(db, module.course_id)
+        role = get_role_by_user_id(db, user.id)
+        
+        if role.role_type == 'student':
+            enrollment = db.query(Enrollment).filter(
+                Enrollment.user_id == user.id,
+                Enrollment.course_id == module.course_id
+            ).first()
+            if not enrollment:
+                return jsonify({'error': 'Access denied'}), 403
+        elif role.role_type == 'instructor':
+            if str(course.instructor_id) != str(user.id):
+                return jsonify({'error': 'Access denied'}), 403
+        
+        # If file is in S3, return presigned URL
+        if hasattr(file, 's3_key') and file.s3_key:
+            try:
+                presigned_url = s3_storage.generate_presigned_url(file.s3_key)
+                return jsonify({
+                    'type': 'presigned',
+                    'url': presigned_url,
+                    'filename': file.filename,
+                    'file_type': file.file_type
+                }), 200
+            except Exception as s3_error:
+                print(f"Error generating presigned URL: {str(s3_error)}")
+                return jsonify({'error': 'Failed to access file'}), 500
+        else:
+            # For local files (legacy), return file content
+            # This is a placeholder - in production, files should be in S3
+            return jsonify({'error': 'File content not available'}), 404
+            
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Activity logging endpoint
+@app.route('/api/v1/activities/log', methods=['POST'])
+def api_log_activity():
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+    
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        data = request.get_json() or {}
+        activity_type = data.get('type')
+        course_id = data.get('course_id')
+        file_id = data.get('file_id')
+        duration_minutes = data.get('duration_minutes', 0)
+        
+        # For now, just acknowledge the activity
+        # In production, this would be stored in an activities table
+        print(f"Activity logged: {activity_type} by user {user.id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Activity logged successfully'
+        }), 200
+        
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Personalization check endpoint
+@app.route('/api/v1/personalize/check/<file_id>', methods=['GET'])
+def api_check_personalized(file_id):
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+    
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        # Check if personalized version exists
+        personalized = db.query(PersonalizedFile).filter(
+            PersonalizedFile.user_id == user.id,
+            PersonalizedFile.original_file_id == file_id
+        ).first()
+        
+        if personalized:
+            return jsonify({
+                'exists': True,
+                'personalized_id': str(personalized.id),
+                'created_at': personalized.created_at.isoformat() if personalized.created_at else None
+            }), 200
+        else:
+            return jsonify({
+                'exists': False
+            }), 200
+            
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Personalization outline endpoint
+@app.route('/api/v1/personalize/outline/<file_id>', methods=['GET'])
+def api_personalize_outline(file_id):
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+    
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        file = get_file_by_id(db, file_id)
+        if not file:
+            return jsonify({'error': 'File not found'}), 404
+            
+        # Check access
+        module = get_module_by_id(db, file.module_id)
+        course = get_course_by_id(db, module.course_id)
+        role = get_role_by_user_id(db, user.id)
+        
+        if role.role_type == 'student':
+            enrollment = db.query(Enrollment).filter(
+                Enrollment.user_id == user.id,
+                Enrollment.course_id == module.course_id
+            ).first()
+            if not enrollment:
+                return jsonify({'error': 'Access denied'}), 403
+                
+        # For now, return a mock outline
+        # In production, this would generate an AI-powered outline
+        outline = {
+            'file_id': str(file_id),
+            'title': file.title,
+            'sections': [
+                {
+                    'title': 'Introduction',
+                    'summary': f'Overview of {file.title}',
+                    'key_points': ['Main concept', 'Why it matters', 'Applications']
+                },
+                {
+                    'title': 'Core Concepts',
+                    'summary': 'Detailed exploration of the main topics',
+                    'key_points': ['Topic 1', 'Topic 2', 'Topic 3']
+                },
+                {
+                    'title': 'Summary',
+                    'summary': 'Key takeaways and next steps',
+                    'key_points': ['Review', 'Practice', 'Further reading']
+                }
+            ]
+        }
+        
+        return jsonify(outline), 200
+        
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
 # File details endpoint
 @app.route('/api/v1/files/<file_id>', methods=['GET'])
 def api_file_details(file_id):
@@ -2398,6 +2591,93 @@ def api_file_details(file_id):
             'course_title': course.title
         }), 200
         
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Discussions endpoint
+@app.route('/api/v1/courses/<course_id>/discussions', methods=['GET', 'POST'])
+def api_course_discussions(course_id):
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+    
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        # Check access
+        course = get_course_by_id(db, course_id)
+        if not course:
+            return jsonify({'error': 'Course not found'}), 404
+            
+        role = get_role_by_user_id(db, user.id)
+        if role.role_type == 'student':
+            enrollment = db.query(Enrollment).filter(
+                Enrollment.user_id == user.id,
+                Enrollment.course_id == course_id
+            ).first()
+            if not enrollment:
+                return jsonify({'error': 'Access denied'}), 403
+        elif role.role_type == 'instructor':
+            if str(course.instructor_id) != str(user.id):
+                return jsonify({'error': 'Access denied'}), 403
+                
+        if request.method == 'GET':
+            # For now, return empty discussions array
+            # In the future, this would fetch from a discussions table
+            discussions = []
+            
+            # Mock some discussion data for testing
+            discussions = [
+                {
+                    'id': '1',
+                    'title': 'Welcome to the course!',
+                    'content': 'Feel free to introduce yourself and ask any questions.',
+                    'author': {
+                        'id': str(course.instructor_id) if course.instructor_id else 'system',
+                        'name': 'Instructor',
+                        'role': 'instructor'
+                    },
+                    'created_at': datetime.now().isoformat(),
+                    'replies_count': 0,
+                    'last_activity': datetime.now().isoformat()
+                }
+            ]
+            
+            return jsonify(discussions), 200
+            
+        elif request.method == 'POST':
+            # Create new discussion
+            data = request.get_json() or {}
+            title = data.get('title')
+            content = data.get('content')
+            
+            if not title or not content:
+                return jsonify({'error': 'Title and content are required'}), 400
+                
+            # For now, return mock created discussion
+            new_discussion = {
+                'id': str(uuid.uuid4()),
+                'title': title,
+                'content': content,
+                'author': {
+                    'id': str(user.id),
+                    'name': user.display_name if hasattr(user, 'display_name') else user.email,
+                    'role': role.role_type
+                },
+                'created_at': datetime.now().isoformat(),
+                'replies_count': 0,
+                'last_activity': datetime.now().isoformat()
+            }
+            
+            return jsonify(new_discussion), 201
+            
     except Exception as e:
         db.rollback()
         return jsonify({'error': str(e)}), 500
