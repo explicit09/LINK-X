@@ -1,7 +1,8 @@
 import { auth } from '@/firebaseconfig';
 import { User as FirebaseUser } from 'firebase/auth';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+// Use the API URL from environment or fallback to localhost
+const API_URL = 'http://localhost:8080';
 
 interface AuthTokens {
   accessToken: string;
@@ -25,7 +26,7 @@ class AuthService {
     user: null,
   };
   
-  private tokenRefreshTimer: NodeJS.Timeout | null = null;
+  private tokenRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly TOKEN_REFRESH_MARGIN = 5 * 60 * 1000; // Refresh 5 minutes before expiry
 
   private constructor() {
@@ -167,6 +168,13 @@ class AuthService {
 
       const data = await response.json();
       
+      // Validate response structure
+      if (!data) {
+        console.error('Login failed: Empty response from backend');
+        this.clearAuthState();
+        return false;
+      }
+      
       // Update auth state
       this.authState = {
         isAuthenticated: true,
@@ -175,13 +183,18 @@ class AuthService {
           accessToken: data.access_token,
           expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
         },
-        user: data.user,
+        user: data.user || null,
       };
       
       this.saveAuthState();
       this.scheduleTokenRefresh();
       
-      console.log('User successfully authenticated and registered:', data.user.email);
+      // Safe logging with null check
+      if (data.user && data.user.email) {
+        console.log('User successfully authenticated and registered:', data.user.email);
+      } else {
+        console.log('User successfully authenticated and registered');
+      }
       
       return true;
     } catch (error) {

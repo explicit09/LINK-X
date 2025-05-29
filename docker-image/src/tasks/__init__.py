@@ -2,13 +2,16 @@
 Celery tasks for background processing
 """
 from celery import Celery
-from ..config import Config
+from ..core.settings import get_settings
+
+# Get settings
+settings = get_settings()
 
 # Create Celery instance
 celery = Celery('linkx_tasks')
 celery.config_from_object({
-    'broker_url': Config.CELERY_BROKER_URL,
-    'result_backend': Config.CELERY_RESULT_BACKEND,
+    'broker_url': settings.celery_broker_url,
+    'result_backend': settings.celery_result_backend,
     'task_serializer': 'json',
     'accept_content': ['json'],
     'result_serializer': 'json',

@@ -1,16 +1,20 @@
 """WSGI entry point for the application."""
 
 import os
-from . import create_app, init_celery
+import sys
 
-# Create the Flask application
-app = create_app(os.environ.get('FLASK_ENV', 'production'))
+# Add src directory to Python path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Initialize Celery if needed
-celery = init_celery(app)
+# Import the existing app
+from app import app as application
+from celery_app import app as celery
+
+# For compatibility with existing deployment scripts
+app = application
 
 if __name__ == '__main__':
-    app.run(
+    application.run(
         host='0.0.0.0',
         port=int(os.environ.get('PORT', 8000)),
         debug=os.environ.get('FLASK_ENV') == 'development'

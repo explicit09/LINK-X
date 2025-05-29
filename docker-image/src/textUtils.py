@@ -3,7 +3,7 @@ from typing import Sequence, List
 
 import tiktoken
 from PyPDF2 import PdfReader
-import textract
+from unstructured.partition.auto import partition
 from openai import OpenAI
 import numpy as np
 import os
@@ -22,7 +22,9 @@ def extract_text(file_data: bytes, filename: str) -> str:
                 texts.append(txt)
         return "\n".join(texts)
     elif ext in ('doc', 'docx', 'ppt', 'pptx'):
-        return textract.process(io.BytesIO(file_data), extension=ext).decode('utf-8', errors='ignore')
+        # Use unstructured instead of textract
+        elements = partition(file=io.BytesIO(file_data), metadata_filename=filename)
+        return "\n".join([str(el) for el in elements])
     else:
         return file_data.decode('utf-8', errors='ignore')
     

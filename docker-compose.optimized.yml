@@ -1,34 +1,195 @@
+version: '3.8'
 
 services:
-  backend:
+  # Redis service
+  redis:
+    image: redis:7-alpine
+    container_name: linkx-redis
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfsync everysec
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  # PostgreSQL is provided by Neon (external service)
+  # Connection string: postgresql://neondb_owner:npg_2ZO0npmbLIPU@ep-withered-hill-a5u0pgp4-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
+
+  # Backend service - Development
+  backend-dev:
     build:
       context: ./docker-image
-      dockerfile: docker/Dockerfile.optimized
+      dockerfile: docker/Dockerfile.dev
       cache_from:
-        - python:3.10-slim
-    image: linkx-backend:latest
-    container_name: linkx-backend
+        - python:3.11-slim
+    image: linkx-backend:dev
+    container_name: linkx-backend-dev
     env_file:
-      - ./docker-image/src/.env
+      - ./docker-image/.env
     environment:
-      # Override for development
-      FLASK_ENV: development
-      FLASK_DEBUG: 1
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - DATABASE_URL=postgresql://linkx:${POSTGRES_PASSWORD:-linkx_dev}@postgres:5432/linkx
+      - REDIS_URL=redis://redis:6379/0
+      - PYTHONUNBUFFERED=1
     volumes:
-      # Only mount what changes during development
-      - ./docker-image/src/app.py:/app/src/app.py
-      - ./docker-image/src/routes.py:/app/src/routes.py
-      - ./docker-image/src/db:/app/src/db
-      - ./data/learning_pdfs:/app/src/learning_pdfs
+      # Mount source code for hot-reload
+      - ./docker-image/src:/app/src:delegated
+      - ./docker-image/scripts:/app/scripts:delegated
+      - ./data/learning_pdfs:/app/uploads:delegated
+      # Mount for pip packages (speeds up rebuilds)
+      - pip_cache:/root/.cache/pip
     ports:
       - "8080:8080"
-    command: ["bash", "-c", "cd /app/src && python -m flask run --host=0.0.0.0 --port=8080 --reload"]
-    # Add resource limits
+      - "5678:5678"  # Python debugger
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=8080", "--reload"]
+    restart: unless-stopped
+
+  # Backend service - Production
+  backend-prod:
+    build:
+      context: ./docker-image
+      dockerfile: docker/Dockerfile.multistage
+      target: final
+      cache_from:
+        - linkx-backend:builder
+        - linkx-backend:deps
+    image: linkx-backend:prod
+    container_name: linkx-backend-prod
+    env_file:
+      - ./docker-image/.env.production
+    environment:
+      - FLASK_ENV=production
+      - PORT=8080
+      - WORKERS=4
+      - THREADS=2
+      - WORKER_CLASS=gthread
+    volumes:
+      - ./data/learning_pdfs:/app/uploads:ro
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
     deploy:
       resources:
         limits:
           cpus: '2'
           memory: 2G
         reservations:
+          cpus: '0.5'
+          memory: 512M
+    restart: unless-stopped
+    profiles:
+      - production
+
+  # Celery worker - Development
+  celery-dev:
+    build:
+      context: ./docker-image
+      dockerfile: docker/Dockerfile.dev
+    image: linkx-backend:dev
+    container_name: linkx-celery-dev
+    env_file:
+      - ./docker-image/.env
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_URL=postgresql://linkx:${POSTGRES_PASSWORD:-linkx_dev}@postgres:5432/linkx
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_WORKER_NAME=worker1
+      - CELERY_CONCURRENCY=2
+      - CELERY_LOGLEVEL=info
+    volumes:
+      - ./docker-image/src:/app/src:delegated
+      - ./data/learning_pdfs:/app/uploads:delegated
+    depends_on:
+      - redis
+    command: ["celery", "-A", "src.celery_app:app", "worker", "--loglevel=info", "--concurrency=2"]
+    restart: unless-stopped
+
+  # Celery worker - Production
+  celery-prod:
+    image: linkx-backend:prod
+    container_name: linkx-celery-prod
+    env_file:
+      - ./docker-image/.env.production
+    environment:
+      - FLASK_ENV=production
+      - CELERY_WORKER_NAME=worker1
+      - CELERY_CONCURRENCY=4
+      - CELERY_LOGLEVEL=info
+    volumes:
+      - ./data/learning_pdfs:/app/uploads:ro
+    depends_on:
+      - redis
+    command: ["celery", "-A", "src.celery_app:app", "worker", "--loglevel=info", "--concurrency=4"]
+    deploy:
+      resources:
+        limits:
           cpus: '1'
           memory: 1G
+    restart: unless-stopped
+    profiles:
+      - production
+
+  # Flower - Celery monitoring (development only)
+  flower:
+    build:
+      context: ./docker-image
+      dockerfile: docker/Dockerfile.dev
+    container_name: linkx-flower
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - FLOWER_PORT=5555
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+    command: ["celery", "-A", "src.celery_app:celery", "flower"]
+    profiles:
+      - dev-tools
+
+  # Nginx reverse proxy (production)
+  nginx:
+    image: nginx:alpine
+    container_name: linkx-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_cache:/var/cache/nginx
+    depends_on:
+      - backend-prod
+    restart: unless-stopped
+    profiles:
+      - production
+
+volumes:
+  redis_data:
+    driver: local
+  pip_cache:
+    driver: local
+  nginx_cache:
+    driver: local
+
+# Networks for better isolation
+networks:
+  default:
+    name: linkx-network
+    driver: bridge

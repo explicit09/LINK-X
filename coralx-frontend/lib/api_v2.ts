@@ -1,10 +1,10 @@
-"""
+/*
 Enhanced Frontend API Client V2
 Implements proper authentication flow with retry logic and session management
-"""
+*/
 import { auth } from '../firebaseconfig';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_URL = 'http://localhost:8080';
 const API_VERSION = '/api/v2';
 
 // Token management

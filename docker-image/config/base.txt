@@ -56,6 +56,9 @@ python-multipart==0.0.6
 pydantic==2.5.3  # Updated to be compatible with pydantic-settings
 pydantic-settings==2.0.3  # Updated to a version that works with pydantic>=2.0.1
 
+# Dependency Injection
+dependency-injector==4.41.0
+
 # Monitoring
 prometheus-client==0.18.0
 python-json-logger==2.0.7

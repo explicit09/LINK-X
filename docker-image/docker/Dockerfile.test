@@ -1,0 +1,30 @@
+# Simple test Dockerfile to verify structure
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy all source files
+COPY src/ ./src/
+COPY scripts/ ./scripts/
+COPY docker/ ./docker/
+COPY config/ ./config/
+COPY *.md ./
+
+# Create a simple test script inline
+RUN echo '#!/usr/bin/env python3\n\
+import os\n\
+print("Testing Docker structure...")\n\
+dirs = ["src", "scripts", "docker", "config"]\n\
+for d in dirs:\n\
+    if os.path.exists(d):\n\
+        print(f"✓ {d} directory exists")\n\
+    else:\n\
+        print(f"✗ {d} directory missing")\n\
+        exit(1)\n\
+print("✅ All directories present!")' > test_structure.py
+
+# Run structure test
+RUN python test_structure.py
+
+# Simple command
+CMD ["echo", "Docker structure test passed!"]
