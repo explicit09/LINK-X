@@ -6,7 +6,7 @@ from firebase_admin import credentials
 import logging
 import os
 
-from .config import config
+from .core.config import get_config
 from .core.database import db, db_manager
 from .core.cache import cache
 from .core.exceptions import register_error_handlers
@@ -27,7 +27,7 @@ def create_app(config_name=None):
     app = Flask(__name__)
     
     # Load configuration
-    app.config.from_object(config[config_name])
+    app.config.from_object(get_config(config_name))
     logger.info(f"Creating app with config: {config_name}")
     
     # Initialize extensions

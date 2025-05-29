@@ -1,64 +1,109 @@
+version: '3.8'
+
 services:
   redis:
     image: redis:7-alpine
-    container_name: redis
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "6379:6379"
 
   backend:
     build:
       context: ./docker-image
-      dockerfile: docker/Dockerfile.dev
-    image: linkx-backend:dev
-    container_name: backend
+      dockerfile: docker/Dockerfile.${DOCKER_ENV:-dev}
+    image: linkx:${DOCKER_ENV:-dev}
+    restart: always
     env_file:
       - ./docker-image/.env
-    volumes:
-      - ./docker-image/src:/app/src
-      - ./data/learning_pdfs:/app/src/learning_pdfs
-      # - ./data/faiss_generated:/app/src/faiss_generated  # Removed as we use pgvector now
-      - ./docker-image/src/firebaseKey.json:/app/src/firebaseKey.json
-    ports:
-      - "8080:8080"
-      # - "8501:8501"  # Temporarily disabled
     environment:
-      - AWS_REGION=us-east-2
+      - FLASK_ENV=${FLASK_ENV:-development}
       - REDIS_URL=redis://redis:6379/0
-      - POSTGRES_URL=postgresql://neondb_owner:npg_2ZO0npmbLIPU@ep-withered-hill-a5u0pgp4-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
-      - SECRET_KEY=dev-secret-key-change-in-production
-      - JWT_SECRET_KEY=dev-jwt-secret-key-change-in-production
-      - FLASK_ENV=development
-      - USE_S3_STORAGE=true
+      - USE_S3_STORAGE=${USE_S3_STORAGE:-true}
+      - PORT=${PORT:-8080}
+    volumes:
+      - ./docker-image/src:/app/src:cached  # Dev only - hot reload
+      - ./data/learning_pdfs:/app/src/learning_pdfs
+    ports:
+      - "${PORT:-8080}:${PORT:-8080}"
     depends_on:
-      - redis
-    command: ["/app/docker/entrypoint.sh"]
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT:-8080}/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    profiles:
+      - dev
+      - prod
 
   celery-worker:
-    build:
-      context: ./docker-image
-      dockerfile: docker/Dockerfile
-    image: dev7
-    container_name: celery-worker
+    image: linkx:${DOCKER_ENV:-dev}
+    restart: always
+    command: ["bash", "-c", "cd /app && celery -A src.celery_app worker --loglevel=info --concurrency=${CELERY_CONCURRENCY:-2}"]
     env_file:
       - ./docker-image/.env
-    volumes:
-      - ./docker-image/src:/app/src
-      - ./data/learning_pdfs:/app/src/learning_pdfs
-      - ./docker-image/src/firebaseKey.json:/app/src/firebaseKey.json
     environment:
-      - AWS_REGION=us-east-2
+      - FLASK_ENV=${FLASK_ENV:-development}
       - REDIS_URL=redis://redis:6379/0
-      - POSTGRES_URL=postgresql://neondb_owner:npg_2ZO0npmbLIPU@ep-withered-hill-a5u0pgp4-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
-      - CELERY_WORKER_NAME=worker1
-      - CELERY_CONCURRENCY=2
-      - CELERY_LOGLEVEL=info
-      - USE_S3_STORAGE=true
+      - USE_S3_STORAGE=${USE_S3_STORAGE:-true}
+    volumes:
+      - ./docker-image/src:/app/src:cached  # Dev only
+      - ./data/learning_pdfs:/app/src/learning_pdfs
     depends_on:
       - redis
-    command: ["bash", "-c", "cd /app && chmod +x celery_worker.sh && PYTHONPATH=/app/src ./celery_worker.sh"]
+      - backend
+    profiles:
+      - dev
+      - prod
+      - workers
+
+  celery-beat:
+    image: linkx:${DOCKER_ENV:-dev}
+    restart: always
+    command: ["bash", "-c", "cd /app && celery -A src.celery_app beat --loglevel=info"]
+    env_file:
+      - ./docker-image/.env
+    environment:
+      - FLASK_ENV=${FLASK_ENV:-development}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - backend
+    profiles:
+      - prod
+      - workers
+
+  flower:
+    image: linkx:${DOCKER_ENV:-dev}
+    restart: always
+    command: ["bash", "-c", "cd /app && celery -A src.celery_app flower --port=5555"]
+    environment:
+      - FLASK_ENV=${FLASK_ENV:-development}
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+      - celery-worker
+    profiles:
+      - monitoring
+      - prod
 
 volumes:
   redis_data:
+
+# Usage:
+# Development: docker-compose --profile dev up
+# Production: DOCKER_ENV=prod FLASK_ENV=production PORT=8000 docker-compose --profile prod up
+# With monitoring: docker-compose --profile prod --profile monitoring up
+# Just workers: docker-compose --profile workers up

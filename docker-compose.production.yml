@@ -1,8 +1,25 @@
 
 services:
-  backend:
-    image: ghcr.io/${GITHUB_REPOSITORY}:${TAG:-latest}
+  redis:
+    image: redis:7-alpine
     restart: always
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: linkx:prod
+    build:
+      context: ./docker-image
+      dockerfile: docker/Dockerfile.simple
+    restart: always
+    env_file:
+      - ./docker-image/.env
     environment:
       - FLASK_ENV=production
       - PORT=8000
@@ -11,20 +28,15 @@ services:
       - WORKER_CONNECTIONS=1000
       - MAX_REQUESTS=1000
       - MAX_REQUESTS_JITTER=50
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
-      - SECRET_KEY=${SECRET_KEY}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION}
-      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - FRONTEND_URL=${FRONTEND_URL}
-      - SENTRY_DSN=${SENTRY_DSN}
+      - REDIS_URL=redis://redis:6379/0
+      - USE_S3_STORAGE=true
     ports:
       - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -48,21 +60,19 @@ services:
           memory: 1G
 
   celery-worker:
-    image: ghcr.io/${GITHUB_REPOSITORY}:${TAG:-latest}
+    image: linkx:prod
     restart: always
-    command: celery -A celery_app worker --loglevel=info --concurrency=4
+    command: ["bash", "-c", "cd /app && celery -A src.celery_app worker --loglevel=info --concurrency=4"]
+    env_file:
+      - ./docker-image/.env
     environment:
       - FLASK_ENV=production
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=${AWS_REGION}
-      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - SENTRY_DSN=${SENTRY_DSN}
+      - REDIS_URL=redis://redis:6379/0
+      - USE_S3_STORAGE=true
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
     depends_on:
       - backend
+      - redis
     deploy:
       replicas: 2
       resources:
@@ -74,16 +84,18 @@ services:
           memory: 512M
 
   celery-beat:
-    image: ghcr.io/${GITHUB_REPOSITORY}:${TAG:-latest}
+    image: linkx:prod
     restart: always
-    command: celery -A celery_app beat --loglevel=info
+    command: ["bash", "-c", "cd /app && celery -A src.celery_app beat --loglevel=info --schedule=/tmp/celerybeat-schedule"]
+    env_file:
+      - ./docker-image/.env
     environment:
       - FLASK_ENV=production
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
-      - SENTRY_DSN=${SENTRY_DSN}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/1
     depends_on:
       - backend
+      - redis
     deploy:
       resources:
         limits:
@@ -117,3 +129,6 @@ services:
 networks:
   default:
     driver: bridge
+
+volumes:
+  redis_data:

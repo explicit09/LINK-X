@@ -75,20 +75,34 @@ app.conf.update(
     
     # Beat schedule for periodic tasks
     beat_schedule={
-        'cleanup-old-chunks': {
-            'task': 'tasks.cleanup_old_chunks',
-            'schedule': timedelta(hours=24),  # Daily
+        # File maintenance
+        'cleanup-old-files': {
+            'task': 'src.tasks.maintenance.cleanup_old_files_async',
+            'schedule': timedelta(days=1),  # Daily at midnight
+            'kwargs': {'days': 30},
             'options': {'queue': 'low'}
         },
+        'cleanup-orphaned-s3': {
+            'task': 'src.tasks.maintenance.cleanup_orphaned_s3_files',
+            'schedule': timedelta(days=7),  # Weekly
+            'options': {'queue': 'low'}
+        },
+        'cleanup-orphaned-embeddings': {
+            'task': 'src.tasks.embedding.cleanup_orphaned_embeddings',
+            'schedule': timedelta(days=1),  # Daily
+            'options': {'queue': 'low'}
+        },
+        # Database maintenance
+        'vacuum-database': {
+            'task': 'src.tasks.maintenance.vacuum_database',
+            'schedule': timedelta(days=1),  # Daily at 3 AM
+            'options': {'queue': 'low'}
+        },
+        # Health monitoring
         'health-check': {
-            'task': 'tasks.health_check',
+            'task': 'src.tasks.health_check',
             'schedule': timedelta(minutes=5),  # Every 5 minutes
             'options': {'queue': 'critical'}
-        },
-        'vacuum-analyze': {
-            'task': 'tasks.vacuum_analyze_chunks',
-            'schedule': timedelta(hours=6),  # Every 6 hours
-            'options': {'queue': 'low'}
         },
     },
 )

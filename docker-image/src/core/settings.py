@@ -95,10 +95,14 @@ class Settings(BaseSettings):
     openai_temperature: float = Field(default=0.7)
     
     # Firebase
-    firebase_credentials_path: str = Field(
-        default="src/firebaseKey.json",
-        env="FIREBASE_CREDENTIALS_PATH"
+    firebase_credentials_path: Optional[str] = Field(
+        default=None, 
+        env="FIREBASE_CREDENTIALS_PATH",
+        description="Path to Firebase credentials JSON file"
     )
+    firebase_project_id: Optional[str] = Field(None, env="FIREBASE_PROJECT_ID")
+    firebase_private_key: Optional[str] = Field(None, env="FIREBASE_PRIVATE_KEY") 
+    firebase_client_email: Optional[str] = Field(None, env="FIREBASE_CLIENT_EMAIL")
     
     # CORS
     cors_origins: List[str] = Field(default_factory=list, alias="CORS_ORIGINS")

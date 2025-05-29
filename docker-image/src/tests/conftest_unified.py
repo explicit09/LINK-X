@@ -19,7 +19,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 from dependency_injector import providers
 
-from app_refactored import create_app
+from app import create_app
 from db.schema import Base, User, Role, Course, Module, File, Enrollment, Todo
 from core.dependencies import Container, get_container
 from core.settings import TestingSettings

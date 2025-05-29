@@ -7,7 +7,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import the refactored app
-from app_refactored import create_app
+from app import create_app
 from celery_app import app as celery
 
 # Create the application instance

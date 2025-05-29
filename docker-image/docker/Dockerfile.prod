@@ -1,48 +1,43 @@
-# Use the official slim Python image
-FROM python:3.10-slim
+# Simple production Dockerfile for LINK-X
+FROM python:3.11-slim
 
-# Allow statements and log messages to immediately appear in the Knative logs
-ENV PYTHONUNBUFFERED=True
-ENV PYTHONPATH="/app:/app/src"
-
-# Set the application home directory
-ENV APP_HOME=/app
-WORKDIR $APP_HOME
-
-# Install system dependencies first (cached layer)
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+    gcc \
+    libpq-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy only requirements files first for better caching
-COPY src/requirements.txt ./requirements.txt
-COPY src/requirements-migration.txt ./requirements-migration.txt
+WORKDIR /app
 
-# Install Python dependencies (this layer is cached if requirements don't change)
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir -r requirements-migration.txt && \
-    pip install --no-cache-dir -U Flask flask-cors types-flask-cors faiss-cpu
+# Copy requirements first for better caching
+COPY config/base.txt config/prod.txt ./config/
 
-# Copy migration script
-COPY run_migrations.sh /run_migrations.sh
-RUN chmod +x /run_migrations.sh
+# Install Python dependencies
+RUN pip install --no-cache-dir -r config/prod.txt
 
-# Copy application files last (changes frequently)
-COPY src/.env ./
-COPY src/firebaseKey.json ./
-COPY src/prompts.py ./
-COPY src/textUtils.py ./
-COPY src/indexer.py ./
-COPY src/transcriber.py ./
-COPY src $APP_HOME/src
+# Copy application code
+COPY src/ ./src/
+COPY scripts/ ./scripts/
+COPY docker/entrypoint.sh ./
 
-# Environment variables for Flask
-ENV MODULE=src.wsgi
-ENV QT_X11_NO_MITSHM=1
-ENV PORT=8080
-EXPOSE 8080
+# Make scripts executable
+RUN chmod +x entrypoint.sh scripts/**/*.py || true
 
-# Set the entry point to run migrations and then start the app
-ENTRYPOINT ["/run_migrations.sh"]
-CMD ["gunicorn", "--bind", ":8080", "--workers", "1", "--threads", "8", "--timeout", "0", "src.wsgi:app"]
+# Create necessary directories
+RUN mkdir -p logs uploads temp
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV FLASK_APP=src.app_refactored:app
+ENV PORT=8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/api/health || exit 1
+
+EXPOSE ${PORT}
+
+# Use the entrypoint script
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["gunicorn", "-c", "python:src.core.gunicorn", "src.app_refactored:app"]
