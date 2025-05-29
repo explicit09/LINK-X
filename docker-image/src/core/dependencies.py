@@ -1,19 +1,21 @@
 """
 Dependency Injection Container
-Manages all application dependencies and their lifecycle
+Centralized dependency management using dependency-injector
 """
 
 import os
 import logging
-from typing import Iterator
+from typing import Iterator, Optional
 
 from dependency_injector import containers, providers
+from dependency_injector.wiring import Provide, inject
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session, scoped_session
 from redis import Redis
 from flask import Flask
 import firebase_admin
 from firebase_admin import credentials
+import openai
 
 from repositories.user_repository import UserRepository
 from repositories.course_repository import CourseRepository
@@ -30,7 +32,7 @@ from services.admin_service import AdminService
 from services.ai_service import AIService
 from services.streaming_service import StreamingService
 
-from core.config import get_config
+from src.core.config import get_config
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
-# AWS Credentials Setup Guide for LINK-X
+# AWS Credentials Setup Guide for LEARN-X
 
-This guide will help you set up AWS credentials for the LINK-X project to enable S3 file storage functionality.
+This guide will help you set up AWS credentials for the LEARN-X project to enable S3 file storage functionality.
 
 ## Prerequisites
 
@@ -13,7 +13,7 @@ This guide will help you set up AWS credentials for the LINK-X project to enable
 ### 1.1 Create IAM User
 1. Log into AWS Console
 2. Go to IAM → Users → Create User
-3. Choose a username (e.g., `linkx-s3-user`)
+3. Choose a username (e.g., `learnx-s3-user`)
 4. Select "Programmatic access"
 
 ### 1.2 Attach Permissions
@@ -33,8 +33,8 @@ Attach the following policy to your user (or create a custom policy):
                 "s3:PutObjectAcl"
             ],
             "Resource": [
-                "arn:aws:s3:::linkx-files",
-                "arn:aws:s3:::linkx-files/*"
+                "arn:aws:s3:::learnx-files",
+                "arn:aws:s3:::learnx-files/*"
             ]
         }
     ]
@@ -51,7 +51,7 @@ Attach the following policy to your user (or create a custom policy):
 
 1. Go to S3 in AWS Console
 2. Click "Create bucket"
-3. Choose a unique name (e.g., `linkx-files-[your-suffix]`)
+3. Choose a unique name (e.g., `learnx-files-[your-suffix]`)
 4. Select your preferred region (default: `us-east-1`)
 5. Configure settings:
    - **Block Public Access**: Keep enabled for security

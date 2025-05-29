@@ -21,17 +21,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Import blueprints
+# Import blueprints - using the new unified structure
 from src.api.health import bp as health_bp
-from src.api.auth_v2 import bp as auth_v2
-from src.api.courses import bp as courses_bp
-from src.api.modules import bp as modules_bp
-from src.api.files import bp as files_bp
-from src.api.todos import todos_bp
-from src.api.activities import activities_bp
-from src.api.personalization import bp as personalization_bp
-from src.api.streaming import bp as streaming_bp
-from src.api.admin import bp as admin_bp
+from src.api.auth_unified import bp as auth_bp
 from src.api.v1 import api_v1
 
 def create_app():
@@ -63,21 +55,17 @@ def create_app():
     # Initialize JWT
     jwt = JWTManager(app)
     
-    # Register blueprints
+    # Register blueprints in order of priority
+    # Health check (no prefix for load balancer compatibility)
     app.register_blueprint(health_bp)
-    app.register_blueprint(auth_v2, url_prefix='/auth')
-    app.register_blueprint(courses_bp, url_prefix='/courses')
-    app.register_blueprint(modules_bp, url_prefix='/modules')
-    app.register_blueprint(files_bp, url_prefix='/files')
-    app.register_blueprint(todos_bp, url_prefix='/todos')
-    app.register_blueprint(activities_bp, url_prefix='/activities')
-    app.register_blueprint(personalization_bp, url_prefix='/personalize')
-    app.register_blueprint(streaming_bp, url_prefix='/streaming')
-    app.register_blueprint(admin_bp, url_prefix='/admin')
     
-    # Register API v1 blueprint (for frontend compatibility)
+    # New unified auth endpoints (v2 style) - mounted at /auth for new frontend
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    
+    # API v1 endpoints (legacy compatibility) - all under /api/v1
     app.register_blueprint(api_v1)
     
+    logger.info("Application created with unified API structure")
     return app
 
 

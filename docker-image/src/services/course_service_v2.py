@@ -1,23 +1,25 @@
 """
-Course Service V2
-Implements CourseServiceInterface with dependency injection
+Course Service v2 - Modern implementation with dependency injection
 """
 
+import uuid
 import logging
 import secrets
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
+from dependency_injector.wiring import Provide, inject
+from sqlalchemy.orm import Session
 from redis import Redis
 
-from services.interfaces import CourseServiceInterface
-from services.base_service import BaseService, track_performance, validate_input
-from repositories.course_repository import CourseRepository
-from repositories.enrollment_repository import EnrollmentRepository
-from repositories.user_repository import UserRepository
-from repositories.module_repository import ModuleRepository
-from db.schema import Course, User, Enrollment
-from core.exceptions import NotFoundError, ValidationError, UnauthorizedException
+from src.db.schema import Course, User, Enrollment, Module
+from src.repositories.course_repository import CourseRepository
+from src.repositories.enrollment_repository import EnrollmentRepository
+from src.repositories.user_repository import UserRepository
+from src.repositories.module_repository import ModuleRepository
+from src.services.interfaces import CourseServiceInterface
+from src.services.base_service import BaseService, track_performance, validate_input
+from src.core.exceptions import NotFoundError, ValidationError, UnauthorizedException
 
 logger = logging.getLogger(__name__)
 

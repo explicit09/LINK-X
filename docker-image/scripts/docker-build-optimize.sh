@@ -69,7 +69,7 @@ security_scan() {
 ACTION=${1:-build}
 ENVIRONMENT=${2:-dev}
 
-cd /Users/explicit/Documents/GitHub/LINK-X1/docker-image
+cd /Users/explicit/Documents/GitHub/LEARN-X/docker-image
 
 case $ACTION in
     build)
@@ -77,30 +77,30 @@ case $ACTION in
         
         if [ "$ENVIRONMENT" = "dev" ]; then
             # Development build
-            build_with_cache "Dockerfile.dev" "linkx-backend-dev" ""
+            build_with_cache "Dockerfile.dev" "learnx-backend-dev" ""
             
         elif [ "$ENVIRONMENT" = "prod" ]; then
             # Production multi-stage build
             echo -e "${YELLOW}Building dependencies stage...${NC}"
             docker build \
                 --target python-deps \
-                -t linkx-backend-prod:deps \
+                -t learnx-backend-prod:deps \
                 -f docker/Dockerfile.multistage \
                 .
             
             echo -e "${YELLOW}Building builder stage...${NC}"
             docker build \
-                --cache-from linkx-backend-prod:deps \
+                --cache-from learnx-backend-prod:deps \
                 --target app-builder \
-                -t linkx-backend-prod:builder \
+                -t learnx-backend-prod:builder \
                 -f docker/Dockerfile.multistage \
                 .
             
             echo -e "${YELLOW}Building final image...${NC}"
             docker build \
-                --cache-from linkx-backend-prod:deps \
-                --cache-from linkx-backend-prod:builder \
-                -t linkx-backend-prod:latest \
+                --cache-from learnx-backend-prod:deps \
+                --cache-from learnx-backend-prod:builder \
+                -t learnx-backend-prod:latest \
                 -f docker/Dockerfile.multistage \
                 .
         fi
@@ -112,9 +112,9 @@ case $ACTION in
         echo -e "${GREEN}Analyzing images${NC}"
         
         if [ "$ENVIRONMENT" = "dev" ]; then
-            analyze_image "linkx-backend-dev"
+            analyze_image "learnx-backend-dev"
         else
-            analyze_image "linkx-backend-prod"
+            analyze_image "learnx-backend-prod"
         fi
         ;;
         
@@ -138,9 +138,9 @@ case $ACTION in
         echo -e "${GREEN}Running security scans${NC}"
         
         if [ "$ENVIRONMENT" = "dev" ]; then
-            security_scan "linkx-backend-dev"
+            security_scan "learnx-backend-dev"
         else
-            security_scan "linkx-backend-prod"
+            security_scan "learnx-backend-prod"
         fi
         ;;
         
@@ -154,9 +154,9 @@ case $ACTION in
         START_TIME=$(date +%s)
         
         if [ "$ENVIRONMENT" = "dev" ]; then
-            time docker build -f docker/Dockerfile.dev -t linkx-backend-dev:bench .
+            time docker build -f docker/Dockerfile.dev -t learnx-backend-dev:bench .
         else
-            time docker build -f docker/Dockerfile.multistage -t linkx-backend-prod:bench .
+            time docker build -f docker/Dockerfile.multistage -t learnx-backend-prod:bench .
         fi
         
         END_TIME=$(date +%s)
@@ -170,18 +170,18 @@ case $ACTION in
         
         # Build both old and new versions
         echo -e "${YELLOW}Building old Dockerfile...${NC}"
-        docker build -f docker/Dockerfile -t linkx-backend:old .
+        docker build -f docker/Dockerfile -t learnx-backend:old .
         
         echo -e "${YELLOW}Building optimized Dockerfile...${NC}"
-        docker build -f docker/Dockerfile.multistage -t linkx-backend:new .
+        docker build -f docker/Dockerfile.multistage -t learnx-backend:new .
         
         # Compare sizes
         echo -e "${GREEN}Size comparison:${NC}"
-        docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep linkx-backend
+        docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep learnx-backend
         
         # Calculate savings
-        OLD_SIZE=$(docker images linkx-backend:old --format "{{.Size}}")
-        NEW_SIZE=$(docker images linkx-backend:new --format "{{.Size}}")
+        OLD_SIZE=$(docker images learnx-backend:old --format "{{.Size}}")
+        NEW_SIZE=$(docker images learnx-backend:new --format "{{.Size}}")
         echo -e "${GREEN}Old size: $OLD_SIZE${NC}"
         echo -e "${GREEN}New size: $NEW_SIZE${NC}"
         ;;

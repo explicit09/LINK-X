@@ -2,7 +2,7 @@
 
 ## Overview
 
-The LINK-X1 backend now uses a dynamic CORS configuration that:
+The LEARN-X backend now uses a dynamic CORS configuration that:
 1. Supports multiple frontend development ports (3000-3010)
 2. Properly handles credentials (cookies, authorization headers)
 3. Never uses wildcard origins with credentials

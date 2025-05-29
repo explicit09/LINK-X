@@ -14,7 +14,7 @@ docker restart <container_id>
 ## Full Rebuild (recommended):
 ```bash
 # Stop and rebuild the backend
-cd /Users/explicit/Documents/GitHub/LINK-X1
+cd /Users/explicit/Documents/GitHub/LEARN-X
 ./run_backend.sh -r
 ```
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import os
-sys.path.append('/Users/tadies/Documents/GitHub/LINK-X/docker-image/src')
+sys.path.append('/Users/explicit/Documents/GitHub/LEARN-X/docker-image/src')
 
 # Import Session from app.py and queries
 from sqlalchemy.orm import sessionmaker

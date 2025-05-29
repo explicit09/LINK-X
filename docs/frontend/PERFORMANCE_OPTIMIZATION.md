@@ -1,8 +1,8 @@
-# Link-X Frontend Performance Optimization Guide
+# Learn-X Frontend Performance Optimization Guide
 
 ## Overview
 
-This document outlines the performance optimizations implemented in the Link-X platform to ensure fast loading times, smooth user interactions, and optimal Core Web Vitals scores.
+This document outlines the performance optimizations implemented in the Learn-X platform to ensure fast loading times, smooth user interactions, and optimal Core Web Vitals scores.
 
 ## Implemented Optimizations
 

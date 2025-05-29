@@ -7,8 +7,8 @@ import logging
 from typing import List, Dict, Any
 
 from ..db.connection import get_db_session
-from ..db.schema import File, FileChunk, Activity, PersonalizedFile
-from ..s3_storage import s3_storage
+from ..db.schema import File, FileChunk, PersonalizedFile
+from ..services.s3_storage import s3_storage
 from .file_processing import process_file_async
 from .embedding import generate_embeddings_async
 from ..core.cache import cache
@@ -64,11 +64,11 @@ def cleanup_old_files_async(self, days: int = 30):
                 })
                 logger.error(f"Error cleaning file {file.id}: {str(file_error)}")
         
-        # Clean up old activities
-        old_activities = db_session.query(Activity).filter(
-            Activity.created_at < cutoff_date
-        ).delete()
-        logger.info(f"Deleted {old_activities} old activity records")
+        # Clean up old activities - commented out as Activity model doesn't exist
+        # old_activities = db_session.query(Activity).filter(
+        #     Activity.created_at < cutoff_date
+        # ).delete()
+        # logger.info(f"Deleted {old_activities} old activity records")
         
         db_session.commit()
         logger.info(f"Successfully cleaned up {cleaned_count} files")

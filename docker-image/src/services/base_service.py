@@ -1,18 +1,17 @@
 """
-Base Service Class
+Base Service Classes and Interfaces
 Provides common functionality for all services
 """
 
-import logging
-from typing import Optional, Dict, Any
-from functools import wraps
-import time
-
-from redis import Redis
+from abc import ABC, abstractmethod
+from typing import Optional, Dict, Any, List, TypeVar, Generic
+from datetime import datetime
 from sqlalchemy.orm import Session
+from dataclasses import dataclass
+import logging
 
-from core.exceptions import ValidationError, NotFoundError, UnauthorizedException
-from core.cache import cache
+from src.core.exceptions import ValidationError, NotFoundError, UnauthorizedException
+from src.core.cache import cache
 
 logger = logging.getLogger(__name__)
 

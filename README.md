@@ -47,7 +47,7 @@ For detailed instructions, see [SCRIPTS_GUIDE.md](./SCRIPTS_GUIDE.md).
 ## Environment Setup
 
 Create these two files with your environment variables:
-- `coralx-frontend/.env.local`
+- `frontend/.env.local`
 - `docker-image/src/.env`
 
 Both should include:

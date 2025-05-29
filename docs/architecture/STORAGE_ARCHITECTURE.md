@@ -1,4 +1,4 @@
-# LINK-X Storage Architecture
+# LEARN-X Storage Architecture
 
 ## 🏗️ Component Responsibilities
 
@@ -131,7 +131,7 @@ file = create_file(
 
 ### Check Storage Distribution
 ```bash
-cd /Users/explicit/Documents/GitHub/LINK-X1/docker-image
+cd /Users/explicit/Documents/GitHub/LEARN-X/docker-image
 python3 src/storage_audit.py
 ```
 

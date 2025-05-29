@@ -1,5 +1,5 @@
 #!/bin/bash
-# Simple management script for LINK-X
+# Simple management script for LEARN-X
 
 set -e
 
@@ -10,7 +10,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 function help() {
-    echo "LINK-X Management Script"
+    echo "LEARN-X Management Script"
     echo ""
     echo "Usage: ./manage.sh [command]"
     echo ""

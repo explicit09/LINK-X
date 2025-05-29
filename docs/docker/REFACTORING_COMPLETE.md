@@ -323,10 +323,10 @@ The new `Dockerfile.multistage` reduces image size by 62%:
 ### Build Commands:
 ```bash
 # Development build
-docker build -f docker/Dockerfile.dev -t linkx:dev .
+docker build -f docker/Dockerfile.dev -t learnx:dev .
 
 # Production build
-docker build -f docker/Dockerfile.multistage -t linkx:prod .
+docker build -f docker/Dockerfile.multistage -t learnx:prod .
 
 # Optimized docker-compose
 docker-compose -f docker-compose.optimized.yml up

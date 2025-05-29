@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-Successfully completed the Docker image refactoring for the LINK-X1 project. The backend Flask application has been fully refactored from a monolithic 4,690-line `app.py` file to a clean blueprint-based architecture. The application is now running successfully on port 8080 with all Docker configurations updated.
+Successfully completed the Docker image refactoring for the LEARN-X project. The backend Flask application has been fully refactored from a monolithic 4,690-line `app.py` file to a clean blueprint-based architecture. The application is now running successfully on port 8080 with all Docker configurations updated.
 
 ## Major Accomplishments
 

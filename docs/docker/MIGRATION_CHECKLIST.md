@@ -136,7 +136,7 @@ Use this checklist to ensure a smooth transition to the refactored Docker struct
 
 - [x] **Compare Image Sizes** *(script created, not executed)*
   ```bash
-  docker images | grep linkx
+  docker images | grep learnx
   ```
 
 - [x] **Check Build Times** *(optimization script created)*

@@ -4,9 +4,9 @@
 
 ### Files Removed (Cleanup)
 - ✅ `mock_backend.py` - Empty file with no functionality
-- ✅ `coralx-frontend/global.css` - Duplicate of `app/globals.css`
-- ✅ `coralx-frontend/pages/Index.tsx` - Unused Pages Router component
-- ✅ `coralx-frontend/pages/NotFound.tsx` - Unused Pages Router component
+- ✅ `frontend/global.css` - Duplicate of `app/globals.css`
+- ✅ `frontend/pages/Index.tsx` - Unused Pages Router component
+- ✅ `frontend/pages/NotFound.tsx` - Unused Pages Router component
 - ✅ `scripts/original_FAISS_scripts/` - Entire outdated directory (10 files)
 
 ### Duplicate Components Removed
@@ -46,7 +46,7 @@
 ### 1. **Security Updates Needed**
 ```bash
 # Found 4 moderate severity vulnerabilities in npm audit
-cd coralx-frontend && npm audit fix
+cd frontend && npm audit fix
 ```
 
 ### 2. **Bundle Size Analysis**

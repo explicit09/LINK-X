@@ -14,7 +14,7 @@ docker-compose -f docker-compose.optimized.yml --profile dev-tools up
 ### Production
 ```bash
 # Build production image
-docker build -f docker/Dockerfile.multistage -t linkx:prod docker-image/
+docker build -f docker/Dockerfile.multistage -t learnx:prod docker-image/
 
 # Run production
 docker-compose -f docker-compose.optimized.yml --profile production up

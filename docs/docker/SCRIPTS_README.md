@@ -1,7 +1,7 @@
 # Scripts Directory
 
 ## Purpose
-Essential scripts for LINK-X platform maintenance and operations.
+Essential scripts for LEARN-X platform maintenance and operations.
 
 ## Directory Structure
 

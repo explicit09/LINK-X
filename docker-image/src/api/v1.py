@@ -17,7 +17,7 @@ from src.repositories.user_repository import UserRepository
 from src.repositories.course_repository import CourseRepository
 from src.repositories.module_repository import ModuleRepository
 from src.repositories.file_repository import FileRepository
-from src.s3_storage import s3_storage
+from src.services.s3_storage import s3_storage
 
 api_v1 = Blueprint('api_v1', __name__, url_prefix='/api/v1')
 logger = logging.getLogger(__name__)

@@ -15,7 +15,7 @@
 Run this first to create the supporting indexes. This can be done while the system is live:
 
 ```bash
-cd /Users/explicit/Documents/GitHub/LINK-X1/docker-image/src
+cd /Users/explicit/Documents/GitHub/LEARN-X/docker-image/src
 export POSTGRES_URL="your-postgres-connection-string"
 python migrate_to_pgvector.py
 ```

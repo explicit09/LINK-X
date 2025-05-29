@@ -141,21 +141,21 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: coralx-frontend/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
       
       - name: Install dependencies
         run: |
-          cd coralx-frontend
+          cd frontend
           npm ci
       
       - name: Run ESLint
         run: |
-          cd coralx-frontend
+          cd frontend
           npm run lint
       
       - name: Run TypeScript check
         run: |
-          cd coralx-frontend
+          cd frontend
           npm run type-check
 
   test-frontend:
@@ -170,22 +170,22 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: coralx-frontend/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
       
       - name: Install dependencies
         run: |
-          cd coralx-frontend
+          cd frontend
           npm ci
       
       - name: Run tests
         run: |
-          cd coralx-frontend
+          cd frontend
           npm test -- --coverage
       
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
         with:
-          file: ./coralx-frontend/coverage/lcov.info
+          file: ./frontend/coverage/lcov.info
           flags: frontend
           name: frontend-coverage
 

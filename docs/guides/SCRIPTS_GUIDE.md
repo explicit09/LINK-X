@@ -1,4 +1,4 @@
-# LINK-X1 Scripts Guide
+# LEARN-X Scripts Guide
 
 ## Consolidated Management System
 
@@ -129,7 +129,7 @@ python -m src.file_processor check-s3
 ## Directory Structure
 
 ```
-LINK-X1/
+LEARN-X/
 ├── manage.sh                    # Main management script
 ├── scripts/                     # Deployment and utility scripts
 │   ├── deploy-staging.sh

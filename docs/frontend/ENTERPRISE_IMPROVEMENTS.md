@@ -1,7 +1,7 @@
-# LINK-X Enterprise-Ready Improvements
+# LEARN-X Enterprise-Ready Improvements
 
 ## Overview
-This document outlines the comprehensive enterprise-ready improvements made to the LINK-X frontend application, addressing critical issues identified in the UI/UX audit.
+This document outlines the comprehensive enterprise-ready improvements made to the LEARN-X frontend application, addressing critical issues identified in the UI/UX audit.
 
 ## ✅ Issues Fixed
 

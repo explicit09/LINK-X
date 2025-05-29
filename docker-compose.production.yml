@@ -13,7 +13,7 @@ services:
       retries: 5
 
   backend:
-    image: linkx:prod
+    image: learnx:prod
     build:
       context: ./docker-image
       dockerfile: docker/Dockerfile.simple
@@ -60,7 +60,7 @@ services:
           memory: 1G
 
   celery-worker:
-    image: linkx:prod
+    image: learnx:prod
     restart: always
     command: ["bash", "-c", "cd /app && celery -A src.celery_app worker --loglevel=info --concurrency=4"]
     env_file:
@@ -84,7 +84,7 @@ services:
           memory: 512M
 
   celery-beat:
-    image: linkx:prod
+    image: learnx:prod
     restart: always
     command: ["bash", "-c", "cd /app && celery -A src.celery_app beat --loglevel=info --schedule=/tmp/celerybeat-schedule"]
     env_file:

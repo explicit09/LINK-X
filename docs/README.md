@@ -1,6 +1,6 @@
-# LINK-X1 Documentation
+# LEARN-X Documentation
 
-Welcome to the LINK-X1 project documentation. This directory contains all technical documentation, guides, and architectural information for the LINK-X1 learning platform.
+Welcome to the LEARN-X project documentation. This directory contains all technical documentation, guides, and architectural information for the LEARN-X learning platform.
 
 ## 📚 Documentation Structure
 

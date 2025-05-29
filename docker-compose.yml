@@ -19,7 +19,7 @@ services:
     build:
       context: ./docker-image
       dockerfile: docker/Dockerfile.${DOCKER_ENV:-dev}
-    image: linkx:${DOCKER_ENV:-dev}
+    image: learnx:${DOCKER_ENV:-dev}
     restart: always
     env_file:
       - ./docker-image/.env
@@ -37,7 +37,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${PORT:-8080}/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT:-8080}/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -47,7 +47,7 @@ services:
       - prod
 
   celery-worker:
-    image: linkx:${DOCKER_ENV:-dev}
+    image: learnx:${DOCKER_ENV:-dev}
     restart: always
     command: ["bash", "-c", "cd /app && celery -A src.celery_app worker --loglevel=info --concurrency=${CELERY_CONCURRENCY:-2}"]
     env_file:
@@ -68,7 +68,7 @@ services:
       - workers
 
   celery-beat:
-    image: linkx:${DOCKER_ENV:-dev}
+    image: learnx:${DOCKER_ENV:-dev}
     restart: always
     command: ["bash", "-c", "cd /app && celery -A src.celery_app beat --loglevel=info"]
     env_file:
@@ -84,7 +84,7 @@ services:
       - workers
 
   flower:
-    image: linkx:${DOCKER_ENV:-dev}
+    image: learnx:${DOCKER_ENV:-dev}
     restart: always
     command: ["bash", "-c", "cd /app && celery -A src.celery_app flower --port=5555"]
     environment:

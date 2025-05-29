@@ -10,7 +10,7 @@ python update_s3_cors.py
 
 ## Option 2: Run inside Docker container
 ```bash
-docker exec -it linkx-backend python /app/update_s3_cors.py
+docker exec -it learnx-backend python /app/update_s3_cors.py
 ```
 
 ## Option 3: Set credentials temporarily

@@ -5,7 +5,7 @@ Flask configuration using Pydantic settings
 import os
 from typing import Type
 
-from core.settings import Settings, get_settings
+from src.core.settings import Settings, get_settings
 
 
 class FlaskConfig:

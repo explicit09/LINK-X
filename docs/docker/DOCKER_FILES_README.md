@@ -10,12 +10,12 @@
 
 ### Development
 ```bash
-docker build -f docker/Dockerfile.dev -t linkx:dev .
+docker build -f docker/Dockerfile.dev -t learnx:dev .
 ```
 
 ### Production
 ```bash
-docker build -f docker/Dockerfile.prod -t linkx:prod .
+docker build -f docker/Dockerfile.prod -t learnx:prod .
 ```
 
 ## Notes

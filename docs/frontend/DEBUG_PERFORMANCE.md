@@ -20,7 +20,7 @@
 
 1. **Restart Next.js Dev Server**
    ```bash
-   cd coralx-frontend
+   cd frontend
    npm run dev
    ```
 

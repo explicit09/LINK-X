@@ -82,10 +82,10 @@
 3. **Build Docker Images**
    ```bash
    # Development
-   docker build -f docker/Dockerfile.dev -t linkx:dev .
+   docker build -f docker/Dockerfile.dev -t learnx:dev .
    
    # Production
-   docker build -f docker/Dockerfile.multistage -t linkx:prod .
+   docker build -f docker/Dockerfile.multistage -t learnx:prod .
    ```
 
 4. **Run with Docker Compose**

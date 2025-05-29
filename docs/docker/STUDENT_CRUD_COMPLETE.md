@@ -48,7 +48,7 @@ Students now have **FULL CRUD (Create, Read, Update, Delete)** permissions for b
 
 ### Frontend Integration
 
-Updated `studentAPI` in `coralx-frontend/lib/api.ts`:
+Updated `studentAPI` in `frontend/lib/api.ts`:
 
 ```typescript
 // File operations - COMPLETE CRUD
