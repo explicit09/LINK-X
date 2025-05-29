@@ -1966,6 +1966,81 @@ def api_course_modules(course_id):
     finally:
         db.close()
 
+# Course modules with files endpoint
+@app.route('/api/v1/courses/<course_id>/moduleswithfiles', methods=['GET'])
+def api_course_modules_with_files(course_id):
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+    
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        # Check access
+        course = get_course_by_id(db, course_id)
+        if not course:
+            return jsonify({'error': 'Course not found'}), 404
+            
+        role = get_role_by_user_id(db, user.id)
+        if role.role_type == 'student':
+            enrollment = db.query(Enrollment).filter(
+                Enrollment.user_id == user.id,
+                Enrollment.course_id == course_id
+            ).first()
+            if not enrollment:
+                return jsonify({'error': 'Access denied'}), 403
+        elif role.role_type == 'instructor':
+            if str(course.instructor_id) != str(user.id):
+                return jsonify({'error': 'Access denied'}), 403
+                
+        modules = get_modules_by_course(db, course_id)
+        modules_with_files = []
+        
+        for module in modules:
+            files = get_files_by_module(db, module.id)
+            file_list = []
+            
+            for file in files:
+                # Check if user has personalized version
+                personalized = db.query(PersonalizedFile).filter(
+                    PersonalizedFile.user_id == user.id,
+                    PersonalizedFile.original_file_id == file.id
+                ).first()
+                
+                file_data = {
+                    'id': str(file.id),
+                    'title': file.title,
+                    'filename': file.filename,
+                    'file_type': file.file_type,
+                    'file_size': file.file_size,
+                    'created_at': file.created_at.isoformat() if file.created_at else None,
+                    's3_key': file.s3_key if hasattr(file, 's3_key') else None,
+                    'has_personalized': personalized is not None,
+                    'personalized_id': str(personalized.id) if personalized else None
+                }
+                file_list.append(file_data)
+            
+            modules_with_files.append({
+                'id': str(module.id),
+                'title': module.title,
+                'description': getattr(module, 'description', ''),
+                'course_id': str(module.course_id),
+                'ordering': module.ordering,
+                'files': file_list
+            })
+        
+        return jsonify(modules_with_files), 200
+        
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
 # Course files endpoint
 @app.route('/api/v1/courses/<course_id>/files', methods=['GET'])
 def api_course_files(course_id):
@@ -2092,6 +2167,93 @@ def api_course_stats(course_id):
                 'created_at': course.created_at.isoformat() if course.created_at else None,
                 'last_updated': course.last_updated.isoformat() if course.last_updated else None
             }), 200
+        
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Course progress endpoint
+@app.route('/api/v1/courses/<course_id>/progress', methods=['GET'])
+def api_course_progress(course_id):
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+    
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        # Check access
+        course = get_course_by_id(db, course_id)
+        if not course:
+            return jsonify({'error': 'Course not found'}), 404
+            
+        role = get_role_by_user_id(db, user.id)
+        if role.role_type == 'student':
+            enrollment = db.query(Enrollment).filter(
+                Enrollment.user_id == user.id,
+                Enrollment.course_id == course_id
+            ).first()
+            if not enrollment:
+                return jsonify({'error': 'Access denied'}), 403
+        elif role.role_type == 'instructor':
+            if str(course.instructor_id) != str(user.id):
+                return jsonify({'error': 'Access denied'}), 403
+                
+        # Get all modules and files
+        modules = get_modules_by_course(db, course_id)
+        total_files = 0
+        viewed_files = 0
+        
+        for module in modules:
+            files = get_files_by_module(db, module.id)
+            total_files += len(files)
+            
+            # Check viewed files (simplified - check if personalized file exists)
+            for file in files:
+                pf = db.query(PersonalizedFile).filter(
+                    PersonalizedFile.user_id == user.id,
+                    PersonalizedFile.original_file_id == file.id
+                ).first()
+                if pf:
+                    viewed_files += 1
+        
+        # Calculate progress
+        progress_percentage = round((viewed_files / total_files) * 100) if total_files > 0 else 0
+        
+        # Get personalized files count
+        personalized_files = db.query(PersonalizedFile).join(File).join(Module).filter(
+            Module.course_id == course_id,
+            PersonalizedFile.user_id == user.id
+        ).count()
+        
+        # Estimate study time (30 mins per personalized file)
+        study_time_minutes = personalized_files * 30
+        
+        # Get today's activity
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_files = db.query(PersonalizedFile).join(File).join(Module).filter(
+            Module.course_id == course_id,
+            PersonalizedFile.user_id == user.id,
+            PersonalizedFile.created_at >= today_start
+        ).count()
+        
+        today_time_minutes = today_files * 30
+        
+        return jsonify({
+            'totalMaterials': total_files,
+            'viewedMaterials': viewed_files,
+            'personalizedMaterials': personalized_files,
+            'progressPercentage': progress_percentage,
+            'todayTimeMinutes': min(today_time_minutes, 120),  # Cap at 2 hours
+            'weeklyTimeMinutes': min(study_time_minutes, 600),  # Cap at 10 hours
+            'aiInteractions': personalized_files
+        }), 200
         
     except Exception as e:
         db.rollback()
