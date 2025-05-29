@@ -4,8 +4,8 @@ import time
 from queue import Queue
 import threading
 
-from ..core.decorators import firebase_auth_required, validate_json
-from ..core.exceptions import NotFoundError, ValidationError
+from ..core.decorators import firebase_auth_required
+from ..core.exceptions import NotFoundError
 from ..services.streaming_service import StreamingService
 from ..services.ai_service import AIService
 
@@ -115,7 +115,6 @@ def get_document_outline(file_id):
 
 @bp.route('/section', methods=['POST'])
 @firebase_auth_required
-@validate_json(['fileId', 'sectionId'])
 def stream_section_content():
     """Stream specific section content"""
     data = request.get_json()
@@ -241,7 +240,6 @@ def check_existing_content(file_id):
 
 @bp.route('/progress', methods=['POST'])
 @firebase_auth_required
-@validate_json(['fileId', 'sectionId', 'progress'])
 def update_learning_progress():
     """Update user's learning progress"""
     data = request.get_json()

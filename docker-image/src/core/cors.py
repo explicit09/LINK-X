@@ -129,3 +129,21 @@ def cors_enabled(f):
         return response
     
     return decorated_function
+
+
+def configure_cors(app):
+    """
+    Configure CORS for the Flask application
+    """
+    from flask_cors import CORS
+    
+    # Get CORS options from config
+    cors_options = app.config.get('CORS_OPTIONS', {})
+    
+    # Initialize CORS with the app
+    CORS(app, **cors_options)
+    
+    # Also add our custom after_request handler
+    app.after_request(cors_after_request)
+    
+    logger.info("CORS configured with options: %s", cors_options)

@@ -15,9 +15,9 @@ from firebase_admin import auth as firebase_auth
 import redis
 from werkzeug.exceptions import Unauthorized, Forbidden
 
-from db.schema import User
-from core.cache import cache
-from core.exceptions import AuthenticationError, ValidationError
+from src.db.schema import User
+from src.core.cache import cache
+from src.core.exceptions import AuthenticationError, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -48,9 +48,11 @@ def auth_required(roles: Optional[List[str]] = None,
         refresh: If True, allows refresh tokens (v2 only)
         version_aware: If True, adapts behavior based on API version
     """
-    def decorator(f):
+    def auth_decorator(f):
+        print(f"auth_decorator wrapping function: {f.__name__}")
         @functools.wraps(f)
         def decorated_function(*args, **kwargs):
+            print(f"auth_decorator executing for: {f.__name__}")
             # Determine API version
             version = 'v1'
             if version_aware:
@@ -61,6 +63,10 @@ def auth_required(roles: Optional[List[str]] = None,
             g.current_user = None
             
             try:
+                logger.info(f"Auth check for {request.path}, version: {version}")
+                logger.info(f"Headers: {dict(request.headers)}")
+                logger.info(f"Cookies: {dict(request.cookies)}")
+                
                 # Try authentication methods in order
                 authenticated = False
                 
@@ -83,24 +89,36 @@ def auth_required(roles: Optional[List[str]] = None,
                         else:
                             # v1 simple JWT verification
                             token = auth_header[7:]
+                            logger.info(f"Attempting v1 JWT verification for endpoint: {request.endpoint}")
+                            # Direct JWT verification without flask-jwt-extended
                             user = _verify_v1_jwt(token)
                             if user:
                                 g.current_user = user
                                 authenticated = True
+                                logger.info(f"JWT auth successful for user: {user.id}")
+                            else:
+                                logger.warning("JWT verification returned no user")
                     except Exception as e:
-                        logger.debug(f"JWT auth failed: {e}")
+                        logger.error(f"JWT auth failed: {e}", exc_info=True)
                         
-                # Method 2: Session Cookie JWT (v1 compatibility)
+                # Method 2: Firebase Session Cookie (v1 compatibility)
                 if not authenticated and version == 'v1':
-                    jwt_cookie = request.cookies.get('jwt_token')
-                    if jwt_cookie:
+                    session_cookie = request.cookies.get('session')
+                    if session_cookie:
                         try:
-                            user = _verify_v1_jwt(jwt_cookie)
-                            if user:
-                                g.current_user = user
-                                authenticated = True
+                            # Verify Firebase session cookie
+                            decoded_claims = firebase_auth.verify_session_cookie(
+                                session_cookie, check_revoked=True
+                            )
+                            firebase_uid = decoded_claims.get('uid')
+                            if firebase_uid:
+                                user = _get_user_by_firebase_uid(firebase_uid)
+                                if user:
+                                    g.current_user = user
+                                    authenticated = True
+                                    logger.info(f"Session cookie auth successful for user: {user.email}")
                         except Exception as e:
-                            logger.debug(f"Cookie JWT auth failed: {e}")
+                            logger.info(f"Session cookie auth failed: {e}")
                             
                 # Method 3: Firebase Token (both versions)
                 if not authenticated:
@@ -112,7 +130,7 @@ def auth_required(roles: Optional[List[str]] = None,
                                 g.current_user = user
                                 authenticated = True
                         except Exception as e:
-                            logger.debug(f"Firebase auth failed: {e}")
+                            logger.info(f"Firebase auth failed: {e}")
                             
                 # Check if authentication is required
                 if not optional and not authenticated:
@@ -133,7 +151,7 @@ def auth_required(roles: Optional[List[str]] = None,
                 return jsonify({'error': 'Authentication failed'}), 401
                 
         return decorated_function
-    return decorator
+    return auth_decorator
 
 
 def rate_limit(max_requests: int = 60, window_seconds: int = 60, 
@@ -147,7 +165,7 @@ def rate_limit(max_requests: int = 60, window_seconds: int = 60,
         by_user: If True, rate limit by authenticated user
         by_ip: If True, rate limit by IP address
     """
-    def decorator(f):
+    def rate_limit_decorator(f):
         @functools.wraps(f)
         def decorated_function(*args, **kwargs):
             redis_client = get_redis_client()
@@ -191,7 +209,7 @@ def rate_limit(max_requests: int = 60, window_seconds: int = 60,
                 
             return f(*args, **kwargs)
         return decorated_function
-    return decorator
+    return rate_limit_decorator
 
 
 def cache_response(timeout: int = 300, key_prefix: Optional[str] = None,
@@ -204,7 +222,7 @@ def cache_response(timeout: int = 300, key_prefix: Optional[str] = None,
         key_prefix: Optional key prefix
         unless: Optional function to determine if response should be cached
     """
-    def decorator(f):
+    def cache_decorator(f):
         @functools.wraps(f)
         def decorated_function(*args, **kwargs):
             # Check if caching should be skipped
@@ -235,7 +253,7 @@ def cache_response(timeout: int = 300, key_prefix: Optional[str] = None,
                 
             return result
         return decorated_function
-    return decorator
+    return cache_decorator
 
 
 def validate_request(schema: dict):
@@ -245,7 +263,7 @@ def validate_request(schema: dict):
     Args:
         schema: JSON schema dict
     """
-    def decorator(f):
+    def validate_decorator(f):
         @functools.wraps(f)
         def decorated_function(*args, **kwargs):
             if not request.is_json:
@@ -269,41 +287,96 @@ def validate_request(schema: dict):
                         
             return f(*args, **kwargs)
         return decorated_function
-    return decorator
+    return validate_decorator
 
 
 # Helper functions
 
 def _get_user_by_id(user_id: str) -> Optional[User]:
     """Get user by ID from database"""
-    from repositories.user_repository import UserRepository
+    from src.core.database import db
+    from sqlalchemy.orm import joinedload
     
     try:
-        user_repo = UserRepository()
-        with user_repo.get_session() as session:
-            user = session.query(User).filter_by(user_id=user_id).first()
-            if user:
-                # Detach from session
-                session.expunge(user)
-            return user
+        logger.info(f"Looking up user by ID: {user_id}")
+        # Query directly using the current session
+        user = db.session.query(User).options(
+            joinedload(User.role),
+            joinedload(User.student_profile),
+            joinedload(User.instructor_profile)
+        ).filter_by(id=user_id).first()
+        
+        if user:
+            logger.info(f"User found: {user.email}, role: {user.role.role_type if user.role else 'no role'}")
+        else:
+            logger.warning(f"User not found in database for ID: {user_id}")
+        return user
     except Exception as e:
-        logger.error(f"Error getting user {user_id}: {e}")
+        logger.error(f"Error getting user {user_id}: {e}", exc_info=True)
         return None
 
 
 def _verify_v1_jwt(token: str) -> Optional[User]:
     """Verify v1 style JWT token"""
-    from flask_jwt_extended import decode_token
+    import jwt
+    from flask import current_app
     
     try:
-        # Decode token
-        decoded = decode_token(token)
-        user_id = decoded.get('sub') or decoded.get('identity')
+        logger.info(f"Decoding JWT token: {token[:20]}...")
         
-        if user_id:
-            return _get_user_by_id(user_id)
+        # First, decode without verification to see the header
+        try:
+            unverified = jwt.decode(token, options={"verify_signature": False})
+            header = jwt.get_unverified_header(token)
+            logger.info(f"JWT header: {header}")
+            logger.info(f"JWT payload (unverified): {unverified}")
+        except Exception as e:
+            logger.info(f"Could not decode unverified JWT: {e}")
+        
+        # Get JWT secret from app config
+        secret = current_app.config.get('JWT_SECRET_KEY') or current_app.config.get('SECRET_KEY')
+        if not secret:
+            logger.error("No JWT secret key configured")
+            return None
+            
+        # Try different algorithms based on what we see in the header
+        algorithms_to_try = ['HS256', 'RS256', 'ES256']
+        
+        for alg in algorithms_to_try:
+            try:
+                logger.info(f"Trying algorithm: {alg}")
+                decoded = jwt.decode(
+                    token, 
+                    secret, 
+                    algorithms=[alg],
+                    options={'verify_exp': True}
+                )
+                logger.info(f"Successfully decoded with {alg}: {decoded}")
+                
+                user_id = decoded.get('sub') or decoded.get('identity')
+                logger.info(f"Extracted user_id: {user_id}")
+                
+                if user_id:
+                    user = _get_user_by_id(user_id)
+                    if user:
+                        logger.info(f"Found user: {user.id}, email: {user.email}")
+                    else:
+                        logger.warning(f"No user found for id: {user_id}")
+                    return user
+                break
+            except jwt.InvalidSignatureError:
+                logger.info(f"Invalid signature with algorithm {alg}")
+                continue
+            except Exception as e:
+                logger.info(f"Failed with algorithm {alg}: {e}")
+                continue
+                
+    except jwt.ExpiredSignatureError:
+        logger.warning("JWT token has expired")
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Invalid JWT token: {e}")
     except Exception as e:
-        logger.debug(f"v1 JWT verification failed: {e}")
+        logger.error(f"v1 JWT verification failed: {e}", exc_info=True)
         
     return None
 
@@ -314,21 +387,48 @@ def _verify_firebase_token(token: str) -> Optional[User]:
         decoded_token = firebase_auth.verify_id_token(token)
         firebase_uid = decoded_token['uid']
         
-        from repositories.user_repository import UserRepository
-        user_repo = UserRepository()
-        
-        with user_repo.get_session() as session:
-            user = session.query(User).filter_by(firebase_uid=firebase_uid).first()
-            if user:
-                session.expunge(user)
-            return user
+        return _get_user_by_firebase_uid(firebase_uid)
             
     except Exception as e:
         logger.debug(f"Firebase token verification failed: {e}")
         return None
 
 
+def _get_user_by_firebase_uid(firebase_uid: str) -> Optional[User]:
+    """Get user by Firebase UID from database"""
+    from src.core.database import db
+    from sqlalchemy.orm import joinedload
+    
+    try:
+        logger.info(f"Looking up user by Firebase UID: {firebase_uid}")
+        # Query directly using the current session
+        user = db.session.query(User).options(
+            joinedload(User.role),
+            joinedload(User.student_profile),
+            joinedload(User.instructor_profile)
+        ).filter_by(firebase_uid=firebase_uid).first()
+        
+        if user:
+            logger.info(f"User found: {user.email}, role: {user.role.role_type if user.role else 'no role'}")
+        else:
+            logger.warning(f"User not found in database for Firebase UID: {firebase_uid}")
+        return user
+    except Exception as e:
+        logger.error(f"Error getting user by Firebase UID {firebase_uid}: {e}", exc_info=True)
+        return None
+
+
 # Backward compatibility aliases
-firebase_auth_required = functools.partial(auth_required, version_aware=False)
-jwt_required_v1 = functools.partial(auth_required, version_aware=False)
-jwt_required_v2 = functools.partial(auth_required, version_aware=True)
+# Create proper decorators instead of partials to avoid Flask endpoint naming issues
+def firebase_auth_required(f):
+    """Firebase authentication required decorator"""
+    print(f"firebase_auth_required called for function: {f.__name__}")
+    return auth_required(version_aware=False)(f)
+
+def jwt_required_v1(f):
+    """JWT v1 authentication required decorator"""
+    return auth_required(version_aware=False)(f)
+
+def jwt_required_v2(f):
+    """JWT v2 authentication required decorator"""
+    return auth_required(version_aware=True)(f)

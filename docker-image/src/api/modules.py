@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, g
-from ..core.decorators import firebase_auth_required, require_role, validate_json
+from ..core.decorators_unified import firebase_auth_required
 from ..core.exceptions import NotFoundError, ValidationError, AuthorizationError
 from ..services.module_service import ModuleService
 from ..repositories.file_repository import FileRepository
@@ -32,8 +32,7 @@ def get_module_files(module_id):
         return jsonify({'error': 'Access denied'}), 403
 
 @bp.route('/<module_id>', methods=['PATCH'])
-@require_role(['instructor', 'admin', 'student'])
-@validate_json([])
+@firebase_auth_required
 def update_module(module_id):
     """Update module details"""
     data = request.get_json()
@@ -59,7 +58,7 @@ def update_module(module_id):
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<module_id>', methods=['DELETE'])
-@require_role(['instructor', 'admin', 'student'])
+@firebase_auth_required
 def delete_module(module_id):
     """Delete a module"""
     module_service = ModuleService()

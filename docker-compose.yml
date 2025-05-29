@@ -12,8 +12,8 @@ services:
   backend:
     build:
       context: ./docker-image
-      dockerfile: docker/Dockerfile
-    image: dev7
+      dockerfile: docker/Dockerfile.dev
+    image: linkx-backend:dev
     container_name: backend
     env_file:
       - ./docker-image/.env
@@ -30,9 +30,12 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - POSTGRES_URL=postgresql://neondb_owner:npg_2ZO0npmbLIPU@ep-withered-hill-a5u0pgp4-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - JWT_SECRET_KEY=dev-jwt-secret-key-change-in-production
+      - FLASK_ENV=development
     depends_on:
       - redis
-    command: ["bash", "-c", "cd /app/src && FLASK_APP=app.py FLASK_ENV=development flask run --host=0.0.0.0 --port=8080"]
+    command: ["/app/docker/entrypoint.sh"]
 
   celery-worker:
     build:

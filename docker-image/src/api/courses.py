@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, g
-from ..core.decorators import firebase_auth_required, require_role, validate_json, paginate
+from ..core.decorators_unified import firebase_auth_required
 from ..core.exceptions import NotFoundError, ValidationError, AuthorizationError
 from ..services.course_service import CourseService
 from ..repositories.course_repository import CourseRepository
@@ -8,30 +8,33 @@ bp = Blueprint('courses', __name__)
 
 @bp.route('', methods=['GET'])
 @firebase_auth_required
-@paginate()
 def list_courses():
     """List courses based on user role"""
     user = g.current_user
     course_service = CourseService()
+    
+    # Handle pagination manually
+    page = int(request.args.get('page', 1))
+    limit = int(request.args.get('limit', 20))
     
     role_value = user.role.role_type if user.role else 'student'
     
     if role_value == 'student':
         courses = course_service.get_student_courses(
             student_id=user.id,
-            page=g.pagination['page'],
-            limit=g.pagination['limit']
+            page=page,
+            limit=limit
         )
     elif role_value == 'instructor':
         courses = course_service.get_instructor_courses(
             instructor_id=user.id,
-            page=g.pagination['page'],
-            limit=g.pagination['limit']
+            page=page,
+            limit=limit
         )
     else:
         courses = course_service.get_all_courses(
-            page=g.pagination['page'],
-            limit=g.pagination['limit']
+            page=page,
+            limit=limit
         )
     
     # Convert courses to dict format if they have to_dict method
@@ -56,7 +59,11 @@ def list_courses():
     
     return jsonify({
         'courses': courses_data,
-        'pagination': g.pagination
+        'pagination': {
+            'page': page,
+            'limit': limit,
+            'total': len(courses_data)
+        }
     }), 200
 
 @bp.route('/<course_id>', methods=['GET'])
@@ -81,11 +88,25 @@ def get_course(course_id):
         return jsonify({'error': 'Access denied'}), 403
 
 @bp.route('', methods=['POST'])
-@require_role(['instructor', 'admin', 'student'])
-@validate_json(['title', 'description'])
+@firebase_auth_required
 def create_course():
     """Create a new course"""
+    # Check role
+    user = g.current_user
+    role_value = user.role.role_type if user.role else 'student'
+    if role_value not in ['instructor', 'admin', 'student']:
+        return jsonify({'error': 'Insufficient permissions'}), 403
+    
+    # Validate JSON
     data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    required_fields = ['title', 'description']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({'error': f'Missing required field: {field}'}), 400
+    
     course_service = CourseService()
     
     try:
@@ -106,11 +127,19 @@ def create_course():
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<course_id>', methods=['PUT', 'PATCH'])
-@require_role(['instructor', 'admin', 'student'])
-@validate_json([])
+@firebase_auth_required
 def update_course(course_id):
     """Update course details"""
+    # Check role
+    user = g.current_user
+    role_value = user.role.role_type if user.role else 'student'
+    if role_value not in ['instructor', 'admin', 'student']:
+        return jsonify({'error': 'Insufficient permissions'}), 403
+    
     data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
     course_service = CourseService()
     
     try:
@@ -133,9 +162,15 @@ def update_course(course_id):
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<course_id>', methods=['DELETE'])
-@require_role(['instructor', 'admin', 'student'])
+@firebase_auth_required
 def delete_course(course_id):
     """Delete a course"""
+    # Check role
+    user = g.current_user
+    role_value = user.role.role_type if user.role else 'student'
+    if role_value not in ['instructor', 'admin', 'student']:
+        return jsonify({'error': 'Insufficient permissions'}), 403
+    
     course_service = CourseService()
     
     try:
@@ -154,9 +189,15 @@ def delete_course(course_id):
         return jsonify({'error': 'Not authorized to delete this course'}), 403
 
 @bp.route('/<course_id>/publish', methods=['POST'])
-@require_role(['instructor', 'admin', 'student'])
+@firebase_auth_required
 def publish_course(course_id):
     """Publish a course"""
+    # Check role
+    user = g.current_user
+    role_value = user.role.role_type if user.role else 'student'
+    if role_value not in ['instructor', 'admin', 'student']:
+        return jsonify({'error': 'Insufficient permissions'}), 403
+    
     course_service = CourseService()
     
     try:
@@ -205,11 +246,23 @@ def get_course_modules(course_id):
         return jsonify({'error': 'Access denied'}), 403
 
 @bp.route('/<course_id>/modules', methods=['POST'])
-@require_role(['instructor', 'admin', 'student'])
-@validate_json(['title'])
+@firebase_auth_required
 def create_module(course_id):
     """Create a new module in a course"""
+    # Check role
+    user = g.current_user
+    role_value = user.role.role_type if user.role else 'student'
+    if role_value not in ['instructor', 'admin', 'student']:
+        return jsonify({'error': 'Insufficient permissions'}), 403
+    
+    # Validate JSON
     data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    if 'title' not in data:
+        return jsonify({'error': 'Missing required field: title'}), 400
+    
     course_service = CourseService()
     
     try:
@@ -234,11 +287,23 @@ def create_module(course_id):
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<course_id>/enroll', methods=['POST'])
-@require_role('student')
-@validate_json(['accessCode'])
+@firebase_auth_required
 def enroll_in_course(course_id):
     """Enroll in a course using access code"""
+    # Check role
+    user = g.current_user
+    role_value = user.role.role_type if user.role else 'student'
+    if role_value != 'student':
+        return jsonify({'error': 'Only students can enroll in courses'}), 403
+    
+    # Validate JSON
     data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    if 'accessCode' not in data:
+        return jsonify({'error': 'Missing required field: accessCode'}), 400
+    
     course_service = CourseService()
     
     try:
@@ -259,9 +324,15 @@ def enroll_in_course(course_id):
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<course_id>/stats', methods=['GET'])
-@require_role(['instructor', 'admin'])
+@firebase_auth_required
 def get_course_stats(course_id):
     """Get course statistics"""
+    # Check role
+    user = g.current_user
+    role_value = user.role.role_type if user.role else 'student'
+    if role_value not in ['instructor', 'admin']:
+        return jsonify({'error': 'Insufficient permissions'}), 403
+    
     course_service = CourseService()
     
     try:

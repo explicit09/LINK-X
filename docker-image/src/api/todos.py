@@ -2,172 +2,242 @@ from flask import Blueprint, request, jsonify, g
 from datetime import datetime
 from sqlalchemy import desc
 import uuid
-import json
 
-from ..core.decorators import firebase_auth_required, validate_json
-from ..core.exceptions import NotFoundError, ValidationError
-from ..repositories.todo_repository import TodoRepository
+from src.core.decorators_unified import firebase_auth_required
+from src.core.database import db
+from src.db.schema import Todo
+from src.repositories.todo_repository import TodoRepository
+from src.repositories.course_repository import CourseRepository
 
-bp = Blueprint('todos', __name__)
+todos_bp = Blueprint('todos', __name__)
 
-@bp.route('', methods=['GET'])
+@todos_bp.route('', methods=['GET'])
 @firebase_auth_required
-def get_todos():
+def list_todos():
     """Get all todos for the current user"""
-    user = g.current_user
-    user_id = str(user.id)
-    
-    # Get query parameters
-    completed = request.args.get('completed')
-    if completed is not None:
-        completed = completed.lower() == 'true'
-    
-    # Get todos from database
     todo_repo = TodoRepository()
-    todos = todo_repo.get_by_user(user_id, completed)
+    todos = todo_repo.get_by_user(g.current_user.id)
     
-    # Convert to dict format
-    todos_data = []
-    for todo in todos:
-        todos_data.append({
-            'id': str(todo.id),
-            'title': todo.title,
-            'course': todo.course,
-            'type': todo.type,
-            'priority': todo.priority,
-            'dueDate': todo.due_date.isoformat() if todo.due_date else None,
-            'completed': todo.completed,
-            'createdAt': todo.created_at.isoformat()
+    # Transform todos to match frontend expectations
+    todo_items = []
+    for t in todos:
+        # Get course name if course_id exists
+        course_name = "General"
+        if t.course_id:
+            course_repo = CourseRepository()
+            course = course_repo.get_by_id(t.course_id)
+            if course:
+                course_name = course.title
+        
+        # Determine type based on title or description
+        todo_type = "assignment"  # default
+        title_lower = t.title.lower()
+        if "quiz" in title_lower:
+            todo_type = "quiz"
+        elif "read" in title_lower:
+            todo_type = "reading"
+        elif "review" in title_lower:
+            todo_type = "review"
+        
+        # Determine priority based on due date
+        priority = "medium"  # default
+        if t.due_date:
+            days_until_due = (t.due_date - datetime.now()).days
+            if days_until_due <= 1:
+                priority = "high"
+            elif days_until_due >= 7:
+                priority = "low"
+        
+        todo_items.append({
+            'id': str(t.id),
+            'title': t.title,
+            'course': course_name,
+            'dueDate': t.due_date.isoformat() if t.due_date else None,
+            'type': todo_type,
+            'priority': priority,
+            'completed': t.completed,
+            'description': t.description,
+            'course_id': str(t.course_id) if t.course_id else None,
+            'created_at': t.created_at.isoformat() if t.created_at else None
         })
     
-    return jsonify(todos_data), 200
+    return jsonify(todo_items), 200
 
-@bp.route('', methods=['POST'])
+@todos_bp.route('', methods=['POST'])
 @firebase_auth_required
-@validate_json(['title', 'type', 'priority'])
 def create_todo():
-    """Create a new todo item"""
-    user = g.current_user
-    user_id = str(user.id)
-    data = request.get_json()
+    """Create a new todo"""
+    data = request.get_json() or {}
+    title = data.get('title')
+    if not title:
+        return jsonify({'error': 'Title is required'}), 400
     
-    # Validate input
-    if data['type'] not in ['quiz', 'assignment', 'reading', 'review']:
-        return jsonify({'error': 'Invalid todo type'}), 400
-    
-    if data['priority'] not in ['high', 'medium', 'low']:
-        return jsonify({'error': 'Invalid priority'}), 400
-    
-    # Parse due date if provided
-    due_date = None
-    if 'dueDate' in data and data['dueDate']:
-        try:
-            due_date = datetime.fromisoformat(data['dueDate'].replace('Z', '+00:00'))
-        except:
-            pass
-    
-    # Create todo in database
     todo_repo = TodoRepository()
-    todo = todo_repo.create_todo(
-        user_id=user_id,
-        title=data['title'],
-        course=data.get('course', 'General'),
-        type=data['type'],
-        priority=data['priority'],
-        due_date=due_date
+    todo = todo_repo.create(
+        user_id=g.current_user.id,
+        title=title,
+        description=data.get('description', ''),
+        due_date=data.get('due_date'),
+        course_id=data.get('course_id')
     )
     
-    # Return created todo
+    # Get course name if course_id exists
+    course_name = "General"
+    if todo.course_id:
+        course_repo = CourseRepository()
+        course = course_repo.get_by_id(todo.course_id)
+        if course:
+            course_name = course.title
+    
+    # Determine type and priority
+    todo_type = "assignment"
+    title_lower = todo.title.lower()
+    if "quiz" in title_lower:
+        todo_type = "quiz"
+    elif "read" in title_lower:
+        todo_type = "reading"
+    elif "review" in title_lower:
+        todo_type = "review"
+    
+    priority = "medium"
+    if todo.due_date:
+        days_until_due = (todo.due_date - datetime.now()).days
+        if days_until_due <= 1:
+            priority = "high"
+        elif days_until_due >= 7:
+            priority = "low"
+    
     return jsonify({
         'id': str(todo.id),
         'title': todo.title,
-        'course': todo.course,
-        'type': todo.type,
-        'priority': todo.priority,
+        'course': course_name,
         'dueDate': todo.due_date.isoformat() if todo.due_date else None,
+        'type': todo_type,
+        'priority': priority,
         'completed': todo.completed,
-        'createdAt': todo.created_at.isoformat()
+        'description': todo.description,
+        'course_id': str(todo.course_id) if todo.course_id else None,
+        'created_at': todo.created_at.isoformat() if todo.created_at else None
     }), 201
 
-@bp.route('/<todo_id>', methods=['PATCH'])
+@todos_bp.route('/<todo_id>', methods=['GET'])
 @firebase_auth_required
-def update_todo(todo_id):
-    """Update a todo item"""
-    user = g.current_user
-    user_id = str(user.id)
-    data = request.get_json()
-    
-    # Parse due date if provided
-    if 'dueDate' in data and data['dueDate']:
-        try:
-            data['due_date'] = datetime.fromisoformat(data['dueDate'].replace('Z', '+00:00'))
-            del data['dueDate']
-        except:
-            pass
-    
-    # Update todo in database
+def get_todo(todo_id):
+    """Get a specific todo"""
     todo_repo = TodoRepository()
-    todo = todo_repo.update_todo(todo_id, user_id, **data)
+    todo = todo_repo.get_by_id(todo_id)
     
-    if not todo:
+    if not todo or str(todo.user_id) != str(g.current_user.id):
         return jsonify({'error': 'Todo not found'}), 404
+    
+    # Get course name if course_id exists
+    course_name = "General"
+    if todo.course_id:
+        course_repo = CourseRepository()
+        course = course_repo.get_by_id(todo.course_id)
+        if course:
+            course_name = course.title
+    
+    # Determine type and priority
+    todo_type = "assignment"
+    title_lower = todo.title.lower()
+    if "quiz" in title_lower:
+        todo_type = "quiz"
+    elif "read" in title_lower:
+        todo_type = "reading"
+    elif "review" in title_lower:
+        todo_type = "review"
+    
+    priority = "medium"
+    if todo.due_date:
+        days_until_due = (todo.due_date - datetime.now()).days
+        if days_until_due <= 1:
+            priority = "high"
+        elif days_until_due >= 7:
+            priority = "low"
     
     return jsonify({
-        'message': 'Todo updated successfully',
-        'todo': {
-            'id': str(todo.id),
-            'title': todo.title,
-            'course': todo.course,
-            'type': todo.type,
-            'priority': todo.priority,
-            'dueDate': todo.due_date.isoformat() if todo.due_date else None,
-            'completed': todo.completed,
-            'createdAt': todo.created_at.isoformat()
-        }
+        'id': str(todo.id),
+        'title': todo.title,
+        'course': course_name,
+        'dueDate': todo.due_date.isoformat() if todo.due_date else None,
+        'type': todo_type,
+        'priority': priority,
+        'completed': todo.completed,
+        'description': todo.description,
+        'course_id': str(todo.course_id) if todo.course_id else None,
+        'created_at': todo.created_at.isoformat() if todo.created_at else None
     }), 200
 
-@bp.route('/<todo_id>', methods=['DELETE'])
+@todos_bp.route('/<todo_id>', methods=['PATCH'])
+@firebase_auth_required
+def update_todo(todo_id):
+    """Update a todo"""
+    data = request.get_json() or {}
+    
+    todo_repo = TodoRepository()
+    todo = todo_repo.get_by_id(todo_id)
+    
+    if not todo or str(todo.user_id) != str(g.current_user.id):
+        return jsonify({'error': 'Todo not found'}), 404
+    
+    # Update fields
+    allowed_fields = ['title', 'description', 'due_date', 'completed', 'course_id']
+    update_data = {k: v for k, v in data.items() if k in allowed_fields}
+    
+    if not update_data:
+        return jsonify({'error': 'No valid fields to update'}), 400
+    
+    updated_todo = todo_repo.update(todo_id, **update_data)
+    
+    # Get course name if course_id exists
+    course_name = "General"
+    if updated_todo.course_id:
+        course_repo = CourseRepository()
+        course = course_repo.get_by_id(updated_todo.course_id)
+        if course:
+            course_name = course.title
+    
+    # Determine type and priority
+    todo_type = "assignment"
+    title_lower = updated_todo.title.lower()
+    if "quiz" in title_lower:
+        todo_type = "quiz"
+    elif "read" in title_lower:
+        todo_type = "reading"
+    elif "review" in title_lower:
+        todo_type = "review"
+    
+    priority = "medium"
+    if updated_todo.due_date:
+        days_until_due = (updated_todo.due_date - datetime.now()).days
+        if days_until_due <= 1:
+            priority = "high"
+        elif days_until_due >= 7:
+            priority = "low"
+    
+    return jsonify({
+        'id': str(updated_todo.id),
+        'title': updated_todo.title,
+        'course': course_name,
+        'dueDate': updated_todo.due_date.isoformat() if updated_todo.due_date else None,
+        'type': todo_type,
+        'priority': priority,
+        'completed': updated_todo.completed,
+        'description': updated_todo.description,
+        'course_id': str(updated_todo.course_id) if updated_todo.course_id else None,
+        'created_at': updated_todo.created_at.isoformat() if updated_todo.created_at else None
+    }), 200
+
+@todos_bp.route('/<todo_id>', methods=['DELETE'])
 @firebase_auth_required
 def delete_todo(todo_id):
-    """Delete a todo item"""
-    user = g.current_user
-    user_id = str(user.id)
-    
-    # Delete from database
+    """Delete a todo"""
     todo_repo = TodoRepository()
-    success = todo_repo.delete_todo(todo_id, user_id)
+    todo = todo_repo.get_by_id(todo_id)
     
-    if not success:
+    if not todo or str(todo.user_id) != str(g.current_user.id):
         return jsonify({'error': 'Todo not found'}), 404
     
+    todo_repo.delete(todo_id)
     return jsonify({'message': 'Todo deleted successfully'}), 200
-
-@bp.route('/<todo_id>/complete', methods=['POST'])
-@firebase_auth_required
-def complete_todo(todo_id):
-    """Mark a todo as completed"""
-    user = g.current_user
-    user_id = str(user.id)
-    
-    todo_repo = TodoRepository()
-    todo = todo_repo.mark_completed(todo_id, user_id)
-    
-    if not todo:
-        return jsonify({'error': 'Todo not found'}), 404
-    
-    return jsonify({'message': 'Todo marked as completed'}), 200
-
-@bp.route('/<todo_id>/incomplete', methods=['POST'])
-@firebase_auth_required
-def incomplete_todo(todo_id):
-    """Mark a todo as incomplete"""
-    user = g.current_user
-    user_id = str(user.id)
-    
-    todo_repo = TodoRepository()
-    todo = todo_repo.mark_incomplete(todo_id, user_id)
-    
-    if not todo:
-        return jsonify({'error': 'Todo not found'}), 404
-    
-    return jsonify({'message': 'Todo marked as incomplete'}), 200

@@ -5,6 +5,8 @@ import json
 import re
 import time
 from queue import Queue
+import numpy as np
+from sqlalchemy import text
 
 from ..config import Config
 from ..core.cache import cache
@@ -508,3 +510,78 @@ This section builds upon previous concepts while introducing new ideas that alig
             return response.data[0].embedding
         except Exception as e:
             raise ExternalServiceError(f"Failed to generate embeddings: {str(e)}")
+
+
+# Standalone function for backward compatibility
+def retrieve_chunks_pgvector(db_session, query_embedding, course_id=None, file_id=None, limit=15, similarity_threshold=0.3):
+    """
+    Retrieve relevant chunks using pgvector with proper CTE optimization.
+    
+    Args:
+        db_session: SQLAlchemy session
+        query_embedding: Query embedding vector
+        course_id: Optional course ID filter
+        file_id: Optional file ID filter
+        limit: Number of results to return
+        similarity_threshold: Minimum similarity score
+    
+    Returns:
+        List of chunk dictionaries
+    """
+    # Convert numpy array to list for PostgreSQL
+    if isinstance(query_embedding, np.ndarray):
+        query_embedding = query_embedding.tolist()
+    
+    # Build query with CTE for optimization
+    query = """
+    WITH q AS (SELECT :query_vec::vector AS v)
+    SELECT 
+        fc.content,
+        fc.chunk_index,
+        fc.chunk_metadata,
+        f.title as file_title,
+        f.filename,
+        m.title as module_title,
+        1 - (fc.embedding <=> q.v) AS similarity
+    FROM q
+    JOIN "FileChunk" fc ON TRUE
+    JOIN "File" f ON fc.file_id = f.id
+    JOIN "Module" m ON f.module_id = m.id
+    WHERE 1=1
+    """
+    
+    params = {"query_vec": query_embedding}
+    
+    if course_id:
+        query += " AND fc.course_id = :course_id"
+        params["course_id"] = course_id
+        
+    if file_id:
+        query += " AND fc.file_id = :file_id"
+        params["file_id"] = file_id
+        
+    query += """
+    AND 1 - (fc.embedding <=> q.v) > :similarity_threshold
+    ORDER BY fc.embedding <=> q.v
+    LIMIT :limit
+    """
+    
+    params["similarity_threshold"] = similarity_threshold
+    params["limit"] = limit
+    
+    result = db_session.execute(text(query), params)
+    
+    chunks = []
+    for row in result:
+        chunk_data = {
+            "content": row.content,
+            "chunk_index": row.chunk_index,
+            "metadata": row.chunk_metadata or {},
+            "file_title": row.file_title,
+            "filename": row.filename,
+            "module_title": row.module_title,
+            "similarity": row.similarity
+        }
+        chunks.append(chunk_data)
+    
+    return chunks

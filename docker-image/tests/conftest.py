@@ -54,7 +54,11 @@ fauth.verify_session_cookie = lambda cookie, check_revoked=True: {
 }
 
 # ─── 6) Import your real Flask app & metadata ──────────────────────────
-from src.app import app, Base, engine
+from src.app_refactored import create_app
+from src.db.schema import Base
+from src.core.database import engine
+
+app = create_app()
 
 # ─── 7) Enable TESTING in Flask ───────────────────────────────────────
 app.config["TESTING"] = True

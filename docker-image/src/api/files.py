@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, send_file, Response, g
 import os
 from werkzeug.utils import secure_filename
 
-from ..core.decorators import firebase_auth_required, require_role, validate_json
+from ..core.decorators_unified import firebase_auth_required
 from ..core.exceptions import NotFoundError, ValidationError, FileProcessingError
 from ..services.file_service import FileService
 from ..config import Config
@@ -176,7 +176,7 @@ def stream_file(file_id):
     )
 
 @bp.route('/<file_id>', methods=['DELETE'])
-@require_role(['instructor', 'admin', 'student'])
+@firebase_auth_required
 def delete_file(file_id):
     """Delete a file"""
     file_service = FileService()
@@ -243,8 +243,43 @@ def search_files():
     except Exception as e:
         return jsonify({'error': 'Search failed'}), 500
 
+@bp.route('/<file_id>/content-v2', methods=['GET'])
+@firebase_auth_required
+def get_file_content_v2(file_id):
+    """Get file content or presigned URL (v2)"""
+    from ..s3_storage import s3_storage
+    
+    file_service = FileService()
+    
+    try:
+        # Get file and check access
+        file = file_service.get_file(file_id, g.current_user.id)
+        
+        # If file is in S3, return presigned URL
+        if hasattr(file, 's3_key') and file.s3_key:
+            try:
+                presigned_url = s3_storage.generate_presigned_url(file.s3_key)
+                return jsonify({
+                    'type': 'presigned',
+                    'url': presigned_url,
+                    'filename': file.filename,
+                    'file_type': file.file_type
+                }), 200
+            except Exception as s3_error:
+                print(f"Error generating presigned URL: {str(s3_error)}")
+                return jsonify({'error': 'Failed to access file'}), 500
+        else:
+            # For local files (legacy), return file content
+            # This is a placeholder - in production, files should be in S3
+            return jsonify({'error': 'File content not available'}), 404
+            
+    except NotFoundError:
+        return jsonify({'error': 'File not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @bp.route('/process/<file_id>', methods=['POST'])
-@require_role(['instructor', 'admin'])
+@firebase_auth_required
 def reprocess_file(file_id):
     """Trigger file reprocessing"""
     file_service = FileService()

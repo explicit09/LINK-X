@@ -1,31 +1,34 @@
-from flask import Blueprint, request, jsonify, g
-from ..core.decorators import require_role, validate_json, paginate
+from flask import Blueprint, request, jsonify
+from ..core.decorators import firebase_auth_required
 from ..core.exceptions import NotFoundError, ValidationError
 from ..services.admin_service import AdminService
 
 bp = Blueprint('admin', __name__)
 
 @bp.route('/users', methods=['GET'])
-@require_role('admin')
-@paginate()
+@firebase_auth_required
 def list_users():
     """List all users"""
     admin_service = AdminService()
     
+    # Get pagination from query params
+    page = int(request.args.get('page', 1))
+    limit = int(request.args.get('limit', 20))
+    
     users = admin_service.get_users(
-        page=g.pagination['page'],
-        limit=g.pagination['limit'],
+        page=page,
+        limit=limit,
         role_filter=request.args.get('role'),
         search=request.args.get('search')
     )
     
     return jsonify({
         'users': [u.to_dict() for u in users],
-        'pagination': g.pagination
+        'pagination': {'page': page, 'limit': limit}
     }), 200
 
 @bp.route('/users/<user_id>', methods=['GET'])
-@require_role('admin')
+@firebase_auth_required
 def get_user(user_id):
     """Get user details"""
     admin_service = AdminService()
@@ -39,8 +42,7 @@ def get_user(user_id):
         return jsonify({'error': 'User not found'}), 404
 
 @bp.route('/users/<user_id>', methods=['PUT'])
-@require_role('admin')
-@validate_json([])
+@firebase_auth_required
 def update_user(user_id):
     """Update user details"""
     data = request.get_json()
@@ -58,7 +60,7 @@ def update_user(user_id):
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/users/<user_id>/suspend', methods=['POST'])
-@require_role('admin')
+@firebase_auth_required
 def suspend_user(user_id):
     """Suspend a user account"""
     admin_service = AdminService()
@@ -72,7 +74,7 @@ def suspend_user(user_id):
         return jsonify({'error': 'User not found'}), 404
 
 @bp.route('/users/<user_id>/activate', methods=['POST'])
-@require_role('admin')
+@firebase_auth_required
 def activate_user(user_id):
     """Activate a suspended user account"""
     admin_service = AdminService()
@@ -86,26 +88,29 @@ def activate_user(user_id):
         return jsonify({'error': 'User not found'}), 404
 
 @bp.route('/courses', methods=['GET'])
-@require_role('admin')
-@paginate()
+@firebase_auth_required
 def list_all_courses():
     """List all courses in the system"""
     admin_service = AdminService()
     
+    # Get pagination from query params
+    page = int(request.args.get('page', 1))
+    limit = int(request.args.get('limit', 20))
+    
     courses = admin_service.get_all_courses(
-        page=g.pagination['page'],
-        limit=g.pagination['limit'],
+        page=page,
+        limit=limit,
         status=request.args.get('status'),
         instructor_id=request.args.get('instructorId')
     )
     
     return jsonify({
         'courses': [c.to_dict() for c in courses],
-        'pagination': g.pagination
+        'pagination': {'page': page, 'limit': limit}
     }), 200
 
 @bp.route('/courses/<course_id>/approve', methods=['POST'])
-@require_role('admin')
+@firebase_auth_required
 def approve_course(course_id):
     """Approve a course for publishing"""
     admin_service = AdminService()
@@ -120,8 +125,7 @@ def approve_course(course_id):
         return jsonify({'error': 'Course not found'}), 404
 
 @bp.route('/courses/<course_id>/reject', methods=['POST'])
-@require_role('admin')
-@validate_json(['reason'])
+@firebase_auth_required
 def reject_course(course_id):
     """Reject a course"""
     data = request.get_json()
@@ -136,7 +140,7 @@ def reject_course(course_id):
         return jsonify({'error': 'Course not found'}), 404
 
 @bp.route('/stats', methods=['GET'])
-@require_role('admin')
+@firebase_auth_required
 def get_platform_stats():
     """Get platform-wide statistics"""
     admin_service = AdminService()
@@ -147,7 +151,7 @@ def get_platform_stats():
     }), 200
 
 @bp.route('/reports', methods=['GET'])
-@require_role('admin')
+@firebase_auth_required
 def get_reports():
     """Get system reports"""
     report_type = request.args.get('type', 'usage')
@@ -169,7 +173,7 @@ def get_reports():
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/settings', methods=['GET'])
-@require_role('admin')
+@firebase_auth_required
 def get_system_settings():
     """Get system settings"""
     admin_service = AdminService()
@@ -180,8 +184,7 @@ def get_system_settings():
     }), 200
 
 @bp.route('/settings', methods=['PUT'])
-@require_role('admin')
-@validate_json([])
+@firebase_auth_required
 def update_system_settings():
     """Update system settings"""
     data = request.get_json()
@@ -197,7 +200,7 @@ def update_system_settings():
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/maintenance/cleanup', methods=['POST'])
-@require_role('admin')
+@firebase_auth_required
 def run_cleanup():
     """Run system cleanup tasks"""
     admin_service = AdminService()
@@ -209,7 +212,7 @@ def run_cleanup():
     }), 200
 
 @bp.route('/maintenance/reindex', methods=['POST'])
-@require_role('admin')
+@firebase_auth_required
 def reindex_content():
     """Trigger content reindexing"""
     admin_service = AdminService()

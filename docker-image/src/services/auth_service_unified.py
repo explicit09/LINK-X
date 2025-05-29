@@ -13,13 +13,12 @@ import secrets
 from flask import current_app
 from flask_jwt_extended import create_access_token, create_refresh_token, decode_token
 from firebase_admin import auth as firebase_auth
-from sqlalchemy.orm import Session
 import redis
 
-from db.schema import User, Role
-from repositories.user_repository import UserRepository
-from core.exceptions import AuthenticationError, ValidationError, NotFoundError
-from core.cache import cache
+from src.db.schema import User
+from src.repositories.user_repository import UserRepository
+from src.core.exceptions import AuthenticationError, ValidationError, NotFoundError
+from src.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -57,37 +56,42 @@ class UnifiedAuthService:
             Authentication result with tokens and user data
         """
         try:
+            logger.info(f"Attempting to verify Firebase token for version {version}")
+            logger.debug(f"Token preview: {id_token[:50]}..." if len(id_token) > 50 else f"Token: {id_token}")
+            
             # Verify Firebase token
             decoded_token = firebase_auth.verify_id_token(id_token)
+            logger.info(f"Successfully verified Firebase token")
+            
             firebase_uid = decoded_token['uid']
             email = decoded_token.get('email')
+            logger.info(f"Firebase uid: {firebase_uid}, email: {email}")
             
             if not email:
                 raise ValidationError("Email not found in Firebase token")
                 
             # Get or create user
-            with self.user_repo.get_session() as session:
-                user = session.query(User).filter_by(firebase_uid=firebase_uid).first()
+            user = self.user_repo.find_by_firebase_uid(firebase_uid)
+            
+            if not user:
+                # Auto-create user from Firebase
+                user = self._create_user_from_firebase(decoded_token)
                 
-                if not user:
-                    # Auto-create user from Firebase
-                    user = self._create_user_from_firebase(session, decoded_token)
+            # Update last login
+            self.user_repo.update(user.id, last_login=datetime.utcnow())
+            
+            # Generate tokens based on version
+            if version == 'v2':
+                return self._generate_v2_tokens(user)
+            else:
+                return self._generate_v1_tokens(user)
                     
-                # Update last login
-                user.last_login = datetime.utcnow()
-                session.commit()
-                
-                # Generate tokens based on version
-                if version == 'v2':
-                    return self._generate_v2_tokens(user)
-                else:
-                    return self._generate_v1_tokens(user)
-                    
-        except firebase_auth.InvalidIdTokenError:
-            raise AuthenticationError("Invalid Firebase ID token")
+        except firebase_auth.InvalidIdTokenError as e:
+            logger.error(f"Invalid Firebase ID token: {e}")
+            raise AuthenticationError(f"Invalid Firebase ID token: {str(e)}")
         except Exception as e:
-            logger.error(f"Firebase authentication error: {e}")
-            raise AuthenticationError("Authentication failed")
+            logger.error(f"Firebase authentication error: {type(e).__name__}: {str(e)}")
+            raise AuthenticationError(f"Authentication failed: {str(e)}")
             
     def authenticate_email_password(self, email: str, password: str) -> Dict[str, Any]:
         """
@@ -103,21 +107,19 @@ class UnifiedAuthService:
         if not email or not password:
             raise ValidationError("Email and password required")
             
-        with self.user_repo.get_session() as session:
-            user = session.query(User).filter_by(email=email).first()
+        user = self.user_repo.find_by_email(email)
+        
+        if not user:
+            raise AuthenticationError("Invalid credentials")
             
-            if not user:
-                raise AuthenticationError("Invalid credentials")
-                
-            # Check password (legacy v1 used simple hash)
-            if not self._verify_password(password, user.password_hash):
-                raise AuthenticationError("Invalid credentials")
-                
-            # Update last login
-            user.last_login = datetime.utcnow()
-            session.commit()
+        # Check password (legacy v1 used simple hash)
+        if not self._verify_password(password, user.password_hash):
+            raise AuthenticationError("Invalid credentials")
             
-            return self._generate_v1_tokens(user)
+        # Update last login
+        self.user_repo.update(user.id, last_login=datetime.utcnow())
+        
+        return self._generate_v1_tokens(user)
             
     def create_user(self, email: str, role: str, firebase_uid: Optional[str] = None,
                     password: Optional[str] = None, name: Optional[str] = None,
@@ -142,40 +144,32 @@ class UnifiedAuthService:
         if role not in ['student', 'instructor', 'admin']:
             raise ValidationError(f"Invalid role: {role}")
             
-        with self.user_repo.get_session() as session:
-            # Check if user exists
-            existing_user = session.query(User).filter_by(email=email).first()
-            if existing_user:
-                raise ValidationError("User already exists")
-                
-            # Get or create role
-            role_obj = session.query(Role).filter_by(role_type=role).first()
-            if not role_obj:
-                role_obj = Role(role_type=role)
-                session.add(role_obj)
-                
-            # Create user
-            user = User(
-                email=email,
-                firebase_uid=firebase_uid,
-                role=role_obj,
-                name=name or email.split('@')[0],
-                created_at=datetime.utcnow()
-            )
+        # Check if user exists
+        existing_user = self.user_repo.find_by_email(email)
+        if existing_user:
+            raise ValidationError("User already exists")
+        
+        # Create user data
+        user_data = {
+            'email': email,
+            'firebase_uid': firebase_uid,
+            'name': name or email.split('@')[0],
+            'role': role
+        }
+        
+        # Set password for v1 users
+        if version == 'v1' and password:
+            user_data['password_hash'] = self._hash_password(password)
             
-            # Set password for v1 users
-            if version == 'v1' and password:
-                user.password_hash = self._hash_password(password)
-                
-            session.add(user)
-            session.commit()
-            
-            return {
-                'user_id': user.user_id,
-                'email': user.email,
-                'role': user.role_type,
-                'name': user.name
-            }
+        # Create user
+        user = self.user_repo.create(**user_data)
+        
+        return {
+            'user_id': user.id,
+            'email': user.email,
+            'role': user.role.role_type if user.role else 'student',
+            'name': name  # Use the name parameter passed to the method
+        }
             
     def refresh_access_token(self, refresh_token: str) -> Dict[str, Any]:
         """
@@ -201,22 +195,21 @@ class UnifiedAuthService:
                 raise AuthenticationError("Token has been revoked")
                 
             # Get user
-            with self.user_repo.get_session() as session:
-                user = session.query(User).filter_by(user_id=user_id).first()
-                if not user:
-                    raise AuthenticationError("User not found")
-                    
-                # Generate new access token
-                access_token = create_access_token(
-                    identity=str(user.user_id),
-                    additional_claims={
-                        'email': user.email,
-                        'role': user.role_type,
-                        'type': 'access'
-                    }
-                )
+            user = self.user_repo.get_by_id(user_id)
+            if not user:
+                raise AuthenticationError("User not found")
                 
-                return {'access_token': access_token}
+            # Generate new access token
+            access_token = create_access_token(
+                identity=str(user.id),
+                additional_claims={
+                    'email': user.email,
+                    'role': user.role.role_type if user.role else 'student',
+                    'type': 'access'
+                }
+            )
+            
+            return {'access_token': access_token}
                 
         except Exception as e:
             logger.error(f"Token refresh error: {e}")
@@ -270,17 +263,16 @@ class UnifiedAuthService:
                     
                 # Get user data
                 user_id = decoded.get('sub')
-                with self.user_repo.get_session() as session:
-                    user = session.query(User).filter_by(user_id=user_id).first()
-                    if user:
-                        return {
-                            'valid': True,
-                            'user': {
-                                'user_id': user.user_id,
-                                'email': user.email,
-                                'role': user.role_type
-                            }
+                user = self.user_repo.get_by_id(user_id)
+                if user:
+                    return {
+                        'valid': True,
+                        'user': {
+                            'user_id': user.id,
+                            'email': user.email,
+                            'role': user.role.role_type if user.role else 'student'
                         }
+                    }
                         
             else:
                 # v1 token verification (simpler JWT)
@@ -295,21 +287,31 @@ class UnifiedAuthService:
             
     def _generate_v2_tokens(self, user: User) -> Dict[str, Any]:
         """Generate v2 style tokens (access + refresh)"""
+        # Get user name from profile
+        name = None
+        if user.role:
+            if user.role.role_type == 'student' and user.student_profile:
+                name = user.student_profile.name
+            elif user.role.role_type == 'instructor' and user.instructor_profile:
+                name = user.instructor_profile.name
+            elif user.role.role_type == 'admin' and user.admin_profile:
+                name = user.admin_profile.name
+        
         # Create access token (30 minutes)
         access_token = create_access_token(
-            identity=str(user.user_id),
+            identity=str(user.id),
             fresh=True,
             expires_delta=timedelta(minutes=30),
             additional_claims={
                 'email': user.email,
-                'role': user.role_type,
+                'role': user.role.role_type if user.role else 'student',
                 'type': 'access'
             }
         )
         
         # Create refresh token (30 days)
         refresh_token = create_refresh_token(
-            identity=str(user.user_id),
+            identity=str(user.id),
             expires_delta=timedelta(days=30),
             additional_claims={
                 'type': 'refresh'
@@ -319,13 +321,13 @@ class UnifiedAuthService:
         # Store session in Redis
         if self.redis_client:
             session_data = {
-                'user_id': user.user_id,
+                'user_id': str(user.id),
                 'email': user.email,
-                'role': user.role_type,
+                'role': user.role.role_type if user.role else 'student',
                 'login_time': datetime.utcnow().isoformat()
             }
             self.redis_client.setex(
-                f"session:{user.user_id}",
+                f"session:{user.id}",
                 timedelta(days=30),
                 json.dumps(session_data)
             )
@@ -334,57 +336,53 @@ class UnifiedAuthService:
             'access_token': access_token,
             'refresh_token': refresh_token,
             'user': {
-                'user_id': user.user_id,
+                'user_id': user.id,
                 'email': user.email,
-                'role': user.role_type,
-                'name': user.name
+                'role': user.role.role_type if user.role else 'student',
+                'name': name
             }
         }
         
     def _generate_v1_tokens(self, user: User) -> Dict[str, Any]:
-        """Generate v1 style token (single JWT)"""
-        # Simple JWT token (v1 style)
-        jwt_token = create_access_token(
-            identity=str(user.user_id),
-            expires_delta=timedelta(hours=24),  # v1 had longer expiry
-            additional_claims={
-                'email': user.email,
-                'role': user.role_type
-            }
-        )
+        """Generate v1 style response with session cookie"""
+        # Get user name from profile
+        name = None
+        if user.role:
+            if user.role.role_type == 'student' and user.student_profile:
+                name = user.student_profile.name
+            elif user.role.role_type == 'instructor' and user.instructor_profile:
+                name = user.instructor_profile.name
+            elif user.role.role_type == 'admin' and user.admin_profile:
+                name = user.admin_profile.name
         
+        # For v1 compatibility, we return user data
+        # The session cookie will be set by the endpoint
         return {
-            'jwt_token': jwt_token,
+            'firebase_uid': user.firebase_uid,
             'user': {
-                'user_id': user.user_id,
+                'user_id': user.id,
                 'email': user.email,
-                'role': user.role_type,
-                'name': user.name
+                'role': user.role.role_type if user.role else 'student',
+                'name': name,
+                'firebase_uid': user.firebase_uid
             }
         }
         
-    def _create_user_from_firebase(self, session: Session, decoded_token: Dict) -> User:
+    def _create_user_from_firebase(self, decoded_token: Dict) -> User:
         """Create user from Firebase token data"""
         email = decoded_token.get('email')
         firebase_uid = decoded_token['uid']
         name = decoded_token.get('name', email.split('@')[0])
         
-        # Default to student role
-        role = session.query(Role).filter_by(role_type='student').first()
-        if not role:
-            role = Role(role_type='student')
-            session.add(role)
-            
-        user = User(
-            email=email,
-            firebase_uid=firebase_uid,
-            role=role,
-            name=name,
-            created_at=datetime.utcnow()
-        )
+        # Create user with default student role
+        user_data = {
+            'email': email,
+            'firebase_uid': firebase_uid,
+            'name': name,
+            'role': 'student'  # Default to student role
+        }
         
-        session.add(user)
-        return user
+        return self.user_repo.create(**user_data)
         
     def _hash_password(self, password: str) -> str:
         """Hash password for v1 compatibility"""

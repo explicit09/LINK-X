@@ -289,3 +289,7 @@ def setup_performance_monitoring(app):
         return get_metrics(), 200, {'Content-Type': 'text/plain'}
     
     logger.info("Performance monitoring initialized")
+
+
+# Alias for compatibility
+setup_monitoring = setup_performance_monitoring

@@ -4,7 +4,7 @@ Provides backward compatibility while using new configuration system
 """
 
 # Re-export everything from core.config for backward compatibility
-from core.config import *
+from src.core.config import *
 
 # Add deprecation warning
 import warnings

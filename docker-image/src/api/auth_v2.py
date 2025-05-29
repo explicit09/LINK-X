@@ -4,7 +4,7 @@ This module provides backward compatibility for code using the old auth_v2 modul
 """
 
 # Re-export everything from unified module
-from api.auth_unified import *
+from src.api.auth_unified import *
 
 # Add deprecation warning
 import warnings

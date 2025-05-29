@@ -33,6 +33,8 @@ class AuthService {
     // Load auth state from localStorage on initialization
     if (typeof window !== 'undefined') {
       this.loadAuthState();
+      // Clear old session cookies on initialization to prevent auth issues
+      this.clearOldSessionCookies();
     }
   }
 
@@ -141,6 +143,7 @@ class AuthService {
       const idToken = await firebaseUser.getIdToken();
       
       // Try to establish session with backend
+      console.log('Creating session with Firebase token...');
       const response = await fetch(`${API_URL}/api/v1/auth/sessionLogin`, {
         method: 'POST',
         headers: {
@@ -149,6 +152,7 @@ class AuthService {
         body: JSON.stringify({ idToken }),
         credentials: 'include',
       });
+      console.log('Session login response:', response.status);
 
       if (!response.ok) {
         // If 404, user needs to complete registration
@@ -180,7 +184,7 @@ class AuthService {
         isAuthenticated: true,
         isRegistered: true, // If sessionLogin succeeds, user is registered
         tokens: {
-          accessToken: data.access_token,
+          accessToken: data.access_token || data.token, // v1 returns 'token', v2 returns 'access_token'
           expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
         },
         user: data.user || null,
@@ -249,7 +253,12 @@ class AuthService {
   }
 
   async getValidToken(): Promise<string | null> {
-    // Always prefer Firebase token for API calls
+    // Use stored JWT token from backend if available
+    if (this.authState.tokens && this.authState.tokens.expiresAt > Date.now()) {
+      return this.authState.tokens.accessToken;
+    }
+
+    // Fall back to Firebase token only if no backend token
     if (auth.currentUser) {
       try {
         const firebaseToken = await auth.currentUser.getIdToken();
@@ -259,16 +268,27 @@ class AuthService {
       }
     }
 
-    // Fall back to stored JWT token if available
-    if (this.authState.tokens && this.authState.tokens.expiresAt > Date.now()) {
-      return this.authState.tokens.accessToken;
-    }
-
     return null;
+  }
+
+  private clearOldSessionCookies() {
+    // Clear any old session cookies from different Firebase projects
+    document.cookie.split(';').forEach(cookie => {
+      const eqPos = cookie.indexOf('=');
+      const name = eqPos > -1 ? cookie.substring(0, eqPos).trim() : cookie.trim();
+      if (name === 'session') {
+        // Clear the cookie by setting it with an expired date
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`;
+      }
+    });
   }
 
   async logout() {
     try {
+      // Clear old session cookies first
+      this.clearOldSessionCookies();
+      
       // Logout from backend
       if (this.authState.tokens) {
         await fetch(`${API_URL}/api/v1/auth/logout`, {

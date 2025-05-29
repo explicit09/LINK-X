@@ -3,17 +3,19 @@ Unified Authentication API
 Supports both v1 (legacy) and v2 (modern) authentication flows
 """
 
-from flask import Blueprint, request, jsonify, g, make_response
+from flask import Blueprint, request, jsonify, g, make_response, current_app
 from flask_jwt_extended import (
     create_access_token, create_refresh_token, jwt_required,
     get_jwt_identity, get_jwt, current_user
 )
 from datetime import datetime, timedelta
 import logging
+from firebase_admin import auth as firebase_auth
 
-from services.auth_service_unified import UnifiedAuthService
-from core.decorators_unified import auth_required, rate_limit
-from core.exceptions import ValidationError, AuthenticationError, NotFoundError
+from src.services.auth_service_unified import UnifiedAuthService
+from src.core.decorators_unified import auth_required, rate_limit
+from src.core.exceptions import ValidationError, AuthenticationError, NotFoundError
+from src.core.database import db
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +52,7 @@ def login():
     try:
         data = request.get_json()
         version = get_api_version()
+        logger.info(f"Login attempt - version: {version}, data keys: {list(data.keys()) if data else 'None'}")
         
         # Validate request data
         if not data:
@@ -94,18 +97,53 @@ def login():
                 
             return response
         else:
-            # Legacy v1 response
-            return jsonify({
-                'token': result['jwt_token'],
-                'user': result['user']
-            })
+            # Legacy v1 response - set Firebase session cookie
+            try:
+                # Create Firebase session cookie
+                expires_in = timedelta(days=14)  # 14 days
+                session_cookie = firebase_auth.create_session_cookie(
+                    data.get('idToken') or data.get('id_token'),
+                    expires_in=expires_in
+                )
+                
+                # Create response
+                response = make_response(jsonify({
+                    'status': 'success',
+                    'message': 'Session cookie set successfully',
+                    'uid': result['firebase_uid'],
+                    'email': result['user']['email'],
+                    'user': result['user']
+                }))
+                
+                # Set session cookie
+                is_secure = current_app.config.get('FLASK_ENV') != 'development'
+                response.set_cookie(
+                    'session',
+                    session_cookie,
+                    max_age=int(expires_in.total_seconds()),
+                    httponly=True,
+                    secure=is_secure,
+                    samesite='Lax'
+                )
+                
+                return response
+            except Exception as cookie_error:
+                logger.error(f"Failed to create session cookie: {cookie_error}")
+                # Fall back to JWT response
+                return jsonify({
+                    'token': result.get('jwt_token', ''),
+                    'user': result['user']
+                })
             
     except ValidationError as e:
+        logger.error(f"Validation error in login: {str(e)}")
         return jsonify({'error': str(e)}), 400
     except AuthenticationError as e:
-        return jsonify({'error': str(e)}), 401
+        error_message = e.message if hasattr(e, 'message') else str(e)
+        logger.error(f"Authentication error in login: {error_message}")
+        return jsonify({'error': error_message}), 401
     except Exception as e:
-        logger.error(f"Login error: {str(e)}")
+        logger.error(f"Login error: {str(e)}", exc_info=True)
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -241,17 +279,108 @@ def logout():
 @auth_required(version_aware=True)
 def get_current_user():
     """Get current user profile"""
+    logger.info(f"get_current_user called, g.current_user: {g.current_user}")
+    
+    if not hasattr(g, 'current_user') or g.current_user is None:
+        logger.error("No current_user in g")
+        return jsonify({'error': 'User not authenticated'}), 401
+        
     try:
         user = g.current_user
-        return jsonify({
-            'user_id': user.user_id,
+        logger.info(f"Processing user: {user.email}, id: {user.id}")
+        
+        # Get name from profile based on role
+        name = None
+        if user.role:
+            if user.role.role_type == 'student' and user.student_profile:
+                name = user.student_profile.name
+            elif user.role.role_type == 'instructor' and user.instructor_profile:
+                name = user.instructor_profile.name
+            elif user.role.role_type == 'admin' and user.admin_profile:
+                name = user.admin_profile.name
+        
+        # Build profile object based on role
+        profile = None
+        if user.role:
+            if user.role.role_type == 'student' and user.student_profile:
+                profile = {
+                    'user_id': str(user.id),
+                    'name': user.student_profile.name,
+                    'university': getattr(user.student_profile, 'university', None),
+                    'onboard_answers': getattr(user.student_profile, 'onboard_answers', {}),
+                    'want_quizzes': getattr(user.student_profile, 'want_quizzes', False),
+                    'model_preference': getattr(user.student_profile, 'model_preference', 'gpt-4')
+                }
+            elif user.role.role_type == 'instructor' and user.instructor_profile:
+                profile = {
+                    'user_id': str(user.id),
+                    'name': user.instructor_profile.name,
+                    'department': getattr(user.instructor_profile, 'department', None),
+                    'bio': getattr(user.instructor_profile, 'bio', None)
+                }
+        
+        # Format response to match frontend expectations
+        response_data = {
+            'id': str(user.id),
             'email': user.email,
-            'role': user.role_type,
-            'name': user.name,
-            'created_at': user.created_at.isoformat() if user.created_at else None
-        })
+            'role': user.role.role_type if user.role else 'student',
+            'profile': profile,
+            # Keep these for backward compatibility
+            'user_id': str(user.id),
+            'name': name,
+            'firebase_uid': user.firebase_uid,
+            'created_at': user.created_at.isoformat() if hasattr(user, 'created_at') and user.created_at else None
+        }
+        logger.info(f"Returning user data: {response_data}")
+        return jsonify(response_data)
     except Exception as e:
-        logger.error(f"Get user error: {str(e)}")
+        logger.error(f"Get user error: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error'}), 500
+
+def update_me():
+    """Update current user profile"""
+    if not g.current_user:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        data = request.get_json()
+        user = g.current_user
+        
+        # Update email if provided
+        if 'email' in data:
+            user.email = data['email']
+        
+        # Update profile based on role
+        if user.role.role_type == 'student' and user.student_profile:
+            if 'name' in data:
+                user.student_profile.name = data['name']
+        elif user.role.role_type == 'instructor' and user.instructor_profile:
+            if 'name' in data:
+                user.instructor_profile.name = data['name']
+        elif user.role.role_type == 'admin' and user.admin_profile:
+            if 'name' in data:
+                user.admin_profile.name = data['name']
+        
+        db.session.commit()
+        return get_current_user()
+    except Exception as e:
+        logger.error(f"Update user error: {str(e)}", exc_info=True)
+        db.session.rollback()
+        return jsonify({'error': 'Internal server error'}), 500
+
+def delete_me():
+    """Delete current user account"""
+    if not g.current_user:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    try:
+        user = g.current_user
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({'message': 'User deleted successfully'}), 200
+    except Exception as e:
+        logger.error(f"Delete user error: {str(e)}", exc_info=True)
+        db.session.rollback()
         return jsonify({'error': 'Internal server error'}), 500
 
 
@@ -304,3 +433,9 @@ def register_instructor():
 def health_check():
     """Health check endpoint"""
     return jsonify({'status': 'healthy', 'service': 'auth'})
+
+
+# Aliases for backward compatibility
+get_me = get_current_user
+update_me = lambda: jsonify({'error': 'Not implemented'}), 501
+delete_me = lambda: jsonify({'error': 'Not implemented'}), 501

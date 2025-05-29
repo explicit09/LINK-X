@@ -60,6 +60,10 @@ class FlaskConfig:
     def JWT_REFRESH_TOKEN_EXPIRES(self):
         return self.settings.jwt_refresh_token_expires
     
+    @property
+    def JWT_ALGORITHM(self):
+        return 'HS256'
+    
     # Redis
     @property
     def REDIS_URL(self):

@@ -6,9 +6,12 @@ import sys
 # Add src directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Import the existing app
-from app import app as application
+# Import the refactored app
+from app_refactored import create_app
 from celery_app import app as celery
+
+# Create the application instance
+application = create_app()
 
 # For compatibility with existing deployment scripts
 app = application

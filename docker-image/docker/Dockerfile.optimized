@@ -35,11 +35,11 @@ COPY src/transcriber.py ./
 COPY src $APP_HOME/src
 
 # Environment variables for Flask
-ENV MODULE=src.app
+ENV MODULE=src.wsgi
 ENV QT_X11_NO_MITSHM=1
 ENV PORT=8080
 EXPOSE 8080
 
 # Set the entry point to run migrations and then start the app
 ENTRYPOINT ["/run_migrations.sh"]
-CMD ["gunicorn", "--bind", ":8080", "--workers", "1", "--threads", "8", "--timeout", "0", "app:app"]
+CMD ["gunicorn", "--bind", ":8080", "--workers", "1", "--threads", "8", "--timeout", "0", "src.wsgi:app"]
