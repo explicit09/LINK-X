@@ -6,7 +6,7 @@ import redis
 import time
 from ..core.database import db
 from ..core.cache import cache
-from ..config import Config
+from ..core.config import get_config
 
 bp = Blueprint('health', __name__)
 
@@ -22,6 +22,8 @@ def health_check():
 @bp.route('/health/detailed', methods=['GET'])
 def detailed_health_check():
     """Detailed health check with component status."""
+    config = get_config()
+    
     health_status = {
         'status': 'healthy',
         'service': 'link-x-backend',
@@ -45,7 +47,7 @@ def detailed_health_check():
     
     # Check Redis
     try:
-        redis_client = redis.from_url(Config.REDIS_URL)
+        redis_client = redis.from_url(config.REDIS_URL)
         redis_client.ping()
         health_status['components']['redis'] = {
             'status': 'healthy',
@@ -62,7 +64,7 @@ def detailed_health_check():
     try:
         import boto3
         s3 = boto3.client('s3')
-        s3.head_bucket(Bucket=Config.S3_BUCKET_NAME)
+        s3.head_bucket(Bucket=config.S3_BUCKET_NAME)
         health_status['components']['s3'] = {
             'status': 'healthy',
             'message': 'S3 bucket accessible'

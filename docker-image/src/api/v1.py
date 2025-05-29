@@ -446,12 +446,19 @@ def upload_file():
     from src.api.files import upload_file
     return upload_file()
 
-@api_v1.route('/files/<file_id>', methods=['GET'])
+@api_v1.route('/files/<file_id>', methods=['GET', 'PATCH', 'DELETE'])
 @firebase_auth_required
 def file_details(file_id):
-    """Get file details"""
-    from src.api.files import get_file
-    return get_file(file_id)
+    """Get, update, or delete file"""
+    if request.method == 'GET':
+        from src.api.files import get_file
+        return get_file(file_id)
+    elif request.method == 'PATCH':
+        from src.api.files import update_file_endpoint
+        return update_file_endpoint(file_id)
+    else:  # DELETE
+        from src.api.files import delete_file_endpoint
+        return delete_file_endpoint(file_id)
 
 @api_v1.route('/files/<file_id>/content', methods=['GET'])
 @firebase_auth_required
@@ -460,17 +467,34 @@ def file_content(file_id):
     from src.api.files import get_file_content
     return get_file_content(file_id)
 
+@api_v1.route('/files/module/<module_id>', methods=['GET'])
+@firebase_auth_required
+def module_files(module_id):
+    """Get all files in a module"""
+    from src.api.files import get_module_files
+    return get_module_files(module_id)
+
 # ===== MODULE ENDPOINTS =====
-@api_v1.route('/modules/<module_id>', methods=['GET', 'DELETE'])
+@api_v1.route('/modules/<module_id>', methods=['GET', 'PATCH', 'DELETE'])
 @firebase_auth_required
 def module_details(module_id):
-    """Get or delete module"""
+    """Get, update, or delete module"""
     if request.method == 'GET':
         from src.api.modules import get_module
         return get_module(module_id)
+    elif request.method == 'PATCH':
+        from src.api.modules import update_module_endpoint
+        return update_module_endpoint(module_id)
     else:  # DELETE
-        from src.api.modules import delete_module
-        return delete_module(module_id)
+        from src.api.modules import delete_module_endpoint
+        return delete_module_endpoint(module_id)
+
+@api_v1.route('/modules/<module_id>/files', methods=['GET'])
+@firebase_auth_required
+def module_files_list(module_id):
+    """Get all files in a module"""
+    from src.api.modules import get_module_files
+    return get_module_files(module_id)
 
 # ===== ENROLLMENT ENDPOINTS =====
 @api_v1.route('/enrollments', methods=['GET'])

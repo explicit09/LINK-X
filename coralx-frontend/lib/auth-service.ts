@@ -258,10 +258,20 @@ class AuthService {
       return this.authState.tokens.accessToken;
     }
 
+    // If no backend token but we have a Firebase user, try to establish session
+    if (auth.currentUser && !this.authState.tokens) {
+      console.log('No backend token found, attempting to establish session...');
+      const sessionEstablished = await this.login(auth.currentUser);
+      if (sessionEstablished && this.authState.tokens && this.authState.tokens.accessToken) {
+        return this.authState.tokens.accessToken;
+      }
+    }
+
     // Fall back to Firebase token only if no backend token
     if (auth.currentUser) {
       try {
         const firebaseToken = await auth.currentUser.getIdToken();
+        console.log('Using Firebase token as fallback');
         return firebaseToken;
       } catch (error) {
         console.error('Failed to get Firebase token:', error);
@@ -269,6 +279,18 @@ class AuthService {
     }
 
     return null;
+  }
+
+  // Force session establishment - useful for fixing auth issues
+  async forceSessionEstablishment(): Promise<boolean> {
+    if (!auth.currentUser) {
+      console.error('No Firebase user available for session establishment');
+      return false;
+    }
+
+    console.log('Forcing session establishment...');
+    this.clearAuthState(); // Clear any stale state
+    return await this.login(auth.currentUser);
   }
 
   private clearOldSessionCookies() {

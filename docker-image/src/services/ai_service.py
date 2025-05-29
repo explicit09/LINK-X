@@ -31,7 +31,7 @@ class AIService:
                 return cached
             
             # If no OpenAI API key, return mock outline
-            if not self.config.OPENAI_API_KEY or self.config.OPENAI_API_KEY.strip() in ["", "your-openai-api-key-here"]:
+            if not self.config.OPENAI_API_KEY or self.config.OPENAI_API_KEY == "your-openai-api-key-here":
                 mock_outline = {
                     "title": "Document Overview",
                     "chapters": [
@@ -445,7 +445,7 @@ class AIService:
         """Stream personalized content generation"""
         try:
             # Check if OpenAI is available
-            if not self.config.OPENAI_API_KEY or self.config.OPENAI_API_KEY.strip() in ["", "your-openai-api-key-here"]:
+            if not self.config.OPENAI_API_KEY or self.config.OPENAI_API_KEY == "your-openai-api-key-here":
                 # Return mock streaming data
                 mock_content = """This is a personalized learning section tailored to your learning style and interests. 
 

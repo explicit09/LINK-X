@@ -1,7 +1,8 @@
 import { auth } from '../firebaseconfig';
 import { authService } from './auth-service';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+// API configuration - use backend URL from environment
+const API_URL = 'http://localhost:8080';
 
 // Auth helpers
 export async function getAuthToken() {
@@ -238,86 +239,106 @@ export const studentAPI = {
   // Course modules management
   getCourseModules: (courseId: string) => api.get(`/api/v1/courses/${courseId}/modules`),
   createModule: (courseId: string, data: any) => api.post(`/api/v1/courses/${courseId}/modules`, data),
-  getModule: (courseId: string, moduleId: string) => api.get(`/api/v1/courses/${courseId}/modules/${moduleId}`),
-  updateModule: (courseId: string, moduleId: string, data: any) => api.patch(`/api/v1/modules/${moduleId}`, data),
+  getModule: (moduleId: string) => api.get(`/api/v1/modules/${moduleId}`),
+  updateModule: (moduleId: string, data: any) => api.patch(`/api/v1/modules/${moduleId}`, data),
+  deleteModule: (moduleId: string) => api.delete(`/api/v1/modules/${moduleId}`),
   getModuleFiles: (moduleId: string) => api.get(`/api/v1/modules/${moduleId}/files`),
   
-  // File operations
-  downloadFile: (fileId: string) => api.get(`/api/v1/files/${fileId}/download`),
-  uploadFile: (courseId: string, data: FormData) => {
+  // File operations - COMPLETE CRUD
+  uploadFile: (moduleId: string, formData: FormData) => {
+    // Add moduleId to form data
+    formData.append('moduleId', moduleId);
     return fetchWithAuth(`/api/v1/files/upload`, {
       method: 'POST',
-      body: data,
+      body: formData,
       headers: {}, // Let browser set Content-Type for FormData
     });
   },
-  getFileContent: (fileId: string) => api.get(`/api/v1/files/${fileId}/content`),
+  getFile: (fileId: string) => api.get(`/api/v1/files/${fileId}`),
+  updateFile: (fileId: string, data: any) => api.patch(`/api/v1/files/${fileId}`, data),
   deleteFile: (fileId: string) => api.delete(`/api/v1/files/${fileId}`),
+  downloadFile: (fileId: string) => api.get(`/api/v1/files/${fileId}/download`),
+  getFileContent: (fileId: string) => api.get(`/api/v1/files/${fileId}/content`),
+  
+  // Get file URL for viewing/downloading
   getFileUrl: async (fileId: string) => {
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      // Use fetchWithAuth to include authentication headers
+      const response = await fetchWithAuth(`/api/v1/files/${fileId}/content`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        }
+      }, false); // Don't retry with session login for file access
       
-      // First check if it's S3 storage by trying to get metadata
-      const response = await fetch(`${baseUrl}/api/v1/files/${fileId}/content`, {
+      // fetchWithAuth already handles the response parsing, but we need raw response for content-type check
+      // So let's use the raw fetch with auth token
+      const token = await getAuthToken();
+      const rawResponse = await fetch(`http://localhost:8080/api/v1/files/${fileId}/content`, {
         method: 'GET',
         credentials: 'include',
         headers: {
           'Accept': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         }
       });
       
-      if (!response.ok) {
-        throw new Error(`Failed to access file: ${response.status} ${response.statusText}`);
+      if (!rawResponse.ok) {
+        throw new Error(`Failed to access file: ${rawResponse.status} ${rawResponse.statusText}`);
       }
       
-      const contentType = response.headers.get('content-type');
+      const contentType = rawResponse.headers.get('content-type');
       
-      // If response is JSON, it's likely a presigned URL
+      // If response is JSON, it could be a presigned URL or error message
       if (contentType && contentType.includes('application/json')) {
-        const data = await response.json();
+        const data = await rawResponse.json();
         if (data.type === 'presigned' && data.url) {
           return { url: data.url };
         }
       }
       
-      // Otherwise, use direct URL with credentials
+      // Otherwise, it's traditional file storage - include auth token in URL
       return {
-        url: `${baseUrl}/api/v1/files/${fileId}/content`
+        url: `http://localhost:8080/api/v1/files/${fileId}/content${token ? `?token=${token}` : ''}`
       };
     } catch (error) {
-      console.error('Failed to get file URL:', error);
+      console.error('Failed to access student file:', error);
       throw new Error(error instanceof Error ? error.message : 'File not accessible');
     }
   },
-
-  // Personalized files
-  deletePersonalizedFile: (pfId: string) => api.delete(`/api/v1/personalized-files/${pfId}`),
   
-  // Submissions
-  submitAssignment: (assignmentId: string, data: any) => api.post(`/api/v1/assignments/${assignmentId}/submit`, data),
-  getSubmissions: (assignmentId: string) => api.get(`/api/v1/assignments/${assignmentId}/submissions`),
+  // Legacy file upload for course-level uploads (backward compatibility)
+  uploadCourseFile: (courseId: string, formData: FormData) => {
+    return fetchWithAuth(`/student/courses/${courseId}/files`, {
+      method: 'POST',
+      body: formData,
+      headers: {}, // Let browser set Content-Type for FormData
+    });
+  },
+  
+  // Search
+  searchFiles: (query: string, courseId?: string, fileType?: string) => {
+    const params = new URLSearchParams({ q: query });
+    if (courseId) params.append('courseId', courseId);
+    if (fileType) params.append('type', fileType);
+    return api.get(`/api/v1/files/search?${params.toString()}`);
+  },
+  
+  // Enrollment
+  enrollInCourse: (accessCode: string) => api.post('/api/v1/enrollments', { accessCode }),
+  getEnrollments: () => api.get('/api/v1/enrollments'),
+  unenrollFromCourse: (enrollmentId: string) => api.delete(`/api/v1/enrollments/${enrollmentId}`),
   
   // Discussions and chat
   getCourseDiscussions: (courseId: string) => api.get(`/api/v1/courses/${courseId}/discussions`),
   postDiscussion: (courseId: string, data: any) => api.post(`/api/v1/courses/${courseId}/discussions`, data),
   chatWithAI: (data: any) => api.post('/api/v1/ai/chat', data),
   
-  // Dashboard statistics (TODO: implement backend endpoints)
-  getDashboardStats: async () => {
-    // Mock data until backend endpoints are implemented
-    return {
-      totalCourses: 0,
-      completedCourses: 0,
-      inProgressCourses: 0,
-      totalHoursLearned: 0,
-      averageScore: 0,
-      weeklyProgress: []
-    };
-  },
+  // Dashboard statistics
   getCourseProgress: (courseId: string) => api.get(`/api/v1/courses/${courseId}/progress`),
   logActivity: (data: any) => api.post('/api/v1/activities/log', data),
   
-  // Dashboard content (TODO: implement backend endpoints)
+  // Dashboard content
   getRecentActivities: async () => {
     return api.get('/api/v1/activities/recent');
   },
@@ -386,34 +407,34 @@ export const instructorAPI = {
   downloadFile: (fileId: string) => api.get(`/api/v1/files/${fileId}/download`),
   getFileUrl: async (fileId: string) => {
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-      
-      // Check if file has S3 storage
-      const response = await fetch(`${baseUrl}/api/v1/files/${fileId}/content`, {
+      // Use proper authentication
+      const token = await getAuthToken();
+      const rawResponse = await fetch(`http://localhost:8080/api/v1/files/${fileId}/content`, {
         method: 'GET',
         credentials: 'include',
         headers: {
           'Accept': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         }
       });
       
-      if (!response.ok) {
-        throw new Error(`Failed to access file: ${response.status} ${response.statusText}`);
+      if (!rawResponse.ok) {
+        throw new Error(`Failed to access file: ${rawResponse.status} ${rawResponse.statusText}`);
       }
       
-      const contentType = response.headers.get('content-type');
+      const contentType = rawResponse.headers.get('content-type');
       
       // If response is JSON, it could be a presigned URL or error message
       if (contentType && contentType.includes('application/json')) {
-        const data = await response.json();
+        const data = await rawResponse.json();
         if (data.type === 'presigned' && data.url) {
           return { url: data.url };
         }
       }
       
-      // Otherwise, it's traditional file storage
+      // Otherwise, it's traditional file storage - include auth token in URL
       return {
-        url: `${baseUrl}/api/v1/files/${fileId}/content`
+        url: `http://localhost:8080/api/v1/files/${fileId}/content${token ? `?token=${token}` : ''}`
       };
     } catch (error) {
       console.error('Failed to access instructor file:', error);
