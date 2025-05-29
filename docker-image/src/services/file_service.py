@@ -11,7 +11,7 @@ from ..repositories.module_repository import ModuleRepository
 from ..repositories.course_repository import CourseRepository
 from ..core.exceptions import NotFoundError, ValidationError, FileProcessingError, AuthorizationError
 from ..core.cache import cache, invalidate_cache
-from ..config import Config
+from ..core.config import get_config
 from ..tasks import process_file_async
 
 class FileService:
@@ -21,11 +21,15 @@ class FileService:
         self.file_repo = FileRepository()
         self.module_repo = ModuleRepository()
         self.course_repo = CourseRepository()
+        
+        # Get config instance
+        self.config = get_config()
+        
         self.s3_client = boto3.client(
             's3',
-            aws_access_key_id=Config.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=Config.AWS_SECRET_ACCESS_KEY,
-            region_name=Config.AWS_REGION
+            aws_access_key_id=self.config.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=self.config.AWS_SECRET_ACCESS_KEY,
+            region_name=self.config.AWS_REGION
         )
     
     def upload_file(self, file: FileStorage, module_id: str, user_id: str, 
@@ -49,8 +53,8 @@ class FileService:
         original_filename = secure_filename(file.filename)
         file_extension = original_filename.rsplit('.', 1)[1].lower() if '.' in original_filename else ''
         
-        if file_extension not in Config.ALLOWED_EXTENSIONS:
-            raise ValidationError(f"File type not allowed. Allowed types: {', '.join(Config.ALLOWED_EXTENSIONS)}")
+        if file_extension not in self.config.ALLOWED_EXTENSIONS:
+            raise ValidationError(f"File type not allowed. Allowed types: {', '.join(self.config.ALLOWED_EXTENSIONS)}")
         
         # Generate unique filename for storage
         file_id = str(uuid.uuid4())
@@ -63,7 +67,7 @@ class FileService:
             # Upload file to S3
             self.s3_client.upload_fileobj(
                 file,
-                Config.S3_BUCKET,
+                self.config.S3_BUCKET_NAME,
                 s3_key,
                 ExtraArgs={
                     'ContentType': file.content_type or 'application/octet-stream',
@@ -82,7 +86,7 @@ class FileService:
                 description=description,
                 filename=original_filename,
                 s3_key=s3_key,
-                s3_bucket=Config.S3_BUCKET,
+                s3_bucket=self.config.S3_BUCKET_NAME,
                 file_type=file_extension,
                 file_size=file.content_length or 0,
                 uploaded_by=user_id
@@ -99,7 +103,7 @@ class FileService:
         except Exception as e:
             # Clean up S3 if database creation fails
             try:
-                self.s3_client.delete_object(Bucket=Config.S3_BUCKET, Key=s3_key)
+                self.s3_client.delete_object(Bucket=self.config.S3_BUCKET_NAME, Key=s3_key)
             except:
                 pass
             raise FileProcessingError(f"Failed to upload file: {str(e)}")
@@ -122,7 +126,7 @@ class FileService:
     def get_file_content(self, file_id: str, user_id: str) -> Dict:
         """Get file content for viewing"""
         # Check access
-        file = self._verify_file_access(file_id, user_id)
+        file = self.get_file_with_access_check(file_id, user_id)
         
         # If file is stored in S3, generate presigned URL
         if file.storage_type == 's3' and file.s3_key:

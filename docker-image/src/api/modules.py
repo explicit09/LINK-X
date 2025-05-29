@@ -6,6 +6,26 @@ from ..repositories.file_repository import FileRepository
 
 bp = Blueprint('modules', __name__)
 
+@bp.route('/<module_id>', methods=['GET'])
+@firebase_auth_required
+def get_module(module_id):
+    """Get module details"""
+    try:
+        module_service = ModuleService()
+        module = module_service.get_module_with_access_check(
+            module_id=module_id,
+            user_id=g.current_user.id
+        )
+        
+        return jsonify({
+            'module': module.to_dict()
+        }), 200
+        
+    except NotFoundError:
+        return jsonify({'error': 'Module not found'}), 404
+    except AuthorizationError:
+        return jsonify({'error': 'Access denied'}), 403
+
 @bp.route('/<module_id>/files', methods=['GET'])
 @firebase_auth_required
 def get_module_files(module_id):

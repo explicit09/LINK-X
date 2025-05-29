@@ -5,14 +5,15 @@ from werkzeug.utils import secure_filename
 from ..core.decorators_unified import firebase_auth_required
 from ..core.exceptions import NotFoundError, ValidationError, FileProcessingError
 from ..services.file_service import FileService
-from ..config import Config
+from ..core.config import get_config
 
 bp = Blueprint('files', __name__)
 
 def allowed_file(filename):
     """Check if file extension is allowed"""
+    config = get_config()
     return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in Config.ALLOWED_EXTENSIONS
+           filename.rsplit('.', 1)[1].lower() in config.ALLOWED_EXTENSIONS
 
 @bp.route('/upload', methods=['POST'])
 @firebase_auth_required
@@ -31,7 +32,8 @@ def upload_file():
         return jsonify({'error': 'No file selected'}), 400
     
     if not allowed_file(file.filename):
-        return jsonify({'error': f'File type not allowed. Allowed types: {", ".join(Config.ALLOWED_EXTENSIONS)}'}), 400
+        config = get_config()
+        return jsonify({'error': f'File type not allowed. Allowed types: {", ".join(config.ALLOWED_EXTENSIONS)}'}), 400
     
     file_service = FileService()
     
@@ -129,6 +131,8 @@ def get_file_content(file_id):
     except NotFoundError:
         return jsonify({'error': 'File not found'}), 404
     except Exception as e:
+        import logging
+        logging.error(f"Failed to get file content: {str(e)}", exc_info=True)
         return jsonify({'error': 'Failed to get file content'}), 500
 
 @bp.route('/<file_id>/preview', methods=['GET'])

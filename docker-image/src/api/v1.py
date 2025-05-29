@@ -142,12 +142,16 @@ def course_details(course_id):
     from src.api.courses import get_course
     return get_course(course_id)
 
-@api_v1.route('/courses/<course_id>/modules', methods=['GET'])
+@api_v1.route('/courses/<course_id>/modules', methods=['GET', 'POST'])
 @firebase_auth_required
 def course_modules(course_id):
-    """Get course modules"""
-    from src.api.modules import list_modules
-    return list_modules(course_id)
+    """Get or create course modules"""
+    if request.method == 'GET':
+        from src.api.courses import get_course_modules
+        return get_course_modules(course_id)
+    else:  # POST
+        from src.api.courses import create_module
+        return create_module(course_id)
 
 @api_v1.route('/courses/<course_id>/moduleswithfiles', methods=['GET'])
 @firebase_auth_required
@@ -435,6 +439,13 @@ def activities_log():
     return log_activity()
 
 # ===== FILE ENDPOINTS =====
+@api_v1.route('/files/upload', methods=['POST'])
+@firebase_auth_required
+def upload_file():
+    """Upload a file to a module"""
+    from src.api.files import upload_file
+    return upload_file()
+
 @api_v1.route('/files/<file_id>', methods=['GET'])
 @firebase_auth_required
 def file_details(file_id):
@@ -450,12 +461,16 @@ def file_content(file_id):
     return get_file_content(file_id)
 
 # ===== MODULE ENDPOINTS =====
-@api_v1.route('/modules/<module_id>', methods=['GET'])
+@api_v1.route('/modules/<module_id>', methods=['GET', 'DELETE'])
 @firebase_auth_required
 def module_details(module_id):
-    """Get module details with files"""
-    from src.api.modules import get_module
-    return get_module(module_id)
+    """Get or delete module"""
+    if request.method == 'GET':
+        from src.api.modules import get_module
+        return get_module(module_id)
+    else:  # DELETE
+        from src.api.modules import delete_module
+        return delete_module(module_id)
 
 # ===== ENROLLMENT ENDPOINTS =====
 @api_v1.route('/enrollments', methods=['GET'])
@@ -494,5 +509,19 @@ def check_personalized(file_id):
 @firebase_auth_required
 def personalize_outline(file_id):
     """Get personalized outline"""
-    from src.api.personalization import get_personalized_outline
-    return get_personalized_outline(file_id)
+    from src.api.personalization import get_personalization_outline
+    return get_personalization_outline(file_id)
+
+@api_v1.route('/personalize/save/<file_id>', methods=['POST'])
+@firebase_auth_required
+def personalize_save(file_id):
+    """Save personalized content"""
+    from src.api.personalization import save_personalized_content
+    return save_personalized_content(file_id)
+
+@api_v1.route('/personalize/stream/<file_id>', methods=['POST'])
+@firebase_auth_required
+def personalize_stream(file_id):
+    """Stream personalized content"""
+    from src.api.personalization import stream_personalized_content
+    return stream_personalized_content(file_id)

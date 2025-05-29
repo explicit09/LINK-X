@@ -8,7 +8,7 @@ from queue import Queue
 import numpy as np
 from sqlalchemy import text
 
-from ..config import Config
+from ..core.config import get_config
 from ..core.cache import cache
 from ..core.exceptions import ExternalServiceError
 
@@ -16,7 +16,8 @@ class AIService:
     """Service for AI-related operations"""
     
     def __init__(self):
-        self.client = OpenAI(api_key=Config.OPENAI_API_KEY)
+        self.config = get_config()
+        self.client = OpenAI(api_key=self.config.OPENAI_API_KEY)
         self.default_model = "gpt-4o"
         self.embedding_model = "text-embedding-ada-002"
     
@@ -30,7 +31,7 @@ class AIService:
                 return cached
             
             # If no OpenAI API key, return mock outline
-            if not Config.OPENAI_API_KEY or Config.OPENAI_API_KEY == "your-openai-api-key-here":
+            if not self.config.OPENAI_API_KEY or self.config.OPENAI_API_KEY.strip() in ["", "your-openai-api-key-here"]:
                 mock_outline = {
                     "title": "Document Overview",
                     "chapters": [
@@ -444,7 +445,7 @@ class AIService:
         """Stream personalized content generation"""
         try:
             # Check if OpenAI is available
-            if not Config.OPENAI_API_KEY or Config.OPENAI_API_KEY == "your-openai-api-key-here":
+            if not self.config.OPENAI_API_KEY or self.config.OPENAI_API_KEY.strip() in ["", "your-openai-api-key-here"]:
                 # Return mock streaming data
                 mock_content = """This is a personalized learning section tailored to your learning style and interests. 
 

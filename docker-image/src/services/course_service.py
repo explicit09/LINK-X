@@ -54,6 +54,14 @@ class CourseService:
         
         return course
     
+    def check_course_access(self, course_id: str, user_id: str) -> bool:
+        """Check if user has access to a course"""
+        try:
+            self.get_course_with_access_check(course_id, user_id)
+            return True
+        except (NotFoundError, AuthorizationError):
+            return False
+    
     def get_student_courses(self, student_id: str, page: int = 1, limit: int = 20) -> List[Dict]:
         """Get courses a student is enrolled in"""
         return self.course_repo.get_student_courses(

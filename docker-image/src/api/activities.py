@@ -115,12 +115,21 @@ def get_activity_stats():
         last_pf = max(personalized_files, key=lambda x: x.created_at if x.created_at else datetime.min)
         last_activity = last_pf.created_at.isoformat() if last_pf.created_at else None
     
+    # Calculate AI interactions (count of personalized files)
+    ai_interactions = len(personalized_files)
+    
+    # Convert study time to hours for weekly display
+    weekly_hours = round(study_time_minutes / 60, 1)
+    
     return jsonify({
         'total_courses': total_courses,
         'completed_modules': completed_modules,
         'study_time_minutes': study_time_minutes,
         'streak_days': streak_days,
-        'last_activity': last_activity or datetime.now().isoformat()
+        'last_activity': last_activity or datetime.now().isoformat(),
+        # Add fields expected by frontend
+        'aiInteractions': ai_interactions,
+        'weeklyHours': weekly_hours
     }), 200
 
 @activities_bp.route('/log', methods=['POST'])

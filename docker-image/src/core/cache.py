@@ -5,25 +5,52 @@ from flask import request
 import redis
 from datetime import timedelta
 import pickle
+import os
 
 class CacheManager:
     """Redis cache manager"""
     def __init__(self, app=None):
         self.redis_client = None
         self.default_timeout = 300  # 5 minutes
+        self._redis_url = None
         
         if app:
             self.init_app(app)
     
     def init_app(self, app):
         """Initialize cache with Flask app"""
-        redis_url = app.config.get('REDIS_URL', 'redis://localhost:6379/0')
-        self.redis_client = redis.from_url(redis_url)
+        self._redis_url = app.config.get('REDIS_URL', 'redis://localhost:6379/0')
         self.default_timeout = app.config.get('CACHE_DEFAULT_TIMEOUT', 300)
+        self._init_redis()
+    
+    def _init_redis(self):
+        """Initialize Redis connection"""
+        if self._redis_url and not self.redis_client:
+            try:
+                self.redis_client = redis.from_url(self._redis_url)
+                # Test connection
+                self.redis_client.ping()
+            except Exception as e:
+                print(f"Failed to initialize Redis: {e}")
+                self.redis_client = None
+    
+    def _ensure_redis(self):
+        """Ensure Redis connection is available"""
+        if self.redis_client is None:
+            if self._redis_url:
+                self._init_redis()
+            else:
+                # Fallback: try to get Redis URL from environment
+                redis_url = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
+                self._redis_url = redis_url
+                self._init_redis()
+        return self.redis_client is not None
     
     def get(self, key):
         """Get value from cache"""
         try:
+            if not self._ensure_redis():
+                return None
             value = self.redis_client.get(key)
             if value:
                 try:
@@ -39,6 +66,9 @@ class CacheManager:
     
     def set(self, key, value, timeout=None):
         """Set value in cache"""
+        if not self._ensure_redis():
+            return False
+            
         if timeout is None:
             timeout = self.default_timeout
         
@@ -59,6 +89,8 @@ class CacheManager:
     
     def delete(self, key):
         """Delete value from cache"""
+        if not self._ensure_redis():
+            return False
         try:
             return self.redis_client.delete(key) > 0
         except redis.RedisError as e:
@@ -67,6 +99,8 @@ class CacheManager:
     
     def clear_pattern(self, pattern):
         """Clear all keys matching pattern"""
+        if not self._ensure_redis():
+            return 0
         try:
             keys = self.redis_client.keys(pattern)
             if keys:
@@ -78,6 +112,8 @@ class CacheManager:
     
     def exists(self, key):
         """Check if key exists in cache"""
+        if not self._ensure_redis():
+            return False
         try:
             return self.redis_client.exists(key) > 0
         except redis.RedisError:
