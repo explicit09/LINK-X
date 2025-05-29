@@ -311,10 +311,68 @@ class CourseService:
     
     def _calculate_completion_rate(self, course_id: str) -> float:
         """Calculate course completion rate"""
-        # TODO: Implement actual calculation based on progress tracking
-        return 0.0
+        from ..db.schema import Activity, Enrollment
+        
+        # Get all enrolled students
+        enrollments = self.enrollment_repo.get_by_course(course_id)
+        if not enrollments:
+            return 0.0
+        
+        # Get course modules and files
+        course = self.course_repo.get_with_modules(course_id)
+        if not course or not course.modules:
+            return 0.0
+        
+        total_files = sum(len(module.files) for module in course.modules)
+        if total_files == 0:
+            return 0.0
+        
+        completed_students = 0
+        
+        for enrollment in enrollments:
+            # Count unique files viewed by this student
+            viewed_files = self.db.query(Activity.metadata['file_id']).filter(
+                Activity.user_id == enrollment.student_id,
+                Activity.activity_type == 'file_view',
+                Activity.metadata['course_id'].astext == course_id
+            ).distinct().count()
+            
+            # Consider student completed if they viewed all files
+            if viewed_files >= total_files:
+                completed_students += 1
+        
+        return (completed_students / len(enrollments)) * 100 if enrollments else 0.0
     
     def _calculate_average_progress(self, course_id: str) -> float:
         """Calculate average student progress"""
-        # TODO: Implement actual calculation based on progress tracking
-        return 0.0
+        from ..db.schema import Activity, Enrollment
+        
+        # Get all enrolled students
+        enrollments = self.enrollment_repo.get_by_course(course_id)
+        if not enrollments:
+            return 0.0
+        
+        # Get course modules and files
+        course = self.course_repo.get_with_modules(course_id)
+        if not course or not course.modules:
+            return 0.0
+        
+        total_files = sum(len(module.files) for module in course.modules)
+        if total_files == 0:
+            return 0.0
+        
+        total_progress = 0.0
+        
+        for enrollment in enrollments:
+            # Count unique files viewed by this student
+            viewed_files = self.db.query(Activity.metadata['file_id']).filter(
+                Activity.user_id == enrollment.student_id,
+                Activity.activity_type == 'file_view',
+                Activity.metadata['course_id'].astext == course_id
+            ).distinct().count()
+            
+            # Calculate individual progress
+            student_progress = (viewed_files / total_files) * 100
+            total_progress += student_progress
+        
+        return total_progress / len(enrollments) if enrollments else 0.0

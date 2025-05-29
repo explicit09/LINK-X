@@ -5,7 +5,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from src.services.auth_service import AuthService
+from src.services.auth_service_unified import UnifiedAuthService as AuthService
 from src.core.exceptions import AuthenticationError, ValidationError
 from src.db.schema import User, Role
 
@@ -15,7 +15,7 @@ class TestAuthService:
     @pytest.fixture
     def mock_user_repo(self):
         """Mock UserRepository"""
-        with patch('src.services.auth_service.UserRepository') as mock:
+        with patch('src.services.auth_service_unified.UserRepository') as mock:
             yield mock.return_value
     
     def test_authenticate_success(self, mock_user_repo):
