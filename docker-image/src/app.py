@@ -14,7 +14,7 @@ import firebase_admin
 from firebase_admin import auth, credentials
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from src.db.schema import Base, File, Module, PersonalizedFile, Todo, FileChunk
+from src.db.schema import Base, File, Module, PersonalizedFile, Todo, FileChunk, Enrollment, Course
 from openai import OpenAI
 from src.transcriber import transcribe_audio
 from src.indexer import store_file_embeddings
@@ -1422,21 +1422,60 @@ def api_courses():
         
         if request.method == 'GET':
             # Get courses based on role
+            print(f"Getting courses for user {user.id} with role {role.role_type}")
+            
             if role.role_type == 'student':
                 courses = get_courses_by_student_id(db, user.id)
+                print(f"Found {len(courses)} courses for student {user.id}")
             elif role.role_type == 'instructor':
                 courses = get_courses_by_instructor_id(db, user.id)
+                print(f"Found {len(courses)} courses for instructor {user.id}")
             else:
                 return jsonify({'error': 'Invalid role'}), 403
                 
-            return jsonify([{
-                'id': str(c.id),
-                'title': c.title,
-                'description': c.description,
-                'instructor_id': str(c.instructor_id),
-                'created_at': c.created_at.isoformat() if c.created_at else None,
-                'last_updated': c.last_updated.isoformat() if c.last_updated else None
-            } for c in courses]), 200
+            # Add more detailed logging
+            for course in courses:
+                print(f"Course: {course.id} - {course.title}")
+                
+            # Build response with all expected fields
+            response_data = []
+            for c in courses:
+                # Get instructor info
+                instructor = get_user_by_id(db, c.instructor_id)
+                
+                # Get module count
+                modules = get_modules_by_course(db, c.id)
+                
+                # Get student count (for instructors)
+                student_count = 0
+                if role.role_type == 'instructor':
+                    enrollments = db.query(Enrollment).filter(Enrollment.course_id == c.id).count()
+                    student_count = enrollments
+                
+                course_data = {
+                    'id': str(c.id),
+                    'title': c.title,
+                    'description': c.description or '',
+                    'instructor_id': str(c.instructor_id) if c.instructor_id else None,
+                    'category': getattr(c, 'category', 'General'),
+                    'tags': getattr(c, 'tags', []),
+                    'published': True,  # Default to true for now
+                    'created_at': c.created_at.isoformat() if c.created_at else None,
+                    'updated_at': c.last_updated.isoformat() if c.last_updated else c.created_at.isoformat() if c.created_at else None,
+                    'last_updated': c.last_updated.isoformat() if c.last_updated else c.created_at.isoformat() if c.created_at else None,
+                    'code': getattr(c, 'code', ''),
+                    'term': getattr(c, 'term', ''),
+                    'students': student_count,
+                    'materialsCount': len(modules),
+                    'instructor': {
+                        'name': instructor.display_name if instructor and hasattr(instructor, 'display_name') else 'Unknown',
+                        'email': instructor.email if instructor and hasattr(instructor, 'email') else ''
+                    }
+                }
+                response_data.append(course_data)
+            
+            print(f"Returning courses response: {response_data}")
+            return jsonify({'courses': response_data}), 200
             
         elif request.method == 'POST':
             # Only instructors can create courses via this endpoint
@@ -1481,15 +1520,50 @@ def api_todo_items():
             
         if request.method == 'GET':
             todos = get_todos_by_user(db, user.id)
-            return jsonify([{
-                'id': str(t.id),
-                'title': t.title,
-                'description': t.description,
-                'due_date': t.due_date.isoformat() if t.due_date else None,
-                'completed': t.completed,
-                'course_id': str(t.course_id) if t.course_id else None,
-                'created_at': t.created_at.isoformat() if t.created_at else None
-            } for t in todos]), 200
+            
+            # Transform todos to match frontend expectations
+            todo_items = []
+            for t in todos:
+                # Get course name if course_id exists
+                course_name = "General"
+                if t.course_id:
+                    course = get_course_by_id(db, t.course_id)
+                    if course:
+                        course_name = course.title
+                
+                # Determine type based on title or description
+                todo_type = "assignment"  # default
+                title_lower = t.title.lower()
+                if "quiz" in title_lower:
+                    todo_type = "quiz"
+                elif "read" in title_lower:
+                    todo_type = "reading"
+                elif "review" in title_lower:
+                    todo_type = "review"
+                
+                # Determine priority based on due date
+                priority = "medium"  # default
+                if t.due_date:
+                    days_until_due = (t.due_date - datetime.now()).days
+                    if days_until_due <= 1:
+                        priority = "high"
+                    elif days_until_due >= 7:
+                        priority = "low"
+                
+                todo_items.append({
+                    'id': str(t.id),
+                    'title': t.title,
+                    'course': course_name,
+                    'dueDate': t.due_date.isoformat() if t.due_date else None,
+                    'type': todo_type,
+                    'priority': priority,
+                    'completed': t.completed,
+                    'description': t.description,
+                    'course_id': str(t.course_id) if t.course_id else None,
+                    'created_at': t.created_at.isoformat() if t.created_at else None
+                })
+            
+            return jsonify(todo_items), 200
             
         elif request.method == 'POST':
             data = request.get_json() or {}
@@ -1506,12 +1580,40 @@ def api_todo_items():
                 course_id=data.get('course_id')
             )
             
+            # Get course name if course_id exists
+            course_name = "General"
+            if todo.course_id:
+                course = get_course_by_id(db, todo.course_id)
+                if course:
+                    course_name = course.title
+            
+            # Determine type and priority
+            todo_type = "assignment"
+            title_lower = todo.title.lower()
+            if "quiz" in title_lower:
+                todo_type = "quiz"
+            elif "read" in title_lower:
+                todo_type = "reading"
+            elif "review" in title_lower:
+                todo_type = "review"
+                
+            priority = "medium"
+            if todo.due_date:
+                days_until_due = (todo.due_date - datetime.now()).days
+                if days_until_due <= 1:
+                    priority = "high"
+                elif days_until_due >= 7:
+                    priority = "low"
+            
             return jsonify({
                 'id': str(todo.id),
                 'title': todo.title,
-                'description': todo.description,
-                'due_date': todo.due_date.isoformat() if todo.due_date else None,
+                'course': course_name,
+                'dueDate': todo.due_date.isoformat() if todo.due_date else None,
+                'type': todo_type,
+                'priority': priority,
                 'completed': todo.completed,
+                'description': todo.description,
                 'course_id': str(todo.course_id) if todo.course_id else None,
                 'created_at': todo.created_at.isoformat() if todo.created_at else None
             }), 201
@@ -1529,23 +1631,62 @@ def api_activities_recent():
     if 'error' in session:
         return jsonify(session), 401
     
-    # Return mock data for now
-    return jsonify([
-        {
-            'id': '1',
-            'type': 'course_view',
-            'title': 'Viewed Introduction to Machine Learning',
-            'timestamp': datetime.now().isoformat(),
-            'course_id': 'mock-course-1'
-        },
-        {
-            'id': '2',
-            'type': 'module_complete',
-            'title': 'Completed Module: Linear Regression',
-            'timestamp': (datetime.now() - timedelta(hours=2)).isoformat(),
-            'course_id': 'mock-course-1'
-        }
-    ]), 200
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        activities = []
+        
+        # Get recent file views
+        recent_files = db.query(File).join(Module).join(Course).join(Enrollment).filter(
+            Enrollment.user_id == user.id
+        ).order_by(File.created_at.desc()).limit(5).all()
+        
+        for file in recent_files:
+            module = get_module_by_id(db, file.module_id)
+            if module:
+                course = get_course_by_id(db, module.course_id)
+                if course:
+                    activities.append({
+                        'id': f'file_{file.id}',
+                        'type': 'file_view',
+                        'title': f'Viewed {file.title}',
+                        'timestamp': file.created_at.isoformat() if file.created_at else datetime.now().isoformat(),
+                        'course_id': str(course.id),
+                        'course_name': course.title
+                    })
+        
+        # Get recent personalized files
+        personalized_files = get_personalized_files_by_student(db, user.id)
+        for pf in personalized_files[:5]:
+            original_file = get_file_by_id(db, pf.original_file_id)
+            if original_file:
+                module = get_module_by_id(db, original_file.module_id)
+                if module:
+                    course = get_course_by_id(db, module.course_id)
+                    if course:
+                        activities.append({
+                            'id': f'pf_{pf.id}',
+                            'type': 'ai_interaction',
+                            'title': f'AI personalized {original_file.title}',
+                            'timestamp': pf.created_at.isoformat() if pf.created_at else datetime.now().isoformat(),
+                            'course_id': str(course.id),
+                            'course_name': course.title
+                        })
+        
+        # Sort by timestamp and limit to 10 most recent
+        activities.sort(key=lambda x: x['timestamp'], reverse=True)
+        
+        return jsonify(activities[:10]), 200
+        
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
 
 @app.route('/api/v1/activities/stats', methods=['GET'])
 def api_activities_stats():
@@ -1553,14 +1694,564 @@ def api_activities_stats():
     if 'error' in session:
         return jsonify(session), 401
     
-    # Return mock stats for now
-    return jsonify({
-        'total_courses': 3,
-        'completed_modules': 12,
-        'study_time_minutes': 450,
-        'streak_days': 5,
-        'last_activity': datetime.now().isoformat()
-    }), 200
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        # Get total courses
+        total_courses = db.query(Enrollment).filter(Enrollment.user_id == user.id).count()
+        
+        # Get completed modules (estimate based on personalized files)
+        personalized_files = get_personalized_files_by_student(db, user.id)
+        completed_modules = len(set(pf.original_file_id for pf in personalized_files))
+        
+        # Estimate study time based on personalized files (30 mins per file)
+        study_time_minutes = len(personalized_files) * 30
+        
+        # Calculate streak days (simplified - days with activity)
+        unique_days = set()
+        for pf in personalized_files:
+            if pf.created_at:
+                unique_days.add(pf.created_at.date())
+        
+        # Check for consecutive days
+        if unique_days:
+            sorted_days = sorted(unique_days, reverse=True)
+            streak_days = 1
+            for i in range(1, len(sorted_days)):
+                if (sorted_days[i-1] - sorted_days[i]).days == 1:
+                    streak_days += 1
+                else:
+                    break
+        else:
+            streak_days = 0
+        
+        # Get last activity
+        last_activity = None
+        if personalized_files:
+            last_pf = max(personalized_files, key=lambda x: x.created_at if x.created_at else datetime.min)
+            last_activity = last_pf.created_at.isoformat() if last_pf.created_at else None
+        
+        return jsonify({
+            'total_courses': total_courses,
+            'completed_modules': completed_modules,
+            'study_time_minutes': study_time_minutes,
+            'streak_days': streak_days,
+            'last_activity': last_activity or datetime.now().isoformat()
+        }), 200
+        
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Individual todo endpoints
+@app.route('/api/v1/todo-items/<todo_id>', methods=['GET', 'PATCH', 'DELETE'])
+def api_todo_item(todo_id):
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+    
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        todo = get_todo_by_id(db, todo_id)
+        if not todo:
+            return jsonify({'error': 'Todo not found'}), 404
+            
+        # Check ownership
+        if str(todo.user_id) != str(user.id):
+            return jsonify({'error': 'Access denied'}), 403
+            
+        if request.method == 'GET':
+            # Get course name if course_id exists
+            course_name = "General"
+            if todo.course_id:
+                course = get_course_by_id(db, todo.course_id)
+                if course:
+                    course_name = course.title
+            
+            # Determine type based on title
+            todo_type = "assignment"
+            title_lower = todo.title.lower()
+            if "quiz" in title_lower:
+                todo_type = "quiz"
+            elif "read" in title_lower:
+                todo_type = "reading"
+            elif "review" in title_lower:
+                todo_type = "review"
+            
+            # Determine priority
+            priority = "medium"
+            if todo.due_date:
+                days_until_due = (todo.due_date - datetime.now()).days
+                if days_until_due <= 1:
+                    priority = "high"
+                elif days_until_due >= 7:
+                    priority = "low"
+            
+            return jsonify({
+                'id': str(todo.id),
+                'title': todo.title,
+                'course': course_name,
+                'dueDate': todo.due_date.isoformat() if todo.due_date else None,
+                'type': todo_type,
+                'priority': priority,
+                'completed': todo.completed,
+                'description': todo.description,
+                'course_id': str(todo.course_id) if todo.course_id else None,
+                'created_at': todo.created_at.isoformat() if todo.created_at else None
+            }), 200
+            
+        elif request.method == 'PATCH':
+            data = request.get_json() or {}
+            allowed_fields = ['title', 'description', 'due_date', 'completed', 'course_id']
+            update_data = {k: v for k, v in data.items() if k in allowed_fields}
+            
+            if not update_data:
+                return jsonify({'error': 'No valid fields to update'}), 400
+                
+            updated_todo = update_todo(db, todo_id, **update_data)
+            
+            # Get course name if course_id exists
+            course_name = "General"
+            if updated_todo.course_id:
+                course = get_course_by_id(db, updated_todo.course_id)
+                if course:
+                    course_name = course.title
+            
+            # Determine type and priority
+            todo_type = "assignment"
+            title_lower = updated_todo.title.lower()
+            if "quiz" in title_lower:
+                todo_type = "quiz"
+            elif "read" in title_lower:
+                todo_type = "reading"
+            elif "review" in title_lower:
+                todo_type = "review"
+                
+            priority = "medium"
+            if updated_todo.due_date:
+                days_until_due = (updated_todo.due_date - datetime.now()).days
+                if days_until_due <= 1:
+                    priority = "high"
+                elif days_until_due >= 7:
+                    priority = "low"
+            
+            return jsonify({
+                'id': str(updated_todo.id),
+                'title': updated_todo.title,
+                'course': course_name,
+                'dueDate': updated_todo.due_date.isoformat() if updated_todo.due_date else None,
+                'type': todo_type,
+                'priority': priority,
+                'completed': updated_todo.completed,
+                'description': updated_todo.description,
+                'course_id': str(updated_todo.course_id) if updated_todo.course_id else None,
+                'created_at': updated_todo.created_at.isoformat() if updated_todo.created_at else None
+            }), 200
+            
+        elif request.method == 'DELETE':
+            delete_todo(db, todo_id)
+            return jsonify({'message': 'Todo deleted successfully'}), 200
+            
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Individual course details endpoint
+@app.route('/api/v1/courses/<course_id>', methods=['GET'])
+def api_course_details(course_id):
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+    
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        course = get_course_by_id(db, course_id)
+        if not course:
+            return jsonify({'error': 'Course not found'}), 404
+            
+        # Check if user has access to this course
+        role = get_role_by_user_id(db, user.id)
+        if role.role_type == 'student':
+            enrollment = db.query(Enrollment).filter(
+                Enrollment.user_id == user.id,
+                Enrollment.course_id == course_id
+            ).first()
+            if not enrollment:
+                return jsonify({'error': 'Access denied'}), 403
+        elif role.role_type == 'instructor':
+            if str(course.instructor_id) != str(user.id):
+                return jsonify({'error': 'Access denied'}), 403
+                
+        # Get instructor info
+        instructor = get_user_by_id(db, course.instructor_id)
+        
+        return jsonify({
+            'id': str(course.id),
+            'title': course.title,
+            'description': course.description,
+            'instructor_id': str(course.instructor_id),
+            'instructor_name': instructor.display_name if instructor else 'Unknown',
+            'created_at': course.created_at.isoformat() if course.created_at else None,
+            'last_updated': course.last_updated.isoformat() if course.last_updated else None
+        }), 200
+        
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Course modules endpoint
+@app.route('/api/v1/courses/<course_id>/modules', methods=['GET'])
+def api_course_modules(course_id):
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+    
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        # Check access
+        course = get_course_by_id(db, course_id)
+        if not course:
+            return jsonify({'error': 'Course not found'}), 404
+            
+        role = get_role_by_user_id(db, user.id)
+        if role.role_type == 'student':
+            enrollment = db.query(Enrollment).filter(
+                Enrollment.user_id == user.id,
+                Enrollment.course_id == course_id
+            ).first()
+            if not enrollment:
+                return jsonify({'error': 'Access denied'}), 403
+        elif role.role_type == 'instructor':
+            if str(course.instructor_id) != str(user.id):
+                return jsonify({'error': 'Access denied'}), 403
+                
+        modules = get_modules_by_course(db, course_id)
+        return jsonify([{
+            'id': str(m.id),
+            'title': m.title,
+            'description': getattr(m, 'description', ''),
+            'course_id': str(m.course_id),
+            'ordering': m.ordering,
+            'file_count': len(get_files_by_module(db, m.id))
+        } for m in modules]), 200
+        
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Course files endpoint
+@app.route('/api/v1/courses/<course_id>/files', methods=['GET'])
+def api_course_files(course_id):
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+    
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        # Check access
+        course = get_course_by_id(db, course_id)
+        if not course:
+            return jsonify({'error': 'Course not found'}), 404
+            
+        role = get_role_by_user_id(db, user.id)
+        if role.role_type == 'student':
+            enrollment = db.query(Enrollment).filter(
+                Enrollment.user_id == user.id,
+                Enrollment.course_id == course_id
+            ).first()
+            if not enrollment:
+                return jsonify({'error': 'Access denied'}), 403
+        elif role.role_type == 'instructor':
+            if str(course.instructor_id) != str(user.id):
+                return jsonify({'error': 'Access denied'}), 403
+                
+        # Get all files for all modules in the course
+        modules = get_modules_by_course(db, course_id)
+        all_files = []
+        
+        for module in modules:
+            files = get_files_by_module(db, module.id)
+            for file in files:
+                all_files.append({
+                    'id': str(file.id),
+                    'title': file.title,
+                    'filename': file.filename,
+                    'file_type': file.file_type,
+                    'file_size': file.file_size,
+                    'module_id': str(file.module_id),
+                    'module_title': module.title,
+                    'created_at': file.created_at.isoformat() if file.created_at else None,
+                    's3_key': file.s3_key if hasattr(file, 's3_key') else None
+                })
+                
+        return jsonify(all_files), 200
+        
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Course stats endpoint
+@app.route('/api/v1/courses/<course_id>/stats', methods=['GET'])
+def api_course_stats(course_id):
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+    
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        # Check access
+        course = get_course_by_id(db, course_id)
+        if not course:
+            return jsonify({'error': 'Course not found'}), 404
+            
+        role = get_role_by_user_id(db, user.id)
+        if role.role_type == 'student':
+            enrollment = db.query(Enrollment).filter(
+                Enrollment.user_id == user.id,
+                Enrollment.course_id == course_id
+            ).first()
+            if not enrollment:
+                return jsonify({'error': 'Access denied'}), 403
+                
+            # Get student-specific stats
+            modules = get_modules_by_course(db, course_id)
+            total_files = 0
+            viewed_files = 0
+            
+            for module in modules:
+                files = get_files_by_module(db, module.id)
+                total_files += len(files)
+                
+                for file in files:
+                    # Check if student has viewed this file
+                    if hasattr(file, 'view_count_raw') and file.view_count_raw > 0:
+                        viewed_files += 1
+                        
+            progress_percentage = round((viewed_files / total_files) * 100) if total_files > 0 else 0
+            
+            return jsonify({
+                'total_modules': len(modules),
+                'total_files': total_files,
+                'viewed_files': viewed_files,
+                'progress_percentage': progress_percentage,
+                'enrollment_date': enrollment.created_at.isoformat() if enrollment.created_at else None
+            }), 200
+            
+        elif role.role_type == 'instructor':
+            if str(course.instructor_id) != str(user.id):
+                return jsonify({'error': 'Access denied'}), 403
+                
+            # Get instructor-specific stats
+            enrollments = db.query(Enrollment).filter(Enrollment.course_id == course_id).all()
+            modules = get_modules_by_course(db, course_id)
+            total_files = sum(len(get_files_by_module(db, m.id)) for m in modules)
+            
+            return jsonify({
+                'total_students': len(enrollments),
+                'total_modules': len(modules),
+                'total_files': total_files,
+                'created_at': course.created_at.isoformat() if course.created_at else None,
+                'last_updated': course.last_updated.isoformat() if course.last_updated else None
+            }), 200
+        
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# User enrollments endpoint
+@app.route('/api/v1/enrollments', methods=['GET'])
+def api_enrollments():
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+    
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        role = get_role_by_user_id(db, user.id)
+        if role.role_type != 'student':
+            return jsonify({'error': 'Only students have enrollments'}), 403
+            
+        enrollments = get_enrollments_by_student(db, user.id)
+        return jsonify([{
+            'id': str(e.id),
+            'course_id': str(e.course_id),
+            'user_id': str(e.user_id),
+            'created_at': e.created_at.isoformat() if e.created_at else None
+        } for e in enrollments]), 200
+        
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Module details endpoint
+@app.route('/api/v1/modules/<module_id>', methods=['GET'])
+def api_module_details(module_id):
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+    
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        module = get_module_by_id(db, module_id)
+        if not module:
+            return jsonify({'error': 'Module not found'}), 404
+            
+        # Check access via course
+        course = get_course_by_id(db, module.course_id)
+        role = get_role_by_user_id(db, user.id)
+        
+        if role.role_type == 'student':
+            enrollment = db.query(Enrollment).filter(
+                Enrollment.user_id == user.id,
+                Enrollment.course_id == module.course_id
+            ).first()
+            if not enrollment:
+                return jsonify({'error': 'Access denied'}), 403
+        elif role.role_type == 'instructor':
+            if str(course.instructor_id) != str(user.id):
+                return jsonify({'error': 'Access denied'}), 403
+                
+        files = get_files_by_module(db, module_id)
+        
+        return jsonify({
+            'id': str(module.id),
+            'title': module.title,
+            'description': getattr(module, 'description', ''),
+            'course_id': str(module.course_id),
+            'ordering': module.ordering,
+            'files': [{
+                'id': str(f.id),
+                'title': f.title,
+                'filename': f.filename,
+                'file_type': f.file_type,
+                'file_size': f.file_size,
+                'created_at': f.created_at.isoformat() if f.created_at else None
+            } for f in files]
+        }), 200
+        
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# File details endpoint
+@app.route('/api/v1/files/<file_id>', methods=['GET'])
+def api_file_details(file_id):
+    session = get_user_session()
+    if 'error' in session:
+        return jsonify(session), 401
+    
+    firebase_uid = session['uid']
+    db = Session()
+    try:
+        user = get_user_by_firebase_uid(db, firebase_uid)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        file = get_file_by_id(db, file_id)
+        if not file:
+            return jsonify({'error': 'File not found'}), 404
+            
+        # Check access via module and course
+        module = get_module_by_id(db, file.module_id)
+        course = get_course_by_id(db, module.course_id)
+        role = get_role_by_user_id(db, user.id)
+        
+        if role.role_type == 'student':
+            enrollment = db.query(Enrollment).filter(
+                Enrollment.user_id == user.id,
+                Enrollment.course_id == module.course_id
+            ).first()
+            if not enrollment:
+                return jsonify({'error': 'Access denied'}), 403
+        elif role.role_type == 'instructor':
+            if str(course.instructor_id) != str(user.id):
+                return jsonify({'error': 'Access denied'}), 403
+                
+        return jsonify({
+            'id': str(file.id),
+            'title': file.title,
+            'filename': file.filename,
+            'file_type': file.file_type,
+            'file_size': file.file_size,
+            'module_id': str(file.module_id),
+            'created_at': file.created_at.isoformat() if file.created_at else None,
+            's3_key': file.s3_key if hasattr(file, 's3_key') else None,
+            'module_title': module.title,
+            'course_id': str(module.course_id),
+            'course_title': course.title
+        }), 200
+        
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        db.close()
+
+# Legacy endpoints for backward compatibility
+@app.route('/student/courses', methods=['GET'])
+def legacy_student_courses():
+    # Redirect to new API endpoint
+    return api_courses()
+
+@app.route('/instructor/courses', methods=['GET'])
+def legacy_instructor_courses():
+    # Redirect to new API endpoint
+    return api_courses()
 
 @app.route('/courses/<course_id>/citations', methods=['GET'])
 def citations_route(course_id):
