@@ -23,19 +23,36 @@ class BaseFileService:
             region_name=self.config.AWS_REGION
         )
     
-    def _check_course_access(self, course: dict, user_id: str) -> bool:
+    def _check_course_access(self, course, user_id: str) -> bool:
         """Check if user has access to course"""
         if not course:
             return False
         
+        # Handle both dict and SQLAlchemy model objects
+        if hasattr(course, '__dict__'):
+            # SQLAlchemy model object - use attribute access
+            instructor_id = getattr(course, 'instructor_id', None)
+            enrollments = getattr(course, 'enrollments', [])
+        else:
+            # Dictionary object - use dict access
+            instructor_id = course.get('instructor_id')
+            enrollments = course.get('enrollments', [])
+        
         # Instructor access
-        if course.get('instructor_id') == user_id:
+        if str(instructor_id) == str(user_id):
             return True
         
         # Student access - check enrollments
-        enrollments = course.get('enrollments', [])
         for enrollment in enrollments:
-            if enrollment.get('user_id') == user_id:
+            enrollment_user_id = None
+            if hasattr(enrollment, '__dict__'):
+                # SQLAlchemy model object
+                enrollment_user_id = getattr(enrollment, 'user_id', None) or getattr(enrollment, 'student_id', None)
+            else:
+                # Dictionary object
+                enrollment_user_id = enrollment.get('user_id') or enrollment.get('student_id')
+            
+            if str(enrollment_user_id) == str(user_id):
                 return True
         
         return False

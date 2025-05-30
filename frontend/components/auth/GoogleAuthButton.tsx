@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState } from 'react';
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '@/firebaseconfig';
@@ -106,7 +108,7 @@ export function GoogleAuthButton({ mode, onLoading, disabled }: GoogleAuthButton
       {loading ? (
         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
       ) : (
-        <LogoGoogle size={20} />
+        <LogoGoogle size={20} aria-label="Google logo" />
       )}
       <span className="text-base">
         {loading 

@@ -73,6 +73,7 @@ export const AudioUpload = dynamic(() => import('../dashboard/AudioUpload'), {
 // Authentication components
 export const GoogleAuthButton = dynamic(() => import('../auth/GoogleAuthButton'), {
   loading: LoadingSpinner,
+  ssr: false, // Prevent hydration mismatches
 });
 
 // Performance monitoring

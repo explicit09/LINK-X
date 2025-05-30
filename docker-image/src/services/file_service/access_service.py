@@ -14,7 +14,7 @@ class FileAccessService(BaseFileService):
         
         # Check access through module and course
         module = self.module_repo.get_by_id(file.module_id)
-        course = self.course_repo.get_by_id(module.course_id)
+        course = self.course_repo.get_with_enrollments(module.course_id)
         
         if not self._check_course_access(course, user_id):
             raise AuthorizationError("Not authorized to access this file")
@@ -109,7 +109,7 @@ class FileAccessService(BaseFileService):
         if not module:
             raise NotFoundError("Module not found")
         
-        course = self.course_repo.get_by_id(module.course_id)
+        course = self.course_repo.get_with_enrollments(module.course_id)
         if not self._check_course_access(course, user_id):
             raise AuthorizationError("Not authorized to access this module")
         

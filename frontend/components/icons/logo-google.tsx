@@ -3,8 +3,7 @@ import { IconProps, getSvgProps } from './types';
 export const LogoGoogle = ({ size = 16, className, style, "aria-label": ariaLabel, ...props }: IconProps) => {
   return (
     <svg
-      {...getSvgProps(size, className, style)}
-      aria-label={ariaLabel}
+      {...getSvgProps(size, className, style, { "aria-label": ariaLabel, ...props })}
       data-testid="geist-icon"
     >
       <path

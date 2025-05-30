@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import dynamic from "next/dynamic";
 import {
   Select,
   SelectTrigger,
@@ -13,12 +14,24 @@ import {
 } from "@/components/ui/select";
 import { AuthForm } from "@/components/auth-form";
 import { SubmitButton } from "@/components/submit-button";
-import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/firebaseconfig";
+
+// Import GoogleAuthButton with no SSR to prevent hydration mismatches
+const GoogleAuthButton = dynamic(
+  () => import("@/components/auth/GoogleAuthButton").then(mod => ({ default: mod.GoogleAuthButton })),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-12 bg-gray-100 rounded-lg animate-pulse flex items-center justify-center">
+        <span className="text-gray-500 text-sm">Loading...</span>
+      </div>
+    )
+  }
+);
 
 export default function Page() {
   const router = useRouter();
