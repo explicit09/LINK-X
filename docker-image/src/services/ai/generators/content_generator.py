@@ -15,6 +15,11 @@ class ContentGenerator(BaseContentGenerator):
     def __init__(self, client):
         super().__init__(client)
     
+    def generate(self, content: str, **kwargs) -> Dict:
+        """Generate content based on input - required abstract method implementation"""
+        # Default implementation - generate outline
+        return self.generate_outline(content)
+    
     def generate_outline(self, content: str) -> Dict:
         """Generate document outline from content"""
         try:

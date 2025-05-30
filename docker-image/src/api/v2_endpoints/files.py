@@ -1,7 +1,7 @@
 """
 API v2 File Endpoints
 """
-from flask import Blueprint, request, g, send_file, jsonify, current_app
+from flask import Blueprint, request, g, send_file, jsonify, current_app, Response
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
@@ -12,6 +12,21 @@ from core.decorators_unified import firebase_auth_required
 from core.exceptions import ValidationError, NotFoundError, UnauthorizedError
 from services.file_service import FileService
 from repositories.module_repository import ModuleRepository
+from core.prompts import prompt_generate_personalized_file_content, prompt3_generate_module_content
+
+# Import AI services
+try:
+    from services.ai.ai_service import AIService
+    from services.streaming.streaming_handler import StreamingHandler
+    from services.streaming.data_processor import DataProcessor
+    from services.streaming.recommendation_engine import RecommendationEngine
+    ai_service = AIService()
+    streaming_handler = StreamingHandler(ai_service.client.client)
+except ImportError as e:
+    logger = logging.getLogger(__name__)
+    logger.warning(f"AI services not available: {e}")
+    ai_service = None
+    streaming_handler = None
 
 # Import s3_storage with error handling
 try:
@@ -328,13 +343,63 @@ def get_existing_content_v2(file_id):
         
         logger.info(f"File retrieved for existing-content: {type(file)}, has filename: {hasattr(file, 'filename')}")
         
-        # For now, return empty content - this can be expanded later to check for saved personalized content
+        # Check for existing personalized content
+        try:
+            from repositories.file_repository import FileRepository
+            file_repo = FileRepository()
+            
+            # Look for personalized version of this file for this user
+            personalized_file = file_repo.get_personalized_file(file_id, user.id)
+            
+            if personalized_file and personalized_file.processed:
+                # Parse existing personalized content
+                try:
+                    import json
+                    personalized_data = json.loads(personalized_file.personalized_content)
+                    
+                    # Extract content sections
+                    content_sections = []
+                    if 'chapters' in personalized_data:
+                        for chapter in personalized_data['chapters']:
+                            chapter_title = chapter.get('chapterTitle', chapter.get('title', 'Chapter'))
+                            if 'subsections' in chapter:
+                                for subsection in chapter['subsections']:
+                                    content_sections.append({
+                                        'sectionId': f"{chapter_title.lower().replace(' ', '-')}-{len(content_sections)+1}",
+                                        'title': subsection.get('title', 'Section'),
+                                        'content': subsection.get('fullText', subsection.get('content', ''))
+                                    })
+                    elif 'sections' in personalized_data:
+                        for i, section in enumerate(personalized_data['sections']):
+                            content_sections.append({
+                                'sectionId': f"section-{i+1}",
+                                'title': section.get('title', f'Section {i+1}'),
+                                'content': section.get('content', section.get('text', ''))
+                            })
+                    
+                    response_data = {
+                        'content': content_sections,
+                        'fileName': file.filename if hasattr(file, 'filename') else 'Document'
+                    }
+                    
+                    logger.info(f"Found existing personalized content with {len(content_sections)} sections")
+                    return jsonify(response_data)
+                    
+                except (json.JSONDecodeError, KeyError) as parse_error:
+                    logger.warning(f"Could not parse personalized content: {parse_error}")
+                    # Fall through to empty content
+            
+        except Exception as repo_error:
+            logger.warning(f"Could not check for personalized content: {repo_error}")
+            # Fall through to empty content
+        
+        # Return empty content if no personalized version found
         response_data = {
             'content': [],
             'fileName': file.filename if hasattr(file, 'filename') else 'Document'
         }
         
-        logger.info(f"Existing content response: {response_data}")
+        logger.info(f"No existing personalized content found, returning empty: {response_data}")
         return jsonify(response_data)
         
     except NotFoundError:
@@ -349,74 +414,80 @@ def get_existing_content_v2(file_id):
 @files_bp.route('/<file_id>/outline', methods=['GET'])
 @firebase_auth_required
 def get_file_outline_v2(file_id):
-    """Generate document outline for a file"""
+    """Generate outline for a file"""
     try:
         user = g.current_user
         
         # Get file with access check
-        file = get_file_service().get_file_with_access_check(file_id, user.id)
+        file_obj = get_file_service().get_file_with_access_check(file_id, user.id)
         
-        logger.info(f"File retrieved for outline: {type(file)}, has filename: {hasattr(file, 'filename')}")
+        # Extract content and filename from File object
+        file_content = ""
+        file_name = "Document"
         
-        # Generate a basic outline structure
-        # This can be expanded later to use AI services for real outline generation
+        if hasattr(file_obj, 'extracted_text') and file_obj.extracted_text:
+            file_content = file_obj.extracted_text
+        elif hasattr(file_obj, 'content') and file_obj.content:
+            file_content = file_obj.content
+            
+        if hasattr(file_obj, 'filename') and file_obj.filename:
+            file_name = file_obj.filename
+        elif hasattr(file_obj, 'title') and file_obj.title:
+            file_name = file_obj.title
+        
+        # Try to use AI service to generate real outline if available and we have content
+        if ai_service and file_content.strip():
+            try:
+                ai_outline = ai_service.generate_outline(file_content)
+                logger.info(f"Generated AI outline for {file_name}")
+                return jsonify(ai_outline)
+            except Exception as ai_error:
+                logger.warning(f"AI outline generation failed: {ai_error}")
+                # Fall through to static outline
+        
+        # Fallback static outline
         outline = {
-            'fileId': file_id,
-            'fileName': file.filename if hasattr(file, 'filename') else 'Document',
-            'outline': {
-                'chapters': [
-                    {
-                        'id': 'chapter-1',
-                        'title': 'Introduction & Overview',
-                        'estimatedTokens': 2000,
-                        'subsections': [
-                            {'id': '1.1', 'title': 'Getting Started', 'estimatedTokens': 500},
-                            {'id': '1.2', 'title': 'Core Concepts', 'estimatedTokens': 600},
-                            {'id': '1.3', 'title': 'Key Objectives', 'estimatedTokens': 500},
-                            {'id': '1.4', 'title': 'Learning Path', 'estimatedTokens': 400}
-                        ]
-                    },
-                    {
-                        'id': 'chapter-2',
-                        'title': 'Main Content',
-                        'estimatedTokens': 3000,
-                        'subsections': [
-                            {'id': '2.1', 'title': 'Fundamental Principles', 'estimatedTokens': 800},
-                            {'id': '2.2', 'title': 'Practical Applications', 'estimatedTokens': 900},
-                            {'id': '2.3', 'title': 'Advanced Topics', 'estimatedTokens': 700},
-                            {'id': '2.4', 'title': 'Case Studies', 'estimatedTokens': 600}
-                        ]
-                    },
-                    {
-                        'id': 'chapter-3',
-                        'title': 'Summary & Next Steps',
-                        'estimatedTokens': 1500,
-                        'subsections': [
-                            {'id': '3.1', 'title': 'Key Takeaways', 'estimatedTokens': 500},
-                            {'id': '3.2', 'title': 'Further Reading', 'estimatedTokens': 400},
-                            {'id': '3.3', 'title': 'Practice Exercises', 'estimatedTokens': 600}
-                        ]
-                    }
-                ]
-            }
+            "title": file_name,
+            "sections": [
+                {
+                    "title": "Introduction & Overview",
+                    "subsections": [
+                        {"title": "Getting Started", "key_points": ["Basic concepts", "Prerequisites", "Learning objectives"]},
+                        {"title": "Key Topics", "key_points": ["Main themes", "Important concepts", "Core principles"]}
+                    ]
+                },
+                {
+                    "title": "Main Content",
+                    "subsections": [
+                        {"title": "Detailed Analysis", "key_points": ["In-depth exploration", "Examples", "Applications"]},
+                        {"title": "Practical Implementation", "key_points": ["Real-world usage", "Best practices", "Common patterns"]}
+                    ]
+                },
+                {
+                    "title": "Summary & Conclusion",
+                    "subsections": [
+                        {"title": "Key Takeaways", "key_points": ["Important insights", "Main lessons", "Critical points"]},
+                        {"title": "Next Steps", "key_points": ["Further reading", "Advanced topics", "Practice exercises"]}
+                    ]
+                }
+            ]
         }
         
-        logger.info(f"Outline response: {outline}")
+        logger.info(f"Generated static outline for {file_name}")
         return jsonify(outline)
         
-    except NotFoundError:
-        return error_response("File not found", status_code=404)
-    except UnauthorizedError:
-        return error_response("Access denied", status_code=403)
     except Exception as e:
-        logger.error(f"Get file outline error: {str(e)}")
-        return error_response("An error occurred generating file outline", status_code=500)
+        logger.error(f"Error generating outline for file {file_id}: {str(e)}")
+        return jsonify({
+            "error": "Failed to generate outline",
+            "message": str(e)
+        }), 500
 
 
 @files_bp.route('/<file_id>/stream-section', methods=['POST'])
 @firebase_auth_required
 def stream_section_v2(file_id):
-    """Stream personalized content for a file section"""
+    """Stream personalized content for a specific section"""
     try:
         user = g.current_user
         data = request.get_json()
@@ -425,92 +496,69 @@ def stream_section_v2(file_id):
             return error_response("No data provided")
         
         # Get file with access check
-        file = get_file_service().get_file_with_access_check(file_id, user.id)
-        
-        chapter_id = data.get('chapter_id')
-        subsection_id = data.get('subsection_id')
-        
-        if not chapter_id or not subsection_id:
-            return error_response("chapter_id and subsection_id are required")
-        
-        # Generate mock streaming content for now
-        # This can be replaced with real AI-powered content generation later
-        def generate_content():
-            content_template = f"""
-# {chapter_id.replace('-', ' ').title()} - {subsection_id}
-
-This is personalized content generated for your learning journey. Here are the key concepts:
-
-## Understanding the Fundamentals
-
-The core principles we'll explore in this section build upon your previous knowledge and help you advance your understanding.
-
-## Key Learning Points
-
-1. **Conceptual Foundation**: We start with the basic concepts that form the foundation of this topic.
-
-2. **Practical Applications**: Next, we explore how these concepts apply in real-world scenarios.
-
-3. **Advanced Insights**: Finally, we dive deeper into more complex aspects that will enhance your expertise.
-
-## Interactive Examples
-
-Let's work through some examples that demonstrate these concepts in action:
-
-- Example 1: Basic application of the concept
-- Example 2: More complex scenario
-- Example 3: Real-world case study
-
-## Summary
-
-This section has covered the essential elements of {chapter_id.replace('-', ' ')} focusing on {subsection_id.replace('-', ' ')}. 
-
-## Next Steps
-
-Continue to the next section to build upon these concepts and further develop your understanding.
-"""
+        file_obj = get_file_service().get_file_with_access_check(file_id, user.id)
             
-            # Split content into words for streaming effect
-            words = content_template.strip().split()
-            
-            # Stream content word by word
-            for i, word in enumerate(words):
-                if i == 0:
-                    chunk = word
-                else:
-                    chunk = ' ' + word
-                
-                # Format as Server-Sent Events
-                yield f"data: {json.dumps({'content': chunk})}\n\n"
-                
-                # Small delay between words to simulate real streaming
-                import time
-                time.sleep(0.05)
+        # Get user profile
+        from services.user_service import UserService
+        user_service = UserService()
+        user_profile = user_service.get_user_profile(user.id)
         
-        # Create streaming response
-        def response_generator():
-            yield "data: " + json.dumps({"status": "starting"}) + "\n\n"
-            
-            for chunk in generate_content():
-                yield chunk
-                
-            yield "data: " + json.dumps({"status": "complete"}) + "\n\n"
+        # Build persona from profile
+        persona = f"""
+        Learning Style: {user_profile.get('learning_style', 'Visual')}
+        Experience Level: {user_profile.get('experience_level', 'Beginner')}
+        Interests: {', '.join(user_profile.get('interests', []))}
+        Goals: {user_profile.get('goals', 'General learning')}
+        Background: {user_profile.get('background', 'Student')}
+        """
         
-        from flask import Response
-        return Response(
-            response_generator(),
-            mimetype='text/plain',
+        # Use existing prompt function for generating module content
+        topic = f"{data.get('topic', 'Section')} - {data.get('focus', 'Content')}"
+        expertise_summary = user_profile.get('experience_level', 'Beginner')
+        
+        # Generate content using existing proven prompt
+        content = prompt3_generate_module_content(persona, expertise_summary, topic)
+        
+        # Generate streaming response
+        def generate():
+            try:
+                # Split content into words for streaming effect
+                words = content.split()
+                current_chunk = ""
+                
+                for i, word in enumerate(words):
+                    current_chunk += (" " if current_chunk else "") + word
+                    
+                    # Send chunks every few words
+                    if (i + 1) % 5 == 0 or i == len(words) - 1:
+                        yield f"data: {json.dumps({'content': current_chunk})}\n\n"
+                        current_chunk = ""
+                        
+                        # Small delay to simulate streaming
+                        import time
+                        time.sleep(0.1)
+                        
+                yield f"data: {json.dumps({'done': True})}\n\n"
+                
+            except Exception as e:
+                logger.error(f"Streaming error: {str(e)}")
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        
+        response = Response(
+            generate(),
+            mimetype='text/event-stream',
             headers={
                 'Cache-Control': 'no-cache',
                 'Connection': 'keep-alive',
-                'X-Accel-Buffering': 'no'  # Disable nginx buffering
+                'Access-Control-Allow-Origin': '*'
             }
         )
         
-    except NotFoundError:
-        return error_response("File not found", status_code=404)
-    except UnauthorizedError:
-        return error_response("Access denied", status_code=403)
+        return response
+        
     except Exception as e:
-        logger.error(f"Stream section error: {str(e)}")
-        return error_response("An error occurred streaming content", status_code=500)
+        logger.error(f"Error streaming section for file {file_id}: {str(e)}")
+        return jsonify({
+            "error": "Failed to stream section content",
+            "message": str(e)
+        }), 500

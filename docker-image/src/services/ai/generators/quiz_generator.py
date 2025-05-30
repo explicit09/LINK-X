@@ -15,6 +15,13 @@ class QuizGenerator(BaseContentGenerator):
     def __init__(self, client):
         super().__init__(client)
     
+    def generate(self, content: str, **kwargs) -> Dict:
+        """Generate content based on input - required abstract method implementation"""
+        # Default implementation - generate quiz
+        difficulty = kwargs.get('difficulty', 'medium')
+        count = kwargs.get('count', 5)
+        return {"questions": self.generate_quiz(content, difficulty, count)}
+    
     def generate_quiz(self, content: str, difficulty: str = 'medium', count: int = 5) -> List[Dict]:
         """Generate quiz questions from content"""
         try:
