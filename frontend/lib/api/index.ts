@@ -1,31 +1,41 @@
-// Re-export all API modules
-export * from './client';
-export * from './auth';
-export * from './courses';
-export * from './files';
-export * from './streaming';
+/**
+ * Modern API client - refactored from monolithic api.ts
+ */
 
-// Import API instances
-import { authAPI } from './auth';
-import { courseAPI } from './courses';
-import { fileAPI } from './files';
-import { streamingAPI } from './streaming';
+// Core client and utilities
+export { apiClient, APIError } from './client';
+export * from './utils';
+export * from './types';
+
+// All endpoint APIs
+export * from './endpoints';
+
+// Backwards compatibility - preserve the original api object structure
 import { apiClient } from './client';
 
-// Create unified API object for convenience
 export const api = {
-  client: apiClient,
-  auth: authAPI,
-  courses: courseAPI,
-  files: fileAPI,
-  streaming: streamingAPI,
-  
-  // Legacy compatibility helpers
   get: apiClient.get.bind(apiClient),
   post: apiClient.post.bind(apiClient),
   put: apiClient.put.bind(apiClient),
   patch: apiClient.patch.bind(apiClient),
   delete: apiClient.delete.bind(apiClient),
+  
+  // Streaming API
+  streaming: {
+    streamLearningContent: (
+      fileId: string,
+      options: { style?: string } = {},
+      onMessage: (message: unknown) => void,
+      onError: (error: Error) => void
+    ) => {
+      return apiClient.stream(
+        `/api/v2/files/${fileId}/stream-content`,
+        options,
+        onMessage,
+        onError
+      );
+    }
+  }
 };
 
 // Default export

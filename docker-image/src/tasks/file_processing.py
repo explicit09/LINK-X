@@ -117,9 +117,14 @@ def personalize_file_async(self, file_id: str, user_id: str):
         )
         
         # Update personalized file
-        from repositories.base_repository import BaseRepository
-        base_repo = BaseRepository(type(personalized))
-        base_repo.update(
+        from datetime import datetime
+        personalized.personalized_content = personalized_content
+        personalized.processed = True
+        personalized.processed_at = datetime.utcnow()
+        
+        # Use file repository to update
+        file_repo = FileRepository()
+        file_repo.update(
             personalized.id,
             personalized_content=personalized_content,
             processed=True,

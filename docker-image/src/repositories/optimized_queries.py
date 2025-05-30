@@ -8,7 +8,7 @@ import logging
 from db.schema import (
     User, Role, Course, Module, File, Enrollment,
     StudentProfile, InstructorProfile, AdminProfile,
-    Todo, UserSession, AuditLog
+    Todo
 )
 
 logger = logging.getLogger(__name__)

@@ -8,7 +8,7 @@ from typing import List, Dict, Any
 
 from db.connection import get_db_session
 from db.schema import File, FileChunk, PersonalizedFile
-from services.s3_storage import s3_storage
+from services.s3_storage_resilient import s3_storage
 from .file_processing import process_file_async
 from .embedding import generate_embeddings_async
 from core.cache import cache

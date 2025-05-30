@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
 
 const nextConfig: NextConfig = {
   /* Performance optimizations */
@@ -41,6 +42,8 @@ const nextConfig: NextConfig = {
     removeConsole: process.env.NODE_ENV === 'production' ? {
       exclude: ['error', 'warn'],
     } : false,
+    // Use emotion for better CSS-in-JS performance
+    emotion: true,
   },
   
   // Optimize CSS
@@ -89,17 +92,13 @@ const nextConfig: NextConfig = {
   webpack: (config, { dev, isServer, webpack }) => {
     // Add bundle analyzer in production build with ANALYZE=true
     if (process.env.ANALYZE === 'true' && !isServer) {
-      try {
-        const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
-        config.plugins.push(
-          new BundleAnalyzerPlugin({
-            analyzerMode: 'static',
-            reportFilename: './analyze.html',
-            openAnalyzer: true,
-          })
-        );
-      } catch (e) {
-      }
+      config.plugins.push(
+        new BundleAnalyzerPlugin({
+          analyzerMode: 'static',
+          reportFilename: './analyze.html',
+          openAnalyzer: true,
+        })
+      );
     }
     
     // Development performance optimizations

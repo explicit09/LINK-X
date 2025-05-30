@@ -35,6 +35,8 @@
     "@codemirror/state": "^6.5.0",
     "@codemirror/theme-one-dark": "^6.1.2",
     "@codemirror/view": "^6.35.3",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
     "@radix-ui/react-aspect-ratio": "^1.1.0",
@@ -116,6 +118,7 @@
     "tailwindcss-animate": "^1.0.7",
     "usehooks-ts": "^3.1.0",
     "vaul": "^0.9.3",
+    "webpack-bundle-analyzer": "^4.10.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {

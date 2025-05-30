@@ -5,44 +5,40 @@ from datetime import datetime
 
 from repositories.base_repository import BaseRepository
 from db.schema import Course, Module, File, AccessCode, Enrollment
+from core.database import db_manager
 
 class CourseRepository(BaseRepository[Course]):
     """Repository for course-related database operations"""
     
-    def __init__(self):
-        super().__init__(Course)
+    def __init__(self, session_factory=None):
+        if session_factory is None:
+            session_factory = db_manager.session_factory
+        super().__init__(Course, session_factory)
     
     def get_with_modules(self, course_id: str) -> Optional[Course]:
         """Get course with all modules eagerly loaded"""
-        try:
-            return self.db.query(Course)\
-                .options(joinedload(Course.modules))\
-                .filter_by(id=course_id)\
-                .first()
-        finally:
-            self.db.close()
+        return self.get_by_id(course_id, load_options=[joinedload(Course.modules)])
     
     def get_by_instructor(self, instructor_id: str, offset: int = 0, limit: int = 20, 
                          published_only: bool = False) -> List[Course]:
         """Get courses by instructor with optional filtering"""
-        try:
-            query = self.db.query(Course).filter_by(instructor_id=instructor_id)
-            
-            if published_only:
-                query = query.filter_by(published=True)
-            
-            return query.order_by(Course.created_at.desc())\
-                       .offset(offset)\
-                       .limit(limit)\
-                       .all()
-        finally:
-            self.db.close()
+        filters = {'instructor_id': instructor_id}
+        if published_only:
+            filters['published'] = True
+        
+        result = self.get_paginated(
+            offset=offset,
+            limit=limit,
+            filters=filters,
+            order_by=Course.created_at.desc()
+        )
+        return result['items']
     
     def get_student_courses(self, student_id: str, offset: int = 0, limit: int = 20) -> List[Course]:
         """Get all courses a student is enrolled in OR created"""
-        try:
+        with self.get_session() as session:
             # Get enrolled courses
-            enrolled_courses = self.db.query(Course)\
+            enrolled_courses = session.query(Course)\
                 .join(Enrollment)\
                 .filter(Enrollment.user_id == student_id)\
                 .all()
@@ -50,26 +46,28 @@ class CourseRepository(BaseRepository[Course]):
             # Get courses created by the student (where instructor_id matches)
             # Note: instructor_id in Course table refers to InstructorProfile.user_id
             # But for students who create courses, we need to check against User.id
-            created_courses = self.db.query(Course)\
+            created_courses = session.query(Course)\
                 .filter(Course.instructor_id == student_id)\
                 .all()
             
             # Combine and deduplicate
             all_courses = list({course.id: course for course in enrolled_courses + created_courses}.values())
             
+            # Detach all courses from session
+            for course in all_courses:
+                session.expunge(course)
+            
             # Sort by most recent activity
             all_courses.sort(key=lambda x: x.last_updated or x.created_at, reverse=True)
             
             # Apply pagination
             return all_courses[offset:offset + limit]
-        finally:
-            self.db.close()
     
     def search(self, query: str, limit: int = 10) -> List[Course]:
         """Search courses by title or description"""
-        try:
+        with self.get_session() as session:
             search_term = f"%{query}%"
-            return self.db.query(Course)\
+            courses = session.query(Course)\
                 .filter(
                     and_(
                         Course.published == True,
@@ -81,95 +79,108 @@ class CourseRepository(BaseRepository[Course]):
                 )\
                 .limit(limit)\
                 .all()
-        finally:
-            self.db.close()
+            
+            # Detach all courses from session
+            for course in courses:
+                session.expunge(course)
+            
+            return courses
     
     def get_modules(self, course_id: str) -> List[Module]:
         """Get all modules for a course"""
-        try:
-            return self.db.query(Module)\
+        with self.get_session() as session:
+            modules = session.query(Module)\
                 .filter_by(course_id=course_id)\
                 .order_by(Module.ordering)\
                 .all()
-        finally:
-            self.db.close()
+            
+            # Detach all modules from session
+            for module in modules:
+                session.expunge(module)
+            
+            return modules
     
     def create_module(self, course_id: str, title: str, description: str = None, 
                      order: int = None) -> Module:
         """Create a new module in a course"""
-        try:
+        with self.get_session() as session:
             module = Module(
                 course_id=course_id,
                 title=title,
                 description=description,
                 ordering=order or 1
             )
-            self.db.add(module)
-            self.db.commit()
-            self.db.refresh(module)
-            return module
-        except Exception as e:
-            self.db.rollback()
-            raise e
-        finally:
-            self.db.close()
+            session.add(module)
+            session.flush()  # Flush to get ID
+            session.refresh(module)  # Refresh to load all fields
+            
+            # Make a copy of the module data before detaching
+            module_dict = {c.name: getattr(module, c.name) 
+                          for c in module.__table__.columns}
+            session.expunge(module)
+            
+            # Recreate module with all data
+            return Module(**module_dict)
     
     def get_access_code(self, course_id: str) -> Optional[AccessCode]:
         """Get access code for a course"""
-        try:
-            return self.db.query(AccessCode)\
+        with self.get_session() as session:
+            access_code = session.query(AccessCode)\
                 .filter_by(course_id=course_id)\
                 .first()
-        finally:
-            self.db.close()
+            
+            if access_code:
+                session.expunge(access_code)
+            
+            return access_code
     
     def create_access_code(self, course_id: str, code: str) -> AccessCode:
         """Create access code for a course"""
-        try:
+        with self.get_session() as session:
             access_code = AccessCode(
                 course_id=course_id,
                 code=code
             )
-            self.db.add(access_code)
-            self.db.commit()
-            self.db.refresh(access_code)
-            return access_code
-        except Exception as e:
-            self.db.rollback()
-            raise e
-        finally:
-            self.db.close()
+            session.add(access_code)
+            session.flush()  # Flush to get ID
+            session.refresh(access_code)  # Refresh to load all fields
+            
+            # Make a copy of the access code data before detaching
+            access_code_dict = {c.name: getattr(access_code, c.name) 
+                               for c in access_code.__table__.columns}
+            session.expunge(access_code)
+            
+            # Recreate access code with all data
+            return AccessCode(**access_code_dict)
     
     def count_files(self, course_id: str) -> int:
         """Count total files in a course"""
-        try:
-            return self.db.query(File)\
+        with self.get_session() as session:
+            return session.query(File)\
                 .join(Module)\
                 .filter(Module.course_id == course_id)\
                 .count()
-        finally:
-            self.db.close()
     
     def get_course_statistics(self, course_id: str) -> dict:
         """Get detailed statistics for a course"""
-        try:
-            course = self.get_by_id(course_id)
-            if not course:
-                return {}
-            
+        course = self.get_by_id(course_id)
+        if not course:
+            return {}
+        
+        with self.get_session() as session:
             # Count modules
-            module_count = self.db.query(Module)\
+            module_count = session.query(Module)\
                 .filter_by(course_id=course_id)\
                 .count()
             
             # Count files
-            file_count = self.db.query(File)\
+            file_count = session.query(File)\
                 .join(Module)\
                 .filter(Module.course_id == course_id)\
                 .count()
             
             # Count enrollments
-            enrollment_count = self.db.query(Enrollment)\
+            enrollment_count = session.query(Enrollment)\
                 .filter_by(course_id=course_id)\
                 .count()
             
@@ -180,5 +191,3 @@ class CourseRepository(BaseRepository[Course]):
                 'published': course.published,
                 'created_at': course.created_at
             }
-        finally:
-            self.db.close()

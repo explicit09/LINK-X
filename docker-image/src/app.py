@@ -26,8 +26,7 @@ from api.session import session_bp
 # Import blueprints - using the new unified structure
 from api.health import bp as health_bp
 from api.auth_unified import bp as auth_bp
-from api.v1 import api_v1
-from api.v2 import api_v2
+from api.v2_endpoints import api_v2
 from monitoring.api_version_monitor import monitoring_bp, create_api_usage_table
 from api.circuit_breaker_monitor import bp as circuit_breaker_bp
 # from api.docs import bp as docs_bp  # Temporarily disabled until flask-restx is installed
@@ -91,9 +90,6 @@ def create_app():
     
     # API v2 endpoints (current version) - all under /api/v2
     app.register_blueprint(api_v2)
-    
-    # API v1 endpoints (legacy compatibility) - all under /api/v1
-    app.register_blueprint(api_v1)
     
     # API monitoring endpoints - all under /api/monitoring
     app.register_blueprint(monitoring_bp)

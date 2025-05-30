@@ -10,7 +10,7 @@ import os
 from werkzeug.datastructures import FileStorage
 
 from services.file_service import FileService
-from services.s3_storage import S3Storage
+from services.s3_storage_resilient import S3Storage
 from core.file_validation import FileValidator
 from core.exceptions import ValidationError, FileProcessingError
 from db.schema import File, Module, Course

@@ -34,7 +34,6 @@ unstructured[pdf,docx,pptx]==0.10.19
 langchain>=0.1.0  # Updated to a version that supports pydantic v2
 langchain-community>=0.0.10  # Updated to match langchain version
 langchain-openai>=0.0.5  # Keep the updated version
-llama_index==0.10.19
 
 # Task Queue
 celery[redis]==5.3.4
@@ -50,7 +49,6 @@ lz4==4.3.2  # Compression
 
 # API & Streaming
 httpx==0.25.0
-sse-starlette==1.6.5
 aiofiles==23.2.1
 
 # Utilities
@@ -74,5 +72,3 @@ flake8==6.1.0
 mypy==1.7.1
 
 # Additional ML/Data Processing
-replicate==0.24.0
-streamlit==1.29.0  # For debugging UI

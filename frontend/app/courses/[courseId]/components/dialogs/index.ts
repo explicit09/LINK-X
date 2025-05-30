@@ -1,0 +1,1 @@
+export { MaterialViewDialog } from './MaterialViewDialog';

@@ -1,4 +1,4 @@
-import { auth } from '@/firebaseconfig';
+import { auth } from '../../firebaseconfig';
 
 interface RequestConfig extends RequestInit {
   params?: Record<string, string>;
@@ -73,7 +73,7 @@ class APIClient {
     }
     
     // Retry on timeout
-    if (error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       return true;
     }
     
@@ -233,6 +233,82 @@ class APIClient {
 
   delete<T>(endpoint: string, config?: RequestConfig): Promise<T> {
     return this.request<T>(endpoint, { ...config, method: 'DELETE' });
+  }
+
+  // Streaming support
+  async stream(
+    endpoint: string,
+    data: unknown,
+    onMessage: (message: unknown) => void,
+    onError: (error: Error) => void
+  ): Promise<() => void> {
+    let isCancelled = false;
+    
+    const cleanup = () => {
+      isCancelled = true;
+    };
+    
+    (async () => {
+      try {
+        const token = await this.getAuthToken();
+        const response = await fetch(`${this.baseURL}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(data),
+          credentials: 'include',
+        });
+        
+        if (!response.ok) {
+          throw new APIError(
+            response.status,
+            `Streaming failed: ${response.status} ${response.statusText}`,
+            null,
+            'STREAMING_ERROR'
+          );
+        }
+        
+        const reader = response.body?.getReader();
+        if (!reader) {
+          throw new Error('Response body is not readable');
+        }
+        
+        const decoder = new TextDecoder();
+        
+        while (!isCancelled) {
+          const { done, value } = await reader.read();
+          
+          if (done) break;
+          
+          if (isCancelled) {
+            reader.cancel();
+            break;
+          }
+          
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n').filter(line => line.trim());
+          
+          for (const line of lines) {
+            if (isCancelled) break;
+            
+            try {
+              const message = JSON.parse(line);
+              onMessage(message);
+            } catch (e) {
+              console.warn('Invalid JSON in stream:', line);
+            }
+          }
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          onError(error instanceof Error ? error : new Error('Unknown streaming error'));
+        }
+      }
+    })();
+    
+    return cleanup;
   }
 }
 

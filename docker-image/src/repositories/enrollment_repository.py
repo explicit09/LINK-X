@@ -1,15 +1,19 @@
 from typing import List, Optional
 from datetime import datetime, timedelta
 from sqlalchemy import and_
+from sqlalchemy.orm import sessionmaker
 
 from repositories.base_repository import BaseRepository
 from db.schema import Enrollment
+from core.database import db_manager
 
 class EnrollmentRepository(BaseRepository[Enrollment]):
     """Repository for enrollment-related database operations"""
     
-    def __init__(self):
-        super().__init__(Enrollment)
+    def __init__(self, session_factory: sessionmaker = None):
+        if session_factory is None:
+            session_factory = db_manager.session_factory
+        super().__init__(Enrollment, session_factory)
     
     def get_by_student_course(self, student_id: str, course_id: str) -> Optional[Enrollment]:
         """Get enrollment by student and course"""
@@ -27,29 +31,20 @@ class EnrollmentRepository(BaseRepository[Enrollment]):
         """Count enrollments for a course"""
         return self.count(course_id=course_id)
     
-    def create(self, student_id: str, course_id: str) -> Enrollment:
+    def create_enrollment(self, student_id: str, course_id: str) -> Enrollment:
         """Create new enrollment"""
-        try:
-            enrollment = Enrollment(
-                user_id=student_id,
-                course_id=course_id,
-                enrolled_at=datetime.utcnow()
-            )
-            self.db.add(enrollment)
-            self.db.commit()
-            self.db.refresh(enrollment)
-            return enrollment
-        except Exception as e:
-            self.db.rollback()
-            raise e
-        finally:
-            self.db.close()
+        # Use the base class create method
+        return self.create(
+            user_id=student_id,
+            course_id=course_id,
+            enrolled_at=datetime.utcnow()
+        )
     
     def get_recent_enrollments(self, course_id: str, days: int = 7) -> List[Enrollment]:
         """Get recent enrollments for a course"""
-        try:
+        with self.get_session() as session:
             cutoff_date = datetime.utcnow() - timedelta(days=days)
-            return self.db.query(Enrollment)\
+            enrollments = session.query(Enrollment)\
                 .filter(
                     and_(
                         Enrollment.course_id == course_id,
@@ -58,5 +53,8 @@ class EnrollmentRepository(BaseRepository[Enrollment]):
                 )\
                 .order_by(Enrollment.enrolled_at.desc())\
                 .all()
-        finally:
-            self.db.close()
+            
+            # Detach from session
+            for enrollment in enrollments:
+                session.expunge(enrollment)
+            return enrollments

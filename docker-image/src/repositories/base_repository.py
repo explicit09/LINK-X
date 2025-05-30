@@ -1,162 +1,305 @@
-from typing import Generic, TypeVar, Optional, List, Dict, Any
-from sqlalchemy.orm import Session
+"""
+Base Repository with Dependency Injection
+Uses session factory instead of global db_manager
+"""
+
+from typing import Generic, TypeVar, Optional, List, Dict, Any, Type
+from contextlib import contextmanager
+from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy import and_, or_
-from core.database import db_manager
+import logging
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar('T')
 
+
 class BaseRepository(Generic[T]):
-    """Base repository with common CRUD operations"""
+    """
+    Base repository with common CRUD operations using dependency injection
+    """
     
-    def __init__(self, model: T):
+    def __init__(self, model: Type[T], session_factory: sessionmaker):
+        """
+        Initialize repository with model and session factory
+        
+        Args:
+            model: SQLAlchemy model class
+            session_factory: Session factory from DI container
+        """
         self.model = model
-    
-    @property
-    def db(self) -> Session:
-        """Get database session"""
-        return db_manager.get_session()
-    
-    def get_by_id(self, id: str) -> Optional[T]:
-        """Get entity by ID"""
+        self.session_factory = session_factory
+        
+    @contextmanager
+    def get_session(self) -> Session:
+        """
+        Get database session with proper cleanup
+        
+        Yields:
+            Database session
+        """
+        session = self.session_factory()
         try:
-            return self.db.query(self.model).filter_by(id=id).first()
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
         finally:
-            self.db.close()
+            session.close()
     
-    def get_all(self) -> List[T]:
+    def get_by_id(self, id: Any, load_options: Optional[List] = None) -> Optional[T]:
+        """
+        Get entity by ID
+        
+        Args:
+            id: Entity ID
+            load_options: Optional SQLAlchemy load options (joinedload, etc.)
+            
+        Returns:
+            Entity or None
+        """
+        with self.get_session() as session:
+            query = session.query(self.model)
+            
+            # Apply load options if provided
+            if load_options:
+                for option in load_options:
+                    query = query.options(option)
+                    
+            # Handle different ID field names
+            if hasattr(self.model, 'id'):
+                entity = query.filter(self.model.id == id).first()
+            elif hasattr(self.model, f'{self.model.__tablename__}_id'):
+                # Handle tables with prefixed ID (e.g., user_id, course_id)
+                id_field = getattr(self.model, f'{self.model.__tablename__}_id')
+                entity = query.filter(id_field == id).first()
+            else:
+                raise AttributeError(f"Model {self.model.__name__} has no id field")
+                
+            if entity:
+                # Detach from session to avoid lazy loading issues
+                session.expunge(entity)
+            return entity
+    
+    def get_all(self, load_options: Optional[List] = None) -> List[T]:
         """Get all entities"""
-        try:
-            return self.db.query(self.model).all()
-        finally:
-            self.db.close()
+        with self.get_session() as session:
+            query = session.query(self.model)
+            
+            if load_options:
+                for option in load_options:
+                    query = query.options(option)
+                    
+            entities = query.all()
+            
+            # Detach all entities
+            for entity in entities:
+                session.expunge(entity)
+            return entities
     
-    def get_all_paginated(self, offset: int = 0, limit: int = 20) -> List[T]:
-        """Get all entities with pagination"""
-        try:
-            return self.db.query(self.model).offset(offset).limit(limit).all()
-        finally:
-            self.db.close()
+    def get_paginated(self, offset: int = 0, limit: int = 20, 
+                      filters: Optional[Dict] = None,
+                      order_by: Optional[Any] = None,
+                      load_options: Optional[List] = None) -> Dict[str, Any]:
+        """
+        Get paginated results
+        
+        Args:
+            offset: Number of records to skip
+            limit: Maximum number of records to return
+            filters: Optional filters to apply
+            order_by: Optional ordering
+            load_options: Optional SQLAlchemy load options
+            
+        Returns:
+            Dict with items and total count
+        """
+        with self.get_session() as session:
+            query = session.query(self.model)
+            
+            # Apply filters
+            if filters:
+                for key, value in filters.items():
+                    if hasattr(self.model, key):
+                        query = query.filter(getattr(self.model, key) == value)
+                        
+            # Get total count before pagination
+            total = query.count()
+            
+            # Apply ordering
+            if order_by is not None:
+                query = query.order_by(order_by)
+                
+            # Apply load options
+            if load_options:
+                for option in load_options:
+                    query = query.options(option)
+                    
+            # Apply pagination
+            items = query.offset(offset).limit(limit).all()
+            
+            # Detach all items
+            for item in items:
+                session.expunge(item)
+                
+            return {
+                'items': items,
+                'total': total,
+                'offset': offset,
+                'limit': limit
+            }
     
     def create(self, **kwargs) -> T:
         """Create new entity"""
-        try:
+        with self.get_session() as session:
             entity = self.model(**kwargs)
-            self.db.add(entity)
-            self.db.commit()
-            self.db.refresh(entity)
-            return entity
-        except Exception as e:
-            self.db.rollback()
-            raise e
-        finally:
-            self.db.close()
+            session.add(entity)
+            session.flush()  # Flush to get ID
+            session.refresh(entity)  # Refresh to load all fields
+            
+            # Make a copy of the entity data before detaching
+            entity_dict = {c.name: getattr(entity, c.name) 
+                          for c in entity.__table__.columns}
+            session.expunge(entity)
+            
+            # Recreate entity with all data
+            return self.model(**entity_dict)
     
-    def update(self, id: str, **kwargs) -> Optional[T]:
+    def update(self, id: Any, **kwargs) -> Optional[T]:
         """Update entity"""
-        try:
-            entity = self.db.query(self.model).filter_by(id=id).first()
-            if entity:
-                for key, value in kwargs.items():
-                    if hasattr(entity, key):
-                        setattr(entity, key, value)
-                self.db.commit()
-                self.db.refresh(entity)
-            return entity
-        except Exception as e:
-            self.db.rollback()
-            raise e
-        finally:
-            self.db.close()
+        with self.get_session() as session:
+            entity = self.get_by_id(id)
+            if not entity:
+                return None
+                
+            # Re-attach to session
+            entity = session.merge(entity)
+            
+            # Update fields
+            for key, value in kwargs.items():
+                if hasattr(entity, key):
+                    setattr(entity, key, value)
+                    
+            session.flush()
+            session.refresh(entity)
+            
+            # Detach and return
+            entity_dict = {c.name: getattr(entity, c.name) 
+                          for c in entity.__table__.columns}
+            session.expunge(entity)
+            return self.model(**entity_dict)
     
-    def delete(self, id: str) -> bool:
+    def delete(self, id: Any) -> bool:
         """Delete entity"""
-        try:
-            entity = self.db.query(self.model).filter_by(id=id).first()
-            if entity:
-                self.db.delete(entity)
-                self.db.commit()
-                return True
-            return False
-        except Exception as e:
-            self.db.rollback()
-            raise e
-        finally:
-            self.db.close()
+        with self.get_session() as session:
+            entity = self.get_by_id(id)
+            if not entity:
+                return False
+                
+            # Re-attach and delete
+            entity = session.merge(entity)
+            session.delete(entity)
+            return True
     
     def count(self, **filters) -> int:
         """Count entities with optional filters"""
-        try:
-            query = self.db.query(self.model)
+        with self.get_session() as session:
+            query = session.query(self.model)
+            
             for key, value in filters.items():
                 if hasattr(self.model, key):
                     query = query.filter(getattr(self.model, key) == value)
+                    
             return query.count()
-        finally:
-            self.db.close()
     
     def exists(self, **filters) -> bool:
         """Check if entity exists with given filters"""
-        try:
-            query = self.db.query(self.model)
-            for key, value in filters.items():
-                if hasattr(self.model, key):
-                    query = query.filter(getattr(self.model, key) == value)
-            return query.first() is not None
-        finally:
-            self.db.close()
+        return self.count(**filters) > 0
     
-    def find_by(self, **filters) -> Optional[T]:
+    def find_by(self, load_options: Optional[List] = None, **filters) -> Optional[T]:
         """Find single entity by filters"""
-        try:
-            query = self.db.query(self.model)
+        with self.get_session() as session:
+            query = session.query(self.model)
+            
             for key, value in filters.items():
                 if hasattr(self.model, key):
                     query = query.filter(getattr(self.model, key) == value)
-            return query.first()
-        finally:
-            self.db.close()
+                    
+            if load_options:
+                for option in load_options:
+                    query = query.options(option)
+                    
+            entity = query.first()
+            if entity:
+                session.expunge(entity)
+            return entity
     
-    def find_all_by(self, **filters) -> List[T]:
+    def find_all_by(self, load_options: Optional[List] = None, **filters) -> List[T]:
         """Find all entities by filters"""
-        try:
-            query = self.db.query(self.model)
+        with self.get_session() as session:
+            query = session.query(self.model)
+            
             for key, value in filters.items():
                 if hasattr(self.model, key):
                     query = query.filter(getattr(self.model, key) == value)
-            return query.all()
-        finally:
-            self.db.close()
+                    
+            if load_options:
+                for option in load_options:
+                    query = query.options(option)
+                    
+            entities = query.all()
+            for entity in entities:
+                session.expunge(entity)
+            return entities
     
     def bulk_create(self, entities: List[Dict[str, Any]]) -> List[T]:
         """Create multiple entities"""
-        try:
-            objects = [self.model(**entity) for entity in entities]
-            self.db.bulk_save_objects(objects, return_defaults=True)
-            self.db.commit()
-            return objects
-        except Exception as e:
-            self.db.rollback()
-            raise e
-        finally:
-            self.db.close()
+        with self.get_session() as session:
+            objects = []
+            for entity_data in entities:
+                entity = self.model(**entity_data)
+                session.add(entity)
+                objects.append(entity)
+                
+            session.flush()
+            
+            # Get IDs and data
+            results = []
+            for obj in objects:
+                session.refresh(obj)
+                entity_dict = {c.name: getattr(obj, c.name) 
+                              for c in obj.__table__.columns}
+                results.append(self.model(**entity_dict))
+                
+            return results
     
     def bulk_update(self, updates: List[Dict[str, Any]]) -> int:
-        """Update multiple entities"""
-        try:
-            count = 0
+        """
+        Update multiple entities
+        
+        Args:
+            updates: List of dicts with 'id' and fields to update
+            
+        Returns:
+            Number of entities updated
+        """
+        count = 0
+        with self.get_session() as session:
             for update in updates:
-                id = update.pop('id', None)
-                if id:
-                    entity = self.db.query(self.model).filter_by(id=id).first()
+                id_value = update.pop('id', None)
+                if id_value and update:
+                    entity = self.get_by_id(id_value)
                     if entity:
+                        entity = session.merge(entity)
                         for key, value in update.items():
                             if hasattr(entity, key):
                                 setattr(entity, key, value)
                         count += 1
-            self.db.commit()
-            return count
-        except Exception as e:
-            self.db.rollback()
-            raise e
-        finally:
-            self.db.close()
+                        
+        return count
+    
+    def execute_query(self, query: Any) -> List[Any]:
+        """Execute raw SQLAlchemy query"""
+        with self.get_session() as session:
+            return session.execute(query).fetchall()

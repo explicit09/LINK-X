@@ -368,7 +368,7 @@ def create_s3_health_check():
     """Create S3 health check"""
     def check():
         try:
-            from services.s3_storage import s3_storage
+            from services.s3_storage_resilient import s3_storage
             s3_storage.s3_client.head_bucket(Bucket=s3_storage.bucket_name)
             return True
         except:

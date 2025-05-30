@@ -44,8 +44,8 @@ class ResilientS3Storage:
     @circuit_breaker(
         name="s3_upload",
         failure_threshold=3,
-        timeout=30,
-        expected_exception=(ClientError, Exception)
+        recovery_timeout=30,
+        expected_exceptions=(ClientError, Exception)
     )
     def _s3_upload(self, file_obj: BinaryIO, s3_key: str, content_type: str, metadata: dict):
         """Internal S3 upload with circuit breaker"""
@@ -110,8 +110,8 @@ class ResilientS3Storage:
     @circuit_breaker(
         name="s3_presigned_url",
         failure_threshold=5,
-        timeout=60,
-        expected_exception=(ClientError, Exception)
+        recovery_timeout=60,
+        expected_exceptions=(ClientError, Exception)
     )
     def _generate_presigned_url_internal(self, s3_key: str, expiration: int, 
                                        response_params: Optional[dict] = None) -> str:
@@ -167,8 +167,8 @@ class ResilientS3Storage:
     @circuit_breaker(
         name="s3_download",
         failure_threshold=3,
-        timeout=30,
-        expected_exception=(ClientError, Exception)
+        recovery_timeout=30,
+        expected_exceptions=(ClientError, Exception)
     )
     def download_file(self, s3_key: str) -> bytes:
         """
@@ -189,8 +189,8 @@ class ResilientS3Storage:
     @circuit_breaker(
         name="s3_delete",
         failure_threshold=3,
-        timeout=30,
-        expected_exception=(ClientError, Exception)
+        recovery_timeout=30,
+        expected_exceptions=(ClientError, Exception)
     )
     def delete_file(self, s3_key: str) -> bool:
         """
@@ -212,8 +212,8 @@ class ResilientS3Storage:
     @circuit_breaker(
         name="s3_health_check",
         failure_threshold=2,
-        timeout=120,
-        expected_exception=(ClientError, Exception)
+        recovery_timeout=120,
+        expected_exceptions=(ClientError, Exception)
     )
     def health_check(self) -> bool:
         """Check S3 connectivity with circuit breaker"""
@@ -239,3 +239,7 @@ class ResilientS3Storage:
             if method and hasattr(method, 'get_stats'):
                 stats[method_name] = method.get_stats()
         return stats
+
+
+# Create singleton instance for import
+s3_storage = ResilientS3Storage()

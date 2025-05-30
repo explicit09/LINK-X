@@ -1,0 +1,216 @@
+"""
+API v2 Authentication Endpoints
+"""
+from flask import Blueprint, request, g
+from datetime import datetime
+import logging
+
+from core.decorators_unified import firebase_auth_required
+from core.exceptions import ValidationError, NotFoundError, UnauthorizedError
+from services.auth_service_unified import UnifiedAuthService as AuthService
+from repositories.user_repository import UserRepository
+from repositories.course_repository import CourseRepository
+from repositories.enrollment_repository import EnrollmentRepository
+from core.database import db
+from db.schema import Enrollment, Course, PersonalizedFile
+
+from .utils import success_response, error_response
+
+logger = logging.getLogger(__name__)
+
+# Create auth blueprint
+auth_bp = Blueprint('api_v2_auth', __name__)
+
+# Initialize services
+auth_service = AuthService()
+
+
+@auth_bp.route('/login', methods=['POST'])
+def login_v2():
+    """Enhanced login with better error handling and response structure"""
+    try:
+        data = request.get_json()
+        if not data:
+            return error_response("Request body is required", status_code=400)
+        
+        id_token = data.get('idToken')
+        if not id_token:
+            return error_response("ID token is required", errors={'idToken': 'This field is required'}, status_code=400)
+        
+        # Use auth service for login
+        result = auth_service.login_with_firebase(id_token)
+        
+        # Enhanced response with user details
+        user = result['user']
+        
+        # Get display name from the appropriate profile
+        display_name = None
+        if user.role:
+            if user.role.role_type == 'student' and user.student_profile:
+                display_name = user.student_profile.name
+            elif user.role.role_type == 'instructor' and user.instructor_profile:
+                display_name = user.instructor_profile.name
+            elif user.role.role_type == 'admin' and user.admin_profile:
+                display_name = user.admin_profile.name
+        
+        # Fallback to email if no profile name is available
+        if not display_name:
+            display_name = user.email.split('@')[0]
+        
+        response_data = {
+            'user': {
+                'id': str(user.id),
+                'email': user.email,
+                'display_name': display_name,
+                'role': user.role.role_type if user.role else None,
+                'firebase_uid': user.firebase_uid,
+                'created_at': None  # Not available in current User model
+            },
+            'tokens': {
+                'access_token': result['access_token'],
+                'refresh_token': result.get('refresh_token'),
+                'expires_in': 3600  # 1 hour
+            }
+        }
+        
+        return success_response(response_data, "Login successful")
+        
+    except ValidationError as e:
+        return error_response(str(e), status_code=400)
+    except UnauthorizedError as e:
+        return error_response(str(e), status_code=401)
+    except Exception as e:
+        logger.error(f"Login error: {str(e)}")
+        return error_response("An error occurred during login", status_code=500)
+
+
+@auth_bp.route('/logout', methods=['POST'])
+@firebase_auth_required
+def logout_v2():
+    """Enhanced logout with token invalidation"""
+    try:
+        # Get JWT token for blacklisting
+        from flask_jwt_extended import get_jwt
+        token = get_jwt()
+        
+        # Blacklist the token
+        from services.jwt_blacklist import jwt_blacklist
+        from datetime import datetime
+        exp_timestamp = token.get('exp', 0)
+        exp_datetime = datetime.utcfromtimestamp(exp_timestamp) if exp_timestamp else datetime.utcnow()
+        jwt_blacklist.blacklist_token(token['jti'], exp_datetime, token.get('sub'))
+        
+        return success_response(message="Logout successful")
+        
+    except Exception as e:
+        logger.error(f"Logout error: {str(e)}")
+        return error_response("An error occurred during logout", status_code=500)
+
+
+@auth_bp.route('/me', methods=['GET'])
+@firebase_auth_required
+def get_profile_v2():
+    """Get current user profile with enhanced data"""
+    try:
+        user = g.current_user
+        user_repo = UserRepository()
+        
+        # Refresh user data from database
+        fresh_user = user_repo.get_by_id(user.id)
+        if not fresh_user:
+            return error_response("User not found", status_code=404)
+        
+        # Build comprehensive profile
+        profile_data = {
+            'id': str(fresh_user.id),
+            'email': fresh_user.email,
+            'role': fresh_user.role.role_type if fresh_user.role else 'student',
+            'verified': getattr(fresh_user, 'verified', True),
+            'created_at': fresh_user.created_at.isoformat() if hasattr(fresh_user, 'created_at') else None,
+            'profile': {}
+        }
+        
+        # Add role-specific profile data
+        if fresh_user.student_profile:
+            profile_data['profile'] = {
+                'name': fresh_user.student_profile.name,
+                'onboard_answers': fresh_user.student_profile.onboard_answers,
+                'want_quizzes': fresh_user.student_profile.want_quizzes
+            }
+        elif fresh_user.instructor_profile:
+            profile_data['profile'] = {
+                'name': fresh_user.instructor_profile.name,
+                'university': fresh_user.instructor_profile.university,
+                'department': fresh_user.instructor_profile.department
+            }
+        elif fresh_user.admin_profile:
+            profile_data['profile'] = {
+                'name': fresh_user.admin_profile.name
+            }
+        
+        # Add statistics
+        stats = {}
+        if fresh_user.role and fresh_user.role.role_type == 'student':
+            # Get student statistics
+            enrollments = db.session.query(Enrollment).filter_by(user_id=fresh_user.id).all()
+            stats['enrolled_courses'] = len(enrollments)
+            stats['completed_courses'] = sum(1 for e in enrollments if getattr(e, 'completed', False))
+            stats['total_files_viewed'] = 0  # TODO: Implement file view tracking
+        elif fresh_user.role and fresh_user.role.role_type == 'instructor':
+            # Get instructor statistics
+            course_repo = CourseRepository()
+            courses = course_repo.get_by_instructor(fresh_user.id)
+            stats['total_courses'] = len(courses)
+            stats['total_students'] = sum(course_repo.get_student_count(c.id) for c in courses)
+        
+        profile_data['stats'] = stats
+        
+        return success_response(profile_data)
+        
+    except Exception as e:
+        logger.error(f"Get profile error: {str(e)}")
+        return error_response("An error occurred fetching profile", status_code=500)
+
+
+@auth_bp.route('/me', methods=['PATCH'])
+@firebase_auth_required
+def update_profile_v2():
+    """Update current user profile"""
+    try:
+        user = g.current_user
+        data = request.get_json()
+        
+        if not data:
+            return error_response("No data provided")
+        
+        user_repo = UserRepository()
+        
+        # Update user email if provided (requires Firebase update too)
+        if 'email' in data and data['email'] != user.email:
+            # TODO: Implement Firebase email update
+            return error_response("Email update not yet implemented")
+        
+        # Update role-specific profile
+        if user.student_profile and 'profile' in data:
+            profile_updates = data['profile']
+            for key in ['name', 'onboard_answers', 'want_quizzes']:
+                if key in profile_updates:
+                    setattr(user.student_profile, key, profile_updates[key])
+        elif user.instructor_profile and 'profile' in data:
+            profile_updates = data['profile']
+            for key in ['name', 'university', 'department']:
+                if key in profile_updates:
+                    setattr(user.instructor_profile, key, profile_updates[key])
+        
+        # Commit changes
+        db.session.commit()
+        
+        # Return updated profile
+        return get_profile_v2()
+        
+    except ValidationError as e:
+        return error_response(str(e))
+    except Exception as e:
+        logger.error(f"Update profile error: {str(e)}")
+        db.session.rollback()
+        return error_response("An error occurred updating profile", status_code=500)

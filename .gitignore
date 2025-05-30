@@ -38,6 +38,7 @@ node_modules/
 venv/
 env/
 ENV/
+**/venv/
 
 # Python cache
 __pycache__/
@@ -52,6 +53,7 @@ __pycache__/
 .coverage
 .coverage.*
 htmlcov/
+**/coverage/
 
 # IDE
 .idea/
@@ -64,9 +66,11 @@ htmlcov/
 build/
 dist/
 .next/
+**/.next/
 out/
 *.egg
 .cache/
+**/*.tsbuildinfo
 
 # Test results
 test-results/

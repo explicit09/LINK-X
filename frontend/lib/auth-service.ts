@@ -1,4 +1,4 @@
-import { auth } from '@/firebaseconfig';
+import { auth } from '../firebaseconfig';
 import { User as FirebaseUser } from 'firebase/auth';
 
 // Use the API URL from environment or fallback to localhost
