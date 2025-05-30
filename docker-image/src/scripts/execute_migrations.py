@@ -19,11 +19,17 @@ from core.database import Base
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Database URLs from environment or defaults
-DEV_DATABASE_URL = os.getenv('DEV_DATABASE_URL', 
-    'postgresql://neondb_owner:npg_2ZO0npmbLIPU@ep-super-lab-a5pamjoe-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require')
-PROD_DATABASE_URL = os.getenv('PROD_DATABASE_URL',
-    'postgresql://neondb_owner:npg_2ZO0npmbLIPU@ep-withered-hill-a5u0pgp4-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require')
+# Database URLs from environment - no defaults for security
+DEV_DATABASE_URL = os.getenv('DEV_DATABASE_URL')
+PROD_DATABASE_URL = os.getenv('PROD_DATABASE_URL')
+
+if not DEV_DATABASE_URL and not PROD_DATABASE_URL:
+    raise ValueError(
+        "Database URLs must be set via environment variables:\n"
+        "  DEV_DATABASE_URL for development\n"
+        "  PROD_DATABASE_URL for production\n"
+        "Do not hardcode database credentials in source code."
+    )
 
 def run_alembic_migrations(database_url: str, env_name: str):
     """Run Alembic migrations"""
