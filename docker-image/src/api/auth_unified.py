@@ -26,8 +26,15 @@ logger = logging.getLogger(__name__)
 # Create blueprint
 bp = Blueprint('auth', __name__)
 
-# Initialize service (will be properly injected later)
-auth_service = UnifiedAuthService()
+# Initialize service lazily to avoid connection issues during import
+auth_service = None
+
+def get_auth_service():
+    """Get auth service instance with lazy initialization"""
+    global auth_service
+    if auth_service is None:
+        auth_service = UnifiedAuthService()
+    return auth_service
 
 
 def get_api_version():
@@ -65,13 +72,13 @@ def login():
         # Firebase authentication (both versions)
         if 'idToken' in data or 'id_token' in data:
             token = data.get('idToken') or data.get('id_token')
-            result = auth_service.authenticate_with_firebase(token, version=version)
+            result = get_auth_service().authenticate_with_firebase(token, version=version)
         
         # Email/password authentication (v1 compatibility)
         elif 'email' in data and 'password' in data:
             if version == 'v2':
                 raise ValidationError("Email/password login not supported in v2")
-            result = auth_service.authenticate_email_password(
+            result = get_auth_service().authenticate_email_password(
                 data['email'], 
                 data['password']
             )
@@ -187,7 +194,7 @@ def register():
             raise ValidationError(f"Invalid role: {role}")
             
         # Create user
-        result = auth_service.create_user(
+        result = get_auth_service().create_user(
             email=data.get('email'),
             password=data.get('password'),
             role=role,
@@ -232,7 +239,7 @@ def refresh_token():
         if not refresh_token:
             raise AuthenticationError("Refresh token required")
             
-        result = auth_service.refresh_access_token(refresh_token)
+        result = get_auth_service().refresh_access_token(refresh_token)
         
         return jsonify({
             'access_token': result['access_token'],
@@ -426,7 +433,7 @@ def verify_token():
             raise ValidationError("Token required")
             
         version = get_api_version()
-        result = auth_service.verify_token(token, version=version)
+        result = get_auth_service().verify_token(token, version=version)
         
         return jsonify({
             'valid': result['valid'],

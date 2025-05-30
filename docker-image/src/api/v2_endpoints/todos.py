@@ -16,8 +16,15 @@ logger = logging.getLogger(__name__)
 # Create todos blueprint
 todos_bp = Blueprint('api_v2_todos', __name__)
 
-# Initialize repository
-todo_repo = TodoRepository()
+# Initialize repository lazily to avoid connection issues during import
+todo_repo = None
+
+def get_todo_repo():
+    """Get todo repository instance with lazy initialization"""
+    global todo_repo
+    if todo_repo is None:
+        todo_repo = TodoRepository()
+    return todo_repo
 
 
 @todos_bp.route('', methods=['GET'])
@@ -35,7 +42,7 @@ def list_todos_v2():
         priority = request.args.get('priority')  # high, medium, low
         
         # Get all todos for user
-        all_todos = todo_repo.get_by_user(str(user.id))
+        all_todos = get_todo_repo().get_by_user(str(user.id))
         
         # Filter by status
         if status == 'completed':
@@ -101,7 +108,7 @@ def create_todo_v2():
             return error_response("Title is required")
         
         # Create todo
-        todo = todo_repo.create(
+        todo = get_todo_repo().create(
             user_id=str(user.id),
             title=data['title'],
             description=data.get('description', ''),
@@ -142,7 +149,7 @@ def get_todo_v2(todo_id):
         user = g.current_user
         
         # Get todo
-        todo = todo_repo.get_by_id(todo_id)
+        todo = get_todo_repo().get_by_id(todo_id)
         if not todo:
             return error_response("Todo not found", status_code=404)
         
@@ -182,7 +189,7 @@ def update_todo_v2(todo_id):
             return error_response("No data provided")
         
         # Get todo
-        todo = todo_repo.get_by_id(todo_id)
+        todo = get_todo_repo().get_by_id(todo_id)
         if not todo:
             return error_response("Todo not found", status_code=404)
         
@@ -202,7 +209,7 @@ def update_todo_v2(todo_id):
         elif 'completed' in data and not data['completed']:
             update_fields['completed_at'] = None
         
-        updated_todo = todo_repo.update(todo_id, **update_fields)
+        updated_todo = get_todo_repo().update(todo_id, **update_fields)
         
         # Return updated todo
         return get_todo_v2(todo_id)
@@ -222,7 +229,7 @@ def delete_todo_v2(todo_id):
         user = g.current_user
         
         # Get todo
-        todo = todo_repo.get_by_id(todo_id)
+        todo = get_todo_repo().get_by_id(todo_id)
         if not todo:
             return error_response("Todo not found", status_code=404)
         
@@ -231,7 +238,7 @@ def delete_todo_v2(todo_id):
             return error_response("Access denied", status_code=403)
         
         # Delete todo
-        success = todo_repo.delete(todo_id)
+        success = get_todo_repo().delete(todo_id)
         
         if success:
             return success_response(message="Todo deleted successfully")

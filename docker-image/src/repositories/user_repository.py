@@ -2,18 +2,26 @@ from typing import Optional, List, Dict
 from sqlalchemy import or_, and_
 from sqlalchemy.orm import joinedload, sessionmaker
 from datetime import datetime, timedelta
+import logging
 
 from repositories.base_repository import BaseRepository
 from db.schema import User, StudentProfile, InstructorProfile, Role
 from core.database import db_manager
 
+logger = logging.getLogger(__name__)
+
 class UserRepository(BaseRepository[User]):
     """Repository for user-related database operations"""
     
     def __init__(self, session_factory: sessionmaker = None):
-        if session_factory is None:
-            session_factory = db_manager.session_factory
-        super().__init__(User, session_factory)
+        try:
+            if session_factory is None:
+                session_factory = db_manager.session_factory
+            super().__init__(User, session_factory)
+            logger.info(f"UserRepository initialized successfully with session factory: {type(session_factory)}")
+        except Exception as e:
+            logger.error(f"Failed to initialize UserRepository: {type(e).__name__}: {str(e)}")
+            raise
     
     def create(self, **kwargs) -> User:
         """Create user with role"""

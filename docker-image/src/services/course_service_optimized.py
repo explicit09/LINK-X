@@ -1,5 +1,5 @@
-"""Optimized Course Service with N+1 query fixes"""
-from typing import List, Dict, Optional
+"""Optimized Course Service with eager loading and minimal queries"""
+from typing import List, Dict, Optional, Any
 from datetime import datetime
 import secrets
 import logging
@@ -214,23 +214,122 @@ class OptimizedCourseService:
     
     def _course_to_dict_optimized(self, course) -> Dict:
         """Convert course to dict with already loaded data"""
-        # All relationships should already be loaded
+        # Safely access instructor data with fallbacks
+        instructor_data = {'id': '', 'name': 'Unknown', 'email': ''}
+        
+        if hasattr(course, 'instructor') and course.instructor:
+            instructor_data = {
+                'id': str(course.instructor.id),
+                'name': (course.instructor.instructor_profile.name 
+                        if hasattr(course.instructor, 'instructor_profile') and course.instructor.instructor_profile 
+                        else course.instructor.email),
+                'email': course.instructor.email
+            }
+        elif hasattr(course, 'instructor_id') and course.instructor_id:
+            instructor_data['id'] = str(course.instructor_id)
+        
+        # Safely access other course attributes
         return {
             'id': str(course.id),
-            'title': course.title,
-            'description': course.description,
-            'access_code': course.access_code,
-            'is_published': course.is_published,
-            'instructor': {
-                'id': str(course.instructor.id),
-                'name': course.instructor.instructor_profile.name if course.instructor.instructor_profile else course.instructor.email,
-                'email': course.instructor.email
-            },
-            'module_count': len(course.modules),
-            'enrollment_count': len([e for e in course.enrollments if not e.dropped_at]),
-            'created_at': course.created_at.isoformat() if course.created_at else None,
-            'updated_at': course.updated_at.isoformat() if course.updated_at else None
+            'title': getattr(course, 'title', 'Untitled Course'),
+            'description': getattr(course, 'description', ''),
+            'access_code': getattr(course, 'access_code', ''),
+            'is_published': getattr(course, 'is_published', True),
+            'instructor': instructor_data,
+            'module_count': len(getattr(course, 'modules', [])),
+            'enrollment_count': len([e for e in getattr(course, 'enrollments', []) if not getattr(e, 'dropped_at', None)]),
+            'created_at': getattr(course, 'created_at', datetime.utcnow()).isoformat() if hasattr(course, 'created_at') and course.created_at else None,
+            'updated_at': getattr(course, 'updated_at', None).isoformat() if hasattr(course, 'updated_at') and course.updated_at else None
         }
+
+    def get_student_courses(self, user_id: str, page: int = 1, per_page: int = 20) -> List[Dict]:
+        """Get courses for a student with pagination"""
+        return self.course_repo.get_student_courses(user_id, (page-1)*per_page, per_page)
+
+    def get_instructor_courses(self, user_id: str, page: int = 1, per_page: int = 20) -> List[Dict]:
+        """Get courses for an instructor with pagination"""
+        return self.course_repo.get_by_instructor(user_id, (page-1)*per_page, per_page)
+
+    def get_all_courses(self, page: int = 1, per_page: int = 20) -> List[Dict]:
+        """Get all courses with pagination (admin only)"""
+        result = self.course_repo.get_paginated(offset=(page-1)*per_page, limit=per_page)
+        return result['items']
+
+    def get_access_code(self, course_id: str) -> Optional[str]:
+        """Get access code for a course"""
+        access_code = self.course_repo.get_access_code(course_id)
+        return access_code.code if access_code else None
+
+    def get_student_count(self, course_id: str) -> int:
+        """Get number of students enrolled in a course"""
+        stats = self.course_repo.get_course_statistics(course_id)
+        return stats.get('enrollments', 0)
+
+    def create_course(self, instructor_id: str, title: str, description: str, 
+                     category: Optional[str] = None, tags: Optional[List[str]] = None) -> Dict:
+        """Create a new course"""
+        course_data = {
+            'title': title,
+            'description': description,
+            'instructor_id': instructor_id,
+            'category': category,
+            'tags': tags or []
+        }
+        course = self.course_repo.create(**course_data)
+        return course
+
+    def update_course(self, course_id: str, user_id: str, **kwargs) -> Dict:
+        """Update a course"""
+        # Check access first
+        course = self.course_repo.get_by_id(course_id)
+        if not course:
+            raise NotFoundError("Course not found")
+        
+        # Only instructor or admin can update
+        user = self.user_repo.get_by_id(user_id)
+        if not user:
+            raise AuthorizationError("User not found")
+        
+        user_role = user.role.role_type if user.role else 'student'
+        if user_role != 'admin' and str(course.instructor_id) != str(user_id):
+            raise AuthorizationError("Access denied")
+        
+        return self.course_repo.update(course_id, **kwargs)
+
+    def delete_course(self, course_id: str, user_id: str) -> bool:
+        """Delete a course"""
+        # Check access first
+        course = self.course_repo.get_by_id(course_id)
+        if not course:
+            return False
+        
+        # Only instructor or admin can delete
+        user = self.user_repo.get_by_id(user_id)
+        if not user:
+            return False
+        
+        user_role = user.role.role_type if user.role else 'student'
+        if user_role != 'admin' and str(course.instructor_id) != str(user_id):
+            return False
+        
+        return self.course_repo.delete(course_id)
+
+    def check_course_access(self, course_id: str, user_id: str) -> bool:
+        """Check if user has access to a course"""
+        try:
+            self.get_course_with_access_check(course_id, user_id)
+            return True
+        except (NotFoundError, AuthorizationError):
+            return False
+
+    def get_course_modules(self, course_id: str, user_id: str) -> List[Dict]:
+        """Get modules for a course"""
+        # Check access first
+        if not self.check_course_access(course_id, user_id):
+            raise AuthorizationError("Access denied")
+        
+        modules = self.course_repo.get_modules(course_id)
+        return [{'id': str(m.id), 'title': m.title, 'description': m.description, 'ordering': m.ordering} for m in modules]
 
 
 # Export optimized service

@@ -1,186 +1,219 @@
-<p align="center"><strong>Learn-X</strong>: An AI-Powered Personalized Learning Platform</p>
+# LINK-X1 - AI-Powered Learning Management System
 
-Learn-X is a project developed to solve a common issue in higher education: learning materials like slides, PDFs, and lectures are not one-size-fits-all. Every student learns differently, and Learn-X bridges that gap by using AI to personalize content based on each student’s unique learning persona.
+## 🚀 Overview
 
+LINK-X1 is a modern, AI-powered learning management system that provides personalized education experiences. Built with Next.js, Flask, and cutting-edge AI technologies, it offers intelligent content generation, adaptive learning paths, and real-time collaboration features.
 
-## Key Features
-- 🔐 **Persona-Based Personalization**: Students receive customized content tailored to their learning style, experience, and preferences.
-- 🧑‍🏫 **Instructor Dashboard**: Professors can upload files, organize modules, and monitor anonymized engagement analytics.
-- 🤖 **AI Chatbot Assistance**: GPT-4o-powered chatbot allows students to ask follow-up questions relevant to course material.
-- 📂 **RAG System**: Content is chunked and embedded using pgvector, then retrieved for AI responses with high relevance.
-- 📊 **Analytics & Engagement**: Anonymous tracking gives professors insight into student usage and behavior patterns.
+### Key Features
+- 🤖 **AI-Powered Learning**: Personalized content generation and adaptive learning paths
+- 📚 **Course Management**: Comprehensive tools for instructors and students
+- 🎯 **Smart Recommendations**: AI-driven content suggestions based on learning patterns
+- 📊 **Progress Tracking**: Detailed analytics and progress monitoring
+- 🔄 **Real-time Collaboration**: Live streaming and interactive learning sessions
+- 📱 **Responsive Design**: Seamless experience across all devices
 
-## Tech Stack
-| Component        | Technology                        |
-|------------------|-----------------------------------|
-| Frontend         | Next.js                           |
-| Backend          | Python, Flask                     |
-| AI Integration   | OpenAI (GPT-4o). Retrieval-Augmented Generation (RAG) |
-| Embedding Store  | PostgreSQL with pgvector          |
-| Primary DB       | PostgreSQL  (hosted on NeonDB)    |
-| Authentication   | Firebase                          |
-| Containerization | Docker                            |
+## 🏗️ Architecture Overview
 
-## Quick Start
+```
+LINK-X1/
+├── frontend/                 # Next.js 14 application
+├── docker-image/            # Flask backend application
+├── infrastructure/          # CDN and deployment configs
+├── monitoring/             # Prometheus, Grafana, Loki stack
+├── scripts/                # Utility and deployment scripts
+├── tests/                  # End-to-end tests
+└── docs/                   # Project documentation
+```
 
-All operations are managed through the unified `manage.sh` script:
+## 🛠️ Tech Stack
 
+### Frontend
+- **Framework**: Next.js 14 with App Router
+- **UI Library**: React 18 with TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui components
+- **State Management**: React Context + SWR
+- **Authentication**: Firebase Auth
+
+### Backend
+- **Framework**: Flask with Python 3.9+
+- **API**: RESTful API with v1/v2 versioning
+- **Database**: PostgreSQL with pgvector extension
+- **Cache**: Redis
+- **File Storage**: AWS S3
+- **Task Queue**: Celery with Redis broker
+
+### AI/ML
+- **LLM Integration**: OpenAI GPT-4
+- **Embeddings**: OpenAI text-embedding-3
+- **Vector Search**: pgvector
+- **Document Processing**: LangChain
+
+### Infrastructure
+- **Containerization**: Docker & Docker Compose
+- **CDN**: Cloudflare Workers
+- **Monitoring**: Prometheus + Grafana
+- **Logging**: Loki + Promtail
+- **Error Tracking**: Sentry
+
+## 🚦 Getting Started
+
+### Prerequisites
+- Node.js 18+ and npm/yarn
+- Python 3.9+
+- Docker and Docker Compose
+- PostgreSQL 14+ with pgvector
+- Redis 6+
+- AWS S3 bucket (for file storage)
+
+### Quick Start
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/LINK-X1.git
+   cd LINK-X1
+   ```
+
+2. **Set up environment variables**
+   ```bash
+   # Copy example env files
+   cp .env.example .env
+   cp docker-image/.env.example docker-image/.env
+   cp frontend/.env.local.example frontend/.env.local
+   ```
+
+3. **Start with Docker Compose**
+   ```bash
+   # Development environment
+   docker-compose up -d
+   
+   # Production environment
+   docker-compose -f docker-compose.production.yml up -d
+   ```
+
+4. **Access the application**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:8080
+   - API Documentation: http://localhost:8080/api/docs
+
+## 📁 Project Structure
+
+### Frontend (`/frontend`)
+```
+frontend/
+├── app/                    # Next.js app directory
+│   ├── (auth)/            # Authentication pages
+│   ├── (dash)/            # Dashboard pages
+│   ├── (learn)/           # Learning interface
+│   ├── courses/           # Course management
+│   └── onboarding/        # User onboarding
+├── components/            # Reusable components
+│   ├── ui/               # Base UI components
+│   ├── course/           # Course-specific components
+│   ├── dashboard/        # Dashboard components
+│   └── streaming/        # Real-time features
+├── lib/                   # Utilities and services
+│   ├── api/              # API client modules
+│   └── utils.ts          # Helper functions
+└── hooks/                # Custom React hooks
+```
+
+### Backend (`/docker-image`)
+```
+docker-image/
+├── src/
+│   ├── api/              # API endpoints
+│   │   ├── v2_endpoints/ # Version 2 endpoints
+│   │   └── metrics/      # Metrics collection
+│   ├── services/         # Business logic
+│   │   ├── ai/          # AI service modules
+│   │   ├── streaming/   # Streaming services
+│   │   └── file_service/# File management
+│   ├── repositories/     # Data access layer
+│   ├── core/            # Core utilities
+│   │   └── monitoring/  # Monitoring setup
+│   ├── db/              # Database schemas
+│   └── tasks/           # Background tasks
+├── scripts/             # Utility scripts
+└── tests/              # Test suites
+```
+
+## 🧪 Development
+
+### Frontend Development
 ```bash
-# Make the script executable (first time only)
-chmod +x manage.sh
-
-# Show all available commands
-./manage.sh help
-
-# Run backend in development mode
-./manage.sh backend
-
-# Run frontend
-./manage.sh frontend
-
-# Run tests
-./manage.sh test
+cd frontend
+npm install
+npm run dev
 ```
 
-For detailed instructions, see [SCRIPTS_GUIDE.md](./SCRIPTS_GUIDE.md).
-
-## Environment Setup
-
-Create these two files with your environment variables:
-- `frontend/.env.local`
-- `docker-image/src/.env`
-
-Both should include:
-```env
-OPENAI_API_KEY=your_api_key_here
-AUTH_SECRET=your_auth_secret_here
-POSTGRES_URL=your_postgres_url_here
-DATABASE_URL=your_postgres_url_here
-REDIS_URL=redis://localhost:6379
-AWS_ACCESS_KEY_ID=your_aws_key_id
-AWS_SECRET_ACCESS_KEY=your_aws_secret_key
-AWS_REGION=us-east-1
-S3_BUCKET_NAME=your_s3_bucket_name
-```
-
-> Note: Never commit `.env` files to version control.
-
-## Running the Application
-
-### Development Mode
+### Backend Development
 ```bash
-# Run backend with auto-reload
-./manage.sh backend
-
-# In another terminal, run frontend
-./manage.sh frontend
+cd docker-image
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r src/requirements.txt
+python src/app.py
 ```
 
-The frontend will be available at [localhost:3000](http://localhost:3000/).
-The backend API will be available at [localhost:8000](http://localhost:8000).
-
-### Production Mode
+### Running Tests
 ```bash
-# Run with production configuration
-./manage.sh backend production
+# Frontend tests
+cd frontend && npm test
+
+# Backend tests
+cd docker-image/src && python -m pytest
+
+# E2E tests
+npm run test:e2e
 ```
 
-### Database Operations
-```bash
-# Run migrations
-./manage.sh db-migrate
+## 📊 Monitoring
 
-# Reset database (interactive)
-./manage.sh db-reset
+The project includes a comprehensive monitoring stack:
 
-# Backup database
-./manage.sh db-backup
-```
+- **Metrics**: Prometheus + Grafana dashboards
+- **Logs**: Loki for log aggregation
+- **Traces**: Distributed tracing support
+- **Alerts**: AlertManager for critical issues
 
-### Testing
-```bash
-# Run all tests
-./manage.sh test
+Access monitoring tools:
+- Grafana: http://localhost:3001
+- Prometheus: http://localhost:9090
 
-# Run specific test suite
-./manage.sh test-backend
-./manage.sh test-frontend
-```
+## 🔐 Security
 
-### Container Access
-```bash
-# View logs
-./manage.sh logs backend
+- Firebase Authentication for user management
+- JWT tokens with refresh token rotation
+- Rate limiting on all API endpoints
+- CORS protection with whitelisted origins
+- Input validation and sanitization
+- SQL injection protection via ORM
+- XSS protection with React's built-in escaping
 
-# Open shell in container
-./manage.sh shell backend
-```
+## 📈 Performance
 
-# Backend AI Pipeline (Document Processing + Question Answering)
+- Optimized React bundle with code splitting
+- Redis caching for frequently accessed data
+- Database query optimization with indexes
+- CDN for static assets
+- WebSocket connections for real-time features
+- Background job processing with Celery
 
-A sophisticated document processing and retrieval system that leverages PostgreSQL with pgvector extension and OpenAI embeddings to generate personalized course content and provide an interactive question-answering interface for course documents.
+## 🤝 Contributing
 
-## Overview
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
-The backend implements a Retrieval-Augmented Generation (RAG) pipeline powered by pgvector and OpenAI's GPT-4o. This enables semantic search over course materials and personalized responses to student questions.
+## 📄 License
 
-## System Architecture
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-### 1. Document Processing & Vector Storage
-- **Data Collection & Processing** (`indexer.py`)
-  - Loads documents from S3 or local storage
-  - Splits documents into smaller chunks
-  - Creates embeddings using OpenAI's text-embedding-ada-002
-  - Stores vectors in PostgreSQL using pgvector extension
+## 🙏 Acknowledgments
 
-- **Citation Management**
-  - Maintains document metadata and sources
-  - Tracks chunk origins for accurate citations
+- Built with [Next.js](https://nextjs.org/)
+- UI components from [shadcn/ui](https://ui.shadcn.com/)
+- AI powered by [OpenAI](https://openai.com/)
+- Icons from [Lucide](https://lucide.dev/)
 
-### 2. Query the Knowledge Base
-- **Query Processing**
-  - Processes user queries
-  - Creates query embeddings using OpenAI
-  - Performs vector similarity search using pgvector
-  - Selects top k most similar chunks
-  - Generates context-aware responses using GPT-4o
+---
 
-## Testing the RAG Pipeline
-
-From the backend container:
-
-```bash
-# Run backend
-./manage.sh backend
-
-# Access container shell
-./manage.sh shell backend
-```
-
-### 1. Process documents for vector storage
-```bash
-# Documents are automatically processed when uploaded through the API
-# Vectors are stored in PostgreSQL with pgvector
-```
-
-### 2. Query the knowledge base
-```bash
-# Use the API endpoints or frontend interface
-# Vector search is performed using pgvector's similarity functions
-```
-
-### 3. Monitor vector storage
-```bash
-# Check vector storage statistics
-python -m src.monitor_pgvector
-```
-
-## Development Tools
-| Area             | Tool / Platform                   |
-|------------------|-----------------------------------|
-| Version Control  | Git, GitHub, GitLab               |
-| Package Manager  | pnpm (frontend), pip (backend)    |
-| Environment Mgmt | dotenv                            |
-| Container Dev    | Docker, Docker Compose            |
-| DB Hosting       | [NeonDB](https://neon.tech), [Firebase Console](https://firebase.google.com) |
-| UI Prototyping   | [v0](https://v0.dev), [Loveable](https://lovable.dev) |
+For detailed documentation, see the [docs](./docs) directory.

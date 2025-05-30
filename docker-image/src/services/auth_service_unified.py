@@ -30,7 +30,13 @@ class UnifiedAuthService:
     
     def __init__(self, user_repo: Optional[UserRepository] = None, 
                  redis_client: Optional[redis.Redis] = None):
-        self.user_repo = user_repo or UserRepository()
+        try:
+            self.user_repo = user_repo or UserRepository()
+            logger.info(f"Successfully initialized UserRepository: {type(self.user_repo)}")
+        except Exception as e:
+            logger.error(f"Failed to initialize UserRepository: {type(e).__name__}: {str(e)}")
+            raise AuthenticationError(f"Database connection failed: {str(e)}")
+            
         self.redis_client = redis_client or self._get_redis_client()
         
     def _get_redis_client(self) -> redis.Redis:
@@ -72,14 +78,34 @@ class UnifiedAuthService:
                 raise ValidationError("Email not found in Firebase token")
                 
             # Get or create user
-            user = self.user_repo.find_by_firebase_uid(firebase_uid)
+            logger.info(f"About to search for user with Firebase UID: {firebase_uid}")
+            logger.info(f"user_repo type: {type(self.user_repo)}")
+            logger.info(f"user_repo: {self.user_repo}")
+            
+            try:
+                user = self.user_repo.find_by_firebase_uid(firebase_uid)
+                logger.info(f"User lookup result: {user}")
+            except Exception as user_lookup_error:
+                logger.error(f"Error during user lookup: {type(user_lookup_error).__name__}: {str(user_lookup_error)}")
+                raise
             
             if not user:
-                # Auto-create user from Firebase
-                user = self._create_user_from_firebase(decoded_token)
+                logger.info("User not found, creating new user from Firebase data")
+                try:
+                    user = self._create_user_from_firebase(decoded_token)
+                    logger.info(f"Created new user: {user}")
+                except Exception as user_creation_error:
+                    logger.error(f"Error creating user: {type(user_creation_error).__name__}: {str(user_creation_error)}")
+                    raise
                 
             # Update last login
-            self.user_repo.update(user.id, last_login=datetime.utcnow())
+            logger.info(f"About to update last login for user ID: {user.id if user else 'None'}")
+            try:
+                self.user_repo.update(user.id, last_login=datetime.utcnow())
+                logger.info("Successfully updated last login")
+            except Exception as update_error:
+                logger.error(f"Error updating last login: {type(update_error).__name__}: {str(update_error)}")
+                raise
             
             # Generate tokens based on version
             if version == 'v2':

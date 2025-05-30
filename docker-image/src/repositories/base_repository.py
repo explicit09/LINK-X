@@ -168,27 +168,36 @@ class BaseRepository(Generic[T]):
     
     def update(self, id: Any, **kwargs) -> Optional[T]:
         """Update entity"""
+        if id is None:
+            logger.error("Cannot update entity: ID is None")
+            return None
+            
         with self.get_session() as session:
             entity = self.get_by_id(id)
             if not entity:
+                logger.error(f"Cannot update entity: No entity found with ID {id}")
                 return None
                 
-            # Re-attach to session
-            entity = session.merge(entity)
-            
-            # Update fields
-            for key, value in kwargs.items():
-                if hasattr(entity, key):
-                    setattr(entity, key, value)
-                    
-            session.flush()
-            session.refresh(entity)
-            
-            # Detach and return
-            entity_dict = {c.name: getattr(entity, c.name) 
-                          for c in entity.__table__.columns}
-            session.expunge(entity)
-            return self.model(**entity_dict)
+            try:
+                # Re-attach to session
+                entity = session.merge(entity)
+                
+                # Update fields
+                for key, value in kwargs.items():
+                    if hasattr(entity, key):
+                        setattr(entity, key, value)
+                        
+                session.flush()
+                session.refresh(entity)
+                
+                # Detach and return
+                entity_dict = {c.name: getattr(entity, c.name) 
+                              for c in entity.__table__.columns}
+                session.expunge(entity)
+                return self.model(**entity_dict)
+            except Exception as e:
+                logger.error(f"Error updating entity with ID {id}: {type(e).__name__}: {str(e)}")
+                raise
     
     def delete(self, id: Any) -> bool:
         """Delete entity"""
