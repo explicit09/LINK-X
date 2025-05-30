@@ -49,7 +49,7 @@ fi
 # Check if required files exist
 required_files=(
     ".env.production"
-    "docker-compose.production.yml"
+    "docker-compose.yml"
     "docker-image/docker/Dockerfile.prod"
 )
 
@@ -108,10 +108,10 @@ echo -e "${GREEN}✅ Migrations completed${NC}"
 echo -e "\n${YELLOW}6. Updating production environment...${NC}"
 
 # Stop current production
-docker-compose -f docker-compose.production.yml down
+docker-compose --profile prod down
 
 # Start new production
-docker-compose -f docker-compose.production.yml up -d
+docker-compose --profile prod up -d
 
 # Wait for services to be healthy
 echo -e "${YELLOW}Waiting for services to be healthy...${NC}"
@@ -125,7 +125,7 @@ if curl -f http://localhost:8000/health > /dev/null 2>&1; then
     echo -e "${GREEN}✅ Backend is healthy${NC}"
 else
     echo -e "${RED}❌ Backend health check failed${NC}"
-    docker-compose -f docker-compose.production.yml logs backend
+    docker-compose --profile prod logs backend
     exit 1
 fi
 
@@ -134,7 +134,7 @@ if curl -f http://localhost:3000 > /dev/null 2>&1; then
     echo -e "${GREEN}✅ Frontend is healthy${NC}"
 else
     echo -e "${RED}❌ Frontend health check failed${NC}"
-    docker-compose -f docker-compose.production.yml logs frontend
+    docker-compose --profile prod logs frontend
     exit 1
 fi
 
@@ -169,7 +169,7 @@ else
 fi
 
 # Check database connectivity
-docker-compose -f docker-compose.production.yml exec -T backend python -c "
+docker-compose --profile prod exec -T backend python -c "
 from core.database import db_manager
 if db_manager.health_check():
     print('✅ Database connection successful')
@@ -200,7 +200,7 @@ echo "Commit: $(git rev-parse --short HEAD)"
 echo "Time: $(date)"
 echo ""
 echo -e "${YELLOW}📌 Next Steps:${NC}"
-echo "1. Monitor logs: docker-compose -f docker-compose.production.yml logs -f"
+echo "1. Monitor logs: docker-compose --profile prod logs -f"
 echo "2. Check metrics: http://localhost:3001 (Grafana)"
 echo "3. View alerts: http://localhost:9093 (Alertmanager)"
 echo "4. API docs: http://localhost:8000/api/docs"
