@@ -1,8 +1,8 @@
-# LINK-X1 - AI-Powered Learning Management System
+# LEARN-X - AI-Powered Learning Management System
 
 ## 🚀 Overview
 
-LINK-X1 is a modern, AI-powered learning management system that provides personalized education experiences. Built with Next.js, Flask, and cutting-edge AI technologies, it offers intelligent content generation, adaptive learning paths, and real-time collaboration features.
+LEARN-X is a modern, AI-powered learning management system that provides personalized education experiences. Built with Next.js, Flask, and cutting-edge AI technologies, it offers intelligent content generation, adaptive learning paths, and real-time collaboration features.
 
 ### Key Features
 - 🤖 **AI-Powered Learning**: Personalized content generation and adaptive learning paths
