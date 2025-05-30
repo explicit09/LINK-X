@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
 import logging
+import json
 
 from core.decorators_unified import firebase_auth_required
 from core.exceptions import ValidationError, NotFoundError, UnauthorizedError
@@ -313,3 +314,203 @@ def delete_file_v2(file_id):
     except Exception as e:
         logger.error(f"Delete file error: {str(e)}")
         return error_response("An error occurred deleting the file", status_code=500)
+
+
+@files_bp.route('/<file_id>/existing-content', methods=['GET'])
+@firebase_auth_required
+def get_existing_content_v2(file_id):
+    """Get existing personalized content for a file"""
+    try:
+        user = g.current_user
+        
+        # Get file with access check
+        file = get_file_service().get_file_with_access_check(file_id, user.id)
+        
+        logger.info(f"File retrieved for existing-content: {type(file)}, has filename: {hasattr(file, 'filename')}")
+        
+        # For now, return empty content - this can be expanded later to check for saved personalized content
+        response_data = {
+            'content': [],
+            'fileName': file.filename if hasattr(file, 'filename') else 'Document'
+        }
+        
+        logger.info(f"Existing content response: {response_data}")
+        return jsonify(response_data)
+        
+    except NotFoundError:
+        return error_response("File not found", status_code=404)
+    except UnauthorizedError:
+        return error_response("Access denied", status_code=403)
+    except Exception as e:
+        logger.error(f"Get existing content error: {str(e)}")
+        return error_response("An error occurred fetching existing content", status_code=500)
+
+
+@files_bp.route('/<file_id>/outline', methods=['GET'])
+@firebase_auth_required
+def get_file_outline_v2(file_id):
+    """Generate document outline for a file"""
+    try:
+        user = g.current_user
+        
+        # Get file with access check
+        file = get_file_service().get_file_with_access_check(file_id, user.id)
+        
+        logger.info(f"File retrieved for outline: {type(file)}, has filename: {hasattr(file, 'filename')}")
+        
+        # Generate a basic outline structure
+        # This can be expanded later to use AI services for real outline generation
+        outline = {
+            'fileId': file_id,
+            'fileName': file.filename if hasattr(file, 'filename') else 'Document',
+            'outline': {
+                'chapters': [
+                    {
+                        'id': 'chapter-1',
+                        'title': 'Introduction & Overview',
+                        'estimatedTokens': 2000,
+                        'subsections': [
+                            {'id': '1.1', 'title': 'Getting Started', 'estimatedTokens': 500},
+                            {'id': '1.2', 'title': 'Core Concepts', 'estimatedTokens': 600},
+                            {'id': '1.3', 'title': 'Key Objectives', 'estimatedTokens': 500},
+                            {'id': '1.4', 'title': 'Learning Path', 'estimatedTokens': 400}
+                        ]
+                    },
+                    {
+                        'id': 'chapter-2',
+                        'title': 'Main Content',
+                        'estimatedTokens': 3000,
+                        'subsections': [
+                            {'id': '2.1', 'title': 'Fundamental Principles', 'estimatedTokens': 800},
+                            {'id': '2.2', 'title': 'Practical Applications', 'estimatedTokens': 900},
+                            {'id': '2.3', 'title': 'Advanced Topics', 'estimatedTokens': 700},
+                            {'id': '2.4', 'title': 'Case Studies', 'estimatedTokens': 600}
+                        ]
+                    },
+                    {
+                        'id': 'chapter-3',
+                        'title': 'Summary & Next Steps',
+                        'estimatedTokens': 1500,
+                        'subsections': [
+                            {'id': '3.1', 'title': 'Key Takeaways', 'estimatedTokens': 500},
+                            {'id': '3.2', 'title': 'Further Reading', 'estimatedTokens': 400},
+                            {'id': '3.3', 'title': 'Practice Exercises', 'estimatedTokens': 600}
+                        ]
+                    }
+                ]
+            }
+        }
+        
+        logger.info(f"Outline response: {outline}")
+        return jsonify(outline)
+        
+    except NotFoundError:
+        return error_response("File not found", status_code=404)
+    except UnauthorizedError:
+        return error_response("Access denied", status_code=403)
+    except Exception as e:
+        logger.error(f"Get file outline error: {str(e)}")
+        return error_response("An error occurred generating file outline", status_code=500)
+
+
+@files_bp.route('/<file_id>/stream-section', methods=['POST'])
+@firebase_auth_required
+def stream_section_v2(file_id):
+    """Stream personalized content for a file section"""
+    try:
+        user = g.current_user
+        data = request.get_json()
+        
+        if not data:
+            return error_response("No data provided")
+        
+        # Get file with access check
+        file = get_file_service().get_file_with_access_check(file_id, user.id)
+        
+        chapter_id = data.get('chapter_id')
+        subsection_id = data.get('subsection_id')
+        
+        if not chapter_id or not subsection_id:
+            return error_response("chapter_id and subsection_id are required")
+        
+        # Generate mock streaming content for now
+        # This can be replaced with real AI-powered content generation later
+        def generate_content():
+            content_template = f"""
+# {chapter_id.replace('-', ' ').title()} - {subsection_id}
+
+This is personalized content generated for your learning journey. Here are the key concepts:
+
+## Understanding the Fundamentals
+
+The core principles we'll explore in this section build upon your previous knowledge and help you advance your understanding.
+
+## Key Learning Points
+
+1. **Conceptual Foundation**: We start with the basic concepts that form the foundation of this topic.
+
+2. **Practical Applications**: Next, we explore how these concepts apply in real-world scenarios.
+
+3. **Advanced Insights**: Finally, we dive deeper into more complex aspects that will enhance your expertise.
+
+## Interactive Examples
+
+Let's work through some examples that demonstrate these concepts in action:
+
+- Example 1: Basic application of the concept
+- Example 2: More complex scenario
+- Example 3: Real-world case study
+
+## Summary
+
+This section has covered the essential elements of {chapter_id.replace('-', ' ')} focusing on {subsection_id.replace('-', ' ')}. 
+
+## Next Steps
+
+Continue to the next section to build upon these concepts and further develop your understanding.
+"""
+            
+            # Split content into words for streaming effect
+            words = content_template.strip().split()
+            
+            # Stream content word by word
+            for i, word in enumerate(words):
+                if i == 0:
+                    chunk = word
+                else:
+                    chunk = ' ' + word
+                
+                # Format as Server-Sent Events
+                yield f"data: {json.dumps({'content': chunk})}\n\n"
+                
+                # Small delay between words to simulate real streaming
+                import time
+                time.sleep(0.05)
+        
+        # Create streaming response
+        def response_generator():
+            yield "data: " + json.dumps({"status": "starting"}) + "\n\n"
+            
+            for chunk in generate_content():
+                yield chunk
+                
+            yield "data: " + json.dumps({"status": "complete"}) + "\n\n"
+        
+        from flask import Response
+        return Response(
+            response_generator(),
+            mimetype='text/plain',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no'  # Disable nginx buffering
+            }
+        )
+        
+    except NotFoundError:
+        return error_response("File not found", status_code=404)
+    except UnauthorizedError:
+        return error_response("Access denied", status_code=403)
+    except Exception as e:
+        logger.error(f"Stream section error: {str(e)}")
+        return error_response("An error occurred streaming content", status_code=500)

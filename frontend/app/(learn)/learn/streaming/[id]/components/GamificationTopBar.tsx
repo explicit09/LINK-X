@@ -138,7 +138,7 @@ export function GamificationTopBar({
                   recentAchievements.map((achievement) => (
                     <TooltipProvider key={achievement.id}>
                       <Tooltip>
-                        <TooltipTrigger>
+                        <TooltipTrigger asChild>
                           <Badge
                             variant="secondary"
                             className="bg-yellow-400/20 text-yellow-300 border-yellow-300/50 text-lg px-2 py-1"
@@ -161,7 +161,7 @@ export function GamificationTopBar({
               </div>
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger>
+                  <TooltipTrigger asChild>
                     <Button
                       variant="ghost"
                       size="sm"
