@@ -171,12 +171,14 @@ export default function ProfessorDashboard() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const res = await fetch("http://localhost:8080/instructor/courses", {
+        // Use the correct API v2 endpoint for instructor courses
+        const res = await fetch("http://localhost:8080/api/v2/courses", {
           credentials: "include",
         });
         if (!res.ok) throw new Error("Failed to fetch courses");
         const data = await res.json();
-        setCourses(data);
+        // The API response structure is { data: [...courses...], pagination: {...}, success: true }
+        setCourses(data.data || []);
       } catch (err) {
         console.error("Error fetching courses:", err);
       }
@@ -401,7 +403,7 @@ export default function ProfessorDashboard() {
   const handleCreateCourse = async (courseData: any) => {
     try {
       // First check if instructor profile exists
-      const profileCheckRes = await fetch("http://localhost:8080/instructor/profile", {
+      const profileCheckRes = await fetch("http://localhost:8080/api/v2/auth/me", {
         credentials: "include"
       });
       
@@ -414,11 +416,12 @@ export default function ProfessorDashboard() {
         code: courseData.code,
         term: courseData.term,
         published: courseData.published ?? false,
-        // Skip instructor_id if profile doesn&apos;t exist
+        // Skip instructor_id if profile doesn't exist
         useCreatorAsInstructor: !hasProfile
       };
       
-      const res = await fetch("http://localhost:8080/instructor/courses", {
+      // Use the correct API v2 endpoint for creating courses
+      const res = await fetch("http://localhost:8080/api/v2/courses", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -429,18 +432,26 @@ export default function ProfessorDashboard() {
       
       if (!res.ok) {
         let errorMessage = "Failed to create course";
+        try {
+          const errorData = await res.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // ignore
+        }
+        throw new Error(errorMessage);
       }
 
       // 🔄 Re-fetch all courses after successful creation
       const updatedRes = await fetch(
-        "http://localhost:8080/instructor/courses",
+        "http://localhost:8080/api/v2/courses",
         {
           credentials: "include",
         }
       );
       if (!updatedRes.ok) throw new Error("Failed to refresh course list");
 
-      const updatedCourses = await updatedRes.json();
+      const updatedData = await updatedRes.json();
+      const updatedCourses = updatedData.courses || [];
       setCourses(updatedCourses);
       
       // Get the newly created course (should be the last one in the list)

@@ -6,6 +6,7 @@ import { X, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { studentAPI } from "@/lib/api";
 
 interface Props {
   open: boolean;
@@ -35,25 +36,14 @@ export default function AccessCodePopup({ open, onClose, onSuccess }: Props) {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const res = await fetch("http://localhost:8080/student/enrollments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ accessCode }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setAccessCode("");
-        onClose();
-        onSuccess?.();  // ✅ Call onSuccess if provided
-      } else {
-        console.error(data.error || "Failed to enroll.");
-        setErrorMessage(data.error || "Failed to enroll. Please try again.");
-      }
-    } catch (err) {
+      await studentAPI.enrollInCourse(accessCode.trim());
+      setAccessCode("");
+      onClose();
+      onSuccess?.();  // ✅ Call onSuccess if provided
+    } catch (err: any) {
       console.error("Enrollment error:", err);
-      setErrorMessage("Network error or server is down. Please try again later.");
+      const errorMessage = err.message || "Failed to enroll. Please check the access code and try again.";
+      setErrorMessage(errorMessage);
     } finally {
       setIsLoading(false);
     }

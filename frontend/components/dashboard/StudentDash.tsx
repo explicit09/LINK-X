@@ -72,6 +72,9 @@ export default function StudentDash({ currentUser }: StudentDashProps) {
           studentAPI.getCourses()
         ]);
         
+        console.log('User profile:', user);
+        console.log('Courses data:', coursesData);
+        
         setUserProfile(user);
 
         // Check if student has completed onboarding by checking for student profile

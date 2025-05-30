@@ -37,6 +37,7 @@ import { SmartSelection } from "@/components/ai/SmartSelection";
 import { toast as sonnerToast } from 'sonner';
 import { instructorAPI, studentAPI, adminAPI } from "@/lib/api";
 import CourseForm from "@/components/dashboard/CourseForm";
+import AccessCodePopup from "@/components/dashboard/AccessCodeCard";
 import React from "react";
 
 interface Course {
@@ -90,6 +91,7 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
   const [realCourses, setRealCourses] = useState<Course[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [showCourseForm, setShowCourseForm] = useState(false);
+  const [showAccessCodeDialog, setShowAccessCodeDialog] = useState(false);
   const [showAddTodo, setShowAddTodo] = useState(false);
   const [newTodoTitle, setNewTodoTitle] = useState("");
   const [newTodoCourse, setNewTodoCourse] = useState("");
@@ -601,7 +603,7 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
                         Create Your Course
                       </Button>
                       <Button 
-                        onClick={() => router.push("/courses?action=join")}
+                        onClick={() => setShowAccessCodeDialog(true)}
                         variant="outline"
                       >
                         <Plus className="h-4 w-4 mr-2" />
@@ -851,6 +853,17 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
           />
         </DialogContent>
       </Dialog>
+
+      {/* Access Code Dialog */}
+      <AccessCodePopup 
+        open={showAccessCodeDialog}
+        onClose={() => setShowAccessCodeDialog(false)}
+        onSuccess={() => {
+          setShowAccessCodeDialog(false);
+          loadCourses(); // Reload courses after successful enrollment
+          sonnerToast.success("Successfully enrolled in course!");
+        }}
+      />
     </div>
   );
 }

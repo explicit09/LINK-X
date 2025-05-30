@@ -10,11 +10,21 @@ import { cn } from "@/lib/utils";
 
 interface Course {
   id: string;
-  topic: string;
-  expertise: string;
-  content: any;
-  createdAt: string;
-  fileId: string | null;
+  title: string;
+  description: string;
+  category: string;
+  instructor: {
+    id: string;
+    name: string;
+  };
+  stats: {
+    materials: number;
+    modules: number;
+    students: number;
+  };
+  tags: string[];
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 const CoursesGrid = ({
@@ -30,23 +40,24 @@ const CoursesGrid = ({
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const res = await fetch("http://localhost:8080/courses", {
+        const res = await fetch("http://localhost:8080/api/v2/courses", {
           method: "GET",
           credentials: "include",
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data: Course[] = await res.json();
-        setCourses(data);
+        const data = await res.json();
+        console.log("Courses API response:", data);
+        setCourses(data.data || []);
       } catch (err) {
         console.error("Failed to load courses:", err);
       }
     };
 
     fetchCourses();
-  }, []);
+  }, [search]);
 
   const filteredCourses = courses.filter((course) =>
-    course.topic.toLowerCase().includes(search.toLowerCase())
+    course.title.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -72,12 +83,18 @@ const CoursesGrid = ({
           >
             <CardHeader>
               <CardTitle className="text-blue-600 text-lg truncate">
-                {course.topic.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1))}
+                {course.title}
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <p className="text-gray-700 text-sm">
-                Expertise: {course.expertise || "N/A"}
+              <p className="text-gray-700 text-sm line-clamp-3">
+                {course.description || "No description available"}
+              </p>
+              <p className="text-gray-600 text-xs">
+                Instructor: {course.instructor?.name || "Unknown"}
+              </p>
+              <p className="text-gray-600 text-xs">
+                Students: {course.stats?.students || 0} • Modules: {course.stats?.modules || 0}
               </p>
               <Button
                 size="sm"
@@ -91,8 +108,11 @@ const CoursesGrid = ({
       </div>
 
       {/* No Courses */}
-      {filteredCourses.length === 0 && (
-        <div className="text-center text-gray-500 mt-8">No courses found.</div>
+      {filteredCourses.length === 0 && courses.length === 0 && (
+        <div className="text-center text-gray-500 mt-8">Loading courses...</div>
+      )}
+      {filteredCourses.length === 0 && courses.length > 0 && (
+        <div className="text-center text-gray-500 mt-8">No courses found matching your search.</div>
       )}
     </div>
   );

@@ -12,10 +12,19 @@ interface Course {
   id: string;
   title: string;
   description: string;
-  code: string;
-  term: string;
-  published: boolean;
-  last_updated: string | null;
+  category: string;
+  instructor: {
+    id: string;
+    name: string;
+  };
+  stats: {
+    materials: number;
+    modules: number;
+    students: number;
+  };
+  tags: string[];
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 const CoursesList = ({
@@ -33,12 +42,14 @@ const CoursesList = ({
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const res = await fetch("http://localhost:8080/student/courses", {
+        const res = await fetch("http://localhost:8080/api/v2/courses", {
+          method: "GET",
           credentials: "include",
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        setCourses(data);
+        console.log("CoursesList API response:", data);
+        setCourses(data.data || []);
       } catch (err) {
         console.error("Failed to load courses:", err);
       }
@@ -73,7 +84,7 @@ const CoursesList = ({
       >
         <CardHeader className="relative flex justify-between items-center">
           <CardTitle className="text-xl text-blue-600">
-            Enrolled Courses
+            Enrolled Courses ({courses.length})
           </CardTitle>
           {isExpanded && (
             <Button
@@ -99,36 +110,48 @@ const CoursesList = ({
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <ul className="space-y-4 mt-4">
-            {visibleCourses.map((course) => (
-              <li
-                key={course.id}
-                className="flex items-center justify-between bg-gray-100 p-3 rounded-lg border border-gray-300"
-              >
-                <div>
-                  <div className="font-semibold text-black">{course.title}</div>
-                  <div className="text-sm text-gray-600">{course.term} • {course.code}</div>
+          
+          {courses.length === 0 ? (
+            <div className="text-center text-gray-500 mt-4">Loading your courses...</div>
+          ) : (
+            <>
+              <ul className="space-y-4 mt-4">
+                {visibleCourses.map((course) => (
+                  <li
+                    key={course.id}
+                    className="flex items-center justify-between bg-gray-100 p-3 rounded-lg border border-gray-300"
+                  >
+                    <div>
+                      <div className="font-semibold text-black">{course.title}</div>
+                      <div className="text-sm text-gray-600">
+                        {course.category} • Instructor: {course.instructor?.name || "Unknown"}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {course.description || "No description"}
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={() => router.push(`/learn/${course.id}`)}
+                    >
+                      Learn <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              {filteredCourses.length > 5 && (
+                <div className="mt-4 flex justify-center">
+                  <Button
+                    variant="outline"
+                    className="text-blue-400 border-blue-400 hover:bg-blue-700 hover:text-white"
+                    onClick={() => setShowAll((prev) => !prev)}
+                  >
+                    {showAll ? "See Less" : "See More"}
+                  </Button>
                 </div>
-                <Button
-                  size="sm"
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={() => router.push(`/dashboard`)} //TODO
-                >
-                  Learn <ChevronRight className="ml-2 h-4 w-4" />
-                </Button>
-              </li>
-            ))}
-          </ul>
-          {filteredCourses.length > 5 && (
-            <div className="mt-4 flex justify-center">
-              <Button
-                variant="outline"
-                className="text-blue-400 border-blue-400 hover:bg-blue-700 hover:text-white"
-                onClick={() => setShowAll((prev) => !prev)}
-              >
-                {showAll ? "See Less" : "See More"}
-              </Button>
-            </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

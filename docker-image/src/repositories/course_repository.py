@@ -39,15 +39,29 @@ class CourseRepository(BaseRepository[Course]):
             self.db.close()
     
     def get_student_courses(self, student_id: str, offset: int = 0, limit: int = 20) -> List[Course]:
-        """Get all courses a student is enrolled in"""
+        """Get all courses a student is enrolled in OR created"""
         try:
-            return self.db.query(Course)\
+            # Get enrolled courses
+            enrolled_courses = self.db.query(Course)\
                 .join(Enrollment)\
                 .filter(Enrollment.user_id == student_id)\
-                .order_by(Enrollment.enrolled_at.desc())\
-                .offset(offset)\
-                .limit(limit)\
                 .all()
+            
+            # Get courses created by the student (where instructor_id matches)
+            # Note: instructor_id in Course table refers to InstructorProfile.user_id
+            # But for students who create courses, we need to check against User.id
+            created_courses = self.db.query(Course)\
+                .filter(Course.instructor_id == student_id)\
+                .all()
+            
+            # Combine and deduplicate
+            all_courses = list({course.id: course for course in enrolled_courses + created_courses}.values())
+            
+            # Sort by most recent activity
+            all_courses.sort(key=lambda x: x.last_updated or x.created_at, reverse=True)
+            
+            # Apply pagination
+            return all_courses[offset:offset + limit]
         finally:
             self.db.close()
     

@@ -304,7 +304,9 @@ export const studentAPI = {
   // Course creation and management
   getCourses: async (): Promise<Course[]> => {
     const response = await api.get('/api/v2/courses');
-    return response.courses || [];
+    console.log('Raw API response:', response);
+    // v2 API returns data in 'data' field, not 'courses'
+    return response.data || response.courses || [];
   },
   createCourse: (data: CreateCourseRequest): Promise<Course> => api.post('/api/v2/courses', data),
   getCourse: (courseId: string): Promise<Course> => api.get(`/api/v2/courses/${courseId}`),
@@ -469,7 +471,8 @@ export const instructorAPI = {
   // Courses (using the same endpoints as students, backend handles role-based filtering)
   getCourses: async () => {
     const response = await api.get('/api/v2/courses');
-    return response.courses || [];
+    // v2 API returns data in 'data' field, not 'courses'
+    return response.data || response.courses || [];
   },
   createCourse: (data: CreateCourseRequest) => api.post('/api/v2/courses', data),
   getCourse: (courseId: string) => api.get(`/api/v2/courses/${courseId}`),

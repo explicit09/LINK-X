@@ -277,7 +277,7 @@ class RateLimitConfig:
     # Authentication endpoints
     AUTH_LOGIN = {
         'key_prefix': 'auth:login',
-        'max_requests': 5,
+        'max_requests': 20,  # Increased for development
         'window_seconds': 300,  # 5 minutes
         'strategy': 'sliding_window'
     }
