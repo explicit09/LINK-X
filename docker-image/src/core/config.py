@@ -5,7 +5,7 @@ Flask configuration using Pydantic settings
 import os
 from typing import Type
 
-from src.core.settings import Settings, get_settings
+from core.settings import Settings, get_settings
 
 
 class FlaskConfig:
@@ -167,6 +167,8 @@ def get_config(environment: str = None) -> Type[FlaskConfig]:
 
 # Legacy support - maintain backward compatibility
 class Config:
+    # File upload limits
+    MAX_CONTENT_LENGTH = int(os.getenv('MAX_CONTENT_LENGTH', 52428800))  # 50MB default
     """Legacy configuration base class"""
     pass
 

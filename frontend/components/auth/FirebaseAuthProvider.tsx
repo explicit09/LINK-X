@@ -21,14 +21,14 @@ export function FirebaseAuthProvider({ children }: FirebaseAuthProviderProps) {
       try {
         // Get a fresh token before trying to establish session
         const freshToken = await user.getIdToken(true);
-        console.log('Got fresh token for session establishment');
+        // Fresh token obtained for session establishment
         
         // Try to establish session with backend
         const success = await sessionLogin();
         if (!success) {
           console.warn('Failed to establish backend session');
           
-          // Check if we're using 127.0.0.1 which might not be authorized
+          // Check if we&apos;re using 127.0.0.1 which might not be authorized
           if (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1') {
             console.warn('Using 127.0.0.1 which may not be authorized in Firebase. Try using localhost instead.');
             // Redirect to localhost equivalent if on 127.0.0.1
@@ -45,11 +45,11 @@ export function FirebaseAuthProvider({ children }: FirebaseAuthProviderProps) {
               console.error('Failed to establish session after retry');
               toast.error("Authentication error: Unable to establish a session with the backend");
             } else {
-              console.log('Backend session established successfully on retry');
+              // Backend session established successfully on retry
             }
           }, 2000);
         } else {
-          console.log('Backend session established successfully');
+          // Backend session established successfully
         }
       } catch (error) {
         console.error('Error establishing session:', error);
@@ -63,11 +63,11 @@ export function FirebaseAuthProvider({ children }: FirebaseAuthProviderProps) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        console.log('User authenticated with Firebase, establishing backend session...');
+        // User authenticated with Firebase, establishing backend session
         await establishSession(user);
       } else {
-        console.log('No user authenticated with Firebase');
-        // Don't try to establish session when there's no user
+        // No user authenticated with Firebase
+        // Don&apos;t try to establish session when there&apos;s no user
         setLoading(false);
       }
       
@@ -84,7 +84,7 @@ export function FirebaseAuthProvider({ children }: FirebaseAuthProviderProps) {
       import('firebase/auth').then(({ browserLocalPersistence, setPersistence }) => {
         setPersistence(auth, browserLocalPersistence)
           .then(() => {
-            console.log('Firebase persistence set to local');
+            // Firebase persistence set to local
           })
           .catch((error) => {
             console.error('Error setting persistence:', error);
@@ -93,7 +93,7 @@ export function FirebaseAuthProvider({ children }: FirebaseAuthProviderProps) {
       
       // Create a hidden iframe to help with Firebase auth in development
       try {
-        // First, check if we're using localhost (required for Firebase auth)
+        // First, check if we&apos;re using localhost (required for Firebase auth)
         if (window.location.hostname === '127.0.0.1') {
           console.warn('Using 127.0.0.1 which is not authorized for Firebase auth. Redirecting to localhost...');
           const port = window.location.port;

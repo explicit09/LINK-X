@@ -8,9 +8,10 @@ from queue import Queue
 import numpy as np
 from sqlalchemy import text
 
-from ..core.config import get_config
-from ..core.cache import cache
-from ..core.exceptions import ExternalServiceError
+from core.config import get_config
+from core.cache import cache
+from core.exceptions import ExternalServiceError
+from core.circuit_breaker import circuit_breaker, CircuitOpenError
 
 class AIService:
     """Service for AI-related operations"""
@@ -20,6 +21,26 @@ class AIService:
         self.client = OpenAI(api_key=self.config.OPENAI_API_KEY)
         self.default_model = "gpt-4o"
         self.embedding_model = "text-embedding-ada-002"
+    
+    @circuit_breaker(
+        name="openai_chat",
+        failure_threshold=3,
+        recovery_timeout=30,
+        expected_exceptions=(openai.APIError, openai.APIConnectionError, openai.RateLimitError)
+    )
+    def _call_openai_chat(self, **kwargs):
+        """Call OpenAI chat API with circuit breaker protection"""
+        return self.client.chat.completions.create(**kwargs)
+    
+    @circuit_breaker(
+        name="openai_embeddings",
+        failure_threshold=3,
+        recovery_timeout=30,
+        expected_exceptions=(openai.APIError, openai.APIConnectionError, openai.RateLimitError)
+    )
+    def _call_openai_embeddings(self, **kwargs):
+        """Call OpenAI embeddings API with circuit breaker protection"""
+        return self.client.embeddings.create(**kwargs)
     
     def generate_outline(self, content: str) -> Dict:
         """Generate document outline from content"""
@@ -92,7 +113,7 @@ class AIService:
             {content[:3000]}...
             """
             
-            response = self.client.chat.completions.create(
+            response = self._call_openai_chat(
                 model=self.default_model,
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant that creates document outlines."},
@@ -109,6 +130,9 @@ class AIService:
             
             return outline
             
+        except CircuitOpenError as e:
+            # Circuit is open, service is temporarily unavailable
+            raise ExternalServiceError(f"AI service temporarily unavailable: {str(e)}")
         except Exception as e:
             raise ExternalServiceError(f"Failed to generate outline: {str(e)}")
     

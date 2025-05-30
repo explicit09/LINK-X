@@ -21,8 +21,8 @@ from dependency_injector import providers
 
 from app import create_app
 from db.schema import Base, User, Role, Course, Module, File, Enrollment, Todo
-from src.core.dependencies import Container, get_container
-from src.core.settings import TestingSettings
+from core.dependencies import Container, get_container
+from core.settings import TestingSettings
 
 
 # Test constants

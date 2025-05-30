@@ -90,7 +90,7 @@ export function convertToUIMessages(
   return messages.reduce((chatMessages: Array<Message>, message) => {
     // Check if message has a tool-like structure despite the type definition
     // Using type assertion to avoid the type error since DBMessage only allows 'user' or 'assistant'
-    if ((message as any).role === 'tool') {
+    if ((message as { role: string }).role === 'tool') {
       return addToolMessageToChat({
         toolMessage: message as unknown as CoreToolMessage,
         messages: chatMessages,
@@ -105,8 +105,14 @@ export function convertToUIMessages(
       textContent = message.content;
     } else {
       // This branch is for handling potential array content from the API
-      // We need to cast it to any to avoid type errors
-      const contentArray = message.content as any;
+      // We need to cast it to handle potential array content
+      const contentArray = message.content as Array<{
+        type: string;
+        text?: string;
+        toolCallId?: string;
+        toolName?: string;
+        args?: unknown;
+      }>;
       if (Array.isArray(contentArray)) {
         for (const content of contentArray) {
           if (content.type === 'text') {
@@ -227,6 +233,6 @@ export function getMessageIdFromAnnotations(message: Message) {
   const [annotation] = message.annotations;
   if (!annotation) return message.id;
 
-  // @ts-expect-error messageIdFromServer is not defined in MessageAnnotation
-  return annotation.messageIdFromServer;
+  // Type assertion for custom annotation property
+  return (annotation as { messageIdFromServer?: string }).messageIdFromServer || message.id;
 }

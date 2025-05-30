@@ -37,7 +37,6 @@ export function PerformanceMonitor() {
         for (const entry of list.getEntries()) {
           const fidEntry = entry as any;
           const fid = fidEntry.processingStart - fidEntry.startTime;
-          console.log('FID:', fid);
           
           // Send to analytics if needed
           if (typeof window !== 'undefined' && (window as any).gtag) {
@@ -55,7 +54,6 @@ export function PerformanceMonitor() {
         const entries = list.getEntries();
         const lastEntry = entries[entries.length - 1];
         const lcp = lastEntry.startTime;
-        console.log('LCP:', lcp);
         
         if (typeof window !== 'undefined' && (window as any).gtag) {
           (window as any).gtag('event', 'web_vitals', {
@@ -69,7 +67,6 @@ export function PerformanceMonitor() {
       // Report CLS when page visibility changes
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
-          console.log('CLS:', clsValue);
           
           if (typeof window !== 'undefined' && (window as any).gtag) {
             (window as any).gtag('event', 'web_vitals', {
@@ -88,7 +85,6 @@ export function PerformanceMonitor() {
       const navigationEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
       if (navigationEntry) {
         const tti = navigationEntry.domInteractive - navigationEntry.fetchStart;
-        console.log('TTI (approx):', tti);
       }
 
       // Resource loading performance
@@ -102,11 +98,14 @@ export function PerformanceMonitor() {
       // Memory usage (if available)
       if ('memory' in performance) {
         const memory = (performance as any).memory;
-        console.log('Memory usage:', {
+        const memoryInfo = {
           used: Math.round(memory.usedJSHeapSize / 1048576),
           total: Math.round(memory.totalJSHeapSize / 1048576),
           limit: Math.round(memory.jsHeapSizeLimit / 1048576)
-        });
+        };
+        
+        // Log memory info if needed
+        console.log('Memory usage:', memoryInfo);
       }
     };
 
@@ -120,7 +119,7 @@ export function PerformanceMonitor() {
     };
   }, []);
 
-  return null; // This component doesn't render anything
+  return null; // This component doesn&apos;t render anything
 }
 
 export default PerformanceMonitor; 

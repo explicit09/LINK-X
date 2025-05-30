@@ -291,7 +291,7 @@ export default function LearnPage() {
         if (newMessages[messageIndex]) {
           newMessages[messageIndex] = {
             ...newMessages[messageIndex],
-            content: "I'm sorry, I couldn't connect to the AI service. Please try again."
+            content: "I&apos;m sorry, I couldn&apos;t connect to the AI service. Please try again."
           };
         }
         return newMessages;

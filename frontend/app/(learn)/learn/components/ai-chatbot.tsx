@@ -86,7 +86,7 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
         text: "I need help",
         icon: HelpCircle,
         color: "bg-green-50 border-green-200 text-green-700 hover:bg-green-100",
-        action: () => handleSuggestionClick("I'm having trouble understanding this. Can you help break it down step by step?")
+        action: () => handleSuggestionClick("I&apos;m having trouble understanding this. Can you help break it down step by step?")
       }
     ];
   };
@@ -99,7 +99,7 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
 
   // Enhanced welcome message
   const getWelcomeMessage = () => {
-    return "👋 **Welcome to your AI Learning Assistant!** \n\nI'm your personal tutor, ready to help you master this course material. Here's what I can do for you:\n\n🎯 **Explain** complex concepts in your preferred learning style\n📝 **Generate** practice quizzes and exercises\n📚 **Summarize** key points and takeaways\n💡 **Answer** specific questions about the content\n🌟 **Provide** real-world examples and applications\n\n✨ **Pro tip**: I remember our conversation, so feel free to ask follow-up questions!\n\nWhat would you like to explore first?";
+    return "👋 **Welcome to your AI Learning Assistant!** \n\nI&apos;m your personal tutor, ready to help you master this course material. Here&apos;s what I can do for you:\n\n🎯 **Explain** complex concepts in your preferred learning style\n📝 **Generate** practice quizzes and exercises\n📚 **Summarize** key points and takeaways\n💡 **Answer** specific questions about the content\n🌟 **Provide** real-world examples and applications\n\n✨ **Pro tip**: I remember our conversation, so feel free to ask follow-up questions!\n\nWhat would you like to explore first?";
   };
 
   useEffect(() => {
@@ -281,7 +281,7 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
           console.error("AI chat error:", data.error);
           const errorMessage = { 
             role: "assistant", 
-            content: "I'm sorry, I encountered an error. Please try again." 
+            content: "I&apos;m sorry, I encountered an error. Please try again." 
           };
           setMessages((prev) => [...prev, errorMessage]);
           return;
@@ -300,7 +300,7 @@ export default function AIChatbot({ fileId }: { fileId: string }) {
         console.error("Failed to call /ai-chat:", fallbackError);
         const errorMessage = { 
           role: "assistant", 
-          content: "I'm sorry, I couldn't connect to the AI service. Please check your connection and try again." 
+          content: "I&apos;m sorry, I couldn&apos;t connect to the AI service. Please check your connection and try again." 
         };
         setMessages((prev) => [...prev, errorMessage]);
       }

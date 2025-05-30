@@ -11,7 +11,7 @@ class APIError extends Error {
   constructor(
     public status: number, 
     message: string, 
-    public data?: any,
+    public data?: unknown,
     public code?: string
   ) {
     super(message);
@@ -33,6 +33,17 @@ class APIClient {
   }
 
   private async getAuthToken(): Promise<string | null> {
+    // In v2, tokens are in httpOnly cookies, so we don't need to send them
+    // The browser will automatically include cookies with credentials: 'include'
+    
+    // For backward compatibility, check localStorage (will be removed)
+    const accessToken = localStorage.getItem('access_token');
+    if (accessToken) {
+      console.warn('Found token in localStorage - should migrate to cookie-based auth');
+      return accessToken;
+    }
+    
+    // Fallback to Firebase auth if available
     const user = auth.currentUser;
     if (!user) return null;
     
@@ -48,7 +59,7 @@ class APIClient {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  private shouldRetry(error: any, attempt: number): boolean {
+  private shouldRetry(error: unknown, attempt: number): boolean {
     if (attempt >= this.maxRetries) return false;
     
     // Retry on network errors
@@ -119,8 +130,22 @@ class APIClient {
       clearTimeout(timeoutId);
 
       // Handle 401 - Try to refresh session
-      if (response.status === 401 && !skipAuth) {
-        // Implement session refresh logic here
+      if (response.status === 401 && !skipAuth && retryCount === 0) {
+        // Try to refresh token
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (refreshToken) {
+          try {
+            // Import authAPI dynamically to avoid circular dependency
+            const { authAPI } = await import('./auth');
+            await authAPI.refreshToken();
+            // Retry the request with new token
+            return this.request<T>(endpoint, { ...config, retryCount: 1 });
+          } catch (refreshError) {
+            // Refresh failed, clear tokens and throw original error
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+          }
+        }
         throw new APIError(401, 'Unauthorized', null, 'AUTH_REQUIRED');
       }
 
@@ -182,7 +207,7 @@ class APIClient {
     return this.request<T>(endpoint, { ...config, method: 'GET' });
   }
 
-  post<T>(endpoint: string, data?: any, config?: RequestConfig): Promise<T> {
+  post<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
     return this.request<T>(endpoint, {
       ...config,
       method: 'POST',
@@ -190,7 +215,7 @@ class APIClient {
     });
   }
 
-  put<T>(endpoint: string, data?: any, config?: RequestConfig): Promise<T> {
+  put<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
     return this.request<T>(endpoint, {
       ...config,
       method: 'PUT',
@@ -198,7 +223,7 @@ class APIClient {
     });
   }
 
-  patch<T>(endpoint: string, data?: any, config?: RequestConfig): Promise<T> {
+  patch<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
     return this.request<T>(endpoint, {
       ...config,
       method: 'PATCH',

@@ -3,6 +3,7 @@ Flask==2.3.2
 Flask-Cors==4.0.0
 Flask-JWT-Extended==4.5.2
 Flask-SQLAlchemy==3.0.5
+Flask-RESTX==1.2.0
 
 # Database
 psycopg2-binary==2.9.7
@@ -62,6 +63,7 @@ dependency-injector==4.41.0
 # Monitoring
 prometheus-client==0.18.0
 python-json-logger==2.0.7
+sentry-sdk[flask]==1.38.0
 
 # Additional ML/Data Processing
 replicate==0.24.0

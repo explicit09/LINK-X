@@ -18,7 +18,7 @@ interface UserProfile {
   role: string;
   profile?: {
     name?: string;
-    [key: string]: any;
+    [key: string]: string | number | boolean | null;
   };
 }
 
@@ -29,7 +29,7 @@ interface AuthContextType {
   error: Error | null;
   authState: AuthState;
   needsRegistration: boolean;
-  register: (role: string, profileData: any) => Promise<boolean>;
+  register: (role: string, profileData: Record<string, unknown>) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -123,7 +123,7 @@ export const AuthProviderV2 = ({ children }: { children: React.ReactNode }) => {
   }, [fetchUserProfile]);
 
   // Register handler
-  const handleRegister = useCallback(async (role: string, profileData: any): Promise<boolean> => {
+  const handleRegister = useCallback(async (role: string, profileData: Record<string, unknown>): Promise<boolean> => {
     try {
       setLoading(true);
       const success = await register(role, profileData);

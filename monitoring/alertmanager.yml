@@ -1,0 +1,72 @@
+# Alertmanager Configuration for LEARN-X
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: 'smtp.sendgrid.net:587'
+  smtp_from: 'alerts@learnx.com'
+  smtp_auth_username: 'apikey'
+  smtp_auth_password: '${SENDGRID_API_KEY}'
+
+# The directory from which notification templates are read.
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# The root route on which each incoming alert enters.
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: 'team-notifications'
+  
+  routes:
+  # Critical alerts
+  - match:
+      severity: critical
+    receiver: 'pagerduty-critical'
+    continue: true
+    
+  # Database alerts
+  - match:
+      service: database
+    receiver: 'database-team'
+    
+  # Application alerts
+  - match:
+      service: application
+    receiver: 'dev-team'
+
+# Inhibition rules
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'cluster', 'service']
+
+receivers:
+  - name: 'team-notifications'
+    email_configs:
+      - to: 'team@learnx.com'
+        headers:
+          Subject: '[LEARN-X] {{ .GroupLabels.alertname }} - {{ .GroupLabels.severity }}'
+        
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SERVICE_KEY}'
+        description: '{{ .GroupLabels.alertname }}: {{ .Alerts | len }} alerts'
+        
+  - name: 'database-team'
+    email_configs:
+      - to: 'database-team@learnx.com'
+        headers:
+          Subject: '[LEARN-X DB] {{ .GroupLabels.alertname }}'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_DATABASE}'
+        channel: '#database-alerts'
+        
+  - name: 'dev-team'
+    email_configs:
+      - to: 'dev-team@learnx.com'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_DEV}'
+        channel: '#dev-alerts'

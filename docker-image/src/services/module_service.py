@@ -1,8 +1,8 @@
 from typing import Dict, List
-from ..repositories.module_repository import ModuleRepository
-from ..repositories.course_repository import CourseRepository
-from ..repositories.user_repository import UserRepository
-from ..core.exceptions import NotFoundError, ValidationError, AuthorizationError
+from repositories.module_repository import ModuleRepository
+from repositories.course_repository import CourseRepository
+from repositories.user_repository import UserRepository
+from core.exceptions import NotFoundError, ValidationError, AuthorizationError
 
 class ModuleService:
     """Service for module-related business logic"""
@@ -36,7 +36,7 @@ class ModuleService:
                 raise AuthorizationError("Access denied")
         else:  # Student
             # Check if student is enrolled
-            from ..repositories.enrollment_repository import EnrollmentRepository
+            from repositories.enrollment_repository import EnrollmentRepository
             enrollment_repo = EnrollmentRepository()
             enrollment = enrollment_repo.get_by_student_course(user_id, course.id)
             if not enrollment and not course.published:
@@ -82,7 +82,7 @@ class ModuleService:
         # You can add more specific logic here if needed
         
         # Check if module has files
-        from ..repositories.file_repository import FileRepository
+        from repositories.file_repository import FileRepository
         file_repo = FileRepository()
         files = file_repo.get_by_module(module_id)
         if files:

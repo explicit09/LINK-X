@@ -27,7 +27,9 @@ export function GoogleAuthButton({ mode, onLoading, disabled }: GoogleAuthButton
 
     try {
       // Sign in with Google
+      console.log('Starting Google sign-in popup...');
       const result = await signInWithPopup(auth, googleProvider);
+      console.log('Google sign-in successful:', result.user.email);
       const user = result.user;
       const token = await user.getIdToken();
 
@@ -65,7 +67,7 @@ export function GoogleAuthButton({ mode, onLoading, disabled }: GoogleAuthButton
             return;
           }
         } catch (error) {
-          // Profile doesn't exist, this is a new user
+          // Profile doesn&apos;t exist, this is a new user
         }
 
         // New user - redirect to onboarding to create profile
@@ -73,18 +75,19 @@ export function GoogleAuthButton({ mode, onLoading, disabled }: GoogleAuthButton
         router.push('/onboarding');
       }
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Google Auth Error:', error);
       
       // Handle specific Firebase errors
-      if (error.code === 'auth/popup-closed-by-user') {
+      const firebaseError = error as { code?: string; message?: string };
+      if (firebaseError.code === 'auth/popup-closed-by-user') {
         toast.info('Sign-in cancelled');
-      } else if (error.code === 'auth/popup-blocked') {
+      } else if (firebaseError.code === 'auth/popup-blocked') {
         toast.error('Popup blocked. Please allow popups and try again.');
-      } else if (error.code === 'auth/network-request-failed') {
+      } else if (firebaseError.code === 'auth/network-request-failed') {
         toast.error('Network error. Please check your connection.');
       } else {
-        toast.error(error.message || 'Failed to sign in with Google');
+        toast.error(firebaseError.message || 'Failed to sign in with Google');
       }
     } finally {
       setLoading(false);

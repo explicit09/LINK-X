@@ -13,10 +13,18 @@ from sqlalchemy import (
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.dialects.postgresql import UUID, BYTEA, ENUM, JSONB
 from pgvector.sqlalchemy import Vector
+from enum import Enum as PyEnum
 import uuid
 from datetime import datetime
 
 Base = declarative_base()
+
+# Python enum for role types
+class RoleType(PyEnum):
+    """User role types"""
+    ADMIN = 'admin'
+    INSTRUCTOR = 'instructor'
+    STUDENT = 'student'
 
 role_enum = ENUM('admin', 'instructor', 'student', name='role_enum', create_type=True)
 

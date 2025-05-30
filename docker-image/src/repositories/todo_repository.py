@@ -2,9 +2,9 @@ from typing import List, Optional
 from sqlalchemy import desc
 from datetime import datetime
 
-from .base_repository import BaseRepository
-from ..db.schema import Todo
-from ..core.exceptions import NotFoundError
+from repositories.base_repository import BaseRepository
+from db.schema import Todo
+from core.exceptions import NotFoundError
 
 class TodoRepository(BaseRepository[Todo]):
     """Repository for Todo operations"""

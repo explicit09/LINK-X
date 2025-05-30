@@ -99,7 +99,7 @@ export async function login(): Promise<boolean> {
       const error = await response.json();
       if (error.code === 'USER_NOT_REGISTERED') {
         currentAuthState = AuthState.REGISTERING;
-        console.log('User needs to complete registration');
+        // User needs to complete registration
       }
     }
 
@@ -110,7 +110,7 @@ export async function login(): Promise<boolean> {
   }
 }
 
-export async function register(role: string, profileData: any): Promise<boolean> {
+export async function register(role: string, profileData: Record<string, unknown>): Promise<boolean> {
   const firebaseToken = await getFirebaseToken();
   if (!firebaseToken) {
     console.error('No Firebase token available');
@@ -239,7 +239,7 @@ export async function fetchWithAuth(
 
       // Handle 401 Unauthorized
       if (response.status === 401 && retries < maxRetries) {
-        console.log('Received 401, attempting to refresh token...');
+        // Received 401, attempting to refresh token
         const refreshSuccess = await refreshAccessToken();
         if (refreshSuccess) {
           retries++;

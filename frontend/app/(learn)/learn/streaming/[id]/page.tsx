@@ -269,7 +269,6 @@ export default function StreamingLearnPage() {
       
       // Check if we should use mock data
       if (useMockData) {
-        console.log('Using mock data for content generation');
         
         // Create a mock response reader that simulates streaming content
         const mockContent = `# Generated Content for ${chapterId} - ${subsectionId}
@@ -302,7 +301,6 @@ Happy learning!`;
         for (let i = 0; i < mockChunks.length; i++) {
           // Check if aborted
           if (abortControllers.current.get(sectionKey)?.signal.aborted) {
-            console.log('Streaming aborted');
             break;
           }
           
@@ -323,8 +321,7 @@ Happy learning!`;
       
       // If not using mock data, proceed with real API call
       const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080') as string;
-      console.log('Making API request to:', `${apiUrl}/api/v1/personalize/stream/${fileId}`);
-      const response = await fetch(`${apiUrl}/api/v1/personalize/stream/${fileId}`, {
+      const response = await fetch(`${apiUrl}/api/v2/personalize/stream/${fileId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -364,7 +361,6 @@ Happy learning!`;
                   if (!firstTokenTime) {
                     firstTokenTime = Date.now();
                     const latency = firstTokenTime - startTime;
-                    console.log(`First content for ${sectionKey} in ${latency}ms`);
                     
                     // Update metrics
                     const metrics = metricsRef.current.get(sectionKey);
@@ -393,7 +389,6 @@ Happy learning!`;
         // When stream is done, mark as complete
         const completeTime = Date.now();
         const totalTime = completeTime - startTime;
-        console.log(`Section ${sectionKey} complete in ${totalTime}ms`);
         
         // Update metrics
         const metrics = metricsRef.current.get(sectionKey);
@@ -513,10 +508,9 @@ Happy learning!`;
     const startTime = Date.now();
     try {
       const { fetchWithAuth } = await import('@/lib/api');
-      const data = await fetchWithAuth(`/api/v1/personalize/outline/${fileId}`);
+      const data = await fetchWithAuth(`/api/v2/personalize/outline/${fileId}`);
       
       const loadTime = Date.now() - startTime;
-      console.log(`Outline loaded in ${loadTime}ms`);
       
       // The personalization API returns the outline directly
       const enhancedData = {
@@ -551,7 +545,7 @@ Happy learning!`;
   const checkExistingContent = async () => {
     try {
       const { fetchWithAuth } = await import('@/lib/api');
-      const data = await fetchWithAuth(`/api/v1/personalize/check/${fileId}`);
+      const data = await fetchWithAuth(`/api/v2/personalize/check/${fileId}`);
       
       if (data.exists && data.content) {
         // Load existing personalized content
@@ -588,7 +582,7 @@ Happy learning!`;
       });
       
       const { fetchWithAuth } = await import('@/lib/api');
-      await fetchWithAuth(`/api/v1/personalize/save/${fileId}`, {
+      await fetchWithAuth(`/api/v2/personalize/save/${fileId}`, {
         method: 'POST',
         body: JSON.stringify({
           content: contentObj
@@ -617,7 +611,6 @@ Happy learning!`;
   }, [streamSection]);
 
   const handleSectionClick = (chapterId: string, subsectionId: string, regenerate: boolean = false) => {
-    console.log('handleSectionClick called with:', { chapterId, subsectionId, regenerate });
     const sectionKey = `${chapterId}-${subsectionId}`;
     
     // Set as focused section (show only this one)
@@ -963,7 +956,7 @@ Happy learning!`;
       }
     }, [streamingStates, userXP, userLevel, achievements, totalSections, xpPerSection]);
     
-    return null; // This component doesn't render anything
+    return null; // This component doesn&apos;t render anything
   };
 
   return (
@@ -1400,7 +1393,7 @@ Happy learning!`;
                       </div>
                       <h4 className="text-lg font-semibold text-gray-900 mb-2">Welcome to your AI tutor!</h4>
                       <p className="text-sm text-gray-600 max-w-xs mx-auto">
-                        I'm here to help you understand the content, answer questions, and guide your learning journey.
+                        I&apos;m here to help you understand the content, answer questions, and guide your learning journey.
                       </p>
                       
                       {/* Suggestion Cards */}

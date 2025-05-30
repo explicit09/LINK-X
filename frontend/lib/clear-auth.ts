@@ -2,7 +2,6 @@
 export function clearAuthState() {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('authState');
-    console.log('Auth state cleared from localStorage');
   }
 }
 

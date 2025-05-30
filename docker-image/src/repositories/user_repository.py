@@ -2,8 +2,8 @@ from typing import Optional, List, Dict
 from sqlalchemy import or_, and_
 from datetime import datetime
 
-from .base_repository import BaseRepository
-from ..db.schema import User, StudentProfile, InstructorProfile, Role
+from repositories.base_repository import BaseRepository
+from db.schema import User, StudentProfile, InstructorProfile, Role
 
 class UserRepository(BaseRepository[User]):
     """Repository for user-related database operations"""

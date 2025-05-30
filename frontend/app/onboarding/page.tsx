@@ -168,7 +168,6 @@ export default function OnboardingPage() {
     };
   
     try {
-      console.log("🚀 Submitting onboarding data:", payload);
       const res = await fetch(`${API_URL}/student/profile`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -188,14 +187,12 @@ export default function OnboardingPage() {
         const currentUser = await userAPI.getMe();
         if (currentUser?.id) {
           localStorage.setItem(`onboarding_completed_${currentUser.id}`, 'true');
-          console.log("✅ Onboarding completion marked in localStorage");
         }
       } catch (userError) {
         console.warn("Could not mark onboarding completion in localStorage:", userError);
         // Don't fail the entire onboarding process for this
       }
   
-      console.log("✅ Onboarding saved successfully!");
       toast.success("Welcome to Learn-X! Your profile has been created.");
       router.push("/dashboard");
     } catch (err) {

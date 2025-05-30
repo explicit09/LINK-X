@@ -84,19 +84,16 @@ export function ModuleStream({
         setIsLoading(true);
         
         // Use unified API endpoint for modules
-        const endpoint = `/api/v1/courses/${courseId}/modules`;
+        const endpoint = `/api/v2/courses/${courseId}/modules`;
           
-        console.log('Loading modules from:', endpoint);
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
           method: 'GET',
           credentials: 'include',
         });
 
-        console.log('Modules API response:', response.status);
 
         if (response.ok) {
           const backendModules = await response.json();
-          console.log('Backend modules loaded:', backendModules);
           
           // Validate backend response
           if (!Array.isArray(backendModules)) {
@@ -104,7 +101,7 @@ export function ModuleStream({
             throw new Error('Invalid backend response format');
           }
           
-          // Create modules from backend, we'll update materials separately
+          // Create modules from backend, we&apos;ll update materials separately
           const moduleList: Module[] = backendModules
             .filter(backendModule => backendModule && backendModule.id) // Filter out invalid modules
             .map((backendModule: any) => ({
@@ -114,7 +111,6 @@ export function ModuleStream({
               isExpanded: true // Default to expanded so users can see content
             }));
 
-          console.log('Setting modules:', moduleList);
           setModules(moduleList);
         } else if (response.status === 404) {
           console.info('Modules endpoint not found - will handle in materials effect');
@@ -142,12 +138,9 @@ export function ModuleStream({
   useEffect(() => {
     if (!hasInitialized) return;
     
-    console.log('Updating materials in modules:', materials);
-    console.log('Current modules:', modules);
     
     // If we have materials but no modules, create a default module
     if (materials.length > 0 && modules.length === 0) {
-      console.log('Creating default module for materials without modules');
       setModules([{
         id: 'default',
         title: 'Course Materials',
@@ -173,7 +166,7 @@ export function ModuleStream({
             }
             moduleMap.get(material.moduleId)!.push(material);
           } else {
-            // Module doesn't exist yet, save for later
+            // Module doesn&apos;t exist yet, save for later
             unmatchedMaterials.push(material);
           }
         } else {
@@ -206,7 +199,6 @@ export function ModuleStream({
           }
         }
         
-        console.log('Updated modules with materials:', updatedModules);
         return updatedModules;
       });
     }
@@ -310,7 +302,7 @@ export function ModuleStream({
       
       if (userRole === 'student') {
         // For students, use the unified API endpoint
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/files/upload`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v2/files/upload`, {
           method: 'POST',
           body: formData,
           credentials: 'include',
@@ -323,7 +315,7 @@ export function ModuleStream({
         result = await response.json();
       } else {
         // For instructors, use the unified API endpoint
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/files/upload`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v2/files/upload`, {
           method: 'POST',
           body: formData,
           credentials: 'include',
@@ -350,7 +342,6 @@ export function ModuleStream({
         moduleName: modules.find(m => m.id === (result.module_id || moduleId))?.title || 'Course Materials'
       };
 
-      console.log('Created new material:', newMaterial);
 
       // Replace optimistic material with real one
       setModules(prev => {
@@ -364,7 +355,6 @@ export function ModuleStream({
               }
             : module
         );
-        console.log('Updated modules after upload:', updated);
         return updated;
       });
 
@@ -430,15 +420,13 @@ export function ModuleStream({
 
   // Debug logging for materials updates
   useEffect(() => {
-    console.log('Materials prop updated:', materials);
-    console.log('Current modules state:', modules);
     
     if (hasInitialized && materials.length > 0) {
       const totalMaterialsInModules = modules.reduce((total, module) => total + module.materials.length, 0);
       const materialsWithModuleId = materials.filter(m => m.moduleId);
       const materialsWithoutModuleId = materials.filter(m => !m.moduleId);
       
-      console.log(`Materials analysis:
+      console.log(`Material distribution:
         - Total materials: ${materials.length}
         - Materials with moduleId: ${materialsWithModuleId.length}
         - Materials without moduleId: ${materialsWithoutModuleId.length}
@@ -450,16 +438,14 @@ export function ModuleStream({
     // Use a simple default title without week numbering
     const defaultTitle = "New Module";
 
-    console.log('Creating module:', defaultTitle);
     const createToast = toast.loading("Creating module...", {
       description: "Setting up your new course module"
     });
 
     try {
       // Use unified API endpoint for module creation
-      const endpoint = `/api/v1/courses/${courseId}/modules`;
+      const endpoint = `/api/v2/courses/${courseId}/modules`;
       
-      console.log('Creating module at endpoint:', endpoint);
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
         method: 'POST',
         headers: {
@@ -471,7 +457,6 @@ export function ModuleStream({
         }),
       });
 
-      console.log('Create module response:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -480,7 +465,6 @@ export function ModuleStream({
       }
 
       const backendModule = await response.json();
-      console.log('Created module:', backendModule);
       
       // Create local module object with backend ID
       const newModule: Module = {
@@ -527,9 +511,8 @@ export function ModuleStream({
 
     try {
       // Use unified API endpoint for module update
-      const endpoint = `/api/v1/modules/${moduleId}`;
+      const endpoint = `/api/v2/modules/${moduleId}`;
       
-      console.log(`Attempting to update module ${moduleId} title to: "${newModuleTitle.trim()}"`);
       
       // Use PATCH method for updates (backend uses PATCH, not PUT)
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
@@ -543,12 +526,10 @@ export function ModuleStream({
         }),
       });
 
-      console.log(`Backend response: ${response.status} ${response.statusText}`);
 
       if (response.ok) {
         // Success - update was saved to backend
         const updatedModule = await response.json();
-        console.log('Module updated successfully on backend:', updatedModule);
         
         setModules(prev => 
           prev.map(module => 
@@ -603,7 +584,7 @@ export function ModuleStream({
 
     try {
       // Use unified API endpoint for module deletion
-      const endpoint = `/api/v1/modules/${moduleId}`;
+      const endpoint = `/api/v2/modules/${moduleId}`;
         
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
         method: 'DELETE',
@@ -627,7 +608,7 @@ export function ModuleStream({
             if (moduleToDelete) {
               try {
                 // Use unified API endpoint
-                const endpoint = `/api/v1/courses/${courseId}/modules`;
+                const endpoint = `/api/v2/courses/${courseId}/modules`;
                   
                 const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
                   method: 'POST',
@@ -712,7 +693,7 @@ export function ModuleStream({
 
     try {
       // Use unified API endpoint for file deletion
-      const endpoint = `/api/v1/files/${materialId}`;
+      const endpoint = `/api/v2/files/${materialId}`;
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`, {
         method: 'DELETE',

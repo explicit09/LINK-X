@@ -5,6 +5,7 @@ from typing import Optional, Dict, BinaryIO
 import logging
 from datetime import datetime
 import mimetypes
+from core.circuit_breaker import circuit_breaker, CircuitOpenError
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,36 @@ class S3Storage:
         )
         self.bucket_name = os.getenv('S3_BUCKET_NAME', 'linkx-files')
         self.cloudfront_domain = os.getenv('CLOUDFRONT_DOMAIN')  # Optional CDN
+    
+    @circuit_breaker(
+        name="s3_upload",
+        failure_threshold=3,
+        recovery_timeout=60,
+        expected_exceptions=(ClientError,)
+    )
+    def _s3_upload(self, file_obj, s3_key, extra_args):
+        """Upload to S3 with circuit breaker protection"""
+        self.s3_client.upload_fileobj(file_obj, self.bucket_name, s3_key, ExtraArgs=extra_args)
+    
+    @circuit_breaker(
+        name="s3_download",
+        failure_threshold=3,
+        recovery_timeout=60,
+        expected_exceptions=(ClientError,)
+    )
+    def _s3_download(self, s3_key, file_obj):
+        """Download from S3 with circuit breaker protection"""
+        self.s3_client.download_fileobj(self.bucket_name, s3_key, file_obj)
+    
+    @circuit_breaker(
+        name="s3_delete",
+        failure_threshold=3,
+        recovery_timeout=60,
+        expected_exceptions=(ClientError,)
+    )
+    def _s3_delete(self, s3_key):
+        """Delete from S3 with circuit breaker protection"""
+        self.s3_client.delete_object(Bucket=self.bucket_name, Key=s3_key)
         
     def _generate_s3_key(self, course_id: str, module_id: str, file_id: str, filename: str) -> str:
         """Generate a structured S3 key for file storage"""
@@ -49,21 +80,17 @@ class S3Storage:
                 if not content_type:
                     content_type = 'application/octet-stream'
             
-            # Upload to S3 with metadata
-            self.s3_client.upload_fileobj(
-                file_obj,
-                self.bucket_name,
-                s3_key,
-                ExtraArgs={
-                    'ContentType': content_type,
-                    'Metadata': {
-                        'course_id': course_id,
-                        'module_id': module_id,
-                        'file_id': file_id,
-                        'uploaded_at': datetime.utcnow().isoformat()
-                    }
+            # Upload to S3 with metadata using circuit breaker
+            extra_args = {
+                'ContentType': content_type,
+                'Metadata': {
+                    'course_id': course_id,
+                    'module_id': module_id,
+                    'file_id': file_id,
+                    'uploaded_at': datetime.utcnow().isoformat()
                 }
-            )
+            }
+            self._s3_upload(file_obj, s3_key, extra_args)
             
             logger.info(f"Successfully uploaded file to S3: {s3_key}")
             
@@ -73,6 +100,9 @@ class S3Storage:
                 'url': self._get_file_url(s3_key)
             }
             
+        except CircuitOpenError as e:
+            logger.error(f"S3 service temporarily unavailable: {str(e)}")
+            raise Exception(f"S3 service temporarily unavailable, please try again later")
         except ClientError as e:
             logger.error(f"Failed to upload file to S3: {str(e)}")
             raise Exception(f"S3 upload failed: {str(e)}")

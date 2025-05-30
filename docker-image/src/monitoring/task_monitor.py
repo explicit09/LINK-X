@@ -10,7 +10,7 @@ from celery import states
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from src.celery_app import app as celery_app
+from celery_app import app as celery_app
 
 # Redis client for direct access
 redis_client = redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379/0'))
@@ -204,7 +204,7 @@ class TaskMonitor:
         retried = 0
         for row in failed_files:
             file_id = str(row[0])
-            from src.tasks import index_file
+            from tasks import index_file
             index_file.apply_async(args=[file_id], queue='high')
             retried += 1
         

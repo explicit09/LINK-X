@@ -6,7 +6,7 @@ import json
 from flask.testing import FlaskClient
 from unittest.mock import patch
 
-from src.db.schema import Course, Module, Enrollment, AccessCode
+from db.schema import Course, Module, Enrollment, AccessCode
 
 class TestCourseEndpoints:
     """Integration tests for course endpoints"""
@@ -38,7 +38,7 @@ class TestCourseEndpoints:
         db_session.commit()
         
         # Mock Firebase auth
-        with patch('src.core.decorators.firebase_auth.verify_id_token') as mock_verify:
+        with patch('core.decorators_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {'uid': 'test-firebase-uid'}
             
             # Act
@@ -54,7 +54,7 @@ class TestCourseEndpoints:
     def test_list_courses_as_instructor(self, client: FlaskClient, instructor_headers: dict, test_course: dict):
         """Test listing courses as an instructor"""
         # Mock Firebase auth
-        with patch('src.core.decorators.firebase_auth.verify_id_token') as mock_verify:
+        with patch('core.decorators_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {'uid': 'instructor-firebase-uid'}
             
             # Act
@@ -78,7 +78,7 @@ class TestCourseEndpoints:
         db_session.commit()
         
         # Mock Firebase auth
-        with patch('src.core.decorators.firebase_auth.verify_id_token') as mock_verify:
+        with patch('core.decorators_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {'uid': 'test-firebase-uid'}
             
             # Act
@@ -93,7 +93,7 @@ class TestCourseEndpoints:
     def test_get_course_access_denied(self, client: FlaskClient, auth_headers: dict, test_course: dict):
         """Test getting course without access"""
         # Mock Firebase auth
-        with patch('src.core.decorators.firebase_auth.verify_id_token') as mock_verify:
+        with patch('core.decorators_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {'uid': 'test-firebase-uid'}
             
             # Act (no enrollment, so should be denied)
@@ -107,7 +107,7 @@ class TestCourseEndpoints:
     def test_create_course_as_instructor(self, client: FlaskClient, instructor_headers: dict):
         """Test creating a course as instructor"""
         # Mock Firebase auth
-        with patch('src.core.decorators.firebase_auth.verify_id_token') as mock_verify:
+        with patch('core.decorators_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {'uid': 'instructor-firebase-uid'}
             
             # Act
@@ -129,7 +129,7 @@ class TestCourseEndpoints:
     def test_create_course_as_student_forbidden(self, client: FlaskClient, auth_headers: dict):
         """Test student cannot create course"""
         # Mock Firebase auth
-        with patch('src.core.decorators.firebase_auth.verify_id_token') as mock_verify:
+        with patch('core.decorators_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {'uid': 'test-firebase-uid'}
             
             # Act
@@ -147,7 +147,7 @@ class TestCourseEndpoints:
     def test_update_course(self, client: FlaskClient, instructor_headers: dict, test_course: dict):
         """Test updating a course"""
         # Mock Firebase auth
-        with patch('src.core.decorators.firebase_auth.verify_id_token') as mock_verify:
+        with patch('core.decorators_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {'uid': 'instructor-firebase-uid'}
             
             # Act
@@ -169,7 +169,7 @@ class TestCourseEndpoints:
     def test_publish_course(self, client: FlaskClient, instructor_headers: dict, test_course: dict, test_module: dict, db_session):
         """Test publishing a course"""
         # Add a file to the module so it can be published
-        from ...db.schema import File
+        from db.schema import File
         file = File(
             module_id=test_module['id'],
             title='Test File',
@@ -180,7 +180,7 @@ class TestCourseEndpoints:
         db_session.commit()
         
         # Mock Firebase auth
-        with patch('src.core.decorators.firebase_auth.verify_id_token') as mock_verify:
+        with patch('core.decorators_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {'uid': 'instructor-firebase-uid'}
             
             # Act
@@ -198,7 +198,7 @@ class TestCourseEndpoints:
     def test_create_module(self, client: FlaskClient, instructor_headers: dict, test_course: dict):
         """Test creating a module in a course"""
         # Mock Firebase auth
-        with patch('src.core.decorators.firebase_auth.verify_id_token') as mock_verify:
+        with patch('core.decorators_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {'uid': 'instructor-firebase-uid'}
             
             # Act
@@ -229,7 +229,7 @@ class TestCourseEndpoints:
         db_session.commit()
         
         # Mock Firebase auth
-        with patch('src.core.decorators.firebase_auth.verify_id_token') as mock_verify:
+        with patch('core.decorators_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {'uid': 'test-firebase-uid'}
             
             # Act
@@ -247,7 +247,7 @@ class TestCourseEndpoints:
     def test_get_course_stats(self, client: FlaskClient, instructor_headers: dict, test_course: dict):
         """Test getting course statistics"""
         # Mock Firebase auth
-        with patch('src.core.decorators.firebase_auth.verify_id_token') as mock_verify:
+        with patch('core.decorators_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {'uid': 'instructor-firebase-uid'}
             
             # Act

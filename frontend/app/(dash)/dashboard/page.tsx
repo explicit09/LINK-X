@@ -51,7 +51,6 @@ export default function Dashboard() {
 
   // Mock upload handlers
   const handleUpload = async (file: File) => {
-    console.log("Uploading file:", file.name);
     // Mock upload implementation
   };
 

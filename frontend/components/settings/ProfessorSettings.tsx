@@ -115,10 +115,8 @@ const ProfessorSettings = () => {
       if (res.status === 200 || res.status === 404) {
         setIsStudent(true);
         // load onboarding later
-        console.log("isStudent:", isStudent);
       } else {
         setIsStudent(false);
-        console.log("isStudent:", isStudent);
       }
     }).catch(() => {
       setIsStudent(false);

@@ -32,29 +32,29 @@ class FileAPI {
     if (title) formData.append('title', title);
     if (description) formData.append('description', description);
     
-    return apiClient.post<FileUploadResponse>('/api/v1/files/upload', formData);
+    return apiClient.post<FileUploadResponse>('/api/v2/files/upload', formData);
   }
 
   // File operations
   async getFile(fileId: string): Promise<FileUploadResponse> {
-    return apiClient.get<FileUploadResponse>(`/api/v1/files/${fileId}`);
+    return apiClient.get<FileUploadResponse>(`/api/v2/files/${fileId}`);
   }
 
   async downloadFile(fileId: string): Promise<Response> {
-    return apiClient.get<Response>(`/api/v1/files/${fileId}/download`);
+    return apiClient.get<Response>(`/api/v2/files/${fileId}/download`);
   }
 
   async getFilePreview(fileId: string): Promise<FilePreview> {
-    return apiClient.get<FilePreview>(`/api/v1/files/${fileId}/preview`);
+    return apiClient.get<FilePreview>(`/api/v2/files/${fileId}/preview`);
   }
 
   async deleteFile(fileId: string): Promise<void> {
-    await apiClient.delete(`/api/v1/files/${fileId}`);
+    await apiClient.delete(`/api/v2/files/${fileId}`);
   }
 
   // Module files
   async getModuleFiles(moduleId: string): Promise<FileUploadResponse[]> {
-    return apiClient.get<FileUploadResponse[]>(`/api/v1/files/module/${moduleId}`);
+    return apiClient.get<FileUploadResponse[]>(`/api/v2/files/module/${moduleId}`);
   }
 
   // Search
@@ -63,18 +63,18 @@ class FileAPI {
     if (courseId) params.courseId = courseId;
     if (fileType) params.type = fileType;
     
-    return apiClient.get<FileUploadResponse[]>('/api/v1/files/search', { params });
+    return apiClient.get<FileUploadResponse[]>('/api/v2/files/search', { params });
   }
 
   // Reprocessing
   async reprocessFile(fileId: string): Promise<void> {
-    await apiClient.post(`/api/v1/files/process/${fileId}`);
+    await apiClient.post(`/api/v2/files/process/${fileId}`);
   }
 
   // Streaming
   createFileStream(fileId: string): EventSource {
     const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-    return new EventSource(`${baseURL}/api/v1/files/${fileId}/stream`, {
+    return new EventSource(`${baseURL}/api/v2/files/${fileId}/stream`, {
       withCredentials: true
     });
   }
@@ -86,7 +86,7 @@ class FileAPI {
   }
 
   async getFileContent(fileId: string): Promise<FileContent> {
-    return apiClient.get<FileContent>(`/api/v1/files/${fileId}/content`);
+    return apiClient.get<FileContent>(`/api/v2/files/${fileId}/content`);
   }
 }
 

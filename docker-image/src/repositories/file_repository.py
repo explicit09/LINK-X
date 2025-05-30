@@ -2,8 +2,8 @@ from typing import List, Optional
 from sqlalchemy import and_, or_, func
 from datetime import datetime
 
-from .base_repository import BaseRepository
-from ..db.schema import File, PersonalizedFile, Module
+from repositories.base_repository import BaseRepository
+from db.schema import File, PersonalizedFile, Module
 
 class FileRepository(BaseRepository[File]):
     """Repository for file-related database operations"""

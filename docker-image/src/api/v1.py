@@ -1,38 +1,118 @@
 """
 API v1 Blueprint - Consolidates all v1 endpoints
+DEPRECATED: This API version will be sunset on December 31, 2025
 """
-from flask import Blueprint, jsonify, request, g
+from flask import Blueprint, jsonify, request, g, make_response
 from datetime import datetime, timedelta
 import uuid
 import logging
+from functools import wraps
 
-from src.core.decorators_unified import firebase_auth_required
-from src.core.database import db
-from src.db.schema import Enrollment, Course, PersonalizedFile, File, Module
-from src.services.course_service import CourseService
-from src.services.file_service import FileService
-from src.services.auth_service_unified import UnifiedAuthService as AuthService
-from src.repositories.todo_repository import TodoRepository
-from src.repositories.user_repository import UserRepository
-from src.repositories.course_repository import CourseRepository
-from src.repositories.module_repository import ModuleRepository
-from src.repositories.file_repository import FileRepository
-from src.services.s3_storage import s3_storage
+from core.decorators_unified import firebase_auth_required
+from core.database import db
+from core.api_versioning import version_aware_route
+from db.schema import Enrollment, Course, PersonalizedFile, File, Module
+from services.course_service import CourseService
+from services.file_service import FileService
+from services.auth_service_unified import UnifiedAuthService as AuthService
+from repositories.todo_repository import TodoRepository
+from repositories.user_repository import UserRepository
+from repositories.course_repository import CourseRepository
+from repositories.module_repository import ModuleRepository
+from repositories.file_repository import FileRepository
+from services.s3_storage import s3_storage
 
 api_v1 = Blueprint('api_v1', __name__, url_prefix='/api/v1')
 logger = logging.getLogger(__name__)
+
+
+def add_deprecation_warning(f):
+    """Add deprecation warning to v1 endpoints"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Execute the original function
+        response = f(*args, **kwargs)
+        
+        # Convert to Response object if needed
+        if isinstance(response, tuple):
+            response_data, status_code = response
+            response = make_response(response_data, status_code)
+        else:
+            response = make_response(response)
+        
+        # Add deprecation headers
+        response.headers['X-API-Deprecated'] = 'true'
+        response.headers['X-API-Sunset'] = '2025-12-31'
+        response.headers['X-API-Deprecation-Message'] = 'API v1 is deprecated and will be sunset on December 31, 2025. Please migrate to API v2.'
+        response.headers['X-API-Migration-Guide'] = 'https://api.learn-x.com/docs/v2/migration'
+        
+        # Add warning to JSON response if applicable
+        if response.is_json:
+            try:
+                data = response.get_json()
+                if isinstance(data, dict):
+                    data['_deprecation_warning'] = {
+                        'message': 'API v1 is deprecated and will be sunset on December 31, 2025',
+                        'sunset_date': '2025-12-31',
+                        'migration_guide': 'https://api.learn-x.com/docs/v2/migration'
+                    }
+                    response.data = jsonify(data).data
+            except:
+                pass
+        
+        return response
+    
+    return decorated_function
+
+# Apply deprecation warning to all routes
+@api_v1.before_request
+def before_request():
+    """Log v1 API usage"""
+    # Log the request for monitoring
+    try:
+        from monitoring.api_version_monitor import api_monitor
+        user_id = getattr(g, 'current_user', None)
+        user_id = user_id.id if user_id else None
+        api_monitor.log_request('v1', request.endpoint, request.method, user_id)
+    except:
+        pass
+
+@api_v1.after_request
+def after_request(response):
+    """Add deprecation headers to all v1 responses"""
+    response.headers['X-API-Deprecated'] = 'true'
+    response.headers['X-API-Sunset'] = '2025-12-31'
+    response.headers['X-API-Deprecation-Message'] = 'API v1 is deprecated and will be sunset on December 31, 2025. Please migrate to API v2.'
+    response.headers['X-API-Migration-Guide'] = 'https://api.learn-x.com/docs/v2/migration'
+    
+    # Add warning to JSON response if applicable
+    if response.is_json:
+        try:
+            data = response.get_json()
+            if isinstance(data, dict):
+                data['_deprecation_warning'] = {
+                    'message': 'API v1 is deprecated and will be sunset on December 31, 2025',
+                    'sunset_date': '2025-12-31',
+                    'migration_guide': 'https://api.learn-x.com/docs/v2/migration'
+                }
+                response.data = jsonify(data).data
+                response.content_type = 'application/json'
+        except:
+            pass
+    
+    return response
 
 # ===== AUTHENTICATION ENDPOINTS =====
 @api_v1.route('/auth/sessionLogin', methods=['POST'])
 def session_login():
     """Login with Firebase ID token"""
-    from src.api.auth_v2 import login
+    from api.auth_unified import login
     return login()
 
 @api_v1.route('/auth/sessionLogout', methods=['POST'])
 def session_logout():
     """Logout and clear session"""
-    from src.api.auth_v2 import logout
+    from api.auth_unified import logout
     return logout()
 
 @api_v1.route('/auth/me', methods=['GET', 'PATCH', 'DELETE'])
@@ -42,7 +122,7 @@ def user_profile():
     logger.info(f"v1.user_profile called, method: {request.method}")
     logger.info(f"g.current_user in v1: {getattr(g, 'current_user', 'NOT SET')}")
     
-    from src.api.auth_unified import get_current_user as get_me, update_me, delete_me
+    from api.auth_unified import get_current_user as get_me, update_me, delete_me
     
     if request.method == 'GET':
         return get_me()
@@ -54,13 +134,13 @@ def user_profile():
 @api_v1.route('/auth/register/instructor', methods=['POST'])
 def register_instructor():
     """Register as instructor"""
-    from src.api.auth_unified import register_instructor
+    from api.auth_unified import register_instructor
     return register_instructor()
 
 @api_v1.route('/auth/register/student', methods=['POST'])
 def register_student():
     """Register as student"""
-    from src.api.auth_unified import register_student
+    from api.auth_unified import register_student
     return register_student()
 
 # ===== COURSES ENDPOINTS =====
@@ -132,14 +212,14 @@ def handle_courses():
         
     elif request.method == 'POST':
         # Use course service for creation
-        from src.api.courses import create_course
+        from api.courses import create_course
         return create_course()
 
 @api_v1.route('/courses/<course_id>', methods=['GET'])
 @firebase_auth_required
 def course_details(course_id):
     """Get course details"""
-    from src.api.courses import get_course
+    from api.courses import get_course
     return get_course(course_id)
 
 @api_v1.route('/courses/<course_id>/modules', methods=['GET', 'POST'])
@@ -147,10 +227,10 @@ def course_details(course_id):
 def course_modules(course_id):
     """Get or create course modules"""
     if request.method == 'GET':
-        from src.api.courses import get_course_modules
+        from api.courses import get_course_modules
         return get_course_modules(course_id)
     else:  # POST
-        from src.api.courses import create_module
+        from api.courses import create_module
         return create_module(course_id)
 
 @api_v1.route('/courses/<course_id>/moduleswithfiles', methods=['GET'])
@@ -208,7 +288,7 @@ def course_modules_with_files(course_id):
 @firebase_auth_required
 def course_files(course_id):
     """Get all files in a course"""
-    from src.api.files import list_course_files
+    from api.files import list_course_files
     return list_course_files(course_id)
 
 @api_v1.route('/courses/<course_id>/stats', methods=['GET'])
@@ -396,7 +476,7 @@ def course_discussions(course_id):
 @firebase_auth_required
 def todo_items():
     """List or create todo items"""
-    from src.api.todos import list_todos, create_todo
+    from api.todos import list_todos, create_todo
     
     if request.method == 'GET':
         return list_todos()
@@ -407,7 +487,7 @@ def todo_items():
 @firebase_auth_required
 def todo_item(todo_id):
     """Get, update, or delete a todo item"""
-    from src.api.todos import get_todo, update_todo, delete_todo
+    from api.todos import get_todo, update_todo, delete_todo
     
     if request.method == 'GET':
         return get_todo(todo_id)
@@ -421,21 +501,21 @@ def todo_item(todo_id):
 @firebase_auth_required
 def activities_recent():
     """Get recent activities"""
-    from src.api.activities import get_recent_activities
+    from api.activities import get_recent_activities
     return get_recent_activities()
 
 @api_v1.route('/activities/stats', methods=['GET'])
 @firebase_auth_required
 def activities_stats():
     """Get activity statistics"""
-    from src.api.activities import get_activity_stats
+    from api.activities import get_activity_stats
     return get_activity_stats()
 
 @api_v1.route('/activities/log', methods=['POST'])
 @firebase_auth_required
 def activities_log():
     """Log an activity"""
-    from src.api.activities import log_activity
+    from api.activities import log_activity
     return log_activity()
 
 # ===== FILE ENDPOINTS =====
@@ -443,7 +523,7 @@ def activities_log():
 @firebase_auth_required
 def upload_file():
     """Upload a file to a module"""
-    from src.api.files import upload_file
+    from api.files import upload_file
     return upload_file()
 
 @api_v1.route('/files/<file_id>', methods=['GET', 'PATCH', 'DELETE'])
@@ -451,27 +531,27 @@ def upload_file():
 def file_details(file_id):
     """Get, update, or delete file"""
     if request.method == 'GET':
-        from src.api.files import get_file
+        from api.files import get_file
         return get_file(file_id)
     elif request.method == 'PATCH':
-        from src.api.files import update_file_endpoint
+        from api.files import update_file_endpoint
         return update_file_endpoint(file_id)
     else:  # DELETE
-        from src.api.files import delete_file_endpoint
+        from api.files import delete_file_endpoint
         return delete_file_endpoint(file_id)
 
 @api_v1.route('/files/<file_id>/content', methods=['GET'])
 @firebase_auth_required
 def file_content(file_id):
     """Get file content or presigned URL"""
-    from src.api.files import get_file_content
+    from api.files import get_file_content
     return get_file_content(file_id)
 
 @api_v1.route('/files/module/<module_id>', methods=['GET'])
 @firebase_auth_required
 def module_files(module_id):
     """Get all files in a module"""
-    from src.api.files import get_module_files
+    from api.files import get_module_files
     return get_module_files(module_id)
 
 # ===== MODULE ENDPOINTS =====
@@ -480,20 +560,20 @@ def module_files(module_id):
 def module_details(module_id):
     """Get, update, or delete module"""
     if request.method == 'GET':
-        from src.api.modules import get_module
+        from api.modules import get_module
         return get_module(module_id)
     elif request.method == 'PATCH':
-        from src.api.modules import update_module_endpoint
+        from api.modules import update_module_endpoint
         return update_module_endpoint(module_id)
     else:  # DELETE
-        from src.api.modules import delete_module_endpoint
+        from api.modules import delete_module_endpoint
         return delete_module_endpoint(module_id)
 
 @api_v1.route('/modules/<module_id>/files', methods=['GET'])
 @firebase_auth_required
 def module_files_list(module_id):
     """Get all files in a module"""
-    from src.api.modules import get_module_files
+    from api.modules import get_module_files
     return get_module_files(module_id)
 
 # ===== ENROLLMENT ENDPOINTS =====
@@ -526,26 +606,26 @@ def enrollments():
 @firebase_auth_required
 def check_personalized(file_id):
     """Check if personalized version exists"""
-    from src.api.personalization import check_personalized_content
+    from api.personalization import check_personalized_content
     return check_personalized_content(file_id)
 
 @api_v1.route('/personalize/outline/<file_id>', methods=['GET'])
 @firebase_auth_required
 def personalize_outline(file_id):
     """Get personalized outline"""
-    from src.api.personalization import get_personalization_outline
+    from api.personalization import get_personalization_outline
     return get_personalization_outline(file_id)
 
 @api_v1.route('/personalize/save/<file_id>', methods=['POST'])
 @firebase_auth_required
 def personalize_save(file_id):
     """Save personalized content"""
-    from src.api.personalization import save_personalized_content
+    from api.personalization import save_personalized_content
     return save_personalized_content(file_id)
 
 @api_v1.route('/personalize/stream/<file_id>', methods=['POST'])
 @firebase_auth_required
 def personalize_stream(file_id):
     """Stream personalized content"""
-    from src.api.personalization import stream_personalized_content
+    from api.personalization import stream_personalized_content
     return stream_personalized_content(file_id)

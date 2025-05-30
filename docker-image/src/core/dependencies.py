@@ -32,7 +32,7 @@ from services.admin_service import AdminService
 from services.ai_service import AIService
 from services.streaming_service import StreamingService
 
-from src.core.config import get_config
+from core.config import get_config
 
 logger = logging.getLogger(__name__)
 

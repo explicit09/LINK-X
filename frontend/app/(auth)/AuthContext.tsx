@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             // Only skip on landing page, not auth pages
             const currentPath = window.location.pathname;
             if (currentPath === '/' || currentPath === '') {
-              console.log('Skipping backend session on landing page');
+              // Skip backend session on landing page
               setLoading(false);
               return;
             }
@@ -55,12 +55,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 
                 if (registered) {
                   setBackendUser(authService.getUser());
-                  console.log('User fully authenticated and registered');
+                  // User fully authenticated and registered
                 } else {
-                  console.log('User authenticated but needs to complete registration');
+                  // User authenticated but needs to complete registration
                 }
               } else {
-                console.log('Backend login failed');
+                // Backend login failed
               }
             } catch (error) {
               console.error('Error during authentication:', error);

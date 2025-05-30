@@ -69,7 +69,7 @@ export function PerformanceMetrics({ metricsData, onClose, className }: Performa
       
       // Check memory if available
       if ('memory' in performance) {
-        const memory = (performance as any).memory;
+        const memory = (performance as { memory?: { usedJSHeapSize: number } }).memory;
         const usage = Math.round(memory.usedJSHeapSize / 1048576);
         setMemoryUsage(usage);
       }

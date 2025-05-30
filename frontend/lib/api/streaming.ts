@@ -20,7 +20,7 @@ export interface OutlineSubsection {
 
 export interface StreamingMessage {
   type: 'content' | 'section' | 'example' | 'quiz' | 'status' | 'error' | 'complete';
-  data?: any;
+  data?: unknown;
   message?: string;
 }
 
@@ -41,7 +41,7 @@ class StreamingAPI {
 
   // Document outline
   async getDocumentOutline(fileId: string): Promise<DocumentOutline> {
-    return apiClient.get<DocumentOutline>(`/api/v1/streaming/outline/${fileId}`);
+    return apiClient.get<DocumentOutline>(`/api/v2/streaming/outline/${fileId}`);
   }
 
   // Streaming endpoints
@@ -55,7 +55,7 @@ class StreamingAPI {
     if (options.style) params.append('style', options.style);
     
     const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-    const url = `${baseURL}/api/v1/streaming/learn/${fileId}?${params}`;
+    const url = `${baseURL}/api/v2/streaming/learn/${fileId}?${params}`;
     
     const eventSource = new EventSource(url, { withCredentials: true });
     
@@ -90,7 +90,7 @@ class StreamingAPI {
     includeExamples: boolean = true,
     onMessage: (message: StreamingMessage) => void
   ): () => void {
-    const response = apiClient.post('/api/v1/streaming/section', {
+    const response = apiClient.post('/api/v2/streaming/section', {
       fileId,
       sectionId,
       includeExamples
@@ -110,16 +110,16 @@ class StreamingAPI {
 
   streamChatResponse(
     message: string,
-    context: Record<string, any>,
+    context: Record<string, unknown>,
     onMessage: (message: StreamingMessage) => void
   ): () => void {
     const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-    const eventSource = new EventSource(`${baseURL}/api/v1/streaming/chat`, {
+    const eventSource = new EventSource(`${baseURL}/api/v2/streaming/chat`, {
       withCredentials: true
     });
     
     // Send message via POST then listen to stream
-    apiClient.post('/api/v1/streaming/chat', { message, context })
+    apiClient.post('/api/v2/streaming/chat', { message, context })
       .catch(error => {
         onMessage({ type: 'error', message: error.message });
       });
@@ -145,15 +145,19 @@ class StreamingAPI {
     if (options.count) params.append('count', options.count.toString());
     
     // This would be SSE in production
-    return apiClient.get<QuizQuestion[]>(`/api/v1/streaming/quiz/${fileId}`, { params });
+    return apiClient.get<QuizQuestion[]>(`/api/v2/streaming/quiz/${fileId}`, { params });
   }
 
   async streamSummary(
     fileId: string,
     type: 'brief' | 'detailed' | 'key-points' = 'brief'
-  ): Promise<any> {
+  ): Promise<{
+    summary: string;
+    keyPoints?: string[];
+    metadata?: Record<string, unknown>;
+  }> {
     const params = new URLSearchParams({ type });
-    return apiClient.get(`/api/v1/streaming/summary/${fileId}`, { params });
+    return apiClient.get(`/api/v2/streaming/summary/${fileId}`, { params });
   }
 
   async updateProgress(
@@ -161,7 +165,7 @@ class StreamingAPI {
     sectionId: string,
     progress: number
   ): Promise<LearningProgress> {
-    return apiClient.post<LearningProgress>('/api/v1/streaming/progress', {
+    return apiClient.post<LearningProgress>('/api/v2/streaming/progress', {
       fileId,
       sectionId,
       progress

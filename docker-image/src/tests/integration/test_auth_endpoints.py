@@ -6,7 +6,7 @@ import json
 from flask.testing import FlaskClient
 from unittest.mock import patch, Mock
 
-from src.db.schema import User, Role
+from db.schema import User, Role
 
 class TestAuthEndpoints:
     """Integration tests for auth endpoints"""
@@ -14,7 +14,7 @@ class TestAuthEndpoints:
     def test_get_current_user(self, client: FlaskClient, auth_headers: dict, test_user: dict):
         """Test GET /me endpoint"""
         # Mock Firebase auth
-        with patch('src.core.decorators.firebase_auth.verify_id_token') as mock_verify:
+        with patch('core.decorators_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {'uid': test_user['firebase_uid']}
             
             # Act
@@ -31,7 +31,7 @@ class TestAuthEndpoints:
     def test_update_current_user(self, client: FlaskClient, auth_headers: dict, test_user: dict):
         """Test PATCH /me endpoint"""
         # Mock Firebase auth
-        with patch('src.core.decorators.firebase_auth.verify_id_token') as mock_verify:
+        with patch('core.decorators_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {'uid': test_user['firebase_uid']}
             
             # Act
@@ -53,7 +53,7 @@ class TestAuthEndpoints:
     def test_delete_current_user(self, client: FlaskClient, auth_headers: dict, test_user: dict):
         """Test DELETE /me endpoint"""
         # Mock Firebase auth
-        with patch('src.core.decorators.firebase_auth.verify_id_token') as mock_verify:
+        with patch('core.decorators_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {'uid': test_user['firebase_uid']}
             
             # Act
@@ -71,7 +71,7 @@ class TestAuthEndpoints:
     def test_register_student_firebase(self, client: FlaskClient, db_session):
         """Test student registration with Firebase"""
         # Mock Firebase token verification
-        with patch('src.api.auth.firebase_auth.verify_id_token') as mock_verify:
+        with patch('api.auth_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {
                 'uid': 'new-firebase-uid',
                 'email': 'newstudent@example.com'
@@ -98,7 +98,7 @@ class TestAuthEndpoints:
     def test_register_instructor_firebase(self, client: FlaskClient, db_session):
         """Test instructor registration with Firebase"""
         # Mock Firebase token verification
-        with patch('src.api.auth.firebase_auth.verify_id_token') as mock_verify:
+        with patch('api.auth_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {
                 'uid': 'instructor-firebase-uid',
                 'email': 'newinstructor@example.com'
@@ -122,7 +122,7 @@ class TestAuthEndpoints:
     def test_login_with_firebase(self, client: FlaskClient, test_user: dict):
         """Test login endpoint with Firebase token"""
         # Mock Firebase token verification
-        with patch('src.api.auth.firebase_auth.verify_id_token') as mock_verify:
+        with patch('api.auth_unified.verify_firebase_token') as mock_verify:
             mock_verify.return_value = {
                 'uid': test_user['firebase_uid'],
                 'email': test_user['email']
@@ -144,7 +144,7 @@ class TestAuthEndpoints:
     def test_login_invalid_token(self, client: FlaskClient):
         """Test login with invalid Firebase token"""
         # Mock Firebase token verification to fail
-        with patch('src.api.auth.firebase_auth.verify_id_token') as mock_verify:
+        with patch('api.auth_unified.verify_firebase_token') as mock_verify:
             mock_verify.side_effect = Exception('Invalid token')
             
             # Act
@@ -185,7 +185,7 @@ class TestAuthEndpoints:
                 data = response.get_json()
                 assert 'Rate limit exceeded' in data['error']
     
-    @patch('src.services.auth_service.cache')
+    @patch('services.auth_service_unified.cache')
     def test_reset_password(self, mock_cache, client: FlaskClient, test_user: dict):
         """Test password reset endpoint"""
         # Mock cache with valid token

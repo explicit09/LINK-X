@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, g
-from ..core.decorators import firebase_auth_required
+from core.decorators import firebase_auth_required
 
 bp = Blueprint('test', __name__)
 
@@ -30,8 +30,8 @@ def check_auth():
 @firebase_auth_required
 def debug_course(course_id):
     """Debug course data"""
-    from ..db.connection import get_db_session
-    from ..db.schema import Course, Module, File
+    from db.connection import get_db_session
+    from db.schema import Course, Module, File
     
     session = get_db_session()
     try:

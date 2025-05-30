@@ -5,7 +5,7 @@ from sqlalchemy import text
 import sys
 
 # Import the database session from your application
-from src.db.connection import engine
+from db.connection import engine
 
 def add_description_column():
     try:

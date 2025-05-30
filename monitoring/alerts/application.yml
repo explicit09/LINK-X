@@ -1,0 +1,243 @@
+groups:
+  - name: application
+    interval: 30s
+    rules:
+      # Critical application alerts
+      - alert: ApplicationDown
+        expr: up{job="learn-x-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: application
+        annotations:
+          summary: "LEARN-X application is down"
+          description: "The LEARN-X backend application has been down for more than 1 minute"
+          runbook_url: "https://docs.learnx.com/runbooks/application-down"
+
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+          service: application
+        annotations:
+          summary: "High application response time"
+          description: "95th percentile response time is {{ $value }}s (threshold: 2.0s)"
+
+      - alert: CriticalResponseTime
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 5.0
+        for: 2m
+        labels:
+          severity: critical
+          service: application
+        annotations:
+          summary: "Critical application response time"
+          description: "95th percentile response time is {{ $value }}s (critical threshold: 5.0s)"
+
+      - alert: HighErrorRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: application
+        annotations:
+          summary: "High application error rate"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+      - alert: VeryHighErrorRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) > 0.20
+        for: 1m
+        labels:
+          severity: critical
+          service: application
+        annotations:
+          summary: "Very high application error rate"
+          description: "Error rate is {{ $value | humanizePercentage }} (critical threshold: 20%)"
+
+      # User activity alerts
+      - alert: NoUserActivity
+        expr: increase(user_actions_total[30m]) == 0
+        for: 30m
+        labels:
+          severity: warning
+          service: application
+        annotations:
+          summary: "No user activity detected"
+          description: "No user actions have been recorded in the last 30 minutes"
+
+      - alert: SuspiciousUserActivity
+        expr: increase(suspicious_activity_total[5m]) > 10
+        for: 0m
+        labels:
+          severity: warning
+          service: security
+        annotations:
+          summary: "Suspicious user activity detected"
+          description: "{{ $value }} suspicious activities detected in the last 5 minutes"
+
+      # Authentication alerts
+      - alert: HighFailedLoginRate
+        expr: rate(failed_auth_attempts_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: security
+        annotations:
+          summary: "High failed login attempt rate"
+          description: "Failed login rate is {{ $value }} attempts/second"
+
+      - alert: BruteForceAttack
+        expr: increase(security_events_total{event_type="brute_force_attempt"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: security
+        annotations:
+          summary: "Brute force attack detected"
+          description: "{{ $value }} brute force attempts detected in the last 5 minutes"
+
+      # Resource utilization alerts
+      - alert: HighMemoryUsage
+        expr: memory_usage_bytes{component="application"} / 1024 / 1024 > 2048
+        for: 10m
+        labels:
+          severity: warning
+          service: application
+        annotations:
+          summary: "High memory usage"
+          description: "Application memory usage is {{ $value | humanize }}MB (threshold: 2GB)"
+
+      - alert: CriticalMemoryUsage
+        expr: memory_usage_bytes{component="application"} / 1024 / 1024 > 3072
+        for: 5m
+        labels:
+          severity: critical
+          service: application
+        annotations:
+          summary: "Critical memory usage"
+          description: "Application memory usage is {{ $value | humanize }}MB (critical threshold: 3GB)"
+
+      - alert: HighCPUUsage
+        expr: cpu_usage_percent{component="application"} > 80
+        for: 10m
+        labels:
+          severity: warning
+          service: application
+        annotations:
+          summary: "High CPU usage"
+          description: "Application CPU usage is {{ $value }}% (threshold: 80%)"
+
+      # File processing alerts
+      - alert: FileProcessingQueueBacklog
+        expr: file_processing_queue_size > 100
+        for: 15m
+        labels:
+          severity: warning
+          service: application
+        annotations:
+          summary: "File processing queue backlog"
+          description: "{{ $value }} files are queued for processing"
+
+      - alert: CriticalFileProcessingBacklog
+        expr: file_processing_queue_size > 500
+        for: 5m
+        labels:
+          severity: critical
+          service: application
+        annotations:
+          summary: "Critical file processing backlog"
+          description: "{{ $value }} files are queued for processing (critical threshold: 500)"
+
+      - alert: HighFileProcessingErrorRate
+        expr: rate(file_processing_errors_total[10m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          service: application
+        annotations:
+          summary: "High file processing error rate"
+          description: "File processing error rate is {{ $value }} errors/second"
+
+      # AI API alerts
+      - alert: AIAPIHighLatency
+        expr: histogram_quantile(0.95, sum(rate(ai_api_latency_seconds_bucket[5m])) by (le, model)) > 30
+        for: 10m
+        labels:
+          severity: warning
+          service: ai
+        annotations:
+          summary: "High AI API latency"
+          description: "95th percentile AI API latency for {{ $labels.model }} is {{ $value }}s"
+
+      - alert: AIAPIErrorRate
+        expr: rate(ai_api_calls_total{status=~"error.*"}[5m]) / rate(ai_api_calls_total[5m]) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+          service: ai
+        annotations:
+          summary: "High AI API error rate"
+          description: "AI API error rate is {{ $value | humanizePercentage }}"
+
+      # Streaming service alerts
+      - alert: HighStreamingConnections
+        expr: streaming_connections_active > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: streaming
+        annotations:
+          summary: "High number of streaming connections"
+          description: "{{ $value }} active streaming connections (threshold: 1000)"
+
+      - alert: StreamingServiceDown
+        expr: streaming_connections_active == 0 and increase(http_requests_total{endpoint=~".*streaming.*"}[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          service: streaming
+        annotations:
+          summary: "Streaming service appears down"
+          description: "No active streaming connections despite incoming requests"
+
+      # Business metrics alerts
+      - alert: LowCourseCompletionRate
+        expr: avg(course_completion_rate) < 0.3
+        for: 1h
+        labels:
+          severity: warning
+          service: business
+        annotations:
+          summary: "Low course completion rate"
+          description: "Average course completion rate is {{ $value | humanizePercentage }} (threshold: 30%)"
+
+      - alert: NoNewEnrollments
+        expr: increase(course_enrollments_total[1h]) == 0
+        for: 1h
+        labels:
+          severity: warning
+          service: business
+        annotations:
+          summary: "No new course enrollments"
+          description: "No new course enrollments in the last hour"
+
+      # Search performance alerts
+      - alert: HighSearchLatency
+        expr: histogram_quantile(0.95, sum(rate(search_latency_seconds_bucket[5m])) by (le)) > 5.0
+        for: 10m
+        labels:
+          severity: warning
+          service: search
+        annotations:
+          summary: "High search latency"
+          description: "95th percentile search latency is {{ $value }}s"
+
+      - alert: LowSearchAccuracy
+        expr: avg(rate(retrieval_accuracy_score_sum[10m])) / avg(rate(retrieval_accuracy_score_count[10m])) < 0.7
+        for: 30m
+        labels:
+          severity: warning
+          service: search
+        annotations:
+          summary: "Low search accuracy"
+          description: "Average search accuracy is {{ $value | humanizePercentage }} (threshold: 70%)"

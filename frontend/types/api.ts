@@ -38,7 +38,7 @@ export interface UserProfile {
 export interface StudentProfile extends UserProfile {
   grade_level?: string;
   learning_style?: string;
-  onboard_answers?: Record<string, any>;
+  onboard_answers?: Record<string, string | number | boolean>;
   want_quizzes?: boolean;
   model_preference?: string;
 }
@@ -195,14 +195,14 @@ export interface ChatMessage {
   file_id?: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean | null>;
   created_at: string;
 }
 
 export interface ChatSession {
   id: string;
   user_id: string;
-  context?: Record<string, any>;
+  context?: Record<string, string | number | boolean | object>;
   messages: ChatMessage[];
   created_at: string;
   updated_at: string;
@@ -243,7 +243,7 @@ export interface Activity {
   type: ActivityType;
   entity_type: 'course' | 'module' | 'file' | 'quiz';
   entity_id: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean | null>;
   created_at: string;
 }
 
@@ -297,4 +297,138 @@ export interface MarketData {
   volume: number;
   market_cap?: number;
   updated_at: string;
+}
+
+// Request Types for API endpoints
+export interface CreateCourseRequest {
+  title: string;
+  description?: string;
+  code?: string;
+  term?: string;
+  published?: boolean;
+}
+
+export interface UpdateCourseRequest {
+  title?: string;
+  description?: string;
+  code?: string;
+  term?: string;
+  published?: boolean;
+}
+
+export interface CreateModuleRequest {
+  title: string;
+  description?: string;
+  ordering?: number;
+}
+
+export interface UpdateModuleRequest {
+  title?: string;
+  description?: string;
+  ordering?: number;
+}
+
+export interface UpdateFileRequest {
+  title?: string;
+  description?: string;
+  ordering?: number;
+}
+
+export interface CreateTodoRequest {
+  title: string;
+  description?: string;
+  due_date?: string;
+  priority: 'low' | 'medium' | 'high';
+  course_id?: string;
+  module_id?: string;
+}
+
+export interface UpdateTodoRequest {
+  title?: string;
+  description?: string;
+  due_date?: string;
+  priority?: 'low' | 'medium' | 'high';
+  status?: 'pending' | 'in_progress' | 'completed';
+}
+
+export interface ChatRequest {
+  message: string;
+  context?: {
+    file_id?: string;
+    course_id?: string;
+    conversation_history?: ChatMessage[];
+  };
+}
+
+export interface CreateDiscussionRequest {
+  title: string;
+  content: string;
+}
+
+export interface CreateActivityRequest {
+  type: ActivityType;
+  entity_type: 'course' | 'module' | 'file' | 'quiz';
+  entity_id: string;
+  metadata?: Record<string, string | number | boolean | null>;
+}
+
+export interface GenerateQuizRequest {
+  difficulty?: 'easy' | 'medium' | 'hard';
+  question_count?: number;
+  topics?: string[];
+}
+
+export interface SubmitQuizAnswerRequest {
+  answer: string;
+}
+
+// Admin Request Types
+export interface UpdateUserRequest {
+  name?: string;
+  email?: string;
+  role?: UserRole;
+  suspended?: boolean;
+}
+
+export interface CreateNewsRequest {
+  title: string;
+  content: string;
+  category: string;
+  tags?: string[];
+  published?: boolean;
+}
+
+export interface UpdateNewsRequest {
+  title?: string;
+  content?: string;
+  category?: string;
+  tags?: string[];
+  published?: boolean;
+}
+
+export interface CreateMarketDataRequest {
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  change_percent: number;
+  volume: number;
+  market_cap?: number;
+}
+
+export interface UpdateMarketDataRequest {
+  symbol?: string;
+  name?: string;
+  price?: number;
+  change?: number;
+  change_percent?: number;
+  volume?: number;
+  market_cap?: number;
+}
+
+// Utility Request Types
+export interface GenerateTitleRequest {
+  content: string;
+  context?: string;
+  max_length?: number;
 }

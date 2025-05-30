@@ -2,11 +2,11 @@ from flask import Blueprint, request, jsonify, g
 from datetime import datetime, timedelta
 from sqlalchemy import desc, func
 
-from src.core.decorators_unified import firebase_auth_required
-from src.core.database import db
-from src.db.schema import Chat, File, Enrollment, Course, PersonalizedFile, Module
-from src.repositories.user_repository import UserRepository
-from src.repositories.file_repository import FileRepository
+from core.decorators_unified import firebase_auth_required
+from core.database import db
+from db.schema import Chat, File, Enrollment, Course, PersonalizedFile, Module
+from repositories.user_repository import UserRepository
+from repositories.file_repository import FileRepository
 
 activities_bp = Blueprint('activities', __name__)
 

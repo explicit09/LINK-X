@@ -51,7 +51,7 @@ export default function MaterialViewer({
       } catch (err: any) {
         console.error('Error fetching file:', err);
         
-        // Check if it's a 404 or access error
+        // Check if it&apos;s a 404 or access error
         if (err?.message?.includes('404') || err?.message?.includes('NOT FOUND')) {
           setError('File not found. It may have been moved or deleted.');
         } else if (err?.message?.includes('Load failed') || err?.message?.includes('access control')) {

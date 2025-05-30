@@ -6,13 +6,13 @@ from werkzeug.datastructures import FileStorage
 import boto3
 from datetime import datetime, timedelta
 
-from ..repositories.file_repository import FileRepository
-from ..repositories.module_repository import ModuleRepository  
-from ..repositories.course_repository import CourseRepository
-from ..core.exceptions import NotFoundError, ValidationError, FileProcessingError, AuthorizationError
-from ..core.cache import cache, invalidate_cache
-from ..core.config import get_config
-from ..tasks import process_file_async
+from repositories.file_repository import FileRepository
+from repositories.module_repository import ModuleRepository  
+from repositories.course_repository import CourseRepository
+from core.exceptions import NotFoundError, ValidationError, FileProcessingError, AuthorizationError
+from core.cache import cache, invalidate_cache
+from core.config import get_config
+from tasks import process_file_async
 
 class FileService:
     """Service for file-related business logic"""
@@ -227,7 +227,7 @@ class FileService:
             
             # For now, stream original content
             # Get content from file chunks
-            from ..db.schema import FileChunk
+            from db.schema import FileChunk
             chunks = session.query(FileChunk).filter(
                 FileChunk.file_id == file.id
             ).order_by(FileChunk.chunk_index).all()
@@ -254,7 +254,7 @@ class FileService:
         course = self.course_repo.get_by_id(module.course_id)
         
         # Only instructor or admin can delete
-        from ..repositories.user_repository import UserRepository
+        from repositories.user_repository import UserRepository
         user_repo = UserRepository()
         user = user_repo.get_by_id(user_id)
         
@@ -297,7 +297,7 @@ class FileService:
                     file_type: str = None) -> List[Dict]:
         """Search files"""
         # Get accessible courses for the user
-        from ..repositories.user_repository import UserRepository
+        from repositories.user_repository import UserRepository
         user_repo = UserRepository()
         user = user_repo.get_by_id(user_id)
         
@@ -327,7 +327,7 @@ class FileService:
         file = self.get_file_with_access_check(file_id, user_id)
         
         # Check authorization (only instructor or admin)
-        from ..repositories.user_repository import UserRepository
+        from repositories.user_repository import UserRepository
         user_repo = UserRepository()
         user = user_repo.get_by_id(user_id)
         
@@ -342,8 +342,8 @@ class FileService:
     
     def _check_course_access(self, course: Dict, user_id: str) -> bool:
         """Check if user has access to a course"""
-        from ..repositories.user_repository import UserRepository
-        from ..repositories.enrollment_repository import EnrollmentRepository
+        from repositories.user_repository import UserRepository
+        from repositories.enrollment_repository import EnrollmentRepository
         
         user_repo = UserRepository()
         user = user_repo.get_by_id(user_id)

@@ -1,8 +1,8 @@
 from typing import List, Optional
 from sqlalchemy import func
 
-from .base_repository import BaseRepository
-from ..db.schema import Module, File
+from repositories.base_repository import BaseRepository
+from db.schema import Module, File
 
 class ModuleRepository(BaseRepository[Module]):
     """Repository for module-related database operations"""

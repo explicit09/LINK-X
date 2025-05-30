@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 def process_file_async(self, file_id: str, force: bool = False):
     """Process uploaded file - extract text, generate embeddings"""
     try:
-        from ..repositories.file_repository import FileRepository
-        from ..services.ai_service import AIService
+        from repositories.file_repository import FileRepository
+        from services.ai_service import AIService
         from ..s3_storage import download_file_from_s3
         
         file_repo = FileRepository()
@@ -78,9 +78,9 @@ def process_file_async(self, file_id: str, force: bool = False):
 def personalize_file_async(self, file_id: str, user_id: str):
     """Generate personalized version of file content"""
     try:
-        from ..repositories.file_repository import FileRepository
-        from ..repositories.user_repository import UserRepository
-        from ..services.ai_service import AIService
+        from repositories.file_repository import FileRepository
+        from repositories.user_repository import UserRepository
+        from services.ai_service import AIService
         
         file_repo = FileRepository()
         user_repo = UserRepository()
@@ -117,7 +117,7 @@ def personalize_file_async(self, file_id: str, user_id: str):
         )
         
         # Update personalized file
-        from ..repositories.base_repository import BaseRepository
+        from repositories.base_repository import BaseRepository
         base_repo = BaseRepository(type(personalized))
         base_repo.update(
             personalized.id,

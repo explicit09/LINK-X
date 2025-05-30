@@ -21,7 +21,7 @@
     "paths": {
       "@/*": ["./*"]
     },
-    "types": ["react", "react-dom", "node"],  // Ensure react, react-dom, and node are included
+    "types": ["react", "react-dom", "node", "jest"],  // Ensure react, react-dom, node, and jest are included
     "typeRoots": ["./node_modules/@types"]  // Specify the directory for type definitions
   },
   "include": [

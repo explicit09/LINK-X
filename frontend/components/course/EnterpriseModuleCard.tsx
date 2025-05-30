@@ -310,7 +310,6 @@ export function EnterpriseModuleCard({
                   key={material.id}
                   file={material}
                   onPreview={() => onViewMaterial(material)}
-                  onDownload={() => console.log('Download', material.id)}
                   onDelete={onDeleteFile ? () => onDeleteFile(material.id, module.id) : undefined}
                   onPersonalize={() => onAskAI(material)}
                   isSelected={selectedFiles.has(material.id)}

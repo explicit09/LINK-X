@@ -4,9 +4,9 @@ from flask import Blueprint, jsonify, request
 from sqlalchemy import text
 import redis
 import time
-from ..core.database import db
-from ..core.cache import cache
-from ..core.config import get_config
+from core.database import db
+from core.cache import cache
+from core.config import get_config
 
 bp = Blueprint('health', __name__)
 

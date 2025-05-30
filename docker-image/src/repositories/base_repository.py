@@ -1,7 +1,7 @@
 from typing import Generic, TypeVar, Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
-from ..core.database import db_manager
+from core.database import db_manager
 
 T = TypeVar('T')
 

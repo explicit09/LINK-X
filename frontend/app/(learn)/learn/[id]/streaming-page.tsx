@@ -155,7 +155,7 @@ export default function StreamingLearnPage() {
     const fetchOutline = async () => {
       try {
         const { fetchWithAuth } = await import('@/lib/api');
-        const res = await fetchWithAuth(`/api/v1/streaming/outline/${pfId}`);
+        const res = await fetchWithAuth(`/api/v2/streaming/outline/${pfId}`);
 
         if (!res.ok) {
           throw new Error(`Failed to fetch outline`);
@@ -307,7 +307,6 @@ export default function StreamingLearnPage() {
                 if (data.type === 'token' && data.content) {
                   if (firstTokenTime === null) {
                     firstTokenTime = Date.now();
-                    console.log(`First token latency: ${firstTokenTime - Date.now()}ms`);
                   }
                   
                   accumulatedContent += data.content;
@@ -506,7 +505,7 @@ export default function StreamingLearnPage() {
         if (newMessages[messageIndex]) {
           newMessages[messageIndex] = {
             ...newMessages[messageIndex],
-            content: "I'm sorry, I couldn't connect to the AI service. Please try again."
+            content: "I&apos;m sorry, I couldn&apos;t connect to the AI service. Please try again."
           };
         }
         return newMessages;

@@ -52,7 +52,7 @@ export default function ForgotPasswordPage() {
           </h1>
           
           <p className="text-blue-100 text-lg mb-8 leading-relaxed">
-            We'll send you a secure link to reset your password and get you back to learning.
+            We&apos;ll send you a secure link to reset your password and get you back to learning.
           </p>
           
           {/* Trust Indicators */}
@@ -144,7 +144,7 @@ export default function ForgotPasswordPage() {
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">Email Sent!</h3>
                   <p className="text-gray-600 mb-4">
-                    We've sent a password reset link to <strong>{email}</strong>
+                    We&apos;ve sent a password reset link to <strong>{email}</strong>
                   </p>
                   <p className="text-sm text-gray-500">
                     Check your inbox and follow the instructions to reset your password.

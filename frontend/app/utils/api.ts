@@ -22,7 +22,9 @@ export async function fetchWithAuth(endpoint: string, options: RequestInit = {})
   };
 
   try {
-    console.log(`Making request to: ${API_URL}${endpoint}`);
+    // Only log endpoint in development mode
+    if (process.env.NODE_ENV === 'development') {
+    }
     const response = await fetch(`${API_URL}${endpoint}`, {
       ...options,
       headers,
@@ -38,25 +40,31 @@ export async function fetchWithAuth(endpoint: string, options: RequestInit = {})
       } catch (e) {
         errorMessage = 'Unknown error';
       }
-      console.error(`API error: ${response.status}`, errorMessage);
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorMessage}`);
+      // Only log detailed errors in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error(`API error: ${response.status}`, errorMessage);
+      }
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('API request failed:', error);
+    // Only log detailed errors in development
+    if (process.env.NODE_ENV === 'development') {
+      console.error('API request failed:', error);
+    }
     throw error;
   }
 }
 
 export const api = {
   get: (endpoint: string) => fetchWithAuth(endpoint),
-  post: (endpoint: string, data: any) => fetchWithAuth(endpoint, {
+  post: (endpoint: string, data: unknown) => fetchWithAuth(endpoint, {
     method: 'POST',
     body: JSON.stringify(data),
   }),
-  put: (endpoint: string, data: any) => fetchWithAuth(endpoint, {
+  put: (endpoint: string, data: unknown) => fetchWithAuth(endpoint, {
     method: 'PUT',
     body: JSON.stringify(data),
   }),

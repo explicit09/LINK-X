@@ -15,9 +15,9 @@ from firebase_admin import auth as firebase_auth
 import redis
 from werkzeug.exceptions import Unauthorized, Forbidden
 
-from src.db.schema import User
-from src.core.cache import cache
-from src.core.exceptions import AuthenticationError, ValidationError
+from db.schema import User
+from core.cache import cache
+from core.exceptions import AuthenticationError, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -294,7 +294,7 @@ def validate_request(schema: dict):
 
 def _get_user_by_id(user_id: str) -> Optional[User]:
     """Get user by ID from database"""
-    from src.core.database import db
+    from core.database import db
     from sqlalchemy.orm import joinedload
     
     try:
@@ -396,7 +396,7 @@ def _verify_firebase_token(token: str) -> Optional[User]:
 
 def _get_user_by_firebase_uid(firebase_uid: str) -> Optional[User]:
     """Get user by Firebase UID from database"""
-    from src.core.database import db
+    from core.database import db
     from sqlalchemy.orm import joinedload
     
     try:

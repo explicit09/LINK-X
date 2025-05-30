@@ -2,11 +2,11 @@ from typing import List, Dict, Optional
 from datetime import datetime
 import secrets
 
-from ..repositories.course_repository import CourseRepository
-from ..repositories.user_repository import UserRepository
-from ..repositories.enrollment_repository import EnrollmentRepository
-from ..core.exceptions import NotFoundError, ValidationError, AuthorizationError
-from ..core.cache import cache, invalidate_cache
+from repositories.course_repository import CourseRepository
+from repositories.user_repository import UserRepository
+from repositories.enrollment_repository import EnrollmentRepository
+from core.exceptions import NotFoundError, ValidationError, AuthorizationError
+from core.cache import cache, invalidate_cache
 
 class CourseService:
     """Service for course-related business logic"""
@@ -314,7 +314,7 @@ class CourseService:
         # Temporarily return 0 as Activity model doesn't exist
         return 0.0
         
-        # from ..db.schema import Activity, Enrollment
+        # from db.schema import Activity, Enrollment
         
         # # Get all enrolled students
         # enrollments = self.enrollment_repo.get_by_course(course_id)
@@ -351,7 +351,7 @@ class CourseService:
         # Temporarily return 0 as Activity model doesn't exist
         return 0.0
         
-        # from ..db.schema import Activity, Enrollment
+        # from db.schema import Activity, Enrollment
         
         # # Get all enrolled students
         # enrollments = self.enrollment_repo.get_by_course(course_id)

@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
-from ..core.decorators import firebase_auth_required
-from ..core.exceptions import NotFoundError, ValidationError
-from ..services.admin_service import AdminService
+from core.decorators import firebase_auth_required
+from core.exceptions import NotFoundError, ValidationError
+from services.admin_service import AdminService
 
 bp = Blueprint('admin', __name__)
 

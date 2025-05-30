@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 
 from celery import Task
-from src.celery_app import app
+from celery_app import app
 
 # Configure logging
 logger = logging.getLogger(__name__)

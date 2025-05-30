@@ -31,6 +31,10 @@ class AuthorizationError(LinkXException):
     status_code = 403
     message = "Insufficient permissions"
 
+# Aliases for backward compatibility
+UnauthorizedError = AuthorizationError
+PermissionError = AuthorizationError
+
 class NotFoundError(LinkXException):
     """Raised when resource is not found"""
     status_code = 404

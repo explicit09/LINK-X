@@ -3,13 +3,13 @@ import json
 import logging
 from datetime import datetime
 
-from ..core.decorators_unified import firebase_auth_required
-from ..core.exceptions import NotFoundError
-from ..services.streaming_service import StreamingService
-from ..services.ai_service import AIService
-from ..repositories.file_repository import FileRepository
-from ..repositories.user_repository import UserRepository
-from ..db.connection import get_db_session
+from core.decorators_unified import firebase_auth_required
+from core.exceptions import NotFoundError
+from services.streaming_service import StreamingService
+from services.ai_service import AIService
+from repositories.file_repository import FileRepository
+from repositories.user_repository import UserRepository
+from db.connection import get_db_session
 
 bp = Blueprint('personalization', __name__)
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ def check_personalized_content(file_id):
         return '', 200
         
     try:
-        from ..db.schema import PersonalizedFile
+        from db.schema import PersonalizedFile
         
         session = get_db_session()
         user_id = g.current_user.id
@@ -57,7 +57,7 @@ def save_personalized_content(file_id):
         return '', 200
         
     try:
-        from ..db.schema import PersonalizedFile
+        from db.schema import PersonalizedFile
         
         session = get_db_session()
         data = request.get_json() or {}
@@ -143,7 +143,7 @@ def stream_personalized_content(file_id):
             return jsonify({'error': 'File not found'}), 404
         
         # Get file content from chunks
-        from ..db.schema import FileChunk
+        from db.schema import FileChunk
         chunks = session.query(FileChunk).filter(
             FileChunk.file_id == file_id
         ).order_by(FileChunk.chunk_index).limit(10).all()

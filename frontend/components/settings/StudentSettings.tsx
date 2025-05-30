@@ -212,11 +212,11 @@ const StudentSettings = () => {
         });
 
         // Mark onboarding as completed since we successfully loaded profile data
-        // This helps existing users who haven't had this flag set yet
+        // This helps existing users who haven&apos;t had this flag set yet
         userAPI.getMe().then(currentUser => {
           if (currentUser?.id) {
             localStorage.setItem(`onboarding_completed_${currentUser.id}`, 'true');
-            console.log("✅ Onboarding completion marked for existing user");
+            // Onboarding completion marked for existing user
           }
         }).catch(err => {
           console.warn("Could not mark onboarding completion:", err);

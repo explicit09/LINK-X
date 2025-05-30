@@ -12,9 +12,9 @@ from io import BytesIO
 from flask import jsonify
 from sqlalchemy.orm import Session
 
-from src.db.queries import create_file, get_module_by_id
-from src.s3_storage import s3_storage
-from src.tasks import index_file
+from db.queries import create_file, get_module_by_id
+from s3_storage import s3_storage
+from tasks import index_file
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +108,7 @@ class FileUploadHandler:
             if process_immediately:
                 # Synchronous processing (not recommended for production)
                 logger.warning(f"Processing file {file_id} synchronously")
-                from src.indexer import store_file_embeddings
+                from indexer import store_file_embeddings
                 chunks_stored = store_file_embeddings(
                     self.db, 
                     file_id, 
@@ -165,7 +165,7 @@ class FileUploadHandler:
         Returns:
             Dictionary with indexing status
         """
-        from src.db.schema import FileChunk
+        from db.schema import FileChunk
         
         # Check if chunks exist
         chunk_count = self.db.query(FileChunk).filter_by(file_id=file_id).count()
@@ -178,7 +178,7 @@ class FileUploadHandler:
             }
         
         # Check for active task
-        from src.celery_app import app as celery_app
+        from celery_app import app as celery_app
         
         # Search for task by checking result backend
         # This is a simplified check - in production you'd want to track task IDs

@@ -16,7 +16,7 @@ services:
     image: learnx:prod
     build:
       context: ./docker-image
-      dockerfile: docker/Dockerfile.simple
+      dockerfile: docker/Dockerfile.prod
     restart: always
     env_file:
       - ./docker-image/.env

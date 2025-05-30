@@ -254,7 +254,7 @@ export function FloatingAIAssistant({
     }
     
     if (input.includes("summary") || input.includes("summarize")) {
-      return "Here's a concise summary of the key points:\n\n• Main concept and definition\n• Key applications and examples\n• Important relationships to remember\n• Common misconceptions to avoid\n\nWould you like me to elaborate on any of these points?";
+      return "Here&apos;s a concise summary of the key points:\n\n• Main concept and definition\n• Key applications and examples\n• Important relationships to remember\n• Common misconceptions to avoid\n\nWould you like me to elaborate on any of these points?";
     }
     
     if (input.includes("help") || input.includes("stuck")) {

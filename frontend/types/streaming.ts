@@ -58,10 +58,10 @@ export interface SectionMetadata {
 
 export interface StreamingMessage {
   type: StreamingMessageType;
-  data?: any;
+  data?: unknown;
   message?: string;
   timestamp?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export type StreamingMessageType =
@@ -166,7 +166,7 @@ export interface PersonalizationSettings {
 export interface StreamingError {
   code: string;
   message: string;
-  details?: any;
+  details?: unknown;
   recoverable: boolean;
   suggestedAction?: string;
 }

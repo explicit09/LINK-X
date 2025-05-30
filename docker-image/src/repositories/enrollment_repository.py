@@ -1,8 +1,9 @@
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
+from sqlalchemy import and_
 
-from .base_repository import BaseRepository
-from ..db.schema import Enrollment
+from repositories.base_repository import BaseRepository
+from db.schema import Enrollment
 
 class EnrollmentRepository(BaseRepository[Enrollment]):
     """Repository for enrollment-related database operations"""

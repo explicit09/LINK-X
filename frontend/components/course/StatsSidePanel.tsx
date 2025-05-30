@@ -83,12 +83,10 @@ export function StatsSidePanel({
 
       try {
         setLoadingTodos(true);
-        console.log('StatsSidePanel: Loading todos from API...');
         
         // Use real API call instead of mock data
         const response = await studentAPI.getTodoItems();
         const todosData: TodoItem[] = Array.isArray(response) ? response : [];
-        console.log('StatsSidePanel: Loaded todos from API:', todosData.length, 'items');
 
         // Filter todos for this specific course if we have a course ID
         const courseTodos = course?.id
@@ -99,7 +97,6 @@ export function StatsSidePanel({
             )
           : todosData;
         
-        console.log('StatsSidePanel: Filtered todos for course:', courseTodos?.length || 0, 'items');
         setTodos(courseTodos);
       } catch (error) {
         console.error('StatsSidePanel: Failed to load todos:', error);
@@ -158,16 +155,13 @@ export function StatsSidePanel({
 
   const handleDeleteTodo = async (todoId: string) => {
     try {
-      console.log('StatsSidePanel: Deleting todo with ID:', todoId);
       
       // Delete from database
       const response = await studentAPI.deleteTodoItem(todoId);
-      console.log('StatsSidePanel: Delete API response:', response);
       
       // Update local state after successful deletion
       setTodos(prev => {
         const filtered = prev.filter(todo => todo.id !== todoId);
-        console.log('StatsSidePanel: Updated todos after delete:', filtered.length, 'items remaining');
         return filtered;
       });
       
@@ -180,7 +174,7 @@ export function StatsSidePanel({
         sonnerToast.error("Authentication failed. Please refresh the page and try again.");
       } else if (error instanceof Error && error.message.includes('404')) {
         sonnerToast.error("Task not found. It may have already been deleted.");
-        // Remove from local state anyway since it doesn't exist
+        // Remove from local state anyway since it doesn&apos;t exist
         setTodos(prev => prev.filter(todo => todo.id !== todoId));
       } else {
         sonnerToast.error("Failed to delete task: " + (error instanceof Error ? error.message : 'Unknown error'));

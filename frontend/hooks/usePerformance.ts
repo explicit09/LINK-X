@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useMemo, useState } from 'react';
 
 // Debounce hook for performance optimization
-export function useDebounce<T extends (...args: any[]) => any>(
+export function useDebounce<T extends (...args: unknown[]) => unknown>(
   callback: T,
   delay: number
 ): T {
@@ -34,7 +34,7 @@ export function useDebounce<T extends (...args: any[]) => any>(
 }
 
 // Throttle hook for performance optimization
-export function useThrottle<T extends (...args: any[]) => any>(
+export function useThrottle<T extends (...args: unknown[]) => unknown>(
   callback: T,
   delay: number
 ): T {
@@ -135,7 +135,13 @@ export function useMemoryMonitor() {
   useEffect(() => {
     const updateMemoryInfo = () => {
       if ('memory' in performance) {
-        const memory = (performance as any).memory;
+        const memory = (performance as {
+          memory?: {
+            usedJSHeapSize: number;
+            totalJSHeapSize: number;
+            jsHeapSizeLimit: number;
+          };
+        }).memory;
         setMemoryInfo({
           used: Math.round(memory.usedJSHeapSize / 1048576), // MB
           total: Math.round(memory.totalJSHeapSize / 1048576), // MB
@@ -178,9 +184,9 @@ export function usePerformanceTiming() {
         const paintEntries = performance.getEntriesByType('paint');
         paintEntries.forEach((entry) => {
           if (entry.name === 'first-paint') {
-            (timingData as any).firstPaint = entry.startTime;
+            (timingData as { firstPaint?: number }).firstPaint = entry.startTime;
           } else if (entry.name === 'first-contentful-paint') {
-            (timingData as any).firstContentfulPaint = entry.startTime;
+            (timingData as { firstContentfulPaint?: number }).firstContentfulPaint = entry.startTime;
           }
         });
 

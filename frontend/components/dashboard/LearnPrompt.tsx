@@ -34,7 +34,6 @@ const LearnPrompt = () => {
       });
 
       const data = await res.json();
-      console.log("Created course:", data);
 
       if (data.courseId) {
         router.push(`/learn/${data.courseId}`);

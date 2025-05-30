@@ -3,10 +3,10 @@ API endpoints for background task management and monitoring.
 Add these to your Flask app.
 """
 from flask import Blueprint, jsonify, request
-from src.task_monitor import TaskMonitor
-from src.file_upload_handler import FileUploadHandler
-from src.tasks import index_file, reindex_course
-from src.db.queries import get_file_by_id
+from task_monitor import TaskMonitor
+from file_upload_handler import FileUploadHandler
+from tasks import index_file, reindex_course
+from db.queries import get_file_by_id
 from sqlalchemy.orm import Session
 
 # Create blueprint
@@ -139,8 +139,8 @@ def retry_failed_tasks():
 def reindex_file(file_id):
     """Manually trigger file reindexing."""
     # Check if file exists
-    from src.db.queries import get_file_by_id
-    from src.db.schema import Session as DBSession
+    from db.queries import get_file_by_id
+    from db.schema import Session as DBSession
     
     db = DBSession()
     try:
@@ -185,7 +185,7 @@ def reindex_course_endpoint(course_id):
 @background_api.route('/files/<file_id>/indexing-status', methods=['GET'])
 def check_file_indexing_status(file_id):
     """Check indexing status of a file."""
-    from src.db.schema import Session as DBSession
+    from db.schema import Session as DBSession
     
     db = DBSession()
     try:

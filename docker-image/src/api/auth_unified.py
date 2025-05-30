@@ -11,11 +11,15 @@ from flask_jwt_extended import (
 from datetime import datetime, timedelta
 import logging
 from firebase_admin import auth as firebase_auth
+import uuid
 
-from src.services.auth_service_unified import UnifiedAuthService
-from src.core.decorators_unified import auth_required, rate_limit
-from src.core.exceptions import ValidationError, AuthenticationError, NotFoundError
-from src.core.database import db
+from services.auth_service_unified import UnifiedAuthService
+from services.jwt_blacklist import jwt_blacklist
+from core.decorators_unified import auth_required
+from core.exceptions import ValidationError, AuthenticationError, NotFoundError
+from core.database import db
+from core.cookie_auth import cookie_auth
+from core.rate_limiter_v2 import rate_limit_decorator, RateLimitConfig
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +45,7 @@ def get_api_version():
 
 
 @bp.route('/login', methods=['POST'])
-@rate_limit(max_requests=10, window_seconds=60)
+@rate_limit_decorator(**RateLimitConfig.AUTH_LOGIN)
 def login():
     """
     Unified login endpoint supporting both v1 and v2 flows
@@ -61,7 +65,7 @@ def login():
         # Firebase authentication (both versions)
         if 'idToken' in data or 'id_token' in data:
             token = data.get('idToken') or data.get('id_token')
-            result = auth_service.authenticate_firebase(token, version=version)
+            result = auth_service.authenticate_with_firebase(token, version=version)
         
         # Email/password authentication (v1 compatibility)
         elif 'email' in data and 'password' in data:
@@ -76,25 +80,30 @@ def login():
         
         # Handle response based on version
         if version == 'v2':
-            # Modern OAuth2-style response
+            # Modern secure cookie-based response
             response = make_response(jsonify({
-                'access_token': result['access_token'],
+                'success': True,
+                'user': result['user'],
                 'token_type': 'Bearer',
-                'expires_in': 1800,  # 30 minutes
-                'user': result['user']
+                'expires_in': 1800  # 30 minutes
             }))
             
-            # Set refresh token in HTTP-only cookie
-            if 'refresh_token' in result:
-                response.set_cookie(
-                    'refresh_token',
-                    result['refresh_token'],
-                    httponly=True,
-                    secure=True,
-                    samesite='Lax',
-                    max_age=30*24*60*60  # 30 days
-                )
-                
+            # Generate CSRF token
+            csrf_token = cookie_auth.generate_csrf_token()
+            
+            # Set secure httpOnly cookies
+            cookie_auth.set_auth_cookies(
+                response=response,
+                access_token=result['access_token'],
+                refresh_token=result.get('refresh_token'),
+                csrf_token=csrf_token
+            )
+            
+            # Include CSRF token in response for client to use
+            response_data = response.get_json()
+            response_data['csrf_token'] = csrf_token
+            response.data = jsonify(response_data).data
+            
             return response
         else:
             # Legacy v1 response - set Firebase session cookie
@@ -148,7 +157,7 @@ def login():
 
 
 @bp.route('/register', methods=['POST'])
-@rate_limit(max_requests=5, window_seconds=300)
+@rate_limit_decorator(max_requests=5, window_seconds=300)
 def register():
     """
     Unified registration endpoint
@@ -197,7 +206,7 @@ def register():
 
 
 @bp.route('/register/<role>', methods=['POST'])
-@rate_limit(max_requests=5, window_seconds=300)
+@rate_limit_decorator(max_requests=5, window_seconds=300)
 def register_with_role(role):
     """Legacy v1 endpoint for backward compatibility"""
     request.view_args['role'] = role
@@ -239,40 +248,56 @@ def refresh_token():
 
 
 @bp.route('/logout', methods=['POST'])
-@auth_required(version_aware=True)
+@jwt_required()
 def logout():
     """
-    Logout endpoint
+    Logout endpoint with JWT blacklisting
     
-    v1: Clears JWT from client
-    v2: Blacklists tokens and clears session
+    Blacklists the current access token and any associated refresh tokens
     """
     try:
-        version = get_api_version()
-        user_id = g.current_user.user_id
+        # Get current token info
+        token_data = get_jwt()
+        jti = token_data.get('jti')
+        exp = datetime.fromtimestamp(token_data.get('exp', 0))
+        user_id = get_jwt_identity()
         
-        if version == 'v2':
-            # Get tokens to blacklist
-            access_token = get_jwt()
-            refresh_token = request.cookies.get('refresh_token')
-            
-            auth_service.logout(
-                user_id=user_id,
-                access_token_jti=access_token.get('jti'),
-                refresh_token=refresh_token
-            )
-            
-            # Clear refresh token cookie
-            response = make_response(jsonify({'message': 'Logged out successfully'}))
-            response.set_cookie('refresh_token', '', expires=0)
-            return response
-        else:
-            # v1 just returns success (client handles token removal)
-            return jsonify({'message': 'Logged out successfully'})
-            
+        # Blacklist the current access token
+        if jti:
+            jwt_blacklist.blacklist_token(jti, exp, user_id)
+            logger.info(f"Blacklisted access token for user {user_id}")
+        
+        # Also blacklist refresh token if present
+        refresh_token = request.cookies.get('refresh_token')
+        if refresh_token:
+            # Note: In production, you'd decode the refresh token to get its JTI
+            # For now, we'll revoke all user tokens
+            count = jwt_blacklist.blacklist_all_user_tokens(user_id)
+            logger.info(f"Blacklisted {count} tokens for user {user_id}")
+        
+        # Clear cookies
+        response = make_response(jsonify({
+            'message': 'Logged out successfully',
+            'success': True
+        }))
+        
+        # Clear both access and refresh tokens from cookies
+        response.set_cookie('access_token', '', expires=0, httponly=True, secure=True)
+        response.set_cookie('refresh_token', '', expires=0, httponly=True, secure=True)
+        response.set_cookie('session', '', expires=0, httponly=True, secure=True)
+        
+        return response
+        
     except Exception as e:
-        logger.error(f"Logout error: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+        logger.error(f"Logout error: {str(e)}", exc_info=True)
+        # Still try to clear cookies even if blacklisting fails
+        response = make_response(jsonify({
+            'error': 'Logout partially failed',
+            'message': 'Tokens cleared but blacklisting failed'
+        }), 500)
+        response.set_cookie('access_token', '', expires=0, httponly=True, secure=True)
+        response.set_cookie('refresh_token', '', expires=0, httponly=True, secure=True)
+        return response
 
 
 @bp.route('/me', methods=['GET'])

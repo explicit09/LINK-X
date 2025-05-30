@@ -2,7 +2,7 @@
 Celery tasks for background processing
 """
 from celery import Celery
-from ..core.settings import get_settings
+from core.settings import get_settings
 
 # Get settings
 settings = get_settings()

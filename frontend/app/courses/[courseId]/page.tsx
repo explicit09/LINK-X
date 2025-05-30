@@ -267,7 +267,6 @@ export default function CoursePage() {
         try {
           user = await userAPI.getMe();
           setCurrentUser(user);
-          console.log('User loaded successfully:', user);
         } catch (userError) {
           console.error('Failed to load user:', userError);
           sonnerToast.error('Authentication failed. Please log in again.');
@@ -282,17 +281,15 @@ export default function CoursePage() {
         try {
           if (user.role === "student") {
             try {
-              console.log('Loading enrolled courses for student...');
               const enrolledCourses = await studentAPI.getCourses();
               courseData = enrolledCourses.find((c: any) => c.id === courseId);
               
               if (courseData) {
                 try {
-                  console.log('=== TRYING OPTIMIZED ENDPOINT ===');
                   // Get auth token
                   const token = await getAuthToken();
                   const modulesWithFilesResponse = await fetch(
-                    `${API_URL}/api/v1/courses/${courseId}/moduleswithfiles`,
+                    `${API_URL}/api/v2/courses/${courseId}/moduleswithfiles`,
                     {
                       method: 'GET',
                       credentials: 'include',
@@ -303,11 +300,9 @@ export default function CoursePage() {
                     }
                   );
                   
-                  console.log('Optimized endpoint response status:', modulesWithFilesResponse.status);
                   
                   if (modulesWithFilesResponse.ok) {
                     const modulesWithFiles = await modulesWithFilesResponse.json();
-                    console.log('Optimized endpoint success! Data:', modulesWithFiles);
                     modulesData = modulesWithFiles;
                     
                     filesData = modulesWithFiles.flatMap((module: any) => 
@@ -317,9 +312,7 @@ export default function CoursePage() {
                         moduleName: module.title
                       }))
                     );
-                    console.log('Extracted files from optimized endpoint:', filesData);
                   } else {
-                    console.log('Optimized endpoint failed, falling back to modules API');
                     modulesData = await studentAPI.getCourseModules(courseId);
                     
                     // Ensure modulesData is an array
@@ -359,7 +352,7 @@ export default function CoursePage() {
                 try {
                   const token = await getAuthToken();
                   const modulesWithFilesResponse = await fetch(
-                    `${API_URL}/api/v1/courses/${courseId}/moduleswithfiles`,
+                    `${API_URL}/api/v2/courses/${courseId}/moduleswithfiles`,
                     {
                       method: 'GET',
                       credentials: 'include',
@@ -490,10 +483,6 @@ export default function CoursePage() {
         // Load quizzes
         let quizzes: Quiz[] = [];
         
-        console.log('=== FINAL DATA LOADED ===');
-        console.log('- Course:', transformedCourse);
-        console.log('- Modules:', organizedModules);
-        console.log('- Total materials:', transformedMaterials.length);
 
         setCourse(transformedCourse);
         setModules(organizedModules);
@@ -617,15 +606,13 @@ export default function CoursePage() {
     
     // Distribute materials into modules
     materials.forEach(material => {
-      console.log(`Processing material: ${material.title}, moduleId: ${material.moduleId}`);
       
       if (material.moduleId && moduleMap.has(material.moduleId)) {
         // Material has a valid moduleId and the module exists - use it
-        console.log(`Assigning ${material.title} to existing module ${material.moduleId}`);
         moduleMap.get(material.moduleId)!.materials.push(material);
       } else if (material.moduleId) {
-        // Material has moduleId but module doesn't exist in moduleMap
-        // This shouldn't happen if backend is working correctly, but let's handle it
+        // Material has moduleId but module doesn&apos;t exist in moduleMap
+        // This shouldn&apos;t happen if backend is working correctly, but let&apos;s handle it
         console.warn(`Material ${material.title} has moduleId ${material.moduleId} but module not found in moduleMap`);
         
         // Create the missing module
@@ -636,10 +623,8 @@ export default function CoursePage() {
           materials: [material],
           isExpanded: true
         });
-        console.log(`Created missing module ${material.moduleId} for material ${material.title}`);
       } else {
         // Material has no moduleId - only then do smart assignment
-        console.log(`Material ${material.title} has no moduleId, doing smart assignment`);
         let targetModuleId = 'resources'; // default fallback
         
         // Smart assignment based on file name or type
@@ -666,7 +651,6 @@ export default function CoursePage() {
           });
         }
         
-        console.log(`Smart assignment: ${material.title} -> ${targetModuleId}`);
         moduleMap.get(targetModuleId)!.materials.push(material);
       }
     });
@@ -1065,7 +1049,7 @@ export default function CoursePage() {
     
     try {
       // Use unified API endpoint
-      const endpoint = `/api/v1/courses/${courseId}/modules`;
+      const endpoint = `/api/v2/courses/${courseId}/modules`;
         
       const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
@@ -1091,7 +1075,6 @@ export default function CoursePage() {
       }
 
       const responseData = await response.json();
-      console.log('Module creation response:', responseData);
       const newModule = responseData.module;
 
       // Add the new module to the local state with proper structure
@@ -1103,13 +1086,11 @@ export default function CoursePage() {
         isExpanded: true,
       };
       
-      console.log('Adding new module:', moduleToAdd);
 
       setModules(prev => {
-        // Ensure we don't have duplicate IDs
+        // Ensure we don&apos;t have duplicate IDs
         const filtered = prev.filter(m => m.id !== moduleToAdd.id);
         const updated = [...filtered, moduleToAdd];
-        console.log('Updated modules:', updated);
         return updated;
       });
 
@@ -1173,7 +1154,6 @@ export default function CoursePage() {
         return;
       }
       
-      console.log("=== UPLOAD COMPLETE - FILE DATA ===", newFile);
       
       // Normalize the file data - handle both module_id and moduleId
       const moduleId = newFile.moduleId || newFile.module_id;
@@ -1190,7 +1170,6 @@ export default function CoursePage() {
         moduleName: newFile.moduleName,
       };
       
-      console.log("=== NEW MATERIAL CREATED ===", newMaterial);
       
       // Instead of just adding to existing materials, reload the modules from the server
       // This ensures we get the latest data including the newly uploaded file
@@ -1210,7 +1189,6 @@ export default function CoursePage() {
           
           if (modulesWithFilesResponse.ok) {
             const modulesWithFiles = await modulesWithFilesResponse.json();
-            console.log("=== REFRESHED MODULES DATA ===", modulesWithFiles);
             
             const filesData = modulesWithFiles.flatMap((module: any) => 
               (module.files || []).map((file: any) => ({
@@ -1764,7 +1742,7 @@ export default function CoursePage() {
                                 No files match your search
                               </h3>
                               <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">
-                                Try adjusting your search terms or filters to find what you're looking for.
+                                Try adjusting your search terms or filters to find what you&apos;re looking for.
                               </p>
                               <Button
                                 variant="outline"
@@ -1831,7 +1809,7 @@ export default function CoursePage() {
                           <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50">
                             <div className="flex justify-start">
                               <div className="bg-white rounded-lg p-3 max-w-[80%] shadow-sm">
-                                <p className="text-sm">Hello! I'm your AI tutor for {course?.title || 'this course'}. How can I help you today?</p>
+                                <p className="text-sm">Hello! I&apos;m your AI tutor for {course?.title || 'this course'}. How can I help you today?</p>
                               </div>
                             </div>
                             

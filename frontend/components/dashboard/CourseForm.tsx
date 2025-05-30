@@ -21,7 +21,15 @@ interface CourseFormProps {
     description: string;
     published: boolean;
   };
-  onSave: (course: any) => void;
+  onSave: (course: {
+    id: string;
+    title: string;
+    code: string;
+    term: string;
+    description: string;
+    published: boolean;
+    accessCode?: string;
+  }) => void;
   onCancel: () => void;
   userRole?: 'instructor' | 'student';
 }

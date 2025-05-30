@@ -79,17 +79,17 @@ export default function StudentDash({ currentUser }: StudentDashProps) {
           // The user profile is already loaded from userAPI.getMe() above
           // Check if the user has a student profile
           if (!user.profile || !user.profile.name) {
-            // Profile truly doesn't exist - this is likely a new user
+            // Profile truly doesn&apos;t exist - this is likely a new user
             // Check if user has previously completed onboarding (in case of data loss)
             const hasCompletedOnboarding = localStorage.getItem(`onboarding_completed_${user.id}`) === 'true';
             
             if (!hasCompletedOnboarding) {
-              console.log("No student profile found and no onboarding completion record, redirecting to onboarding");
+              // No student profile found and no onboarding completion record, redirecting to onboarding
               router.push('/onboarding');
               return;
             } else {
               // User completed onboarding before but profile is missing - show a recreate prompt
-              console.log("Profile missing but user previously completed onboarding");
+              // Profile missing but user previously completed onboarding
               setShowOnboardingPrompt(true);
             }
           } else {
@@ -172,7 +172,7 @@ export default function StudentDash({ currentUser }: StudentDashProps) {
           </div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Profile Setup Needed</h2>
           <p className="text-gray-600 mb-6">
-            We couldn't find your learning profile. Would you like to set up your preferences to get personalized content?
+            We couldn&apos;t find your learning profile. Would you like to set up your preferences to get personalized content?
           </p>
           <div className="space-y-3">
             <button

@@ -3,11 +3,11 @@ import json
 import time
 from datetime import datetime
 
-from ..repositories.file_repository import FileRepository
-from ..repositories.course_repository import CourseRepository
-from ..repositories.user_repository import UserRepository
-from ..core.exceptions import NotFoundError, AuthorizationError
-from ..core.cache import cache
+from repositories.file_repository import FileRepository
+from repositories.course_repository import CourseRepository
+from repositories.user_repository import UserRepository
+from core.exceptions import NotFoundError, AuthorizationError
+from core.cache import cache
 from .ai_service import AIService
 
 class StreamingService:
@@ -188,8 +188,8 @@ class StreamingService:
     
     def _get_file_content(self, file) -> str:
         """Get file content from chunks or transcription"""
-        from ..db.connection import get_db_session
-        from ..db.schema import FileChunk
+        from db.connection import get_db_session
+        from db.schema import FileChunk
         
         session = get_db_session()
         try:
@@ -218,7 +218,7 @@ class StreamingService:
             raise NotFoundError("File not found")
         
         # Check course access
-        from ..repositories.module_repository import ModuleRepository
+        from repositories.module_repository import ModuleRepository
         module_repo = ModuleRepository()
         module = module_repo.get_by_id(file.module_id)
         
@@ -234,7 +234,7 @@ class StreamingService:
             if str(course.instructor_id) != str(user_id):
                 raise AuthorizationError("Access denied")
         else:  # Student
-            from ..repositories.enrollment_repository import EnrollmentRepository
+            from repositories.enrollment_repository import EnrollmentRepository
             enrollment_repo = EnrollmentRepository()
             enrollment = enrollment_repo.get_by_student_course(user_id, course.id)
             if not enrollment:

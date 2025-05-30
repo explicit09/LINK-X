@@ -61,54 +61,54 @@ export interface Enrollment {
 class CourseAPI {
   // Course CRUD
   async getCourses(): Promise<Course[]> {
-    return apiClient.get<Course[]>('/api/v1/courses');
+    return apiClient.get<Course[]>('/api/v2/courses');
   }
 
   async getCourse(courseId: string): Promise<Course> {
-    return apiClient.get<Course>(`/api/v1/courses/${courseId}`);
+    return apiClient.get<Course>(`/api/v2/courses/${courseId}`);
   }
 
   async createCourse(data: CreateCourseData): Promise<Course> {
-    return apiClient.post<Course>('/api/v1/courses', data);
+    return apiClient.post<Course>('/api/v2/courses', data);
   }
 
   async updateCourse(courseId: string, data: Partial<CreateCourseData>): Promise<Course> {
-    return apiClient.patch<Course>(`/api/v1/courses/${courseId}`, data);
+    return apiClient.patch<Course>(`/api/v2/courses/${courseId}`, data);
   }
 
   async deleteCourse(courseId: string): Promise<void> {
-    await apiClient.delete(`/api/v1/courses/${courseId}`);
+    await apiClient.delete(`/api/v2/courses/${courseId}`);
   }
 
   async publishCourse(courseId: string): Promise<Course> {
-    return apiClient.post<Course>(`/api/v1/courses/${courseId}/publish`);
+    return apiClient.post<Course>(`/api/v2/courses/${courseId}/publish`);
   }
 
   // Modules
   async getCourseModules(courseId: string): Promise<Module[]> {
-    return apiClient.get<Module[]>(`/api/v1/courses/${courseId}/modules`);
+    return apiClient.get<Module[]>(`/api/v2/courses/${courseId}/modules`);
   }
 
   async createModule(courseId: string, data: { title: string; description?: string }): Promise<Module> {
-    return apiClient.post<Module>(`/api/v1/courses/${courseId}/modules`, data);
+    return apiClient.post<Module>(`/api/v2/courses/${courseId}/modules`, data);
   }
 
   async updateModule(moduleId: string, data: { title?: string; description?: string }): Promise<Module> {
-    return apiClient.patch<Module>(`/api/v1/modules/${moduleId}`, data);
+    return apiClient.patch<Module>(`/api/v2/modules/${moduleId}`, data);
   }
 
   async deleteModule(moduleId: string): Promise<void> {
-    await apiClient.delete(`/api/v1/modules/${moduleId}`);
+    await apiClient.delete(`/api/v2/modules/${moduleId}`);
   }
 
   // Enrollment
   async enrollInCourse(courseId: string, accessCode: string): Promise<Enrollment> {
-    return apiClient.post<Enrollment>(`/api/v1/courses/${courseId}/enroll`, { accessCode });
+    return apiClient.post<Enrollment>(`/api/v2/courses/${courseId}/enroll`, { accessCode });
   }
 
   // Statistics
   async getCourseStats(courseId: string): Promise<any> {
-    return apiClient.get(`/api/v1/courses/${courseId}/stats`);
+    return apiClient.get(`/api/v2/courses/${courseId}/stats`);
   }
 
   // Legacy endpoints for compatibility

@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from dataclasses import dataclass
 import logging
 
-from src.core.exceptions import ValidationError, NotFoundError, UnauthorizedException
-from src.core.cache import cache
+from core.exceptions import ValidationError, NotFoundError, UnauthorizedException
+from core.cache import cache
 
 logger = logging.getLogger(__name__)
 

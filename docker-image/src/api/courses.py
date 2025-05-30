@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify, g
-from ..core.decorators_unified import firebase_auth_required
-from ..core.exceptions import NotFoundError, ValidationError, AuthorizationError
-from ..services.course_service import CourseService
-from ..repositories.course_repository import CourseRepository
+from core.decorators_unified import firebase_auth_required
+from core.exceptions import NotFoundError, ValidationError, AuthorizationError
+from services.course_service import CourseService
+from repositories.course_repository import CourseRepository
 
 bp = Blueprint('courses', __name__)
 
@@ -395,7 +395,7 @@ def get_modules_with_files(course_id):
         )
         
         # Get files for each module
-        from ..repositories.file_repository import FileRepository
+        from repositories.file_repository import FileRepository
         file_repo = FileRepository()
         
         modules_with_files = []

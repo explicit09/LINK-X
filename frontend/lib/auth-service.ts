@@ -14,7 +14,15 @@ interface AuthState {
   isAuthenticated: boolean;
   isRegistered: boolean;
   tokens: AuthTokens | null;
-  user: any | null;
+  user: {
+    id: string;
+    email: string;
+    role: 'student' | 'instructor' | 'admin';
+    profile?: {
+      name?: string;
+      university?: string;
+    };
+  } | null;
 }
 
 class AuthService {
@@ -143,8 +151,8 @@ class AuthService {
       const idToken = await firebaseUser.getIdToken();
       
       // Try to establish session with backend
-      console.log('Creating session with Firebase token...');
-      const response = await fetch(`${API_URL}/api/v1/auth/sessionLogin`, {
+      // Create session with Firebase token
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -152,12 +160,11 @@ class AuthService {
         body: JSON.stringify({ idToken }),
         credentials: 'include',
       });
-      console.log('Session login response:', response.status);
 
       if (!response.ok) {
         // If 404, user needs to complete registration
         if (response.status === 404) {
-          console.log('User needs to complete registration');
+          // User needs to complete registration
           this.authState.isAuthenticated = true;
           this.authState.isRegistered = false;
           this.saveAuthState();
@@ -195,9 +202,9 @@ class AuthService {
       
       // Safe logging with null check
       if (data.user && data.user.email) {
-        console.log('User successfully authenticated and registered:', data.user.email);
+        // User successfully authenticated and registered
       } else {
-        console.log('User successfully authenticated and registered');
+        // User successfully authenticated and registered
       }
       
       return true;
@@ -222,7 +229,7 @@ class AuthService {
       const token = await this.getValidToken();
       if (!token) return false;
 
-      const response = await fetch(`${API_URL}/api/v1/auth/me`, {
+      const response = await fetch(`${API_URL}/auth/me`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -242,7 +249,7 @@ class AuthService {
 
       // If 401, the session might not be established properly
       if (response.status === 401) {
-        console.log('Registration check got 401, session may need refresh');
+        // Registration check got 401, session may need refresh
       }
 
       return false;
@@ -260,7 +267,7 @@ class AuthService {
 
     // If no backend token but we have a Firebase user, try to establish session
     if (auth.currentUser && !this.authState.tokens) {
-      console.log('No backend token found, attempting to establish session...');
+      // No backend token found, attempting to establish session
       const sessionEstablished = await this.login(auth.currentUser);
       if (sessionEstablished && this.authState.tokens && this.authState.tokens.accessToken) {
         return this.authState.tokens.accessToken;
@@ -271,7 +278,7 @@ class AuthService {
     if (auth.currentUser) {
       try {
         const firebaseToken = await auth.currentUser.getIdToken();
-        console.log('Using Firebase token as fallback');
+        // Using Firebase token as fallback
         return firebaseToken;
       } catch (error) {
         console.error('Failed to get Firebase token:', error);
@@ -288,7 +295,7 @@ class AuthService {
       return false;
     }
 
-    console.log('Forcing session establishment...');
+    // Force session establishment
     this.clearAuthState(); // Clear any stale state
     return await this.login(auth.currentUser);
   }
@@ -313,7 +320,7 @@ class AuthService {
       
       // Logout from backend
       if (this.authState.tokens) {
-        await fetch(`${API_URL}/api/v1/auth/logout`, {
+        await fetch(`${API_URL}/api/v2/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${this.authState.tokens.accessToken}`,
@@ -340,7 +347,15 @@ class AuthService {
     return this.authState.isRegistered;
   }
 
-  getUser(): any | null {
+  getUser(): {
+    id: string;
+    email: string;
+    role: 'student' | 'instructor' | 'admin';
+    profile?: {
+      name?: string;
+      university?: string;
+    };
+  } | null {
     return this.authState.user;
   }
 

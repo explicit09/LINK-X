@@ -49,7 +49,8 @@ services:
   celery-worker:
     image: learnx:${DOCKER_ENV:-dev}
     restart: always
-    command: ["bash", "-c", "cd /app && celery -A src.celery_app worker --loglevel=info --concurrency=${CELERY_CONCURRENCY:-2}"]
+    entrypoint: ["/app/docker/celery-entrypoint.sh"]
+    command: ["worker"]
     env_file:
       - ./docker-image/.env
     environment:
@@ -70,7 +71,8 @@ services:
   celery-beat:
     image: learnx:${DOCKER_ENV:-dev}
     restart: always
-    command: ["bash", "-c", "cd /app && celery -A src.celery_app beat --loglevel=info"]
+    entrypoint: ["/app/docker/celery-entrypoint.sh"]
+    command: ["beat"]
     env_file:
       - ./docker-image/.env
     environment:
@@ -86,7 +88,8 @@ services:
   flower:
     image: learnx:${DOCKER_ENV:-dev}
     restart: always
-    command: ["bash", "-c", "cd /app && celery -A src.celery_app flower --port=5555"]
+    entrypoint: ["/app/docker/celery-entrypoint.sh"]
+    command: ["flower"]
     environment:
       - FLASK_ENV=${FLASK_ENV:-development}
       - REDIS_URL=redis://redis:6379/0

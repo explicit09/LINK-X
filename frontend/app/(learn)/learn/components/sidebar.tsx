@@ -66,7 +66,6 @@ export default function Sidebar() {
         // Simulate delay to mimic fetch
         await new Promise((res) => setTimeout(res, 500))
   
-        console.log("Loaded dummy chapters:", dummyData)
         setChapters(dummyData.chapters)
       } catch (err) {
         console.error("Failed to load chapters:", err)
@@ -79,7 +78,6 @@ export default function Sidebar() {
   const handleChatClick = async (message: string) => {
     if (!message.trim()) return
   
-    console.log("Sending message to AI:", message)
   
     try {
       const response = await fetch("http://localhost:8080/chat", {
@@ -92,7 +90,6 @@ export default function Sidebar() {
       })
   
       const data = await response.json()
-      console.log("Raw AI response:", data)
   
       if (data.error) {
         console.error("Chatbot error:", data.error)
@@ -105,7 +102,6 @@ export default function Sidebar() {
           { role: "user", content: message },
           { role: "assistant", content: data.response },
         ])
-        console.log("Assistant replied:", data.response)
       }
     } catch (err) {
       console.error("Failed to send message:", err)
@@ -140,7 +136,6 @@ export default function Sidebar() {
   //         { role: "user", content: message },
   //         { role: "assistant", content: data.response },
   //       ])
-  //       console.log("AI Response:", data.response)
   //     }
   //   } catch (err) {
   //     console.error("Failed to send message:", err)

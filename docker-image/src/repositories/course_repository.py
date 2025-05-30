@@ -3,8 +3,8 @@ from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import joinedload
 from datetime import datetime
 
-from .base_repository import BaseRepository
-from ..db.schema import Course, Module, File, AccessCode, Enrollment
+from repositories.base_repository import BaseRepository
+from db.schema import Course, Module, File, AccessCode, Enrollment
 
 class CourseRepository(BaseRepository[Course]):
     """Repository for course-related database operations"""

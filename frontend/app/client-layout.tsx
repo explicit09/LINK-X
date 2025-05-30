@@ -33,7 +33,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       const path = window.location.pathname;
       const search = window.location.search;
       const localhostUrl = `http://localhost:${port}${path}${search}`;
-      console.log('Redirecting from 127.0.0.1 to localhost for Firebase auth compatibility');
       window.location.href = localhostUrl;
     }
   }, []);

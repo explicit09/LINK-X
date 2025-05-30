@@ -4,15 +4,14 @@ Uses blueprints and proper architecture
 """
 import os
 from flask import Flask
-from flask_jwt_extended import JWTManager
-import firebase_admin
-from firebase_admin import credentials
+from core.firebase_config import initialize_firebase
 import logging
 
-from src.core.database import db, db_manager
-from src.core.cors import configure_cors
-from src.core.middleware import setup_middleware
-from src.core.monitoring import setup_monitoring
+from core.database import db, db_manager
+from core.cors import configure_cors
+from core.middleware import setup_middleware
+from core.monitoring import setup_monitoring
+# from core.sentry_config import init_sentry  # Temporarily disabled until sentry-sdk is installed
 
 # Configure logging
 logging.basicConfig(
@@ -21,17 +20,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Import session blueprint from api.session
+from api.session import session_bp
+
 # Import blueprints - using the new unified structure
-from src.api.health import bp as health_bp
-from src.api.auth_unified import bp as auth_bp
-from src.api.v1 import api_v1
+from api.health import bp as health_bp
+from api.auth_unified import bp as auth_bp
+from api.v1 import api_v1
+from api.v2 import api_v2
+from monitoring.api_version_monitor import monitoring_bp, create_api_usage_table
+from api.circuit_breaker_monitor import bp as circuit_breaker_bp
+# from api.docs import bp as docs_bp  # Temporarily disabled until flask-restx is installed
 
 def create_app():
     """Application factory pattern"""
     app = Flask(__name__)
     
     # Configuration
-    from src.core.config import get_config
+    from core.config import get_config
     config = get_config()
     app.config.from_object(config)
     
@@ -45,58 +51,67 @@ def create_app():
     # Setup middleware
     setup_middleware(app)
     
+    # Setup API versioning middleware
+    from core.api_versioning import VersioningMiddleware
+    VersioningMiddleware(app)
+    
+    # Setup security headers
+    from core.security_headers import configure_security_headers
+    configure_security_headers(app)
+    
+    # Initialize Sentry for error tracking (production only)
+    # init_sentry(app)  # Temporarily disabled until sentry-sdk is installed
+    
     # Setup monitoring (optional)
     if app.config.get('ENABLE_MONITORING', False):
         setup_monitoring(app)
     
-    # Initialize Firebase
-    initialize_firebase(app)
+    # Initialize Firebase using secure config
+    try:
+        initialize_firebase()
+        logger.info("Firebase initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize Firebase: {e}")
     
-    # Initialize JWT
-    jwt = JWTManager(app)
+    # Initialize JWT with blacklist support
+    from core.jwt_config import configure_jwt
+    configure_jwt(app)
     
     # Register blueprints in order of priority
     # Health check (no prefix for load balancer compatibility)
     app.register_blueprint(health_bp)
+    # Also register under /api for monitoring tools that expect it there
+    app.register_blueprint(health_bp, url_prefix='/api', name='health_api')
+    
+    # Root-level session endpoint for compatibility
+    app.register_blueprint(session_bp)
     
     # New unified auth endpoints (v2 style) - mounted at /auth for new frontend
     app.register_blueprint(auth_bp, url_prefix='/auth')
     
+    # API v2 endpoints (current version) - all under /api/v2
+    app.register_blueprint(api_v2)
+    
     # API v1 endpoints (legacy compatibility) - all under /api/v1
     app.register_blueprint(api_v1)
     
-    logger.info("Application created with unified API structure")
+    # API monitoring endpoints - all under /api/monitoring
+    app.register_blueprint(monitoring_bp)
+    
+    # Circuit breaker monitoring - under /api/circuit-breakers
+    app.register_blueprint(circuit_breaker_bp, url_prefix='/api/circuit-breakers')
+    
+    # API Documentation (Swagger/OpenAPI)
+    # if app.config.get('FLASK_ENV') != 'production' or app.config.get('ENABLE_API_DOCS', False):
+    #     app.register_blueprint(docs_bp, url_prefix='/api')  # Temporarily disabled until flask-restx is installed
+    
+    
+    # Initialize API usage monitoring table
+    with app.app_context():
+        create_api_usage_table()
+    
+    logger.info("Application created with API v1 and v2 support + monitoring")
     return app
-
-
-def initialize_firebase(app):
-    """Initialize Firebase Admin SDK"""
-    if not firebase_admin._apps:
-        # Try environment variables first
-        project_id = app.config.get('FIREBASE_PROJECT_ID')
-        private_key = app.config.get('FIREBASE_PRIVATE_KEY')
-        client_email = app.config.get('FIREBASE_CLIENT_EMAIL')
-        
-        if project_id and private_key and client_email:
-            # Use environment variables
-            cred_data = {
-                "type": "service_account",
-                "project_id": project_id,
-                "private_key": private_key.replace('\\n', '\n'),
-                "client_email": client_email,
-            }
-            cred = credentials.Certificate(cred_data)
-            firebase_admin.initialize_app(cred)
-            logger.info("Firebase initialized from environment variables")
-        else:
-            # Fall back to credentials file
-            cred_path = app.config.get('FIREBASE_CREDENTIALS_PATH')
-            if cred_path and os.path.exists(cred_path):
-                cred = credentials.Certificate(cred_path)
-                firebase_admin.initialize_app(cred)
-                logger.info(f"Firebase initialized from file: {cred_path}")
-            else:
-                logger.warning("Firebase credentials not found in environment or file")
 
 
 if __name__ == '__main__':

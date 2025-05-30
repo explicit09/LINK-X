@@ -95,7 +95,7 @@ export default function Page() {
         bodyData.university = String(formData.get("university") || "");
       }
 
-      console.log('Sending registration data:', JSON.stringify(bodyData, null, 2));
+      // Registration data prepared
       
       // Step 4: Register user in backend database
       try {
@@ -142,7 +142,7 @@ export default function Page() {
           return;
         }
         
-        console.log("User created successfully in database");
+        // User created successfully in database
         
         // Step 5: Create session login
         try {

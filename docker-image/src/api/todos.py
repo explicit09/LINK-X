@@ -3,11 +3,11 @@ from datetime import datetime
 from sqlalchemy import desc
 import uuid
 
-from src.core.decorators_unified import firebase_auth_required
-from src.core.database import db
-from src.db.schema import Todo
-from src.repositories.todo_repository import TodoRepository
-from src.repositories.course_repository import CourseRepository
+from core.decorators_unified import firebase_auth_required
+from core.database import db
+from db.schema import Todo
+from repositories.todo_repository import TodoRepository
+from repositories.course_repository import CourseRepository
 
 todos_bp = Blueprint('todos', __name__)
 

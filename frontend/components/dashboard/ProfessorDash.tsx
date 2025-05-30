@@ -64,8 +64,8 @@ export default function ProfessorDashboard() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [editingCourse, setEditingCourse] = useState<any>(null);
-  const [selectedCourse, setSelectedCourse] = useState<any>(null);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [activeTab, setActiveTab] = useState<
     "home" | "modules" | "people" | "settings"
   >("home");
@@ -222,7 +222,7 @@ export default function ProfessorDashboard() {
     
     if (!activeModuleId) {
       // Find the first module that belongs to this course
-      // We need to use type assertion since the modules type doesn't include course_id
+      // We need to use type assertion since the modules type doesn&apos;t include course_id
       const moduleForCourse = modules.find(m => (m as any).course_id === courseId);
       activeModuleId = moduleForCourse?.id || null;
     }
@@ -414,7 +414,7 @@ export default function ProfessorDashboard() {
         code: courseData.code,
         term: courseData.term,
         published: courseData.published ?? false,
-        // Skip instructor_id if profile doesn't exist
+        // Skip instructor_id if profile doesn&apos;t exist
         useCreatorAsInstructor: !hasProfile
       };
       

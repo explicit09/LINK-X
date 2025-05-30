@@ -3,7 +3,7 @@ import os
 from flask import json
 from openai import OpenAI
 from dotenv import load_dotenv, find_dotenv
-from src.services.ai_service import retrieve_chunks_pgvector
+from services.ai_service import retrieve_chunks_pgvector
 
 load_dotenv(find_dotenv())
 

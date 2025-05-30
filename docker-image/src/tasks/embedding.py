@@ -7,10 +7,10 @@ import numpy as np
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 
-from ..services.ai_service import AIService
-from ..db.connection import get_db_session
-from ..db.schema import File, FileChunk
-from ..core.cache import cache
+from services.ai_service import AIService
+from db.connection import get_db_session
+from db.schema import File, FileChunk
+from core.cache import cache
 
 logger = logging.getLogger(__name__)
 

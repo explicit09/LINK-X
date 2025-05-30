@@ -1,0 +1,322 @@
+groups:
+  - name: infrastructure
+    interval: 30s
+    rules:
+      # Database alerts
+      - alert: PostgreSQLDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database has been down for more than 1 minute"
+
+      - alert: PostgreSQLHighConnections
+        expr: postgres_stat_database_numbackends / postgres_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "PostgreSQL high connection usage"
+          description: "PostgreSQL connection usage is {{ $value | humanizePercentage }} of max connections"
+
+      - alert: PostgreSQLSlowQueries
+        expr: rate(postgres_stat_database_tup_returned[5m]) / rate(postgres_stat_database_tup_fetched[5m]) < 0.1
+        for: 10m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "PostgreSQL slow queries detected"
+          description: "Query efficiency is low - returned/fetched ratio: {{ $value | humanizePercentage }}"
+
+      - alert: PostgreSQLHighLockWait
+        expr: postgres_stat_database_blks_hit / (postgres_stat_database_blks_hit + postgres_stat_database_blks_read) < 0.95
+        for: 10m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "PostgreSQL low cache hit ratio"
+          description: "Buffer cache hit ratio is {{ $value | humanizePercentage }} (threshold: 95%)"
+
+      - alert: PostgreSQLDiskSpaceLow
+        expr: postgres_stat_database_size_bytes / (1024^3) > 50
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "PostgreSQL database size growing large"
+          description: "Database size is {{ $value }}GB"
+
+      # Redis alerts
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: cache
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache has been down for more than 1 minute"
+
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_config_maxmemory > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: cache
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is {{ $value | humanizePercentage }} of max memory"
+
+      - alert: RedisHighConnections
+        expr: redis_connected_clients > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: cache
+        annotations:
+          summary: "Redis high connection count"
+          description: "Redis has {{ $value }} connected clients"
+
+      - alert: RedisRejectedConnections
+        expr: increase(redis_rejected_connections_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          service: cache
+        annotations:
+          summary: "Redis rejecting connections"
+          description: "{{ $value }} connections rejected in the last 5 minutes"
+
+      # Celery worker alerts
+      - alert: CeleryWorkersDown
+        expr: up{job="celery"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: workers
+        annotations:
+          summary: "Celery workers are down"
+          description: "No Celery workers are responding"
+
+      - alert: CeleryHighQueueLength
+        expr: celery_tasks_pending > 1000
+        for: 10m
+        labels:
+          severity: warning
+          service: workers
+        annotations:
+          summary: "Celery queue length is high"
+          description: "{{ $value }} tasks are pending in Celery queues"
+
+      - alert: CeleryHighFailureRate
+        expr: rate(celery_tasks_failed[5m]) / rate(celery_tasks_total[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          service: workers
+        annotations:
+          summary: "High Celery task failure rate"
+          description: "Celery task failure rate is {{ $value | humanizePercentage }}"
+
+      # System resource alerts
+      - alert: HighSystemCPU
+        expr: (100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 85
+        for: 10m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High system CPU usage"
+          description: "System CPU usage is {{ $value }}% on {{ $labels.instance }}"
+
+      - alert: CriticalSystemCPU
+        expr: (100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 95
+        for: 5m
+        labels:
+          severity: critical
+          service: system
+        annotations:
+          summary: "Critical system CPU usage"
+          description: "System CPU usage is {{ $value }}% on {{ $labels.instance }}"
+
+      - alert: HighSystemMemory
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High system memory usage"
+          description: "System memory usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+
+      - alert: CriticalSystemMemory
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes > 0.95
+        for: 5m
+        labels:
+          severity: critical
+          service: system
+        annotations:
+          summary: "Critical system memory usage"
+          description: "System memory usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+
+      - alert: HighDiskUsage
+        expr: (node_filesystem_size_bytes - node_filesystem_avail_bytes) / node_filesystem_size_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High disk usage"
+          description: "Disk usage is {{ $value | humanizePercentage }} on {{ $labels.device }} ({{ $labels.instance }})"
+
+      - alert: CriticalDiskUsage
+        expr: (node_filesystem_size_bytes - node_filesystem_avail_bytes) / node_filesystem_size_bytes > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          service: system
+        annotations:
+          summary: "Critical disk usage"
+          description: "Disk usage is {{ $value | humanizePercentage }} on {{ $labels.device }} ({{ $labels.instance }})"
+
+      - alert: HighDiskIOWait
+        expr: rate(node_cpu_seconds_total{mode="iowait"}[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High disk I/O wait"
+          description: "Disk I/O wait is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+
+      # Network alerts
+      - alert: HighNetworkUsage
+        expr: rate(node_network_receive_bytes_total[5m]) > 100000000  # 100MB/s
+        for: 10m
+        labels:
+          severity: warning
+          service: network
+        annotations:
+          summary: "High network receive usage"
+          description: "Network receive rate is {{ $value | humanize }}B/s on {{ $labels.device }} ({{ $labels.instance }})"
+
+      - alert: NetworkErrors
+        expr: rate(node_network_receive_errs_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: network
+        annotations:
+          summary: "Network errors detected"
+          description: "{{ $value }} network errors/second on {{ $labels.device }} ({{ $labels.instance }})"
+
+      # Container alerts
+      - alert: ContainerHighCPU
+        expr: rate(container_cpu_usage_seconds_total[5m]) > 0.8
+        for: 10m
+        labels:
+          severity: warning
+          service: containers
+        annotations:
+          summary: "Container high CPU usage"
+          description: "Container {{ $labels.name }} CPU usage is {{ $value | humanizePercentage }}"
+
+      - alert: ContainerHighMemory
+        expr: container_memory_usage_bytes / container_spec_memory_limit_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: containers
+        annotations:
+          summary: "Container high memory usage"
+          description: "Container {{ $labels.name }} memory usage is {{ $value | humanizePercentage }} of limit"
+
+      - alert: ContainerRestarts
+        expr: increase(kube_pod_container_status_restarts_total[1h]) > 5
+        for: 0m
+        labels:
+          severity: warning
+          service: containers
+        annotations:
+          summary: "Container frequent restarts"
+          description: "Container {{ $labels.container }} has restarted {{ $value }} times in the last hour"
+
+      # Load balancer alerts (if using nginx)
+      - alert: NginxDown
+        expr: up{job="nginx"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: loadbalancer
+        annotations:
+          summary: "Nginx is down"
+          description: "Nginx load balancer has been down for more than 1 minute"
+
+      - alert: NginxHighConnections
+        expr: nginx_connections_active > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: loadbalancer
+        annotations:
+          summary: "Nginx high active connections"
+          description: "Nginx has {{ $value }} active connections"
+
+      # External service monitoring
+      - alert: ExternalServiceDown
+        expr: probe_success{job="blackbox"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: external
+        annotations:
+          summary: "External service is down"
+          description: "External service {{ $labels.instance }} is not responding"
+
+      - alert: ExternalServiceSlowResponse
+        expr: probe_duration_seconds{job="blackbox"} > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: external
+        annotations:
+          summary: "External service slow response"
+          description: "External service {{ $labels.instance }} response time is {{ $value }}s"
+
+      # Prometheus itself
+      - alert: PrometheusConfigReloadFailed
+        expr: prometheus_config_last_reload_successful != 1
+        for: 5m
+        labels:
+          severity: warning
+          service: monitoring
+        annotations:
+          summary: "Prometheus config reload failed"
+          description: "Prometheus configuration reload has failed"
+
+      - alert: PrometheusNotConnectedToAlertmanager
+        expr: prometheus_notifications_alertmanagers_discovered < 1
+        for: 5m
+        labels:
+          severity: warning
+          service: monitoring
+        annotations:
+          summary: "Prometheus not connected to Alertmanager"
+          description: "Prometheus is not connected to any Alertmanager instances"
+
+      - alert: PrometheusTSDBReloadsFailing
+        expr: increase(prometheus_tsdb_reloads_failures_total[3h]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: monitoring
+        annotations:
+          summary: "Prometheus TSDB reloads failing"
+          description: "Prometheus has encountered {{ $value }} TSDB reload failures in the last 3 hours"

@@ -5,9 +5,9 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
 
-from src.services.course_service import CourseService
-from src.core.exceptions import NotFoundError, ValidationError, AuthorizationError
-from src.db.schema import Course, Module, User, Role, Enrollment
+from services.course_service import CourseService
+from core.exceptions import NotFoundError, ValidationError, AuthorizationError
+from db.schema import Course, Module, User, Role, Enrollment
 
 class TestCourseService:
     """Test cases for CourseService"""
@@ -15,9 +15,9 @@ class TestCourseService:
     @pytest.fixture
     def service(self):
         """Create CourseService instance with mocked dependencies"""
-        with patch('src.services.course_service.CourseRepository') as mock_course_repo, \
-             patch('src.services.course_service.UserRepository') as mock_user_repo, \
-             patch('src.services.course_service.EnrollmentRepository') as mock_enrollment_repo:
+        with patch('services.course_service.CourseRepository') as mock_course_repo, \
+             patch('services.course_service.UserRepository') as mock_user_repo, \
+             patch('services.course_service.EnrollmentRepository') as mock_enrollment_repo:
             
             service = CourseService()
             service.course_repo = mock_course_repo.return_value
@@ -133,7 +133,7 @@ class TestCourseService:
         
         assert "Description must be at least 10 characters" in str(exc_info.value)
     
-    @patch('src.services.course_service.invalidate_cache')
+    @patch('services.course_service.invalidate_cache')
     def test_create_course_success(self, mock_invalidate, service):
         """Test successful course creation"""
         # Arrange

@@ -2,12 +2,12 @@ from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 from sqlalchemy import func
 
-from ..repositories.user_repository import UserRepository
-from ..repositories.course_repository import CourseRepository
-from ..repositories.enrollment_repository import EnrollmentRepository
-from ..repositories.file_repository import FileRepository
-from ..core.exceptions import NotFoundError, ValidationError
-from ..core.cache import invalidate_cache
+from repositories.user_repository import UserRepository
+from repositories.course_repository import CourseRepository
+from repositories.enrollment_repository import EnrollmentRepository
+from repositories.file_repository import FileRepository
+from core.exceptions import NotFoundError, ValidationError
+from core.cache import invalidate_cache
 
 class AdminService:
     """Service for admin-related business logic"""

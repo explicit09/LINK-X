@@ -30,7 +30,6 @@ export default function PDFViewer({ fileUrl, fileName, onClose }: PDFViewerProps
         setIsLoading(true);
         setHasError(false);
         
-        console.log('Fetching PDF from:', fileUrl);
         
         if (!fileUrl) {
           throw new Error('Invalid file URL');
@@ -43,14 +42,12 @@ export default function PDFViewer({ fileUrl, fileName, onClose }: PDFViewerProps
           }
         });
         
-        console.log('Response status:', response.status);
         
         if (!response.ok) {
           throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
         }
         
         const blob = await response.blob();
-        console.log('Blob received:', blob.type, 'Size:', blob.size);
         
         if (blob.size === 0) {
           throw new Error('Empty PDF blob received');
@@ -62,7 +59,6 @@ export default function PDFViewer({ fileUrl, fileName, onClose }: PDFViewerProps
         }
         
         const url = URL.createObjectURL(blob);
-        console.log('Created blob URL:', url);
         setBlobUrl(url);
         setIsLoading(false);
       } catch (error) {

@@ -4,10 +4,12 @@ Unit tests for AuthService
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from werkzeug.security import generate_password_hash, check_password_hash
+import os
+os.environ['WERKZEUG_SECURITY_PASSWORD_METHOD'] = 'pbkdf2:sha256'
 
-from src.services.auth_service_unified import UnifiedAuthService as AuthService
-from src.core.exceptions import AuthenticationError, ValidationError
-from src.db.schema import User, Role
+from services.auth_service_unified import UnifiedAuthService as AuthService
+from core.exceptions import AuthenticationError, ValidationError
+from db.schema import User, Role
 
 class TestAuthService:
     """Test cases for AuthService"""
@@ -15,7 +17,7 @@ class TestAuthService:
     @pytest.fixture
     def mock_user_repo(self):
         """Mock UserRepository"""
-        with patch('src.services.auth_service_unified.UserRepository') as mock:
+        with patch('services.auth_service_unified.UserRepository') as mock:
             yield mock.return_value
     
     def test_authenticate_success(self, mock_user_repo):
@@ -115,7 +117,7 @@ class TestAuthService:
         mock_user_repo.create.return_value = mock_user
         
         # Mock Firebase
-        with patch('src.services.auth_service.firebase_auth') as mock_firebase:
+        with patch('services.auth_service_unified.firebase_auth') as mock_firebase:
             mock_firebase.create_user.return_value = Mock(uid='firebase-123')
             
             # Act
@@ -142,7 +144,7 @@ class TestAuthService:
         mock_user_repo.create.return_value = mock_user
         
         # Mock Firebase
-        with patch('src.services.auth_service.firebase_auth') as mock_firebase:
+        with patch('services.auth_service_unified.firebase_auth') as mock_firebase:
             mock_firebase.create_user.return_value = Mock(uid='firebase-123')
             
             # Act
@@ -158,14 +160,14 @@ class TestAuthService:
         assert result == mock_user
         mock_user_repo.create_instructor_profile.assert_called_once()
     
-    @patch('src.services.auth_service.cache')
+    @patch('services.auth_service_unified.cache')
     def test_send_password_reset_stores_token(self, mock_cache, mock_user_repo):
         """Test password reset stores token in cache"""
         # Arrange
         mock_user = Mock(id='user-123', firebase_uid='firebase-123')
         mock_user_repo.find_by_email.return_value = mock_user
         
-        with patch('src.services.auth_service.secrets.token_urlsafe') as mock_token:
+        with patch('services.auth_service_unified.secrets.token_urlsafe') as mock_token:
             mock_token.return_value = 'reset-token-123'
             
             # Act
@@ -177,7 +179,7 @@ class TestAuthService:
         cache_key = mock_cache.set.call_args[0][0]
         assert cache_key == 'password_reset:reset-token-123'
     
-    @patch('src.services.auth_service.cache')
+    @patch('services.auth_service_unified.cache')
     def test_reset_password_validates_token(self, mock_cache, mock_user_repo):
         """Test password reset validates token"""
         # Arrange
@@ -189,7 +191,7 @@ class TestAuthService:
         
         assert "Invalid or expired reset token" in str(exc_info.value)
     
-    @patch('src.services.auth_service.cache')
+    @patch('services.auth_service_unified.cache')
     def test_reset_password_updates_password(self, mock_cache, mock_user_repo):
         """Test password reset updates password"""
         # Arrange

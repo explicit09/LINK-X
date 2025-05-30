@@ -4,12 +4,15 @@ import uuid
 from io import BytesIO
 from werkzeug.utils import secure_filename
 
-from ..core.decorators_unified import firebase_auth_required
-from ..core.exceptions import NotFoundError, ValidationError, FileProcessingError
-from ..core.config import get_config
-from ..core.database import db
-from ..services.file_service import FileService
-from ..db.queries import (
+from core.decorators_unified import firebase_auth_required
+from core.exceptions import NotFoundError, ValidationError, FileProcessingError
+from core.config import get_config
+from core.database import db
+from core.file_validation import file_validator
+from core.rate_limiter_v2 import rate_limit_decorator, RateLimitConfig
+from services.file_service import FileService
+from services.s3_signed_urls import s3_signed_urls
+from db.queries import (
     get_module_by_id, get_course_by_id, create_file, get_file_by_id,
     get_modules_by_course, create_module, get_enrollment_by_student_course,
     update_file, delete_file, get_files_by_module
@@ -18,32 +21,28 @@ from ..s3_storage import s3_storage
 
 bp = Blueprint('files', __name__)
 
-def allowed_file(filename):
-    """Check if file extension is allowed"""
-    config = get_config()
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in config.ALLOWED_EXTENSIONS
-
 @bp.route('/upload', methods=['POST'])
 @firebase_auth_required
+@rate_limit_decorator(**RateLimitConfig.FILE_UPLOAD)
 def upload_file():
-    """Upload a file to a module"""
+    """Upload a file to a module with security validation"""
     if 'file' not in request.files:
         return jsonify({'error': 'No file provided'}), 400
     
     file = request.files['file']
     module_id = request.form.get('moduleId')
     
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
+    if not module_id:
+        return jsonify({'error': 'Module ID is required'}), 400
     
-    if not allowed_file(file.filename):
-        config = get_config()
-        return jsonify({'error': f'File type not allowed. Allowed types: {", ".join(config.ALLOWED_EXTENSIONS)}'}), 400
+    # Validate file using secure validator
+    is_valid, error_msg, file_info = file_validator.validate_file(file)
+    if not is_valid:
+        return jsonify({'error': error_msg}), 400
     
     # Use the same logic as the working legacy endpoint
     from sqlalchemy.orm import sessionmaker
-    from ..core.database import db_manager
+    from core.database import db_manager
     
     # Get a database session
     db_session = db_manager.get_session()
@@ -142,7 +141,7 @@ def upload_file():
 def get_file(file_id):
     """Get file metadata"""
     from sqlalchemy.orm import sessionmaker
-    from ..core.database import db_manager
+    from core.database import db_manager
     
     db_session = db_manager.get_session()
     
@@ -194,7 +193,7 @@ def get_file(file_id):
 def get_file_content(file_id):
     """Get file content for viewing"""
     from sqlalchemy.orm import sessionmaker
-    from ..core.database import db_manager
+    from core.database import db_manager
     
     db_session = db_manager.get_session()
     
@@ -330,8 +329,8 @@ def stream_file(file_id):
 def delete_file_endpoint(file_id):
     """Delete a file"""
     from sqlalchemy.orm import sessionmaker
-    from ..core.database import db_manager
-    from ..db.queries import delete_file
+    from core.database import db_manager
+    from db.queries import delete_file
     
     db_session = db_manager.get_session()
     
@@ -386,8 +385,8 @@ def delete_file_endpoint(file_id):
 def get_module_files(module_id):
     """Get all files in a module"""
     from sqlalchemy.orm import sessionmaker
-    from ..core.database import db_manager
-    from ..db.queries import get_files_by_module
+    from core.database import db_manager
+    from db.queries import get_files_by_module
     
     db_session = db_manager.get_session()
     
@@ -521,8 +520,8 @@ def reprocess_file(file_id):
 def update_file_endpoint(file_id):
     """Update file metadata"""
     from sqlalchemy.orm import sessionmaker
-    from ..core.database import db_manager
-    from ..db.queries import update_file
+    from core.database import db_manager
+    from db.queries import update_file
     
     db_session = db_manager.get_session()
     
@@ -577,5 +576,63 @@ def update_file_endpoint(file_id):
         import logging
         logging.error(f"Update file error: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to update file: {str(e)}'}), 500
+    finally:
+        db_session.close()
+
+@bp.route('/<file_id>/download', methods=['GET'])
+@firebase_auth_required
+def get_download_url(file_id):
+    """Generate a signed URL for downloading a file"""
+    from sqlalchemy.orm import sessionmaker
+    from core.database import db_manager
+    
+    db_session = db_manager.get_session()
+    
+    try:
+        user_id = g.current_user.id
+        
+        # Get file and verify access
+        file_obj = get_file_by_id(db_session, file_id)
+        if not file_obj:
+            return jsonify({'error': 'File not found'}), 404
+            
+        # Check access through module and course
+        module = get_module_by_id(db_session, file_obj.module_id)
+        if not module:
+            return jsonify({'error': 'Module not found'}), 404
+            
+        course = get_course_by_id(db_session, module.course_id)
+        if not course:
+            return jsonify({'error': 'Course not found'}), 404
+            
+        # Check enrollment for students
+        enrollment = get_enrollment_by_student_course(db_session, user_id, course.id)
+        if not enrollment:
+            return jsonify({'error': 'Access denied - not enrolled in course'}), 403
+        
+        # Check if file is stored in S3
+        if hasattr(file_obj, 'storage_type') and file_obj.storage_type == 's3' and hasattr(file_obj, 's3_key') and file_obj.s3_key:
+            # Generate signed URL using s3_signed_urls service
+            signed_url = s3_signed_urls.generate_download_url(
+                s3_key=file_obj.s3_key,
+                filename=file_obj.filename,
+                expires_in=3600,  # 1 hour expiration
+                user_id=user_id
+            )
+            
+            return jsonify({
+                'signed_url': signed_url,
+                'filename': file_obj.filename,
+                'file_type': file_obj.file_type,
+                'expires_in': 3600
+            }), 200
+        else:
+            # File is not in S3
+            return jsonify({'error': 'File is not available for download via signed URL'}), 400
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Generate download URL error: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to generate download URL: {str(e)}'}), 500
     finally:
         db_session.close()

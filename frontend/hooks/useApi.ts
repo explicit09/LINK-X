@@ -3,7 +3,7 @@ import { APIError } from '@/lib/api/client';
 import { toast } from 'sonner';
 
 interface UseApiOptions {
-  onSuccess?: (data: any) => void;
+  onSuccess?: <T>(data: T) => void;
   onError?: (error: APIError) => void;
   showErrorToast?: boolean;
   showSuccessToast?: boolean;
@@ -16,8 +16,8 @@ interface UseApiState<T> {
   isLoading: boolean;
 }
 
-export function useApi<T = any>(
-  apiFunction: (...args: any[]) => Promise<T>,
+export function useApi<T = unknown>(
+  apiFunction: (...args: unknown[]) => Promise<T>,
   options: UseApiOptions = {}
 ) {
   const [state, setState] = useState<UseApiState<T>>({
@@ -35,7 +35,7 @@ export function useApi<T = any>(
   }, []);
   
   const execute = useCallback(
-    async (...args: any[]) => {
+    async (...args: unknown[]) => {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
       
       try {
@@ -101,7 +101,7 @@ export function useApi<T = any>(
 }
 
 // Mutation hook for POST/PUT/DELETE operations
-export function useApiMutation<TData = any, TVariables = any>(
+export function useApiMutation<TData = unknown, TVariables = unknown>(
   apiFunction: (variables: TVariables) => Promise<TData>,
   options: UseApiOptions = {}
 ) {
@@ -109,9 +109,9 @@ export function useApiMutation<TData = any, TVariables = any>(
 }
 
 // Query hook for GET operations with automatic execution
-export function useApiQuery<T = any>(
+export function useApiQuery<T = unknown>(
   apiFunction: () => Promise<T>,
-  dependencies: any[] = [],
+  dependencies: unknown[] = [],
   options: UseApiOptions & { enabled?: boolean } = {}
 ) {
   const { execute, ...state } = useApi<T>(apiFunction, options);

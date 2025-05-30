@@ -163,11 +163,9 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
   // Load real todo items from API
   const loadTodoItems = async () => {
     try {
-      console.log('Loading todo items from API...');
       if (userRole === 'student') {
         const realTodos = await studentAPI.getTodoItems();
         const todosData: TodoItem[] = Array.isArray(realTodos) ? realTodos : [];
-        console.log('Loaded todos from API:', todosData.length, 'items');
         setTodoItems(todosData);
       } else {
         // For instructors/admins, show empty or instructor-specific todos
@@ -209,7 +207,7 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
       
       // For instructors/admins, show basic stats
       setDashboardStats({
-        aiInteractions: 0, // Instructors don't have AI interactions
+        aiInteractions: 0, // Instructors don&apos;t have AI interactions
         weeklyHours: 0, // Instructors don't have study time
         loading: false
       });
@@ -248,7 +246,6 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
 
     try {
       if (userRole === 'student') {
-        console.log('Creating new todo item...');
         const newTodo = await studentAPI.createTodoItem({
           title: newTodoTitle,
           course: newTodoCourse || "General",
@@ -256,7 +253,6 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
           priority: newTodoPriority
         });
         
-        console.log('Created new todo:', newTodo);
         
         // Add the new todo to existing state instead of reloading all todos
         setTodoItems(prev => [...prev, newTodo]);
@@ -278,16 +274,13 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
   const removeTodoItem = async (id: string) => {
     try {
       if (userRole === 'student') {
-        console.log('Attempting to delete todo with ID:', id);
         
         // Call API to delete from database
         const response = await studentAPI.deleteTodoItem(id);
-        console.log('Delete API response:', response);
         
         // Update local state after successful deletion
         setTodoItems(prev => {
           const filtered = prev.filter(item => item.id !== id);
-          console.log('Updated todo items after delete:', filtered.length, 'items remaining');
           return filtered;
         });
         
@@ -301,7 +294,7 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
         sonnerToast.error("Authentication failed. Please refresh the page and try again.");
       } else if (error instanceof Error && error.message.includes('404')) {
         sonnerToast.error("Todo item not found. It may have already been deleted.");
-        // Remove from local state anyway since it doesn't exist
+        // Remove from local state anyway since it doesn&apos;t exist
         setTodoItems(prev => prev.filter(item => item.id !== id));
       } else {
         sonnerToast.error("Failed to delete todo item: " + (error instanceof Error ? error.message : 'Unknown error'));
@@ -637,7 +630,7 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
             {/* Enhanced Sidebar Content */}
             <div className="space-y-6">
               {/* To Do List - Highlighted zone */}
-              <Card className="bg-blue-50 border-l-4 border-blue-500 shadow-lg border border-blue-200">
+              <Card className="bg-blue-50 border-l-4 border-blue-500 shadow-lg border">
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -749,7 +742,7 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
               </Card>
 
               {/* Recent Activity - Enhanced with background */}
-              <Card className="bg-green-50 border-l-4 border-green-500 shadow-lg border border-green-200">
+              <Card className="bg-green-50 border-l-4 border-green-500 shadow-lg border">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center shadow-md">

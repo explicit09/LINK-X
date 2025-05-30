@@ -15,10 +15,10 @@ from flask_jwt_extended import create_access_token, create_refresh_token, decode
 from firebase_admin import auth as firebase_auth
 import redis
 
-from src.db.schema import User
-from src.repositories.user_repository import UserRepository
-from src.core.exceptions import AuthenticationError, ValidationError, NotFoundError
-from src.core.cache import cache
+from db.schema import User
+from repositories.user_repository import UserRepository
+from core.exceptions import AuthenticationError, ValidationError, NotFoundError
+from core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +44,10 @@ class UnifiedAuthService:
             logger.warning(f"Redis connection failed: {e}. Using in-memory cache.")
             return None
             
-    def authenticate_firebase(self, id_token: str, version: str = 'v1') -> Dict[str, Any]:
+    def authenticate_with_firebase(self, id_token: str, version: str = 'v1') -> Dict[str, Any]:
         """
         Authenticate user with Firebase ID token
+        Syncs user data to PostgreSQL on first login
         
         Args:
             id_token: Firebase ID token

@@ -120,7 +120,6 @@ const ModernLearnSidebar = ({
           );
 
           setChapters(formattedChapters);
-          console.log("Loaded personalized chapters:", formattedChapters);
         } else {
           console.warn("No chapters found in personalized file content.");
         }

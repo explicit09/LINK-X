@@ -87,7 +87,7 @@ function SectionItem({
               key={subsection.id}
               section={subsection as OutlineSection}
               isActive={isActive && section.id === subsection.id}
-              isComplete={false} // Subsections don't track completion
+              isComplete={false} // Subsections don&apos;t track completion
               isStreaming={false}
               hasError={false}
               onSelect={onSelect}
