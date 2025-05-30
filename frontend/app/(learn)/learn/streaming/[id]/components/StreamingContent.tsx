@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DocumentOutline } from '../hooks/useDocumentOutline';
-import { StreamingText } from '@/components/streaming/StreamingText';
+import { StreamingText } from '@/components/StreamingText';
 
 interface StreamingContentProps {
   outline: DocumentOutline | null;
@@ -190,7 +190,7 @@ export function StreamingContent({
                     <div className="prose prose-lg max-w-none">
                       {content ? (
                         state === 'streaming' && isActive ? (
-                          <StreamingText content={content} />
+                          <StreamingText content={content} isStreaming={true} />
                         ) : (
                           <div
                             className="text-gray-800 leading-relaxed"
