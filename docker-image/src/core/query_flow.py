@@ -11,8 +11,10 @@ from sqlalchemy.orm import Session
 
 from .prompt_manager import prompt_manager
 from .critic_loop import critic_loop, ExecutionResult
-from ..services.ai.utils.optimized_rag import optimized_rag
-from ..db.database import SessionLocal
+from .query_router import query_router
+from .fast_path_processor import fast_path_processor
+from services.ai.utils.optimized_rag import optimized_rag
+from db.database import SessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -78,13 +80,20 @@ class QueryFlow:
             should_close = False
         
         try:
-            # Step 1: Route query (placeholder for now - always use simple workflow)
-            query_type = self._route_query(question)
+            # Step 1: Route query intelligently
+            routing_decision = query_router.route_query(
+                query=question,
+                context={'course_id': course_id, 'file_id': file_id},
+                student_profile=student_profile
+            )
             
-            if query_type == "complex":
+            logger.info(f"Query routed as '{routing_decision.category}' "
+                       f"(confidence: {routing_decision.confidence:.3f})")
+            
+            if routing_decision.category == "complex":
                 # TODO: Implement complex query handling with micro-agents
-                logger.info(f"Complex query detected but not yet implemented: {question}")
-                # Fall back to simple workflow for now
+                logger.info(f"Complex query detected: {routing_decision.reasoning}")
+                # Fall back to simple workflow for now but log for analysis
             
             # Step 2: Retrieve context with optimized RAG
             retrieval_result = optimized_rag.retrieve_optimized(
@@ -101,24 +110,58 @@ class QueryFlow:
             # Step 4: Build student profile with defaults
             profile = self._build_student_profile(student_profile)
             
-            # Step 5: Render personalized prompt
-            prompt = prompt_manager.render_with_system(
-                executor_name="executors/02_executor.jinja",
-                question=question,
-                context=context_chunks.split('\n\n'),  # Split back into chunks for template
-                student_profile=profile
-            )
+            # Step 5: Choose processing path based on routing decision
+            if routing_decision.category == "simple" and routing_decision.confidence > 0.8:
+                # Use fast path for simple, high-confidence queries
+                logger.info("Using fast path processing")
+                
+                fast_result = fast_path_processor.process_simple_query(
+                    question=question,
+                    context_chunks=context_chunks.split('\n\n') if context_chunks else [],
+                    student_profile=profile
+                )
+                
+                # Convert fast path result to standard format
+                response_data = {
+                    "answer": fast_result.answer,
+                    "sources": fast_result.sources,
+                    "confidence": fast_result.confidence,
+                    "learning_notes": f"Optimized for {profile.get('learning_style', 'general')} learning style"
+                }
+                
+                execution_result = type('FastExecutionResult', (), {
+                    'answer': fast_result.answer,
+                    'final_score': fast_result.critic_score,
+                    'retry_count': 0,
+                    'execution_time': fast_result.processing_time
+                })()
+                
+            else:
+                # Use full processing path with critic loop
+                logger.info("Using full processing path with critic loop")
+                
+                # Render personalized prompt
+                prompt = prompt_manager.render_with_system(
+                    executor_name="executors/02_executor.jinja",
+                    question=question,
+                    context=context_chunks.split('\n\n') if context_chunks else [],
+                    student_profile=profile
+                )
+                
+                # Execute with critic loop
+                execution_result = critic_loop.execute_with_critic(
+                    executor_prompt=prompt,
+                    context={"content": context_chunks, "chunks": retrieval_result.chunks},
+                    question=question,
+                    student_profile=profile
+                )
+                
+                # Parse response data
+                response_data = self._parse_llm_response(execution_result.answer)
             
-            # Step 6: Execute with critic loop
-            execution_result = critic_loop.execute_with_critic(
-                executor_prompt=prompt,
-                context={"content": context_chunks, "chunks": retrieval_result.chunks},
-                question=question,
-                student_profile=profile
-            )
-            
-            # Step 7: Parse and validate response
-            response_data = self._parse_llm_response(execution_result.answer)
+            # Step 6: Parse response if not already done in fast path
+            if 'response_data' not in locals():
+                response_data = self._parse_llm_response(execution_result.answer)
             
             # Step 8: Build final response
             total_time = time.time() - start_time
@@ -129,11 +172,15 @@ class QueryFlow:
                 confidence=response_data.get("confidence", execution_result.final_score),
                 learning_notes=response_data.get("learning_notes", ""),
                 metadata={
-                    "query_type": query_type,
+                    "query_type": routing_decision.category,
+                    "routing_confidence": routing_decision.confidence,
+                    "routing_reasoning": routing_decision.reasoning,
+                    "processing_path": "fast_path" if routing_decision.category == "simple" and routing_decision.confidence > 0.8 else "full_path",
                     "chunks_retrieved": len(retrieval_result.chunks),
                     "retrieval_time": retrieval_result.retrieval_time,
                     "similarity_scores": retrieval_result.similarity_scores,
-                    "critic_issues": execution_result.critic_result.issues
+                    "estimated_complexity": routing_decision.estimated_complexity,
+                    "critic_issues": getattr(execution_result, 'critic_result', type('obj', (object,), {'issues': []})).issues
                 },
                 execution_time=total_time,
                 critic_score=execution_result.final_score,
@@ -145,26 +192,6 @@ class QueryFlow:
             if should_close:
                 db_session.close()
     
-    def _route_query(self, question: str) -> str:
-        """
-        Route query to appropriate handler
-        
-        For now, returns 'simple' - will implement proper routing in Phase 2
-        """
-        # TODO: Implement actual routing logic using query_classifier
-        # For Week 1, everything goes through simple workflow
-        
-        # Simple heuristics for demonstration
-        complex_indicators = [
-            "debug", "code", "program", "implement", "research", "compare",
-            "analyze", "create a plan", "write a", "build", "develop"
-        ]
-        
-        question_lower = question.lower()
-        if any(indicator in question_lower for indicator in complex_indicators):
-            return "complex"
-        
-        return "simple"
     
     def _build_student_profile(self, student_profile: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """Build complete student profile with defaults"""
@@ -219,7 +246,10 @@ class QueryFlow:
                 "score_threshold": critic_loop.score_threshold,
                 "max_retries": critic_loop.max_retries
             },
-            "router_enabled": self.router_enabled
+            "query_router": query_router.get_routing_stats(),
+            "fast_path_processor": fast_path_processor.get_performance_stats(),
+            "routing_enabled": True,
+            "fast_path_enabled": True
         }
 
 

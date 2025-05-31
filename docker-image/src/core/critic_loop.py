@@ -149,60 +149,63 @@ class CriticLoop:
                 student_profile=student_profile or {}
             )
             
-            # Create critic evaluation prompt
-            critic_prompt = f"""
-You are an Answer Quality Critic. Evaluate this educational response across multiple dimensions.
+            # Create critic evaluation prompt with strict JSON formatting
+            critic_prompt = f"""You are an Answer Quality Critic. Evaluate this educational response and return ONLY valid JSON.
 
-ORIGINAL QUESTION: {question}
+QUESTION: {question}
+ANSWER: {answer}
+CONTEXT: {context.get('content', 'No context')}
+STUDENT: {student_profile or 'No profile'}
 
-STUDENT ANSWER TO EVALUATE: {answer}
+Evaluate on these criteria (weights in parentheses):
+1. Factual Accuracy (40%): Only uses provided context, no invented facts
+2. Personalization Fit (30%): Matches student learning style and level
+3. Structure Quality (20%): Well-organized, cites sources, follows format
+4. Educational Value (10%): Clear explanations that effectively teach
 
-CONTEXT PROVIDED: {context.get('content', 'No context')}
+CRITICAL: Return ONLY the JSON object below. NO markdown, NO code blocks, NO additional text.
 
-STUDENT PROFILE: {student_profile or 'No profile'}
-
-Evaluate the answer on these criteria:
-1. Factual Accuracy (40%): Only information from context, no invented facts
-2. Personalization Fit (30%): Appropriate for student learning style and level  
-3. Structure Correctness (20%): Follows format, organized, cites sources
-4. Educational Value (10%): Clear explanations that teach effectively
-
-Return valid JSON with this exact structure:
 {{
   "score": 0.95,
-  "issues": ["List specific problems found"],
-  "patch": "Concrete instructions to fix the answer",
+  "issues": ["List any specific problems found"],
+  "patch": "Concrete instructions to improve the answer if score < 0.85",
   "category_scores": {{
-    "factual_accuracy": 0.9,
-    "personalization_fit": 0.8,
+    "factual_accuracy": 0.95,
+    "personalization_fit": 0.90,
     "structure_correctness": 0.95,
-    "educational_value": 0.85
+    "educational_value": 0.90
   }}
-}}
-"""
+}}"""
             
             # Get critic evaluation
             critic_response = self._call_llm(critic_prompt, "gpt-4o")
             
-            # Parse critic response
+            # Parse critic response with robust error handling
             try:
-                critic_data = json.loads(critic_response)
+                # Clean the response first
+                cleaned_response = self._clean_critic_response(critic_response)
+                critic_data = json.loads(cleaned_response)
+                
                 return CriticResult(
-                    score=critic_data["score"],
+                    score=float(critic_data["score"]),
                     issues=critic_data.get("issues", []),
                     patch=critic_data.get("patch", ""),
                     category_scores=critic_data.get("category_scores", {}),
-                    passed=critic_data["score"] >= self.score_threshold
+                    passed=float(critic_data["score"]) >= self.score_threshold
                 )
-            except json.JSONDecodeError as e:
+            except (json.JSONDecodeError, KeyError, ValueError) as e:
                 logger.error(f"Failed to parse critic response: {e}")
-                # Fallback - assume answer is acceptable if critic fails
+                logger.debug(f"Raw critic response: {critic_response}")
+                
+                # Try to extract score manually as fallback
+                fallback_score = self._extract_score_fallback(critic_response)
+                
                 return CriticResult(
-                    score=0.8,
-                    issues=["Critic parsing failed"],
-                    patch="",
+                    score=fallback_score,
+                    issues=["Critic parsing failed - using fallback score"],
+                    patch="Consider simplifying the answer structure",
                     category_scores={},
-                    passed=True
+                    passed=fallback_score >= self.score_threshold
                 )
         
         except Exception as e:
@@ -231,6 +234,54 @@ The previous response had issues. Please improve it by following these specific 
 Generate an improved response that addresses these issues while maintaining all the original requirements.
 """
         return patched_prompt
+    
+    def _clean_critic_response(self, response: str) -> str:
+        """Clean critic response to extract valid JSON"""
+        # Remove markdown code blocks
+        if '```' in response:
+            parts = response.split('```')
+            for part in parts:
+                if part.strip().startswith('json'):
+                    return part[4:].strip()
+                elif part.strip().startswith('{'):
+                    return part.strip()
+        
+        # Find JSON object in response
+        import re
+        json_match = re.search(r'\{.*\}', response, re.DOTALL)
+        if json_match:
+            return json_match.group().strip()
+        
+        return response.strip()
+    
+    def _extract_score_fallback(self, response: str) -> float:
+        """Extract score using regex as fallback"""
+        import re
+        
+        # Look for score patterns
+        score_patterns = [
+            r'"score":\s*([0-9]*\.?[0-9]+)',
+            r'score.*?([0-9]*\.?[0-9]+)',
+            r'([0-9]*\.?[0-9]+).*score'
+        ]
+        
+        for pattern in score_patterns:
+            match = re.search(pattern, response, re.IGNORECASE)
+            if match:
+                try:
+                    score = float(match.group(1))
+                    if 0.0 <= score <= 1.0:
+                        return score
+                except ValueError:
+                    continue
+        
+        # If no score found, return default based on response sentiment
+        if any(word in response.lower() for word in ['excellent', 'great', 'good', 'clear']):
+            return 0.85
+        elif any(word in response.lower() for word in ['poor', 'bad', 'unclear', 'incorrect']):
+            return 0.6
+        else:
+            return 0.8  # Neutral fallback
 
 
 # Global instance

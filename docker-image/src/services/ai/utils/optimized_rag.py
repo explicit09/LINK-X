@@ -50,7 +50,8 @@ class OptimizedRAG:
         
         # Initialize token encoder for accurate counting
         self.encoder = tiktoken.encoding_for_model("gpt-4")
-        self.embeddings_service = EmbeddingsService()
+        # Note: EmbeddingsService will be initialized when needed with proper client
+        self.embeddings_service = None
     
     def retrieve_optimized(
         self,
@@ -78,6 +79,12 @@ class OptimizedRAG:
         
         # Generate query embedding
         embedding_start = time.time()
+        if self.embeddings_service is None:
+            from ..utils.embeddings import EmbeddingsService
+            from ..clients.openai_client import OpenAIClient
+            client = OpenAIClient()
+            self.embeddings_service = EmbeddingsService(client)
+        
         query_embedding = self.embeddings_service.generate_embeddings(query)
         query_embedding_time = time.time() - embedding_start
         
