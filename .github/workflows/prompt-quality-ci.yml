@@ -1,17 +1,18 @@
 name: Prompt Quality CI
 
 on:
-  push:
-    branches: [ main, rag-ai ]
-    paths:
+  workflow_dispatch:  # Only run manually for now
+  # push:
+  #   branches: [ main, rag-ai ]
+  #   paths:
       - 'docker-image/src/prompts/**'
       - 'docker-image/src/core/prompt_manager.py'
       - 'docker-image/src/core/critic_loop.py'
       - 'docker-image/src/core/query_flow.py'
       - 'docker-image/src/tests/test_synthetic_prompts.py'
-  pull_request:
-    branches: [ main ]
-    paths:
+  # pull_request:
+  #   branches: [ main ]
+  #   paths:
       - 'docker-image/src/prompts/**'
       - 'docker-image/src/core/prompt_manager.py'
       - 'docker-image/src/core/critic_loop.py'
