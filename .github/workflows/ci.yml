@@ -28,14 +28,14 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements_optimized.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
       
       - name: Install dependencies
         run: |
           cd docker-image/src
-          pip install -r requirements_optimized.txt
+          pip install -r requirements.txt
       
       - name: Run Black
         run: |
@@ -88,14 +88,14 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements_optimized.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
       
       - name: Install dependencies
         run: |
           cd docker-image/src
-          pip install -r requirements_optimized.txt
+          pip install -r requirements.txt
       
       - name: Run migrations
         env:
@@ -226,7 +226,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./docker-image
-          file: ./docker-image/Dockerfile.production
+          file: ./docker-image/docker/Dockerfile.prod
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
