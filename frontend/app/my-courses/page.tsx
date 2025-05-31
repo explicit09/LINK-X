@@ -184,7 +184,7 @@ export default function MyCoursesPage() {
   }
 
   return (
-    <SharedDashboardLayout currentUser={currentUser} pageTitle="My Courses">
+    <SharedDashboardLayout currentUser={currentUser} pageTitle="My Courses" showGamification={false}>
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">

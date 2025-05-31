@@ -14,7 +14,9 @@ import {
   AlertCircle,
   CheckCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Brain,
+  Zap
 } from "lucide-react";
 
 export default function SchedulePage() {
@@ -119,7 +121,7 @@ export default function SchedulePage() {
   };
 
   return (
-    <SharedDashboardLayout pageTitle="Schedule">
+    <SharedDashboardLayout pageTitle="Schedule" showGamification={false}>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Schedule */}
         <div className="lg:col-span-2 space-y-6">
@@ -224,6 +226,34 @@ export default function SchedulePage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Focus Window Feature */}
+          <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-purple-700">
+                <Brain className="h-5 w-5" />
+                <span>Focus Window</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center space-y-4">
+                <div className="bg-white/50 rounded-lg p-3 border border-purple-100">
+                  <div className="flex items-center justify-center space-x-2 mb-2">
+                    <Zap className="h-5 w-5 text-yellow-500" />
+                    <span className="text-sm font-medium text-purple-700">Peak Focus Predicted</span>
+                  </div>
+                  <div className="text-2xl font-bold text-purple-900">In 30m</div>
+                  <div className="text-sm text-purple-600">2:30 PM - 4:00 PM</div>
+                </div>
+                <div className="text-xs text-gray-600 leading-relaxed">
+                  Based on your patterns, you'll have optimal focus for deep work during this window.
+                </div>
+                <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                  <Clock className="h-4 w-4 mr-2" />
+                  Set Focus Alert
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
           {/* Upcoming Deadlines */}
           <Card>
             <CardHeader>
