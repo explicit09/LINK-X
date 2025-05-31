@@ -1,7 +1,0 @@
-# Dependencies removed from requirements.txt
-# Date: 2025-05-30 07:26:36.984661
-
-llama_index==0.10.19
-sse-starlette==1.6.5
-replicate==0.24.0
-streamlit==1.29.0  # For debugging UI

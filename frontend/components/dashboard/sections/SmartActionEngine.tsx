@@ -3,6 +3,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Clock, Brain, Zap, Target } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ActionSuggestion {
   id: string;

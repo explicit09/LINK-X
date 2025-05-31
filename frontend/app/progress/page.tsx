@@ -119,7 +119,7 @@ export default function ProgressPage() {
   };
 
   return (
-    <SharedDashboardLayout pageTitle="Progress">
+    <SharedDashboardLayout pageTitle="Progress" showGamification={false}>
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
