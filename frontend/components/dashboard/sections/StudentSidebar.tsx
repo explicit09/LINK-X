@@ -37,11 +37,14 @@ interface StudentSidebarProps {
   onToggleCollapse?: (collapsed: boolean) => void;
 }
 
-const navigationItems: SidebarItem[] = [
+const primaryNavItems: SidebarItem[] = [
   { id: "dashboard", label: "Dashboard", icon: Home, href: "/dashboard" },
-  { id: "courses", label: "Courses", icon: BookOpen, href: "/my-courses" },
   { id: "study-plan", label: "Study Plan", icon: Target, href: "/study-plan" },
   { id: "schedule", label: "Schedule", icon: Calendar, href: "/schedule" },
+];
+
+const secondaryNavItems: SidebarItem[] = [
+  { id: "courses", label: "Courses", icon: BookOpen, href: "/my-courses" },
   { id: "progress", label: "Progress", icon: BarChart3, href: "/progress" },
   { id: "community", label: "Community", icon: Users, href: "/community", badge: 3 },
   { id: "messages", label: "Messages", icon: MessageSquare, href: "/messages", badge: 2 },
@@ -108,36 +111,88 @@ export function StudentSidebar({
       </div>
 
       {/* Main Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
-        {navigationItems.map((item) => {
-          const IconComponent = item.icon;
-          const isActive = pathname === item.href || pathname.startsWith(item.href);
+      <nav className="flex-1 p-4 space-y-1">
+        {/* Primary Navigation */}
+        <div className="space-y-1">
+          {primaryNavItems.map((item) => {
+            const IconComponent = item.icon;
+            const isActive = pathname === item.href || pathname.startsWith(item.href);
+            
+            return (
+              <Button
+                key={item.id}
+                variant="ghost"
+                onClick={() => handleNavigation(item.href)}
+                className={cn(
+                  "w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 transition-all duration-200",
+                  "hover:scale-105 hover:shadow-lg hover:bg-gradient-to-r hover:from-gray-800 hover:to-gray-700",
+                  isActive && "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg scale-105",
+                  isCollapsed ? "px-2" : "px-3"
+                )}
+              >
+                <IconComponent className={cn(
+                  "h-4 w-4 transition-colors duration-200", 
+                  !isCollapsed && "mr-3",
+                  isActive && "text-blue-100"
+                )} />
+                {!isCollapsed && (
+                  <>
+                    <span className="flex-1 text-left font-medium">{item.label}</span>
+                    {item.badge && (
+                      <span className="bg-blue-600 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center animate-pulse">
+                        {item.badge}
+                      </span>
+                    )}
+                  </>
+                )}
+              </Button>
+            );
+          })}
+        </div>
+
+        {/* Divider */}
+        {!isCollapsed && <div className="border-t border-gray-700 my-3" />}
+        
+        {/* Secondary Navigation */}
+        <div className="space-y-1">
+          {!isCollapsed && (
+            <div className="px-3 py-2">
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Learning
+              </span>
+            </div>
+          )}
           
-          return (
-            <Button
-              key={item.id}
-              variant="ghost"
-              onClick={() => handleNavigation(item.href)}
-              className={cn(
-                "w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800",
-                isActive && "bg-gray-800 text-white",
-                isCollapsed ? "px-2" : "px-3"
-              )}
-            >
-              <IconComponent className={cn("h-4 w-4", !isCollapsed && "mr-3")} />
-              {!isCollapsed && (
-                <>
-                  <span className="flex-1 text-left">{item.label}</span>
-                  {item.badge && (
-                    <span className="bg-blue-600 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
-                      {item.badge}
-                    </span>
-                  )}
-                </>
-              )}
-            </Button>
-          );
-        })}
+          {secondaryNavItems.map((item) => {
+            const IconComponent = item.icon;
+            const isActive = pathname === item.href || pathname.startsWith(item.href);
+            
+            return (
+              <Button
+                key={item.id}
+                variant="ghost"
+                onClick={() => handleNavigation(item.href)}
+                className={cn(
+                  "w-full justify-start text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-all duration-200",
+                  isActive && "bg-gray-800 text-white",
+                  isCollapsed ? "px-2" : "px-3 ml-3"
+                )}
+              >
+                <IconComponent className={cn("h-4 w-4", !isCollapsed && "mr-3")} />
+                {!isCollapsed && (
+                  <>
+                    <span className="flex-1 text-left text-sm">{item.label}</span>
+                    {item.badge && (
+                      <span className="bg-orange-600 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center animate-bounce">
+                        {item.badge}
+                      </span>
+                    )}
+                  </>
+                )}
+              </Button>
+            );
+          })}
+        </div>
       </nav>
 
       {/* Bottom Navigation */}
