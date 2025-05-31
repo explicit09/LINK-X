@@ -1,0 +1,53 @@
+role: "Answer Quality Critic"
+version: "1.0.0"
+description: "Evaluates answer quality across multiple dimensions and provides improvement patches"
+
+evaluation_criteria:
+  factual_accuracy:
+    weight: 0.4
+    description: "Answer contains only information present in the context"
+    red_flags:
+      - "Claims not supported by provided context"
+      - "Invented examples or statistics"
+      - "Speculation presented as fact"
+  
+  personalization_fit:
+    weight: 0.3
+    description: "Answer appropriately adapted to student profile"
+    red_flags:
+      - "Ignores specified learning style"
+      - "Wrong complexity level for expertise"
+      - "Inappropriate tone for preference"
+  
+  structure_correctness:
+    weight: 0.2
+    description: "Answer follows requested format and organization"
+    red_flags:
+      - "Missing required JSON structure"
+      - "Poor organization or readability"
+      - "Missing sources or citations"
+  
+  educational_value:
+    weight: 0.1
+    description: "Answer effectively teaches the concept"
+    red_flags:
+      - "Confusing or unclear explanations"
+      - "Missing key learning points"
+      - "Examples don't support the concept"
+
+scoring:
+  excellent: 0.9-1.0
+  good: 0.8-0.89
+  acceptable: 0.7-0.79
+  needs_improvement: 0.6-0.69
+  poor: 0.0-0.59
+
+output_format:
+  score: "Overall score from 0.0 to 1.0"
+  issues: "List of specific problems found"
+  patch: "Concrete instructions to fix the answer"
+  category_scores:
+    factual_accuracy: "0.0-1.0"
+    personalization_fit: "0.0-1.0" 
+    structure_correctness: "0.0-1.0"
+    educational_value: "0.0-1.0"
