@@ -29,75 +29,64 @@ export function SmartActionEngine({
 }: SmartActionEngineProps) {
   
   // Smart recommendation engine based on context
-  const generateRecommendation = (): ActionSuggestion => {
+  const generateRecommendations = (): ActionSuggestion[] => {
     const hour = currentTime.getHours();
     const isAfternoon = hour >= 12 && hour < 17;
     const isEvening = hour >= 17;
     
-    // Peak focus recommendations
-    if (userFocusLevel === "peak" && availableMinutes >= 20) {
-      return {
-        id: "peak-1",
-        action: "Tackle CS229 Neural Networks Assignment",
-        reason: "Peak focus + urgent deadline = optimal completion time",
-        timeEstimate: 20,
-        urgency: "high",
-        course: "CS229",
-        type: "assignment"
-      };
-    }
+    const recommendations: ActionSuggestion[] = [];
     
-    // Quick review for short time windows
-    if (availableMinutes <= 15) {
-      return {
-        id: "quick-1",
-        action: "CS224n Recursion Quick Review",
-        reason: `You have ${availableMinutes} min. Quick review boosts retention 23%`,
-        timeEstimate: 10,
-        urgency: "medium",
-        course: "CS224n",
-        type: "review"
-      };
-    }
-    
-    // Afternoon energy management
-    if (isAfternoon && userFocusLevel === "medium") {
-      return {
-        id: "afternoon-1",
-        action: "CS231n Computer Vision Practice",
-        reason: "Your afternoon focus is perfect for visual learning",
-        timeEstimate: 25,
-        urgency: "medium",
-        course: "CS231n",
-        type: "practice"
-      };
-    }
-    
-    // Evening consolidation
-    if (isEvening) {
-      return {
-        id: "evening-1",
-        action: "Review Today's Completed Work",
-        reason: "Evening review increases retention by 34%",
-        timeEstimate: 15,
-        urgency: "low",
-        type: "review"
-      };
-    }
-    
-    // Default fallback
-    return {
-      id: "default-1",
-      action: "Focus on CS229 Assignment",
-      reason: "Highest priority based on deadline urgency",
+    // 1. URGENT: Due today/high priority
+    recommendations.push({
+      id: "urgent-1",
+      action: "CS229 Neural Networks Assignment",
+      reason: "Due TODAY - Peak focus time optimal for completion",
       timeEstimate: 20,
       urgency: "high",
       course: "CS229",
       type: "assignment"
-    };
+    });
+    
+    // 2. SKILL BOOST: Improve weak areas
+    recommendations.push({
+      id: "skill-1", 
+      action: "CS224n Recursion Tutorial",
+      reason: "40% last score - Visual tutorial boosts understanding",
+      timeEstimate: 10,
+      urgency: "medium",
+      course: "CS224n",
+      type: "review"
+    });
+    
+    // 3. LONG-TERM: Foundation building
+    if (availableMinutes >= 25) {
+      recommendations.push({
+        id: "longterm-1",
+        action: "CS103 Mathematical Foundations",
+        reason: "Build strong foundation for advanced topics",
+        timeEstimate: 25,
+        urgency: "low",
+        course: "CS103",
+        type: "study"
+      });
+    } else {
+      recommendations.push({
+        id: "longterm-quick",
+        action: "CS161 Algorithm Review",
+        reason: "Quick maintenance of strong performance",
+        timeEstimate: 15,
+        urgency: "low", 
+        course: "CS161",
+        type: "review"
+      });
+    }
+    
+    return recommendations;
   };
 
-  const suggestion = generateRecommendation();
+  const recommendations = generateRecommendations();
+  const [selectedIndex, setSelectedIndex] = React.useState(0);
+  const selectedSuggestion = recommendations[selectedIndex];
   
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
@@ -105,6 +94,25 @@ export function SmartActionEngine({
       case "medium": return "bg-orange-600 hover:bg-orange-700";
       case "low": return "bg-blue-600 hover:bg-blue-700";
       default: return "bg-gray-600 hover:bg-gray-700";
+    }
+  };
+
+  const getUrgencyIcon = (urgency: string) => {
+    switch (urgency) {
+      case "high": return "🔥";
+      case "medium": return "⚙️";
+      case "low": return "📚";
+      default: return "💡";
+    }
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case "assignment": return "Assignment";
+      case "review": return "Review";
+      case "practice": return "Practice";
+      case "study": return "Study";
+      default: return "Task";
     }
   };
 
@@ -128,28 +136,51 @@ export function SmartActionEngine({
       </div>
       
       <div className="space-y-4">
-        {/* Main recommendation */}
+        {/* 3 Action Tabs */}
+        <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+          {recommendations.map((rec, index) => (
+            <button
+              key={rec.id}
+              onClick={() => setSelectedIndex(index)}
+              className={cn(
+                "flex-1 flex items-center justify-center space-x-1 py-2 px-3 rounded text-xs font-medium transition-all",
+                selectedIndex === index 
+                  ? "bg-white text-gray-900 shadow-sm" 
+                  : "text-gray-600 hover:text-gray-900"
+              )}
+            >
+              <span>{getUrgencyIcon(rec.urgency)}</span>
+              <span className="hidden sm:inline">{getTypeLabel(rec.type)}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Selected recommendation */}
         <div className="bg-gray-50 rounded-lg p-4">
           <div className="flex items-start space-x-3">
             <div className="mt-1">
-              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                <Brain className="h-4 w-4 text-purple-600" />
+              <div className={cn(
+                "w-8 h-8 rounded-full flex items-center justify-center",
+                selectedSuggestion.urgency === "high" ? "bg-red-100" : 
+                selectedSuggestion.urgency === "medium" ? "bg-orange-100" : "bg-blue-100"
+              )}>
+                <span>{getUrgencyIcon(selectedSuggestion.urgency)}</span>
               </div>
             </div>
             <div className="flex-1">
               <h4 className="font-medium text-gray-900 text-sm mb-1">
-                {suggestion.action}
+                {selectedSuggestion.action}
               </h4>
               <p className="text-xs text-gray-600 mb-3">
-                {suggestion.reason}
+                {selectedSuggestion.reason}
               </p>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500">
-                  ~{suggestion.timeEstimate} minutes
+                  ~{selectedSuggestion.timeEstimate} minutes
                 </span>
-                {suggestion.course && (
+                {selectedSuggestion.course && (
                   <span className="text-xs font-medium text-purple-600">
-                    {suggestion.course}
+                    {selectedSuggestion.course}
                   </span>
                 )}
               </div>
@@ -159,10 +190,10 @@ export function SmartActionEngine({
         
         {/* Action button */}
         <Button
-          onClick={() => onActionClick?.(suggestion)}
-          className={`w-full text-sm py-3 text-white ${getUrgencyColor(suggestion.urgency)}`}
+          onClick={() => onActionClick?.(selectedSuggestion)}
+          className={`w-full text-sm py-3 text-white ${getUrgencyColor(selectedSuggestion.urgency)}`}
         >
-          Start {suggestion.timeEstimate}-min Session
+          Start {selectedSuggestion.timeEstimate}-min {getTypeLabel(selectedSuggestion.type)}
         </Button>
         
         {/* Context indicators */}
@@ -174,7 +205,7 @@ export function SmartActionEngine({
             }`} />
             <span>{userFocusLevel} focus</span>
           </div>
-          <span>Based on your patterns</span>
+          <span>3 ranked by priority</span>
         </div>
       </div>
     </div>

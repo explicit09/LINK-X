@@ -16,6 +16,8 @@ import { AIStudyCoach } from "./sections/AIStudyCoach";
 import { SmartActionEngine } from "./sections/SmartActionEngine";
 import { TodaysSchedule } from "./sections/TodaysSchedule";
 import { FocusMode } from "./sections/FocusMode";
+import { GamificationEngine } from "./sections/GamificationEngine";
+import { TaskCompletionFeedback } from "./sections/TaskCompletionFeedback";
 
 // Types
 interface Course {
@@ -48,6 +50,7 @@ export function ModernStudentDashboard({
   const router = useRouter();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [focusModeActive, setFocusModeActive] = useState(false);
+  const [taskCompletion, setTaskCompletion] = useState<any>(null);
 
   // Event handlers
   const handlePriorityAction = (item: any) => {
@@ -76,6 +79,24 @@ export function ModernStudentDashboard({
 
   const handleSmartAction = (action: any) => {
     sonnerToast.success(`🚀 Starting: ${action.action}`);
+    
+    // Simulate task completion after 3 seconds (demo)
+    setTimeout(() => {
+      setTaskCompletion({
+        id: action.id,
+        taskName: action.action,
+        timeSpent: action.timeEstimate,
+        xpGained: action.urgency === "high" ? 75 : action.urgency === "medium" ? 50 : 25,
+        achievementUnlocked: action.urgency === "high" ? {
+          title: "Deadline Crusher",
+          description: "Completed urgent task on time",
+          icon: "🔥"
+        } : undefined,
+        performanceBoost: action.urgency === "high" ? 12 : undefined,
+        streakIncreased: true
+      });
+    }, 3000);
+    
     // Navigate to specific course or start action
     if (action.course) {
       router.push(`/courses/${action.course.toLowerCase()}`);
@@ -98,6 +119,23 @@ export function ModernStudentDashboard({
     sonnerToast.success("⏱️ Pomodoro session started!");
   };
 
+  const handleStreakClick = () => {
+    sonnerToast.success("🔥 5-day streak! Keep the momentum going!");
+  };
+
+  const handleLevelClick = () => {
+    sonnerToast.success("🎯 Level 12 progress! 160 XP to next level!");
+  };
+
+  const handleTaskCompletionClose = () => {
+    setTaskCompletion(null);
+  };
+
+  const handleViewProgress = () => {
+    setTaskCompletion(null);
+    router.push("/progress");
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
@@ -115,6 +153,14 @@ export function ModernStudentDashboard({
         {/* Dashboard Content */}
         <div className="flex-1 p-6">
           <div className="max-w-7xl mx-auto">
+            {/* Gamification Header */}
+            <div className="mb-6">
+              <GamificationEngine 
+                onStreakClick={handleStreakClick}
+                onLevelClick={handleLevelClick}
+              />
+            </div>
+            
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               {/* Left Content - 3 columns */}
               <div className="lg:col-span-3 space-y-6">
@@ -147,6 +193,13 @@ export function ModernStudentDashboard({
         isActive={focusModeActive}
         onToggle={handleFocusMode}
         onStartPomodoro={handleStartPomodoro}
+      />
+      
+      {/* Task Completion Feedback */}
+      <TaskCompletionFeedback
+        completion={taskCompletion}
+        onClose={handleTaskCompletionClose}
+        onViewProgress={handleViewProgress}
       />
     </div>
   );
