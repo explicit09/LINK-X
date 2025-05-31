@@ -1,6 +1,6 @@
 "use client";
 
-import ModernDashboard from "./ModernDashboard";
+import { ModernStudentDashboard } from "./ModernStudentDashboard";
 import { StudentDashProps } from "./student/types";
 import { useStudentData } from "./student/hooks";
 import { LoadingState, OnboardingPrompt } from "./student/components";
@@ -29,8 +29,7 @@ export default function StudentDash({ currentUser }: StudentDashProps) {
   }
 
   return (
-    <ModernDashboard
-      userRole="student"
+    <ModernStudentDashboard
       currentUser={userProfile ? {
         name: userProfile.profile?.name || userProfile.email,
         email: userProfile.email,
