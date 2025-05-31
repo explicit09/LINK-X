@@ -1,0 +1,6 @@
+# LTI Security - NEVER COMMIT
+configs/private.key
+configs/public.key
+*.env
+__pycache__/
+*.pyc
