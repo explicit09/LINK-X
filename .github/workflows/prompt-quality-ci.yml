@@ -1,0 +1,270 @@
+name: Prompt Quality CI
+
+on:
+  push:
+    branches: [ main, rag-ai ]
+    paths:
+      - 'docker-image/src/prompts/**'
+      - 'docker-image/src/core/prompt_manager.py'
+      - 'docker-image/src/core/critic_loop.py'
+      - 'docker-image/src/core/query_flow.py'
+      - 'docker-image/src/tests/test_synthetic_prompts.py'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docker-image/src/prompts/**'
+      - 'docker-image/src/core/prompt_manager.py'
+      - 'docker-image/src/core/critic_loop.py'
+      - 'docker-image/src/core/query_flow.py'
+      - 'docker-image/src/tests/test_synthetic_prompts.py'
+
+jobs:
+  prompt-quality-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: learn_x_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      working-directory: docker-image
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        pip install pytest pytest-timeout tiktoken
+    
+    - name: Set up environment variables
+      run: |
+        echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/learn_x_test" >> $GITHUB_ENV
+        echo "REDIS_URL=redis://localhost:6379" >> $GITHUB_ENV
+        echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> $GITHUB_ENV
+        echo "TESTING=true" >> $GITHUB_ENV
+    
+    - name: Initialize test database
+      working-directory: docker-image/src
+      run: |
+        python -c "
+        from db.database import engine, Base
+        from db.schema import *
+        Base.metadata.create_all(bind=engine)
+        print('Test database initialized')
+        "
+    
+    - name: Validate prompt templates
+      working-directory: docker-image/src
+      run: |
+        python -c "
+        from core.prompt_manager import prompt_manager
+        import sys
+        
+        # Validate all prompt files
+        prompts = prompt_manager._scan_available_prompts()
+        errors = []
+        
+        for prompt in prompts:
+            result = prompt_manager.validate_template(prompt)
+            if result['status'] != 'valid':
+                errors.append(f'{prompt}: {result[\"errors\"]}')
+        
+        if errors:
+            print('Prompt validation errors:')
+            for error in errors:
+                print(f'  - {error}')
+            sys.exit(1)
+        else:
+            print(f'All {len(prompts)} prompt templates validated successfully')
+        "
+    
+    - name: Run synthetic test suite
+      working-directory: docker-image/src
+      timeout-minutes: 8
+      run: |
+        python -m pytest tests/test_synthetic_prompts.py::test_prompt_quality_comprehensive -v \
+          --tb=short \
+          --timeout=120
+    
+    - name: Run individual test samples
+      working-directory: docker-image/src
+      timeout-minutes: 3
+      run: |
+        python -c "
+        from tests.test_synthetic_prompts import SyntheticTestSuite
+        import sys
+        
+        suite = SyntheticTestSuite()
+        
+        # Run first 5 tests as quick smoke test
+        quick_results = []
+        for test_case in suite.test_cases[:5]:
+            result = suite._run_single_test(test_case)
+            quick_results.append(result)
+            print(f'Quick test {test_case.id}: {\"PASS\" if result[\"passed\"] else \"FAIL\"} (score: {result[\"critic_score\"]:.3f})')
+        
+        # Check if any quick tests failed
+        failed_quick = [r for r in quick_results if not r['passed']]
+        if failed_quick:
+            print(f'❌ {len(failed_quick)}/5 quick tests failed')
+            sys.exit(1)
+        else:
+            print(f'✅ All 5 quick tests passed')
+        "
+    
+    - name: Check performance thresholds
+      working-directory: docker-image/src
+      run: |
+        python -c "
+        from tests.test_synthetic_prompts import SyntheticTestSuite
+        import time
+        import sys
+        
+        suite = SyntheticTestSuite()
+        
+        # Performance check with 3 test cases
+        start_time = time.time()
+        perf_results = []
+        
+        for test_case in suite.test_cases[:3]:
+            case_start = time.time()
+            result = suite._run_single_test(test_case)
+            case_time = time.time() - case_start
+            
+            perf_results.append({
+                'id': test_case.id,
+                'time': case_time,
+                'score': result['critic_score']
+            })
+        
+        avg_time = sum(r['time'] for r in perf_results) / len(perf_results)
+        avg_score = sum(r['score'] for r in perf_results) / len(perf_results)
+        
+        print(f'Performance check: avg_time={avg_time:.2f}s, avg_score={avg_score:.3f}')
+        
+        # Enforce thresholds
+        if avg_time > 2.5:
+            print(f'❌ Average latency {avg_time:.2f}s exceeds 2.5s threshold')
+            sys.exit(1)
+        
+        if avg_score < 0.85:
+            print(f'❌ Average score {avg_score:.3f} below 0.85 threshold')
+            sys.exit(1)
+        
+        print('✅ Performance thresholds met')
+        "
+    
+    - name: Generate test report
+      if: always()
+      working-directory: docker-image/src
+      run: |
+        python -c "
+        from tests.test_synthetic_prompts import SyntheticTestSuite
+        from core.query_flow import query_flow
+        import json
+        
+        suite = SyntheticTestSuite()
+        
+        # Generate summary report
+        report = {
+            'timestamp': '$(date -u +%Y-%m-%dT%H:%M:%SZ)',
+            'commit': '${{ github.sha }}',
+            'branch': '${{ github.ref_name }}',
+            'system_stats': query_flow.get_system_stats(),
+            'test_summary': {
+                'total_cases': len(suite.test_cases),
+                'thresholds': {
+                    'min_score': suite.min_score_threshold,
+                    'max_latency': suite.max_latency_threshold
+                }
+            }
+        }
+        
+        with open('prompt_test_report.json', 'w') as f:
+            json.dump(report, f, indent=2)
+        
+        print('Test report generated: prompt_test_report.json')
+        "
+    
+    - name: Upload test report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: prompt-test-report
+        path: docker-image/src/prompt_test_report.json
+        retention-days: 30
+
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          
+          try {
+            const report = JSON.parse(fs.readFileSync('docker-image/src/prompt_test_report.json', 'utf8'));
+            
+            const comment = `
+          ## 🤖 Prompt Quality Check Results
+          
+          **Branch:** \`${{ github.ref_name }}\`
+          **Commit:** \`${{ github.sha }}\`
+          
+          ### System Configuration
+          - **Max Chunks:** ${report.system_stats.optimized_rag.max_chunks}
+          - **Max Tokens:** ${report.system_stats.optimized_rag.max_tokens}
+          - **Score Threshold:** ${report.test_summary.thresholds.min_score}
+          - **Latency Threshold:** ${report.test_summary.thresholds.max_latency}s
+          
+          ### Quality Gates
+          ✅ All prompt templates validated
+          ✅ Performance thresholds met
+          ✅ Synthetic test suite passed
+          
+          > 🚀 **Ready for deployment** - All quality checks passed!
+          `;
+          
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          } catch (error) {
+            console.log('Could not create PR comment:', error.message);
+          }

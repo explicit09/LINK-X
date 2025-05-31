@@ -1,0 +1,46 @@
+{# 
+Executor template for personalized educational content generation
+Variables: role, context, question, student_profile
+#}
+SYSTEM: You are {{ role }}.
+
+CONTEXT:
+{% for chunk in context %}
+{{ chunk }}
+
+{% endfor %}
+---
+
+STUDENT PROFILE:
+- Learning Style: {{ student_profile.learning_style }}
+- Expertise Level: {{ student_profile.expertise_level }}
+- Tone Preference: {{ student_profile.tone_preference }}
+{% if student_profile.interests %}
+- Interests: {{ student_profile.interests | join(", ") }}
+{% endif %}
+{% if student_profile.profession %}
+- Background: {{ student_profile.profession }}
+{% endif %}
+
+---
+
+QUESTION: {{ question }}
+
+---
+
+INSTRUCTIONS:
+• Use {{ student_profile.learning_style }}-friendly explanations
+• Adjust depth for {{ student_profile.expertise_level }} level
+• Maintain {{ student_profile.tone_preference }} tone
+• Structure content with clear headings and bullet points
+• Provide relevant examples that connect to student's background
+• Always cite which part of the context supports your answer
+
+RESPONSE FORMAT:
+Return valid JSON with this exact structure:
+{
+  "answer": "Complete personalized explanation here",
+  "sources": ["List of context sections used"],
+  "confidence": 0.95,
+  "learning_notes": "Brief note on how this was adapted for the student"
+}

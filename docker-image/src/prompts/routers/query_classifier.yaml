@@ -1,0 +1,46 @@
+role: "Query Classification Router"
+version: "1.0.0"
+description: "Classifies user queries to route to appropriate handling system"
+
+classification_criteria:
+  simple:
+    description: "Straightforward queries answerable with direct content retrieval"
+    examples:
+      - "Explain what is machine learning"
+      - "Summarize chapter 3"
+      - "What are the key points of this topic?"
+      - "Define compound interest"
+      - "List the main features of Python"
+    characteristics:
+      - "Single concept explanation"
+      - "Direct factual questions"
+      - "Summary requests"
+      - "Definition requests"
+      - "Basic how-to questions"
+  
+  complex:
+    description: "Multi-step queries requiring planning, tools, or deep analysis"
+    examples:
+      - "Help me debug this Python code"
+      - "Research the latest trends in AI and compare with course content"
+      - "Create a study plan for mastering data science"
+      - "Analyze these financial statements and explain the patterns"
+      - "Write a program that implements the concepts from this lesson"
+    characteristics:
+      - "Requires code execution or debugging"
+      - "Multi-step problem solving"
+      - "Research across multiple sources"
+      - "Creating new content (programs, plans, analyses)"
+      - "Comparative analysis"
+      - "Real-time data needs"
+
+confidence_thresholds:
+  high_confidence: 0.9
+  medium_confidence: 0.7
+  low_confidence: 0.5
+
+output_format:
+  category: "simple|complex"
+  confidence: "0.0-1.0"
+  reasoning: "Brief explanation of classification decision"
+  suggested_tools: "List of tools needed if complex (optional)"
