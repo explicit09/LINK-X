@@ -1,9 +1,10 @@
 "use client";
 
 import React from "react";
-import { ChevronRight, MoreHorizontal } from "lucide-react";
+import { ChevronRight, MoreHorizontal, Brain, TrendingUp, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface CourseItem {
   id: string;
@@ -99,22 +100,48 @@ export function ModernCoursesSection({
     }
   };
 
+  const getAIInsight = (course: CourseItem) => {
+    if (course.progress >= 90) {
+      return {
+        icon: <TrendingUp className="h-3 w-3 text-green-600" />,
+        title: "Excellent Progress!",
+        message: `Score improved +15% from last review. Keep momentum with advanced topics.`,
+        color: "text-green-600"
+      };
+    }
+    if (course.progress <= 30) {
+      return {
+        icon: <AlertTriangle className="h-3 w-3 text-orange-600" />,
+        title: "Needs Attention",
+        message: `Based on your struggles: Try the visual tutorial first, then practice problems.`,
+        color: "text-orange-600"
+      };
+    }
+    return {
+      icon: <Brain className="h-3 w-3 text-blue-600" />,
+      title: "AI Recommendation",
+      message: `Next suggested topic: ${course.code === 'CS229' ? 'Backpropagation' : course.code === 'CS224n' ? 'Attention Mechanisms' : 'Feature Detection'}`,
+      color: "text-blue-600"
+    };
+  };
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">All Courses</h2>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={onViewAll}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          View all
-          <ChevronRight className="h-4 w-4 ml-1" />
-        </Button>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <TooltipProvider>
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">All Courses</h2>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onViewAll}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            View all
+            <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {courses.map((course) => {
           const getUrgencyBadge = () => {
             if (course.deadline?.includes("Today")) {
@@ -136,6 +163,7 @@ export function ModernCoursesSection({
           const cardBorderColor = urgencyBadge?.priority === 'urgent' ? 'border-red-200' : 
                                  urgencyBadge?.priority === 'warning' ? 'border-orange-200' : 
                                  'border-gray-200';
+          const aiInsight = getAIInsight(course);
           
           return (
             <div
@@ -164,9 +192,29 @@ export function ModernCoursesSection({
                     )}
                   </div>
                   
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                    <ChevronRight className="h-3 w-3 text-gray-400" />
-                  </Button>
+                  <div className="flex items-center space-x-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="p-1 hover:bg-gray-100 rounded cursor-pointer">
+                          {aiInsight.icon}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="max-w-xs">
+                        <div className="space-y-1">
+                          <p className={`font-medium text-xs ${aiInsight.color}`}>
+                            {aiInsight.title}
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            {aiInsight.message}
+                          </p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                    
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                      <ChevronRight className="h-3 w-3 text-gray-400" />
+                    </Button>
+                  </div>
                 </div>
               </div>
               
@@ -186,7 +234,8 @@ export function ModernCoursesSection({
             </div>
           );
         })}
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

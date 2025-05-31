@@ -13,7 +13,9 @@ import { PriorityCards } from "./sections/PriorityCards";
 import { ModernCoursesSection } from "./sections/ModernCoursesSection";
 import { PerformancePulse } from "./sections/PerformancePulse";
 import { AIStudyCoach } from "./sections/AIStudyCoach";
+import { SmartActionEngine } from "./sections/SmartActionEngine";
 import { TodaysSchedule } from "./sections/TodaysSchedule";
+import { FocusMode } from "./sections/FocusMode";
 
 // Types
 interface Course {
@@ -45,6 +47,7 @@ export function ModernStudentDashboard({
 }: ModernStudentDashboardProps) {
   const router = useRouter();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [focusModeActive, setFocusModeActive] = useState(false);
 
   // Event handlers
   const handlePriorityAction = (item: any) => {
@@ -69,6 +72,30 @@ export function ModernStudentDashboard({
   const handleScheduleItemClick = (item: any) => {
     sonnerToast.success(`Opening: ${item.title}`);
     // Navigate to specific course or task
+  };
+
+  const handleSmartAction = (action: any) => {
+    sonnerToast.success(`🚀 Starting: ${action.action}`);
+    // Navigate to specific course or start action
+    if (action.course) {
+      router.push(`/courses/${action.course.toLowerCase()}`);
+    }
+  };
+
+  const handleMaintainRank = () => {
+    sonnerToast.success("🎯 Opening your personalized action plan!");
+    router.push("/study-plan");
+  };
+
+  const handleFocusMode = (active: boolean) => {
+    setFocusModeActive(active);
+    if (active) {
+      sonnerToast.success("🎯 Entering Focus Mode - eliminate distractions!");
+    }
+  };
+
+  const handleStartPomodoro = () => {
+    sonnerToast.success("⏱️ Pomodoro session started!");
   };
 
   return (
@@ -106,14 +133,21 @@ export function ModernStudentDashboard({
               
               {/* Right Sidebar - 1 column */}
               <div className="lg:col-span-1 space-y-6">
+                <SmartActionEngine onActionClick={handleSmartAction} />
                 <TodaysSchedule onItemClick={handleScheduleItemClick} />
-                <PerformancePulse />
-                <AIStudyCoach onGetStudyPlan={handleGetStudyPlan} />
+                <PerformancePulse onMaintainRank={handleMaintainRank} />
               </div>
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Focus Mode */}
+      <FocusMode 
+        isActive={focusModeActive}
+        onToggle={handleFocusMode}
+        onStartPomodoro={handleStartPomodoro}
+      />
     </div>
   );
 }
