@@ -1,0 +1,124 @@
+# LEARN-X Environment Configuration Template
+# Copy this file to .env and fill with your actual values
+# NEVER commit the actual .env file!
+
+# ============================================
+# SECURITY NOTICE:
+# 1. Generate all secrets using: python scripts/generate_secrets.py
+# 2. Store production secrets in a secure vault (AWS Secrets Manager, HashiCorp Vault)
+# 3. Rotate all credentials regularly
+# 4. Use different credentials for each environment
+# ============================================
+
+# === Application Settings ===
+APP_NAME=LEARN-X
+APP_VERSION=2.0.0
+FLASK_ENV=development  # Change to 'production' for production
+NODE_ENV=development   # Change to 'production' for production
+LOG_LEVEL=INFO
+DEBUG=False
+
+# === Security Keys (MUST BE CHANGED!) ===
+SECRET_KEY=GENERATE_WITH_SCRIPTS_GENERATE_SECRETS_PY
+JWT_SECRET_KEY=GENERATE_WITH_SCRIPTS_GENERATE_SECRETS_PY
+JWT_ACCESS_TOKEN_EXPIRES=3600
+JWT_REFRESH_TOKEN_EXPIRES=2592000
+JWT_ALGORITHM=HS256
+ENCRYPTION_KEY=GENERATE_WITH_SCRIPTS_GENERATE_SECRETS_PY
+
+# === Database Configuration ===
+# For local development
+DATABASE_URL=postgresql://postgres:postgres@db:5432/learnx
+DATABASE_HOST=db
+DATABASE_PORT=5432
+DATABASE_NAME=learnx
+DATABASE_USER=postgres
+DATABASE_PASSWORD=postgres
+
+# For production (use connection pooling)
+# DATABASE_URL=postgresql://user:password@host:port/database?sslmode=require&pool_size=20
+
+# === Redis Configuration ===
+REDIS_URL=redis://redis:6379/0
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=  # Set for production
+REDIS_MAX_CONNECTIONS=50
+CACHE_TTL=3600
+
+# === AWS S3 Configuration ===
+AWS_ACCESS_KEY_ID=your-aws-access-key
+AWS_SECRET_ACCESS_KEY=your-aws-secret-key
+AWS_REGION=us-east-2
+S3_BUCKET_NAME=learn-x
+S3_ENDPOINT_URL=  # Optional: For S3-compatible services
+
+# === Firebase Configuration ===
+# Option 1: Service account JSON file path
+FIREBASE_SERVICE_ACCOUNT_PATH=/path/to/service-account.json
+
+# Option 2: Individual Firebase config values
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_PRIVATE_KEY_ID=your-private-key-id
+FIREBASE_PRIVATE_KEY=your-private-key
+FIREBASE_CLIENT_EMAIL=your-client-email
+FIREBASE_CLIENT_ID=your-client-id
+FIREBASE_AUTH_URI=https://accounts.google.com/o/oauth2/auth
+FIREBASE_TOKEN_URI=https://oauth2.googleapis.com/token
+FIREBASE_AUTH_PROVIDER_CERT_URL=https://www.googleapis.com/oauth2/v1/certs
+FIREBASE_CLIENT_CERT_URL=your-client-cert-url
+
+# === AI Services ===
+OPENAI_API_KEY=your-openai-api-key
+AI_MODEL=gpt-4
+AI_MAX_TOKENS=2000
+AI_TEMPERATURE=0.7
+
+# === Application URLs ===
+BACKEND_URL=http://localhost:8080
+FRONTEND_URL=http://localhost:3000
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+
+# === Feature Flags ===
+ENABLE_MONITORING=false
+ENABLE_RATE_LIMITING=true
+ENABLE_CACHING=true
+ENABLE_S3_STORAGE=true
+ENABLE_AI_FEATURES=true
+
+# === Rate Limiting ===
+RATE_LIMIT_DEFAULT=100/hour
+RATE_LIMIT_UPLOAD=20/hour
+RATE_LIMIT_AI=50/hour
+
+# === File Upload ===
+MAX_UPLOAD_SIZE_MB=100
+ALLOWED_EXTENSIONS=pdf,doc,docx,txt,md,mp4,mp3,wav
+UPLOAD_FOLDER=/tmp/uploads
+
+# === Monitoring (Optional) ===
+SENTRY_DSN=  # Your Sentry DSN for error tracking
+PROMETHEUS_PORT=9090
+GRAFANA_PORT=3000
+
+# === Email Configuration (Optional) ===
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+FROM_EMAIL=noreply@learn-x.com
+
+# === Celery Configuration ===
+CELERY_BROKER_URL=redis://redis:6379/1
+CELERY_RESULT_BACKEND=redis://redis:6379/2
+CELERY_TASK_TIME_LIMIT=3600
+CELERY_TASK_SOFT_TIME_LIMIT=3300
+
+# === Testing ===
+TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/learnx_test
+TESTING=false
+
+# === Docker Specific ===
+DOCKER_REGISTRY=your-registry
+DOCKER_IMAGE_TAG=latest
+COMPOSE_PROJECT_NAME=learnx
