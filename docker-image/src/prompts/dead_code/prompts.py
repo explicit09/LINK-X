@@ -289,7 +289,9 @@ def prompt3_generate_module_content_RAG(persona, expertise_summary, topic, worki
     """
     )
 
-    rag_response = answer_to_QA(rag_query, working_dir)
+    # rag_response = answer_to_QA(rag_query, working_dir)
+    # Note: answer_to_QA function is not defined - this appears to be dead code
+    rag_response = "Retrieved knowledge placeholder"
 
     # After retrieval, personalize the content to the user.
     personalization_query = (

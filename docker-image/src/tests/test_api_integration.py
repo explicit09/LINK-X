@@ -5,6 +5,7 @@ Tests API endpoints with realistic scenarios
 
 import pytest
 import json
+from io import BytesIO
 from unittest.mock import Mock, patch
 from flask import Flask
 from flask.testing import FlaskClient

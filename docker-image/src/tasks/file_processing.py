@@ -5,6 +5,8 @@ from celery import shared_task
 import logging
 from typing import Optional
 
+from .embedding import generate_embeddings_async
+
 logger = logging.getLogger(__name__)
 
 @shared_task(bind=True, max_retries=3)

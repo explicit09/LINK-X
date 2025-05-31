@@ -77,7 +77,7 @@ def cleanup_old_files_async(self, days: int = 30):
             "status": "success", 
             "cleaned": cleaned_count,
             "errors": errors,
-            "activities_cleaned": old_activities
+            "activities_cleaned": 0  # Set to 0 since Activity model doesn't exist
         }
         
     except Exception as e:

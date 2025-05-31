@@ -78,7 +78,7 @@ class Container(containers.DeclarativeContainer):
     @providers.provider
     def db_session() -> Iterator[Session]:
         """Provide database session with proper cleanup"""
-        session = session_factory()
+        session = Container.session_factory()
         try:
             yield session
             session.commit()

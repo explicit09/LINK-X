@@ -3,7 +3,9 @@ from typing import List, Dict, Optional, Any
 from datetime import datetime
 import secrets
 import logging
+from sqlalchemy.orm import joinedload, selectinload
 
+from db.schema import Course, User
 from repositories.course_repository import CourseRepository
 from repositories.user_repository import UserRepository
 from repositories.enrollment_repository import EnrollmentRepository
