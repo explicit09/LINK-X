@@ -1,0 +1,44 @@
+{
+  "https://canvas.instructure.com": [
+    {
+      "default": true,
+      "client_id": "10000000000001",
+      "auth_login_url": "https://canvas.instructure.com/api/lti/authorize_redirect",
+      "auth_token_url": "https://canvas.instructure.com/login/oauth2/token",
+      "auth_audience": null,
+      "key_set_url": "https://canvas.instructure.com/api/lti/security/jwks",
+      "key_set": null,
+      "private_key_file": "private.key",
+      "public_key_file": "public.key",
+      "deployment_ids": ["1:dda2923e6e8b8f8c1932c5a8d7c1e1e1"]
+    }
+  ],
+  "https://blackboard.com": [
+    {
+      "default": false,
+      "client_id": "bb-client-id-placeholder",
+      "auth_login_url": "https://blackboard.com/auth/lti",
+      "auth_token_url": "https://blackboard.com/auth/token", 
+      "auth_audience": null,
+      "key_set_url": "https://blackboard.com/auth/jwks",
+      "key_set": null,
+      "private_key_file": "private.key",
+      "public_key_file": "public.key",
+      "deployment_ids": ["bb-deployment-placeholder"]
+    }
+  ],
+  "https://brightspace.d2l.com": [
+    {
+      "default": false,
+      "client_id": "d2l-client-id-placeholder",
+      "auth_login_url": "https://brightspace.d2l.com/d2l/lti/authenticate",
+      "auth_token_url": "https://brightspace.d2l.com/core/connect/token",
+      "auth_audience": null, 
+      "key_set_url": "https://brightspace.d2l.com/lti/jwks",
+      "key_set": null,
+      "private_key_file": "private.key",
+      "public_key_file": "public.key",
+      "deployment_ids": ["d2l-deployment-placeholder"]
+    }
+  ]
+}
