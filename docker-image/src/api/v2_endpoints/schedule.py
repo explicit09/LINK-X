@@ -8,6 +8,7 @@ from typing import Dict, List, Any, Optional
 import uuid
 from core.decorators_unified import auth_required, validate_json
 from core.exceptions import ValidationError, ResourceNotFoundError
+from core.database import db_manager
 from repositories.schedule_repository import (
     ScheduleRepository, 
     SchedulePreferencesRepository,
@@ -21,12 +22,18 @@ import logging
 logger = logging.getLogger(__name__)
 schedule_bp = Blueprint('schedule_v2', __name__)
 
-# Initialize repositories
-schedule_repo = ScheduleRepository()
-preferences_repo = SchedulePreferencesRepository()
-notes_repo = SessionNotesRepository()
-analytics_repo = SessionAnalyticsRepository()
-ai_suggestions_repo = AISessionSuggestionRepository()
+# Repository instances
+def get_repositories():
+    """Get repository instances with session factory"""
+    session_factory = db_manager.session_factory
+    return {
+        'schedule': ScheduleRepository(session_factory),
+        'preferences': SchedulePreferencesRepository(session_factory),
+        'notes': SessionNotesRepository(session_factory),
+        'analytics': SessionAnalyticsRepository(session_factory),
+        'ai_suggestions': AISessionSuggestionRepository(session_factory)
+    }
+
 ai_service = AIService()
 
 # ===============================
@@ -38,6 +45,7 @@ ai_service = AIService()
 def get_user_sessions():
     """Get user's study sessions with filtering and pagination"""
     try:
+        repos = get_repositories()
         user_id = g.user_id
         
         # Parse query parameters
@@ -53,7 +61,7 @@ def get_user_sessions():
         start_dt = datetime.fromisoformat(start_date) if start_date else None
         end_dt = datetime.fromisoformat(end_date) if end_date else None
         
-        sessions = schedule_repo.get_user_sessions(
+        sessions = repos['schedule'].get_user_sessions(
             user_id=user_id,
             start_date=start_dt,
             end_date=end_dt,
@@ -83,6 +91,7 @@ def get_user_sessions():
 def create_session():
     """Create a new study session"""
     try:
+        repos = get_repositories()
         user_id = g.user_id
         data = request.json
         
@@ -107,7 +116,7 @@ def create_session():
         }
         
         # Check for conflicts
-        conflicts = schedule_repo.check_session_conflicts(
+        conflicts = repos['schedule'].check_session_conflicts(
             user_id=user_id,
             start_time=session_data['scheduled_start'],
             end_time=session_data['scheduled_end'],
@@ -121,10 +130,10 @@ def create_session():
                 'status': 'error'
             }), 409
         
-        session = schedule_repo.create_session(session_data)
+        session = repos['schedule'].create_session(session_data)
         
         # Log analytics event
-        analytics_repo.log_session_event(
+        repos['analytics'].log_session_event(
             user_id=user_id,
             session_id=session['id'],
             event_type='session_created',
@@ -154,12 +163,13 @@ def create_session():
 def update_session(session_id):
     """Update an existing study session"""
     try:
+        repos = get_repositories()
         user_id = g.user_id
         data = request.json
         session_uuid = uuid.UUID(session_id)
         
         # Verify session ownership
-        existing_session = schedule_repo.get_session_by_id(session_uuid, user_id)
+        existing_session = repos['schedule'].get_session_by_id(session_uuid, user_id)
         if not existing_session:
             raise ResourceNotFoundError("Session not found")
         
@@ -188,7 +198,7 @@ def update_session(session_id):
             start_time = update_data.get('scheduled_start', existing_session['scheduled_start'])
             end_time = update_data.get('scheduled_end', existing_session['scheduled_end'])
             
-            conflicts = schedule_repo.check_session_conflicts(
+            conflicts = repos['schedule'].check_session_conflicts(
                 user_id=user_id,
                 start_time=start_time,
                 end_time=end_time,
@@ -202,10 +212,10 @@ def update_session(session_id):
                     'status': 'error'
                 }), 409
         
-        updated_session = schedule_repo.update_session(session_uuid, update_data)
+        updated_session = repos['schedule'].update_session(session_uuid, update_data)
         
         # Log analytics event
-        analytics_repo.log_session_event(
+        repos['analytics'].log_session_event(
             user_id=user_id,
             session_id=session_uuid,
             event_type='session_updated',
@@ -235,19 +245,20 @@ def update_session(session_id):
 def delete_session(session_id):
     """Delete a study session"""
     try:
+        repos = get_repositories()
         user_id = g.user_id
         session_uuid = uuid.UUID(session_id)
         
         # Verify session ownership
-        session = schedule_repo.get_session_by_id(session_uuid, user_id)
+        session = repos['schedule'].get_session_by_id(session_uuid, user_id)
         if not session:
             raise ResourceNotFoundError("Session not found")
         
-        success = schedule_repo.delete_session(session_uuid)
+        success = repos['schedule'].delete_session(session_uuid)
         
         if success:
             # Log analytics event
-            analytics_repo.log_session_event(
+            repos['analytics'].log_session_event(
                 user_id=user_id,
                 session_id=session_uuid,
                 event_type='session_deleted',
@@ -282,12 +293,13 @@ def delete_session(session_id):
 def bulk_update_sessions():
     """Update multiple sessions (for drag-and-drop operations)"""
     try:
+        repos = get_repositories()
         user_id = g.user_id
         sessions_data = request.json['sessions']
         
         # Validate all sessions belong to user
         session_ids = [uuid.UUID(s['id']) for s in sessions_data]
-        existing_sessions = schedule_repo.get_sessions_by_ids(session_ids, user_id)
+        existing_sessions = repos['schedule'].get_sessions_by_ids(session_ids, user_id)
         
         if len(existing_sessions) != len(session_ids):
             return jsonify({
@@ -314,10 +326,10 @@ def bulk_update_sessions():
             update_operations.append((session_id, update_data))
         
         # Execute bulk update
-        updated_sessions = schedule_repo.bulk_update_sessions(update_operations)
+        updated_sessions = repos['schedule'].bulk_update_sessions(update_operations)
         
         # Log analytics event
-        analytics_repo.log_session_event(
+        repos['analytics'].log_session_event(
             user_id=user_id,
             event_type='bulk_session_update',
             metadata={
@@ -344,10 +356,11 @@ def bulk_update_sessions():
 def start_session(session_id):
     """Start a study session"""
     try:
+        repos = get_repositories()
         user_id = g.user_id
         session_uuid = uuid.UUID(session_id)
         
-        session = schedule_repo.get_session_by_id(session_uuid, user_id)
+        session = repos['schedule'].get_session_by_id(session_uuid, user_id)
         if not session:
             raise ResourceNotFoundError("Session not found")
         
@@ -357,10 +370,10 @@ def start_session(session_id):
             'actual_start': datetime.utcnow()
         }
         
-        updated_session = schedule_repo.update_session(session_uuid, update_data)
+        updated_session = repos['schedule'].update_session(session_uuid, update_data)
         
         # Log analytics event
-        analytics_repo.log_session_event(
+        repos['analytics'].log_session_event(
             user_id=user_id,
             session_id=session_uuid,
             event_type='session_started',
@@ -393,11 +406,12 @@ def start_session(session_id):
 def complete_session(session_id):
     """Complete a study session"""
     try:
+        repos = get_repositories()
         user_id = g.user_id
         session_uuid = uuid.UUID(session_id)
         data = request.json or {}
         
-        session = schedule_repo.get_session_by_id(session_uuid, user_id)
+        session = repos['schedule'].get_session_by_id(session_uuid, user_id)
         if not session:
             raise ResourceNotFoundError("Session not found")
         
@@ -421,10 +435,10 @@ def complete_session(session_id):
         if data.get('session_notes'):
             update_data['session_notes'] = data['session_notes']
         
-        updated_session = schedule_repo.update_session(session_uuid, update_data)
+        updated_session = repos['schedule'].update_session(session_uuid, update_data)
         
         # Log analytics event
-        analytics_repo.log_session_event(
+        repos['analytics'].log_session_event(
             user_id=user_id,
             session_id=session_uuid,
             event_type='session_completed',
@@ -464,8 +478,9 @@ def complete_session(session_id):
 def get_user_preferences():
     """Get user's schedule preferences"""
     try:
+        repos = get_repositories()
         user_id = g.user_id
-        preferences = preferences_repo.get_user_preferences(user_id)
+        preferences = repos['preferences'].get_user_preferences(user_id)
         
         return jsonify({
             'data': preferences,
@@ -485,6 +500,7 @@ def get_user_preferences():
 def update_user_preferences():
     """Update user's schedule preferences"""
     try:
+        repos = get_repositories()
         user_id = g.user_id
         data = request.json
         
@@ -501,7 +517,7 @@ def update_user_preferences():
         
         update_data = {k: v for k, v in data.items() if k in allowed_fields}
         
-        preferences = preferences_repo.update_user_preferences(user_id, update_data)
+        preferences = repos['preferences'].update_user_preferences(user_id, update_data)
         
         return jsonify({
             'data': preferences,
@@ -525,6 +541,7 @@ def update_user_preferences():
 def optimize_schedule():
     """AI-powered schedule optimization"""
     try:
+        repos = get_repositories()
         user_id = g.user_id
         data = request.json or {}
         
@@ -532,13 +549,13 @@ def optimize_schedule():
         start_date = datetime.fromisoformat(data.get('start_date', datetime.now().isoformat()))
         end_date = start_date + timedelta(days=data.get('days_ahead', 7))
         
-        current_sessions = schedule_repo.get_user_sessions(
+        current_sessions = repos['schedule'].get_user_sessions(
             user_id=user_id,
             start_date=start_date,
             end_date=end_date
         )
         
-        preferences = preferences_repo.get_user_preferences(user_id)
+        preferences = repos['preferences'].get_user_preferences(user_id)
         
         # Run AI optimization
         optimization_result = ai_service.optimize_schedule(
@@ -565,7 +582,7 @@ def optimize_schedule():
                 'priority_score': suggestion.get('priority_score', 0.5),
                 'suggestion_metadata': suggestion.get('metadata', {})
             }
-            ai_suggestions_repo.create_suggestion(suggestion_data)
+            repos['ai_suggestions'].create_suggestion(suggestion_data)
         
         return jsonify({
             'data': optimization_result,
@@ -585,12 +602,13 @@ def optimize_schedule():
 def get_ai_suggestions():
     """Get AI-generated schedule suggestions"""
     try:
+        repos = get_repositories()
         user_id = g.user_id
         suggestion_type = request.args.get('type')
         status = request.args.get('status', 'pending')
         limit = int(request.args.get('limit', 10))
         
-        suggestions = ai_suggestions_repo.get_user_suggestions(
+        suggestions = repos['ai_suggestions'].get_user_suggestions(
             user_id=user_id,
             suggestion_type=suggestion_type,
             status=status,
@@ -615,10 +633,11 @@ def get_ai_suggestions():
 def apply_ai_suggestion(suggestion_id):
     """Apply an AI suggestion to create/modify sessions"""
     try:
+        repos = get_repositories()
         user_id = g.user_id
         suggestion_uuid = uuid.UUID(suggestion_id)
         
-        suggestion = ai_suggestions_repo.get_suggestion_by_id(suggestion_uuid, user_id)
+        suggestion = repos['ai_suggestions'].get_suggestion_by_id(suggestion_uuid, user_id)
         if not suggestion:
             raise ResourceNotFoundError("Suggestion not found")
         
@@ -638,10 +657,10 @@ def apply_ai_suggestion(suggestion_id):
                 'optimization_score': suggestion['confidence_score']
             }
             
-            created_session = schedule_repo.create_session(session_data)
+            created_session = repos['schedule'].create_session(session_data)
             
             # Update suggestion status
-            ai_suggestions_repo.update_suggestion(suggestion_uuid, {
+            repos['ai_suggestions'].update_suggestion(suggestion_uuid, {
                 'status': 'applied',
                 'applied_at': datetime.utcnow()
             })
@@ -649,7 +668,7 @@ def apply_ai_suggestion(suggestion_id):
             result_data = {'created_session': created_session}
         
         # Log analytics
-        analytics_repo.log_session_event(
+        repos['analytics'].log_session_event(
             user_id=user_id,
             event_type='ai_suggestion_applied',
             metadata={
@@ -686,10 +705,11 @@ def apply_ai_suggestion(suggestion_id):
 def get_schedule_analytics():
     """Get comprehensive schedule analytics for dashboard"""
     try:
+        repos = get_repositories()
         user_id = g.user_id
         days_back = int(request.args.get('days_back', 30))
         
-        analytics_data = analytics_repo.get_user_analytics_dashboard(user_id, days_back)
+        analytics_data = repos['analytics'].get_user_analytics_dashboard(user_id, days_back)
         
         return jsonify({
             'data': analytics_data,
@@ -709,10 +729,11 @@ def get_schedule_analytics():
 def get_schedule_insights():
     """Get AI-powered schedule insights and recommendations"""
     try:
+        repos = get_repositories()
         user_id = g.user_id
         
         # Get recent analytics data
-        analytics_data = analytics_repo.get_user_analytics_dashboard(user_id, 30)
+        analytics_data = repos['analytics'].get_user_analytics_dashboard(user_id, 30)
         
         # Generate AI insights
         insights = ai_service.generate_schedule_insights(analytics_data, user_id)
