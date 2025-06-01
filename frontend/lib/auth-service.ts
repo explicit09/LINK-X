@@ -2,7 +2,7 @@ import { auth } from '../firebaseconfig';
 import { User as FirebaseUser } from 'firebase/auth';
 
 // Use the API URL from environment or fallback to localhost
-const API_URL = 'http://localhost:8080';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 interface AuthTokens {
   accessToken: string;

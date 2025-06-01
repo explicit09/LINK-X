@@ -131,20 +131,19 @@ class APIClient {
 
       // Handle 401 - Try to refresh session
       if (response.status === 401 && !skipAuth && retryCount === 0) {
-        // Try to refresh token
-        const refreshToken = localStorage.getItem('refresh_token');
-        if (refreshToken) {
-          try {
-            // Import authAPI dynamically to avoid circular dependency
-            const { authAPI } = await import('./auth');
-            await authAPI.refreshToken();
+        // Try to refresh token using auth service
+        try {
+          // Import authService dynamically to avoid circular dependency
+          const { authService } = await import('../auth-service');
+          const refreshed = await authService.refreshTokens();
+          if (refreshed) {
             // Retry the request with new token
             return this.request<T>(endpoint, { ...config, retryCount: 1 });
-          } catch (refreshError) {
-            // Refresh failed, clear tokens and throw original error
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('refresh_token');
           }
+        } catch (refreshError) {
+          // Refresh failed, clear tokens and throw original error
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
         }
         throw new APIError(401, 'Unauthorized', null, 'AUTH_REQUIRED');
       }
