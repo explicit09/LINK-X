@@ -6,6 +6,7 @@ import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { auth } from '@/firebaseconfig';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { dashboardRoutes } from '@/lib/navigation';
 
 const Cta = () => {
   const ctaRef = useRef<HTMLDivElement>(null);
@@ -69,8 +70,8 @@ const Cta = () => {
                     className="bg-blue-600 text-white hover:bg-blue-700 text-base h-12 px-6"
                     asChild
                   >
-                    <Link href="/dashboard">
-                      Go to Dashboard
+                    <Link href={dashboardRoutes.main}>
+                      🚀 Go to Dashboard
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                   </Button>

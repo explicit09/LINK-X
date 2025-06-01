@@ -72,4 +72,12 @@ export const courseAPI = {
 
   generateCourseFAQs: (courseId: string) =>
     apiClient.post(`/instructor/courses/${courseId}/faqs`),
+
+  // Student enrollment via access code
+  joinCourseByCode: (accessCode: string): Promise<Course> =>
+    apiClient.post('/api/v2/courses/join', { access_code: accessCode }),
+
+  // Leave a course (for students)
+  leaveCourse: (courseId: string) =>
+    apiClient.delete(`/api/v2/courses/${courseId}/leave`),
 };

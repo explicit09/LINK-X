@@ -6,6 +6,7 @@ import { ArrowRight, BookOpen, Award, Database } from 'lucide-react';
 import Link from 'next/link';
 import { auth } from '@/firebaseconfig';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { dashboardRoutes } from '@/lib/navigation';
 
 const Hero = () => {
   const heroRef = useRef<HTMLDivElement>(null);
@@ -80,8 +81,8 @@ const Hero = () => {
                   className="bg-blue-600 hover:bg-blue-700 text-white text-base h-12 px-6"
                   asChild
                 >
-                  <Link href="/dashboard">
-                    Go to Dashboard
+                  <Link href={dashboardRoutes.main}>
+                    🚀 Go to Dashboard
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
@@ -91,7 +92,7 @@ const Hero = () => {
                   className="text-base h-12 px-6 border-gray-300 text-gray-700 hover:bg-gray-100"
                   asChild
                 >
-                  <Link href="#how-it-works">How It Works</Link>
+                  <Link href={dashboardRoutes.courses}>📚 My Courses</Link>
                 </Button>
               </>
             ) : (
@@ -112,7 +113,7 @@ const Hero = () => {
                   className="text-base h-12 px-6 border-gray-300 text-gray-700 hover:bg-gray-100"
                   asChild
                 >
-                  <Link href="#how-it-works">How It Works</Link>
+                  <Link href={dashboardRoutes.courses}>📚 My Courses</Link>
                 </Button>
               </>
             )}

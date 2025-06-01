@@ -6,12 +6,12 @@ from datetime import datetime
 import logging
 
 from core.decorators_unified import firebase_auth_required
-from core.exceptions import ValidationError, NotFoundError, UnauthorizedError
+from core.exceptions import ValidationError, NotFoundError, UnauthorizedError, AuthenticationError
 from services.auth_service_unified import UnifiedAuthService as AuthService
 from repositories.user_repository import UserRepository
 from repositories.course_repository import CourseRepository
 from repositories.enrollment_repository import EnrollmentRepository
-from core.database import db
+from core.database import db, db_manager
 from db.schema import Enrollment, Course, PersonalizedFile
 
 from .utils import success_response, error_response
@@ -21,8 +21,11 @@ logger = logging.getLogger(__name__)
 # Create auth blueprint
 auth_bp = Blueprint('api_v2_auth', __name__)
 
-# Initialize services
-auth_service = AuthService()
+# Initialize services with proper session factory
+def get_auth_service():
+    """Get auth service instance with proper session factory"""
+    user_repo = UserRepository(db_manager.session_factory)
+    return AuthService(user_repo=user_repo)
 
 
 @auth_bp.route('/login', methods=['POST'])
@@ -38,33 +41,23 @@ def login_v2():
             return error_response("ID token is required", errors={'idToken': 'This field is required'}, status_code=400)
         
         # Use auth service for login
-        result = auth_service.login_with_firebase(id_token)
+        auth_service = get_auth_service()
+        result = auth_service.authenticate_with_firebase(id_token, version='v2')
         
         # Enhanced response with user details
-        user = result['user']
+        user_data = result['user']  # This is already a dict from auth service
         
-        # Get display name from the appropriate profile
-        display_name = None
-        if user.role:
-            if user.role.role_type == 'student' and user.student_profile:
-                display_name = user.student_profile.name
-            elif user.role.role_type == 'instructor' and user.instructor_profile:
-                display_name = user.instructor_profile.name
-            elif user.role.role_type == 'admin' and user.admin_profile:
-                display_name = user.admin_profile.name
-        
-        # Fallback to email if no profile name is available
-        if not display_name:
-            display_name = user.email.split('@')[0]
+        # Get display name - use name if available, otherwise fallback to email
+        display_name = user_data.get('name') or user_data['email'].split('@')[0]
         
         response_data = {
             'user': {
-                'id': str(user.id),
-                'email': user.email,
+                'id': str(user_data['user_id']),
+                'email': user_data['email'],
                 'display_name': display_name,
-                'role': user.role.role_type if user.role else None,
-                'firebase_uid': user.firebase_uid,
-                'created_at': None  # Not available in current User model
+                'role': user_data.get('role'),
+                'firebase_uid': user_data.get('firebase_uid'),
+                'created_at': None  # Not available in current response
             },
             'tokens': {
                 'access_token': result['access_token'],
@@ -77,6 +70,8 @@ def login_v2():
         
     except ValidationError as e:
         return error_response(str(e), status_code=400)
+    except AuthenticationError as e:
+        return error_response(str(e), status_code=401)
     except UnauthorizedError as e:
         return error_response(str(e), status_code=401)
     except Exception as e:
@@ -113,7 +108,7 @@ def get_profile_v2():
     """Get current user profile with enhanced data"""
     try:
         user = g.current_user
-        user_repo = UserRepository()
+        user_repo = UserRepository(db_manager.session_factory)
         
         # Refresh user data from database
         fresh_user = user_repo.get_by_id(user.id)
@@ -183,7 +178,7 @@ def update_profile_v2():
         if not data:
             return error_response("No data provided")
         
-        user_repo = UserRepository()
+        user_repo = UserRepository(db_manager.session_factory)
         
         # Update user email if provided (requires Firebase update too)
         if 'email' in data and data['email'] != user.email:

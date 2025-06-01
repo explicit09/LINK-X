@@ -38,7 +38,7 @@ export const WelcomeScreen = ({
           {recommendedLesson ? (
             <div className="space-y-4">
               <p className="text-lg text-gray-700">
-                You've completed{' '}
+                You&apos;ve completed{' '}
                 <span className="font-semibold text-blue-600">
                   {completedLessons} of {totalLessons}
                 </span>{' '}
@@ -47,7 +47,7 @@ export const WelcomeScreen = ({
 
               <div className="bg-orange-50 border border-orange-200 rounded-xl p-6 max-w-2xl mx-auto">
                 <h3 className="font-semibold text-orange-900 mb-2">
-                  Today's recommended lesson:
+                  Today&apos;s recommended lesson:
                 </h3>
                 <p className="text-orange-800 mb-4">
                   <span className="font-medium">
@@ -80,7 +80,7 @@ export const WelcomeScreen = ({
               {studyTime === 1 && (
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 max-w-xl mx-auto">
                   <p className="text-blue-800 text-sm">
-                    💡 You're maintaining your {currentStreak}-day streak—keep
+                    💡 You&apos;re maintaining your {currentStreak}-day streak—keep
                     the momentum going!
                   </p>
                 </div>
@@ -88,7 +88,7 @@ export const WelcomeScreen = ({
             </div>
           ) : (
             <p className="text-lg text-gray-600">
-              Outstanding! You've completed all available lessons.
+              Outstanding! You&apos;ve completed all available lessons.
             </p>
           )}
         </div>

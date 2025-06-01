@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { userAPI } from '@/lib/api';
+import { authAPI } from '@/lib/api';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,7 +48,7 @@ export default function ProgressPage() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const user = await userAPI.getMe();
+        const user = await authAPI.v2.getProfile();
         setCurrentUser(user);
       } catch (error) {
         console.error('Failed to fetch user:', error);

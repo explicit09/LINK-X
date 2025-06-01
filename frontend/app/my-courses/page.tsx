@@ -45,9 +45,11 @@ import {
   Star,
   Filter,
   Calendar,
+  UserPlus,
+  Key,
 } from 'lucide-react';
 import { toast as sonnerToast } from 'sonner';
-import { studentAPI, userAPI } from '@/lib/api';
+import { courseAPI, authAPI } from '@/lib/api';
 
 interface Course {
   id: string;
@@ -73,13 +75,16 @@ export default function MyCoursesPage() {
   const [deletingCourse, setDeletingCourse] = useState<Course | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [filter, setFilter] = useState<'all' | 'published' | 'draft'>('all');
+  const [showJoinCourseDialog, setShowJoinCourseDialog] = useState(false);
+  const [accessCode, setAccessCode] = useState('');
+  const [joiningCourse, setJoiningCourse] = useState(false);
   const router = useRouter();
 
   // Load user data
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const user = await userAPI.getMe();
+        const user = await authAPI.v2.getProfile();
         setCurrentUser(user);
       } catch (error) {
         console.error('Failed to fetch user:', error);
@@ -95,7 +100,7 @@ export default function MyCoursesPage() {
     const loadMyCourses = async () => {
       try {
         setLoading(true);
-        const coursesData = await studentAPI.getCourses();
+        const coursesData = await courseAPI.getCourses();
 
         // Transform API data with enhanced course info
         const transformedCourses = coursesData.map(
@@ -153,7 +158,7 @@ export default function MyCoursesPage() {
 
   const handleCreateCourse = async (courseData: any) => {
     try {
-      const newCourse = await studentAPI.createCourse(courseData);
+      const newCourse = await courseAPI.createCourse(courseData);
       setCourses((prev) => [
         ...prev,
         {
@@ -179,7 +184,7 @@ export default function MyCoursesPage() {
     if (!editingCourse) return;
 
     try {
-      await studentAPI.updateCourse(editingCourse.id, courseData);
+      await courseAPI.updateCourse(editingCourse.id, courseData);
       setCourses((prev) =>
         prev.map((course) =>
           course.id === editingCourse.id
@@ -199,7 +204,7 @@ export default function MyCoursesPage() {
     if (!deletingCourse) return;
 
     try {
-      await studentAPI.deleteCourse(deletingCourse.id);
+      await courseAPI.deleteCourse(deletingCourse.id);
       setCourses((prev) =>
         prev.filter((course) => course.id !== deletingCourse.id),
       );
@@ -208,6 +213,46 @@ export default function MyCoursesPage() {
     } catch (error) {
       console.error('Failed to delete course:', error);
       sonnerToast.error('Failed to delete course');
+    }
+  };
+
+  const handleJoinCourse = async () => {
+    if (!accessCode.trim()) {
+      sonnerToast.error('Please enter an access code');
+      return;
+    }
+
+    try {
+      setJoiningCourse(true);
+      
+      // API call to join course with access code
+      const response = await courseAPI.joinCourseByCode(accessCode.trim());
+      
+      // Add the joined course to the list
+      const joinedCourse = {
+        ...response,
+        studentsCount: response.studentsCount || 1,
+        materialsCount: response.materialsCount || 0,
+        lastActivity: 'Just joined',
+        progress: 0,
+        color: 'bg-green-500',
+      };
+      
+      setCourses((prev) => [joinedCourse, ...prev]);
+      setShowJoinCourseDialog(false);
+      setAccessCode('');
+      sonnerToast.success('🎉 Successfully joined the course! +15 XP earned');
+    } catch (error: any) {
+      console.error('Failed to join course:', error);
+      if (error.message?.includes('Invalid access code')) {
+        sonnerToast.error('❌ Invalid access code. Please check and try again.');
+      } else if (error.message?.includes('already enrolled')) {
+        sonnerToast.error('📚 You are already enrolled in this course.');
+      } else {
+        sonnerToast.error('Failed to join course. Please try again.');
+      }
+    } finally {
+      setJoiningCourse(false);
     }
   };
 
@@ -359,6 +404,15 @@ export default function MyCoursesPage() {
           </DropdownMenu>
 
           <Button
+            onClick={() => setShowJoinCourseDialog(true)}
+            variant="outline"
+            className="border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400"
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Join Course
+          </Button>
+          
+          <Button
             onClick={() => setShowCourseForm(true)}
             className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
           >
@@ -381,13 +435,23 @@ export default function MyCoursesPage() {
               : 'Create your first course to get started'}
           </p>
           {!searchQuery && (
-            <Button
-              onClick={() => setShowCourseForm(true)}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Course
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button
+                onClick={() => setShowJoinCourseDialog(true)}
+                variant="outline"
+                className="border-green-300 text-green-700 hover:bg-green-50"
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Join with Code
+              </Button>
+              <Button
+                onClick={() => setShowCourseForm(true)}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Course
+              </Button>
+            </div>
           )}
         </div>
       ) : (
@@ -591,6 +655,91 @@ export default function MyCoursesPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Join Course Dialog */}
+      <Dialog open={showJoinCourseDialog} onOpenChange={setShowJoinCourseDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-green-600" />
+              Join Course with Access Code
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">
+                Access Code
+              </label>
+              <div className="relative">
+                <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Enter the course access code"
+                  value={accessCode}
+                  onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                  className="pl-10 text-center font-mono text-lg tracking-wider"
+                  maxLength={8}
+                  disabled={joiningCourse}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleJoinCourse();
+                    }
+                  }}
+                />
+              </div>
+              <p className="text-sm text-gray-500">
+                💡 Get the access code from your instructor to join their course
+              </p>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  <BookOpen className="h-5 w-5 text-blue-600 mt-0.5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-blue-900">
+                    How to Join a Course
+                  </h4>
+                  <p className="text-sm text-blue-700 mt-1">
+                    Your instructor will provide you with a unique access code. 
+                    Enter it above to instantly join their course and access all materials.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowJoinCourseDialog(false);
+                  setAccessCode('');
+                }}
+                disabled={joiningCourse}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleJoinCourse}
+                disabled={!accessCode.trim() || joiningCourse}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {joiningCourse ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    Joining...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Join Course
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog

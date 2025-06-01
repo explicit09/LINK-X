@@ -352,7 +352,7 @@ class UserActivity(Base):
     activity_type = Column(String(50), nullable=False)  # 'file_view', 'todo_complete', 'chat_message', etc.
     xp_earned = Column(Integer, nullable=False, default=0)
     description = Column(Text)
-    metadata = Column(JSONB)
+    activity_metadata = Column(JSONB)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     
     user = relationship('User')
@@ -454,13 +454,14 @@ class StudySession(Base):
     effectiveness_rating = Column(Integer)  # 1-5
     focus_score = Column(Numeric(3,1))     # 0.0-10.0
     notes = Column(Text)
-    metadata = Column(JSONB)
+    session_metadata = Column(JSONB)
     xp_earned = Column(Integer, default=0)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     
     user = relationship('User')
     goal = relationship('StudyGoal', back_populates='sessions')
     course = relationship('Course')
+    note_objects = relationship('SessionNote', back_populates='session', cascade='all, delete-orphan')
 
 
 class StudyRecommendation(Base):
@@ -479,7 +480,7 @@ class StudyRecommendation(Base):
     xp_reward = Column(Integer, default=0)
     status = Column(String(20), default='active')
     expires_at = Column(DateTime)
-    metadata = Column(JSONB)
+    recommendation_metadata = Column(JSONB)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -507,58 +508,6 @@ class GoalProgress(Base):
     user = relationship('User')
 
 
-class StudySession(Base):
-    __tablename__ = 'study_sessions'
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
-    course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='SET NULL'))
-    study_plan_id = Column(UUID(as_uuid=True), ForeignKey('study_plans.id', ondelete='SET NULL'))
-    study_goal_id = Column(UUID(as_uuid=True), ForeignKey('study_goals.id', ondelete='SET NULL'))
-    
-    # Session Details
-    title = Column(String(255), nullable=False)
-    description = Column(Text)
-    session_type = Column(String(30), default='study')
-    
-    # Scheduling
-    scheduled_start = Column(DateTime, nullable=False)
-    scheduled_end = Column(DateTime, nullable=False)
-    duration_minutes = Column(Integer, nullable=False)
-    
-    # AI Optimization Fields
-    cognitive_load = Column(String(10), default='medium')
-    urgency = Column(String(10), default='later')
-    priority_score = Column(Numeric(3,2), default=0.5)
-    
-    # Session Execution
-    actual_start = Column(DateTime)
-    actual_end = Column(DateTime)
-    actual_duration_minutes = Column(Integer)
-    status = Column(String(20), default='scheduled')
-    completion_percentage = Column(Integer, default=0)
-    
-    # Rewards and Motivation
-    xp_reward = Column(Integer, default=0)
-    xp_earned = Column(Integer, default=0)
-    
-    # Metadata
-    is_ai_suggested = Column(Boolean, default=False)
-    optimization_score = Column(Numeric(3,2))
-    calendar_position = Column(Integer)
-    session_notes = Column(Text)
-    effectiveness_rating = Column(Integer)
-    focus_score = Column(Numeric(3,1))
-    
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
-    user = relationship('User')
-    course = relationship('Course')
-    study_plan = relationship('StudyPlan')
-    study_goal = relationship('StudyGoal')
-    notes = relationship('SessionNote', back_populates='session', cascade='all, delete-orphan')
-
 
 class SessionNote(Base):
     __tablename__ = 'session_notes'
@@ -570,14 +519,14 @@ class SessionNote(Base):
     content = Column(Text, nullable=False)
     note_timestamp = Column(DateTime, default=datetime.utcnow)
     
-    metadata = Column(JSONB)
+    note_metadata = Column(JSONB)
     is_private = Column(Boolean, default=True)
     
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    session = relationship('StudySession', back_populates='notes')
+    session = relationship('StudySession', back_populates='note_objects')
     user = relationship('User')
 
 
@@ -650,7 +599,7 @@ class SessionAnalytics(Base):
     session_satisfaction = Column(Integer)
     
     # Contextual Data
-    metadata = Column(JSONB)
+    analytics_metadata = Column(JSONB)
     
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     
@@ -688,7 +637,7 @@ class AISessionSuggestion(Base):
     # Metadata
     priority_score = Column(Numeric(3,2), default=0.5)
     expires_at = Column(DateTime)
-    suggestion_metadata = Column(JSONB)
+    ai_suggestion_metadata = Column(JSONB)
     
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

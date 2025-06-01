@@ -34,8 +34,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
-// Import design tokens
-import { colors } from '@/src/styles/tokens';
+// Default color values instead of design tokens
+const colors = {
+  primary: { DEFAULT: '#3b82f6' },
+  neutral: { 400: '#9ca3af' }
+};
 
 interface Course {
   id: string;

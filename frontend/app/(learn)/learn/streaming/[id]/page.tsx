@@ -30,7 +30,7 @@ export default function StreamingLearnPage() {
 
   // Custom hooks
   const { outline, isLoadingOutline, toggleChapter } =
-    useDocumentOutline(fileId);
+    useDocumentOutline(fileId as string);
 
   const {
     streamingContent,
@@ -50,7 +50,7 @@ export default function StreamingLearnPage() {
     regenerateSection,
     prefetchNext,
     metricsData,
-  } = useStreamingContent(fileId, outline);
+  } = useStreamingContent(fileId as string, outline);
 
   const {
     userXP,
@@ -68,7 +68,7 @@ export default function StreamingLearnPage() {
   } = useGamification(completedCount, totalSections);
 
   const chatProps = useChat(
-    fileId,
+    fileId as string,
     outline,
     focusedSectionKey,
     streamingContent,

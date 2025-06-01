@@ -6,7 +6,7 @@ import { toast as sonnerToast } from 'sonner';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
 import { DashboardMainContent } from '@/components/dashboard/sections/DashboardMainContent';
 import { DashboardSidebar } from '@/components/dashboard/sections/DashboardSidebar';
-import { userAPI } from '@/lib/api';
+import { authAPI } from '@/lib/api';
 
 export default function Dashboard() {
   const [role, setRole] = useState<
@@ -18,8 +18,10 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchUserRole = async () => {
       try {
-        const user = await userAPI.getMe();
-        setRole(user.role || 'student'); // Default to student
+        const user = await authAPI.v2.getProfile();
+        // UserProfile doesn't have role, so default to student for now
+        // TODO: Update API to return User object with role or get role separately
+        setRole('student'); // Default to student until role API is fixed
         setCurrentUser(user);
       } catch (error) {
         console.error('Failed to fetch user:', error);

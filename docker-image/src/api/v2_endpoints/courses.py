@@ -547,3 +547,62 @@ def get_course_progress_v2(course_id):
     except Exception as e:
         logger.error(f"Get course progress error: {str(e)}")
         return error_response("An error occurred fetching course progress", status_code=500)
+
+
+@courses_bp.route('/join', methods=['POST'])
+@firebase_auth_required
+def join_course_by_access_code_v2():
+    """Join a course using an access code"""
+    try:
+        user = g.current_user
+        data = request.get_json()
+        
+        if not data or 'access_code' not in data:
+            return error_response("Access code is required")
+        
+        access_code = data['access_code'].strip().upper()
+        
+        if not access_code:
+            return error_response("Access code cannot be empty")
+        
+        # Join course using access code
+        try:
+            course = get_course_service().join_course_by_access_code(user.id, access_code)
+        except NotFoundError:
+            return error_response("Invalid access code. Please check and try again.", status_code=404)
+        except ValidationError as e:
+            if "already enrolled" in str(e).lower():
+                return error_response("You are already enrolled in this course.", status_code=409)
+            return error_response(str(e), status_code=400)
+        except Exception as join_error:
+            logger.error(f"Course join failed: {str(join_error)}")
+            return error_response("Failed to join course. Please try again.", status_code=500)
+        
+        # Format response
+        formatted_course = {
+            'id': str(course.id),
+            'title': course.title,
+            'description': course.description,
+            'code': getattr(course, 'code', ''),
+            'term': getattr(course, 'term', ''),
+            'category': getattr(course, 'category', ''),
+            'tags': getattr(course, 'tags', []) or [],
+            'instructor': {
+                'id': str(course.instructor_id) if course.instructor_id else '',
+                'name': course.instructor_profile.name if hasattr(course, 'instructor_profile') and course.instructor_profile else 'Instructor'
+            },
+            'published': course.published,
+            'created_at': course.created_at.isoformat() if hasattr(course, 'created_at') else None,
+            'updated_at': course.last_updated.isoformat() if hasattr(course, 'last_updated') else None,
+            'enrolled_at': datetime.utcnow().isoformat()
+        }
+        
+        return success_response(
+            formatted_course,
+            message="Successfully joined the course",
+            status_code=201
+        )
+        
+    except Exception as e:
+        logger.error(f"Join course error: {str(e)}")
+        return error_response("An error occurred while joining the course", status_code=500)

@@ -8,6 +8,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/firebaseconfig';
+import { dashboardRoutes } from '@/lib/navigation';
 
 const LandingHeader = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -83,7 +84,7 @@ const LandingHeader = () => {
           {isLoggedIn ? (
             <>
               <Link
-                href="/settings"
+                href={dashboardRoutes.settings}
                 className="text-gray-800 hover:text-blue-600 transition-colors mr-2"
                 aria-label="Settings"
               >
@@ -100,7 +101,7 @@ const LandingHeader = () => {
                 className="bg-blue-600 hover:bg-blue-700 text-white border-0"
                 asChild
               >
-                <Link href="/dashboard">Dashboard</Link>
+                <Link href={dashboardRoutes.main}>🚀 Dashboard</Link>
               </Button>
             </>
           ) : (
@@ -164,7 +165,7 @@ const LandingHeader = () => {
                   className="bg-blue-600 hover:bg-blue-700 text-white border-0 justify-center"
                   asChild
                 >
-                  <Link href="/dashboard">Dashboard</Link>
+                  <Link href={dashboardRoutes.main}>🚀 Dashboard</Link>
                 </Button>
               </>
             ) : (

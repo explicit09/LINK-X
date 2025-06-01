@@ -16,7 +16,7 @@ export const useStreamingCourse = (pfId: string | null) => {
     const fetchOutline = async () => {
       try {
         const { fetchWithAuth } = await import('@/lib/api');
-        const res = await fetchWithAuth(`/api/v2/streaming/outline/${pfId}`);
+        const res = await fetchWithAuth(`/api/v2/streaming/outline/${pfId}`) as Response;
 
         if (!res.ok) {
           throw new Error(`Failed to fetch outline`);

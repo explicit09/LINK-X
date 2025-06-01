@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
-from core.monitoring import tracer
+from core.monitoring import monitor_request
 from ..queries.user_metrics import UserMetricsQueries
 from ..queries.course_metrics import CourseMetricsQueries
 
@@ -24,8 +24,7 @@ class DashboardMetricsCollector:
     def get_weekly_progress(self, db: Session, user_id: str) -> Dict[str, Any]:
         """Calculate weekly progress metrics for a user."""
         try:
-            with tracer.trace("dashboard.weekly_progress"):
-                # Calculate week boundaries
+            # Calculate week boundaries
                 now = datetime.utcnow()
                 week_start = now - timedelta(days=now.weekday())
                 week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -61,8 +60,7 @@ class DashboardMetricsCollector:
     def get_priority_actions(self, db: Session, user_id: str, limit: int = 5) -> List[Dict[str, Any]]:
         """Get prioritized actions for a user based on urgency and performance."""
         try:
-            with tracer.trace("dashboard.priority_actions"):
-                actions = []
+            actions = []
                 
                 # Get urgent assignments
                 urgent_assignments = self._get_urgent_assignments(db, user_id)
@@ -89,8 +87,7 @@ class DashboardMetricsCollector:
     def get_performance_pulse(self, db: Session, user_id: str) -> Dict[str, Any]:
         """Get performance pulse data for sidebar display."""
         try:
-            with tracer.trace("dashboard.performance_pulse"):
-                # Get this week vs last week comparison
+            # Get this week vs last week comparison
                 now = datetime.utcnow()
                 this_week_start = now - timedelta(days=now.weekday())
                 last_week_start = this_week_start - timedelta(days=7)
@@ -122,8 +119,7 @@ class DashboardMetricsCollector:
     def get_today_schedule(self, db: Session, user_id: str) -> List[Dict[str, Any]]:
         """Get today's schedule for the user."""
         try:
-            with tracer.trace("dashboard.today_schedule"):
-                today = datetime.utcnow().date()
+            today = datetime.utcnow().date()
                 
                 # Get scheduled items for today
                 schedule_items = self._get_scheduled_items(db, user_id, today)
@@ -148,8 +144,7 @@ class DashboardMetricsCollector:
     def get_course_overview(self, db: Session, user_id: str) -> Dict[str, Any]:
         """Get course overview statistics."""
         try:
-            with tracer.trace("dashboard.course_overview"):
-                # Get user's enrolled courses
+            # Get user's enrolled courses
                 courses = self._get_user_courses(db, user_id)
                 
                 active_count = sum(1 for c in courses if c.get("status") == "active")

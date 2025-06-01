@@ -6,11 +6,11 @@ from flask import Blueprint, request, g
 from datetime import datetime, timedelta
 import logging
 
-from core.decorators_unified import firebase_auth_required
+from core.decorators_unified import auth_required
 from core.exceptions import ValidationError, NotFoundError
 from repositories.dashboard_repository import DashboardRepository
 from services.ai.dashboard_ai import DashboardAIService
-from api.metrics.collectors.dashboard import DashboardMetricsCollector
+# from api.metrics.collectors.dashboard import DashboardMetricsCollector
 from core.database import db_manager
 
 from .utils import success_response, error_response, validate_pagination
@@ -23,8 +23,6 @@ dashboard_bp = Blueprint('api_v2_dashboard', __name__)
 # Initialize services lazily
 dashboard_repo = None
 dashboard_ai = None
-dashboard_metrics = None
-
 def get_dashboard_repo():
     """Get dashboard repository instance with lazy initialization"""
     global dashboard_repo
@@ -40,16 +38,9 @@ def get_dashboard_ai():
         dashboard_ai = DashboardAIService()
     return dashboard_ai
 
-def get_dashboard_metrics():
-    """Get dashboard metrics collector instance with lazy initialization"""
-    global dashboard_metrics
-    if dashboard_metrics is None:
-        dashboard_metrics = DashboardMetricsCollector()
-    return dashboard_metrics
-
 
 @dashboard_bp.route('/overview', methods=['GET'])
-@firebase_auth_required
+@auth_required()
 def get_dashboard_overview_v2():
     """Get comprehensive dashboard overview for the current user"""
     try:
@@ -120,7 +111,7 @@ def get_dashboard_overview_v2():
 
 
 @dashboard_bp.route('/weekly-progress', methods=['GET'])
-@firebase_auth_required
+@auth_required()
 def get_weekly_progress_v2():
     """Get detailed weekly progress for the current user"""
     try:
@@ -158,7 +149,7 @@ def get_weekly_progress_v2():
 
 
 @dashboard_bp.route('/ai-recommendations', methods=['GET'])
-@firebase_auth_required
+@auth_required()
 def get_ai_recommendations_v2():
     """Get AI-powered recommendations for the current user"""
     try:
@@ -198,7 +189,7 @@ def get_ai_recommendations_v2():
 
 
 @dashboard_bp.route('/performance-pulse', methods=['GET'])
-@firebase_auth_required
+@auth_required()
 def get_performance_pulse_v2():
     """Get performance pulse data for sidebar display"""
     try:
@@ -231,7 +222,7 @@ def get_performance_pulse_v2():
 
 
 @dashboard_bp.route('/schedule/today', methods=['GET'])
-@firebase_auth_required
+@auth_required()
 def get_today_schedule_v2():
     """Get today's schedule for the current user"""
     try:
@@ -260,7 +251,7 @@ def get_today_schedule_v2():
 
 
 @dashboard_bp.route('/courses-overview', methods=['GET'])
-@firebase_auth_required
+@auth_required()
 def get_courses_overview_v2():
     """Get courses overview for the current user"""
     try:
@@ -281,7 +272,7 @@ def get_courses_overview_v2():
 
 
 @dashboard_bp.route('/activity-timeline', methods=['GET'])
-@firebase_auth_required
+@auth_required()
 def get_activity_timeline_v2():
     """Get user's recent activity timeline"""
     try:
@@ -323,7 +314,7 @@ def get_activity_timeline_v2():
 
 
 @dashboard_bp.route('/action-plan', methods=['POST'])
-@firebase_auth_required
+@auth_required()
 def generate_action_plan_v2():
     """Generate adaptive action plan for specific goals"""
     try:

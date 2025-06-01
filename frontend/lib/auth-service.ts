@@ -119,28 +119,72 @@ class AuthService {
 
   async refreshTokens(): Promise<boolean> {
     try {
-      if (!auth.currentUser) {
+      // Check if we have a refresh token
+      const refreshToken = this.authState.tokens?.refreshToken;
+      
+      if (!refreshToken && !auth.currentUser) {
+        // No refresh token and no Firebase user, clear auth state
         this.clearAuthState();
         return false;
       }
 
-      // Get fresh Firebase token
-      const firebaseToken = await auth.currentUser.getIdToken(true);
+      // If we have a refresh token, use it to get a new access token
+      if (refreshToken) {
+        try {
+          const response = await fetch(`${API_URL}/api/v2/auth/refresh`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ refresh_token: refreshToken }),
+            credentials: 'include',
+          });
 
-      // For now, just update the token expiry since we're using Firebase tokens
-      // In a production system, you'd exchange for backend tokens
-      this.authState.tokens = {
-        accessToken: firebaseToken,
-        expiresAt: Date.now() + 60 * 60 * 1000, // 1 hour
-      };
+          if (!response.ok) {
+            console.error('Backend token refresh failed:', response.status);
+            // If refresh fails, try to re-login with Firebase
+            if (auth.currentUser) {
+              console.log('Attempting to re-establish session with Firebase');
+              const loginResult = await this.login(auth.currentUser);
+              return loginResult;
+            }
+            this.clearAuthState();
+            return false;
+          }
 
-      this.saveAuthState();
-      this.scheduleTokenRefresh();
+          const data = await response.json();
+          
+          // Update tokens
+          this.authState.tokens = {
+            ...this.authState.tokens,
+            accessToken: data.access_token,
+            expiresAt: Date.now() + (data.expires_in || 1800) * 1000, // Default 30 minutes
+          };
 
-      return true;
+          this.saveAuthState();
+          this.scheduleTokenRefresh();
+          return true;
+          
+        } catch (error) {
+          console.error('Token refresh request failed:', error);
+          // Try to re-login with Firebase as fallback
+          if (auth.currentUser) {
+            const loginResult = await this.login(auth.currentUser);
+            return loginResult;
+          }
+        }
+      }
+      
+      // If no refresh token but we have Firebase user, try to re-establish session
+      if (auth.currentUser && !refreshToken) {
+        console.log('No refresh token, attempting to re-establish session with Firebase');
+        const loginResult = await this.login(auth.currentUser);
+        return loginResult;
+      }
+
+      return false;
     } catch (error) {
       console.error('Token refresh failed:', error);
-      // Don't clear auth state on refresh failure if user is still logged in
       if (!auth.currentUser) {
         this.clearAuthState();
       }
@@ -155,7 +199,7 @@ class AuthService {
 
       // Try to establish session with backend
       // Create session with Firebase token
-      const response = await fetch(`${API_URL}/auth/login`, {
+      const response = await fetch(`${API_URL}/api/v2/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,13 +233,18 @@ class AuthService {
         return false;
       }
 
-      // Update auth state
+      // Update auth state - handle both v1 and v2 response formats
+      const accessToken = data.tokens?.access_token || data.access_token || data.token;
+      const refreshToken = data.tokens?.refresh_token;
+      const expiresIn = data.tokens?.expires_in || 24 * 60 * 60;
+      
       this.authState = {
         isAuthenticated: true,
         isRegistered: true, // If sessionLogin succeeds, user is registered
         tokens: {
-          accessToken: data.access_token || data.token, // v1 returns 'token', v2 returns 'access_token'
-          expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+          accessToken,
+          refreshToken,
+          expiresAt: Date.now() + expiresIn * 1000,
         },
         user: data.user || null,
       };
@@ -232,7 +281,7 @@ class AuthService {
       const token = await this.getValidToken();
       if (!token) return false;
 
-      const response = await fetch(`${API_URL}/auth/me`, {
+      const response = await fetch(`${API_URL}/api/v2/auth/me`, {
         method: 'GET',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -271,14 +320,16 @@ class AuthService {
     // If no backend token but we have a Firebase user, try to establish session
     if (auth.currentUser && !this.authState.tokens) {
       // No backend token found, attempting to establish session
-      const sessionEstablished = await this.login(auth.currentUser);
-      if (
-        sessionEstablished &&
-        this.authState.tokens &&
-        this.authState.tokens.accessToken
-      ) {
+      // console.log('getValidToken: No local backend token, attempting login to establish session.');
+      const sessionEstablished = await this.login(auth.currentUser); // this.login updates this.authState
+
+      // After this.login(), this.authState.tokens should be populated if login was successful
+      // and resulted in tokens.
+      if (sessionEstablished && this.authState.tokens && typeof this.authState.tokens.accessToken === 'string') {
+        // console.log('getValidToken: Session established, returning new backend accessToken.');
         return this.authState.tokens.accessToken;
       }
+      // console.log('getValidToken: Session establishment did not result in a usable token.');
     }
 
     // Fall back to Firebase token only if no backend token
@@ -327,24 +378,34 @@ class AuthService {
       this.clearOldSessionCookies();
 
       // Logout from backend
-      if (this.authState.tokens) {
+      const tokenForLogout = (this.authState.tokens && typeof this.authState.tokens.accessToken === 'string')
+        ? this.authState.tokens.accessToken
+        : null;
+
+      if (tokenForLogout) {
+        // console.log('Logout: Attempting backend logout with token');
         await fetch(`${API_URL}/api/v2/auth/logout`, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${this.authState.tokens.accessToken}`,
+            'Authorization': `Bearer ${tokenForLogout}`,
           },
           credentials: 'include',
         });
+      } else {
+        // console.log('Logout: No valid token for backend logout');
       }
     } catch (error) {
       console.error('Backend logout failed:', error);
     }
 
     // Clear local state
+    // console.log('Logout: Clearing local auth state');
     this.clearAuthState();
 
     // Logout from Firebase
+    // console.log('Logout: Signing out from Firebase');
     await auth.signOut();
+    // console.log('Logout: Completed');
   }
 
   isAuthenticated(): boolean {

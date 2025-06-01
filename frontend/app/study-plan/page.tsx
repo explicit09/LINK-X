@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useState, useEffect } from 'react';
-import { userAPI } from '@/lib/api';
+import { authAPI } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import {
   useStudyPlanDashboard,
@@ -114,7 +114,7 @@ export default function StudyPlanPage() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const user = await userAPI.getMe();
+        const user = await authAPI.v2.getProfile();
         setCurrentUser(user);
       } catch (error) {
         console.error('Failed to fetch user:', error);

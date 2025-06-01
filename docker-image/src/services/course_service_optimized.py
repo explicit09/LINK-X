@@ -330,6 +330,28 @@ class OptimizedCourseService:
         
         modules = self.course_repo.get_modules(course_id)
         return [{'id': str(m.id), 'title': m.title, 'description': m.description, 'ordering': m.ordering} for m in modules]
+    
+    def join_course_by_access_code(self, user_id: str, access_code: str):
+        """Join a course using an access code"""
+        # Find course by access code
+        course = self.course_repo.find_by_access_code(access_code)
+        
+        if not course:
+            raise NotFoundError("Invalid access code")
+        
+        # Check if user is already enrolled
+        existing_enrollment = self.enrollment_repo.get_by_student_course(user_id, str(course.id))
+        if existing_enrollment:
+            raise ValidationError("You are already enrolled in this course")
+        
+        # Create enrollment
+        enrollment = self.enrollment_repo.create_enrollment(user_id, str(course.id))
+        
+        # Invalidate relevant caches
+        invalidate_cache(f"user_courses_{user_id}")
+        invalidate_cache(f"course_students_{course.id}")
+        
+        return course
 
 
 # Export optimized service
