@@ -1,74 +1,74 @@
 # Core Dependencies
-Flask==2.3.2
+Flask==3.0.0
 Flask-Cors==4.0.0
-Flask-JWT-Extended==4.5.2
-Flask-SQLAlchemy==3.0.5
+Flask-JWT-Extended==4.6.0
+Flask-SQLAlchemy==3.1.1
 gunicorn==21.2.0
-gevent==23.9.1  # For WebSocket support
+# gevent==23.9.1  # Commented out due to Python 3.13 compatibility issues
 
 # Database
-psycopg2-binary==2.9.7
-SQLAlchemy==1.4.50  # Downgraded to be compatible with langchain
-alembic==1.12.0
-pgvector==0.2.3
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.23
+alembic==1.13.1
+pgvector==0.2.4
 
 # Authentication & Cloud
-firebase-admin==6.2.0
-boto3==1.28.57
-botocore==1.31.57
+firebase-admin==6.4.0
+boto3==1.34.0
+botocore==1.34.0
 
 # AI/ML Core
-openai>=1.6.1,<2.0.0  # Updated to be compatible with langchain-openai
-transformers==4.35.2
-tiktoken>=0.5.2,<0.6.0  # Updated to be compatible with langchain-openai
-numpy==1.24.4
-scipy==1.11.3
+openai>=1.12.0,<2.0.0
+transformers==4.36.0
+tiktoken>=0.5.2,<0.6.0
+numpy==1.26.2
+scipy==1.11.4
 
 # Document Processing
 PyPDF2==3.0.1
-python-docx==0.8.11
-python-pptx==0.6.21
-unstructured[pdf,docx,pptx]==0.10.19
+python-docx==1.1.0
+python-pptx==0.6.23
+unstructured[pdf,docx,pptx]==0.11.8
 
 # Vector Search & RAG
-langchain>=0.1.0  # Updated to a version that supports pydantic v2
-langchain-community>=0.0.10  # Updated to match langchain version
-langchain-openai>=0.0.5  # Keep the updated version
+langchain>=0.1.0
+langchain-community>=0.0.10
+langchain-openai>=0.0.5
 
 # Task Queue
 celery[redis]==5.3.4
-redis==4.6.0  # Downgraded to be compatible with celery[redis]
-hiredis==2.2.3  # Faster Redis client
+redis==4.6.0
+hiredis==2.3.2
 flower==2.0.1
 
 # Performance & Optimization
-ujson==5.8.0  # Faster JSON
-orjson==3.9.7  # Even faster JSON
-msgpack==1.0.7  # Binary serialization
-lz4==4.3.2  # Compression
+ujson==5.9.0
+orjson==3.9.10
+msgpack==1.0.7
+lz4==4.3.3
 
 # API & Streaming
-httpx==0.25.0
+httpx==0.26.0
 aiofiles==23.2.1
 
 # Utilities
 python-dotenv==1.0.0
 python-multipart==0.0.6
-pydantic==2.5.3  # Updated to be compatible with pydantic-settings
-pydantic-settings==2.0.3  # Updated to a version that works with pydantic>=2.0.1
+pydantic==2.5.3
+pydantic-settings==2.1.0
 
 # Monitoring
-prometheus-client==0.18.0
+prometheus-client==0.19.0
 python-json-logger==2.0.7
-sentry-sdk[flask]==1.38.0
+sentry-sdk[flask]==1.40.0
 
 # Development & Testing
 pytest==7.4.3
 pytest-cov==4.1.0
 pytest-mock==3.12.0
 pytest-asyncio==0.21.1
-black==23.11.0
-flake8==6.1.0
-mypy==1.7.1
+black==23.12.1
+flake8==7.0.0
+mypy==1.8.0
 
 # Additional ML/Data Processing
