@@ -5,7 +5,7 @@ from flask import Blueprint, request, g
 from datetime import datetime
 import logging
 
-from core.decorators_unified import firebase_auth_required
+from core.decorators_unified import firebase_auth_required, firebase_token_required
 from core.exceptions import ValidationError, NotFoundError, UnauthorizedError, AuthenticationError
 from services.auth_service_unified import UnifiedAuthService as AuthService
 from repositories.user_repository import UserRepository
@@ -100,6 +100,94 @@ def logout_v2():
     except Exception as e:
         logger.error(f"Logout error: {str(e)}")
         return error_response("An error occurred during logout", status_code=500)
+
+
+@auth_bp.route('/check-registration', methods=['GET'])
+@firebase_token_required(allow_unregistered=True)
+def check_registration_v2():
+    """Check if a Firebase-authenticated user is registered in the system"""
+    try:
+        # Check if user exists in database
+        if hasattr(g, 'current_user') and g.current_user:
+            # User is registered
+            user = g.current_user
+            return success_response({
+                'registered': True,
+                'user': {
+                    'id': str(user.id),
+                    'email': user.email,
+                    'role': user.role.role_type if user.role else None,
+                    'firebase_uid': user.firebase_uid
+                }
+            })
+        else:
+            # User is not registered but has valid Firebase auth
+            firebase_user = g.get('firebase_user', {})
+            return success_response({
+                'registered': False,
+                'firebase_user': {
+                    'uid': firebase_user.get('uid'),
+                    'email': firebase_user.get('email'),
+                    'name': firebase_user.get('name')
+                }
+            })
+            
+    except Exception as e:
+        logger.error(f"Check registration error: {str(e)}")
+        return error_response("An error occurred checking registration status", status_code=500)
+
+
+@auth_bp.route('/register', methods=['POST'])
+@firebase_token_required(allow_unregistered=True)
+def register_v2():
+    """Register a new user with Firebase authentication"""
+    try:
+        data = request.get_json()
+        if not data:
+            return error_response("Request body is required", status_code=400)
+        
+        # Get Firebase user info
+        firebase_user = g.get('firebase_user', {})
+        if not firebase_user:
+            return error_response("Firebase authentication required", status_code=401)
+        
+        # Extract required fields
+        role = data.get('role', 'student')
+        if role not in ['student', 'instructor']:
+            return error_response("Invalid role. Must be 'student' or 'instructor'", status_code=400)
+        
+        # Prepare registration data
+        registration_data = {
+            'email': firebase_user.get('email'),
+            'firebase_uid': firebase_user.get('uid'),
+            'role': role,
+            'name': data.get('name') or firebase_user.get('name'),
+            'version': 'v2'
+        }
+        
+        # Add role-specific data
+        if role == 'student':
+            registration_data.update({
+                'onboard_answers': data.get('onboard_answers', {}),
+                'want_quizzes': data.get('want_quizzes', False)
+            })
+        elif role == 'instructor':
+            registration_data.update({
+                'university': data.get('university'),
+                'department': data.get('department')
+            })
+        
+        # Use auth service to register
+        auth_service = get_auth_service()
+        result = auth_service.register_user(**registration_data)
+        
+        return success_response(result, "Registration successful", status_code=201)
+        
+    except ValidationError as e:
+        return error_response(str(e), status_code=400)
+    except Exception as e:
+        logger.error(f"Registration error: {str(e)}")
+        return error_response("An error occurred during registration", status_code=500)
 
 
 @auth_bp.route('/me', methods=['GET'])

@@ -125,10 +125,29 @@ def auth_required(roles: Optional[List[str]] = None,
                     firebase_token = request.headers.get('X-Firebase-Token')
                     if firebase_token:
                         try:
+                            # First try to get existing user
                             user = _verify_firebase_token(firebase_token)
                             if user:
                                 g.current_user = user
                                 authenticated = True
+                            else:
+                                # Firebase token is valid but user not in database
+                                # This means they need to complete registration
+                                decoded_token = firebase_auth.verify_id_token(firebase_token)
+                                g.firebase_user = {
+                                    'uid': decoded_token['uid'],
+                                    'email': decoded_token.get('email'),
+                                    'name': decoded_token.get('name'),
+                                    'picture': decoded_token.get('picture')
+                                }
+                                # For certain endpoints, we might allow Firebase-only auth
+                                # But for most endpoints, they need to be registered
+                                if not optional:
+                                    return jsonify({
+                                        'error': 'User not registered',
+                                        'code': 'USER_NOT_REGISTERED',
+                                        'message': 'Please complete registration to access this resource'
+                                    }), 404
                         except Exception as e:
                             logger.info(f"Firebase auth failed: {e}")
                             
@@ -432,3 +451,52 @@ def jwt_required_v1(f):
 def jwt_required_v2(f):
     """JWT v2 authentication required decorator"""
     return auth_required(version_aware=True)(f)
+
+
+def firebase_token_required(allow_unregistered: bool = False):
+    """
+    Decorator specifically for Firebase token authentication
+    
+    Args:
+        allow_unregistered: If True, allows Firebase authenticated users who aren't registered in the database
+    """
+    def decorator(f):
+        @functools.wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Check for Firebase token
+            firebase_token = request.headers.get('X-Firebase-Token')
+            if not firebase_token:
+                return jsonify({'error': 'Firebase token required'}), 401
+                
+            try:
+                # Verify Firebase token
+                decoded_token = firebase_auth.verify_id_token(firebase_token)
+                firebase_uid = decoded_token['uid']
+                
+                # Store Firebase user info
+                g.firebase_user = {
+                    'uid': firebase_uid,
+                    'email': decoded_token.get('email'),
+                    'name': decoded_token.get('name'),
+                    'picture': decoded_token.get('picture')
+                }
+                
+                # Try to get user from database
+                user = _get_user_by_firebase_uid(firebase_uid)
+                if user:
+                    g.current_user = user
+                elif not allow_unregistered:
+                    return jsonify({
+                        'error': 'User not registered',
+                        'code': 'USER_NOT_REGISTERED',
+                        'message': 'Please complete registration to access this resource'
+                    }), 404
+                    
+                return f(*args, **kwargs)
+                
+            except Exception as e:
+                logger.error(f"Firebase token verification failed: {e}")
+                return jsonify({'error': 'Invalid Firebase token'}), 401
+                
+        return decorated_function
+    return decorator

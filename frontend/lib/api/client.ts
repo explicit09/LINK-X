@@ -32,9 +32,26 @@ class APIClient {
     this.retryDelay = 500;
   }
 
-  private async getAuthToken(): Promise<string | null> {
-    // In v2, tokens are in httpOnly cookies, so we don't need to send them
-    // The browser will automatically include cookies with credentials: 'include'
+  private async getAuthToken(): Promise<{ token: string; isFirebase: boolean } | null> {
+    // Import authService dynamically to avoid circular dependency
+    try {
+      const { authService } = await import('../auth-service');
+      
+      // Check if user is authenticated with backend
+      if (authService.isAuthenticated()) {
+        const backendToken = await authService.getValidToken();
+        if (backendToken && typeof backendToken === 'string') {
+          // Check if this is actually a backend token by looking at authService state
+          // If authService has valid tokens stored, it's a backend token
+          const authState = authService['authState']; // Access private property
+          if (authState?.tokens?.accessToken === backendToken) {
+            return { token: backendToken, isFirebase: false };
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking auth service:', error);
+    }
 
     // For backward compatibility, check localStorage (will be removed)
     const accessToken = localStorage.getItem('access_token');
@@ -42,7 +59,7 @@ class APIClient {
       console.warn(
         'Found token in localStorage - should migrate to cookie-based auth',
       );
-      return accessToken;
+      return { token: accessToken, isFirebase: false };
     }
 
     // Fallback to Firebase auth if available
@@ -50,9 +67,10 @@ class APIClient {
     if (!user) return null;
 
     try {
-      return await user.getIdToken();
+      const firebaseToken = await user.getIdToken();
+      return { token: firebaseToken, isFirebase: true };
     } catch (error) {
-      console.error('Error getting auth token:', error);
+      console.error('Error getting Firebase token:', error);
       return null;
     }
   }
@@ -103,7 +121,7 @@ class APIClient {
     }
 
     // Get auth token unless skipped
-    const token = skipAuth ? null : await this.getAuthToken();
+    const authInfo = skipAuth ? null : await this.getAuthToken();
 
     // Determine if body is FormData
     const isFormData = options.body instanceof FormData;
@@ -118,13 +136,23 @@ class APIClient {
         await this.sleep(this.retryDelay * retryCount);
       }
 
+      // Build headers based on token type
+      const headers: Record<string, string> = {
+        ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
+        ...options.headers,
+      };
+
+      if (authInfo) {
+        if (authInfo.isFirebase) {
+          headers['X-Firebase-Token'] = authInfo.token;
+        } else {
+          headers['Authorization'] = `Bearer ${authInfo.token}`;
+        }
+      }
+
       const response = await fetch(url.toString(), {
         ...options,
-        headers: {
-          ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          ...options.headers,
-        },
+        headers,
         credentials: 'include',
         signal: controller.signal,
       });
@@ -270,13 +298,24 @@ class APIClient {
 
     (async () => {
       try {
-        const token = await this.getAuthToken();
+        const authInfo = await this.getAuthToken();
+        
+        // Build headers based on token type
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+
+        if (authInfo) {
+          if (authInfo.isFirebase) {
+            headers['X-Firebase-Token'] = authInfo.token;
+          } else {
+            headers['Authorization'] = `Bearer ${authInfo.token}`;
+          }
+        }
+
         const response = await fetch(`${this.baseURL}${endpoint}`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers,
           body: JSON.stringify(data),
           credentials: 'include',
         });
