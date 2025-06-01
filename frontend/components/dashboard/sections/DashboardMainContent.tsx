@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useDashboardOverview, useAIRecommendations } from "@/hooks/useDashboardData";
 import { 
   Target, 
   Zap, 
@@ -16,7 +17,8 @@ import {
   BarChart3,
   BookOpen,
   ChevronRight,
-  ArrowRight
+  ArrowRight,
+  Loader2
 } from "lucide-react";
 
 interface DashboardMainContentProps {
@@ -31,80 +33,21 @@ export function DashboardMainContent({
   onViewProgress
 }: DashboardMainContentProps) {
   const [completedRecommendations, setCompletedRecommendations] = useState<string[]>([]);
-
-  // Mock data
-  const weeklyProgress = {
-    overall: 62,
-    xp: { current: 78, total: 150 },
-    tasks: { current: 5, total: 8 },
-    study: { current: 8.5, total: 12 }
+  
+  // Real data from API
+  const { data: dashboardData, loading: dashboardLoading, error: dashboardError } = useDashboardOverview();
+  const { data: aiData, loading: aiLoading } = useAIRecommendations();
+  
+  // Extract data with fallbacks
+  const weeklyProgress = dashboardData?.weekly_progress || {
+    overall: 0,
+    xp: { current: 0, target: 150 },
+    tasks: { completed: 0, total: 8 },
+    study_time: { current: 0, target: 12 }
   };
-
-  const priorityActions = [
-    {
-      id: "cs229-urgent",
-      title: "CS229 Assignment",
-      description: "Neural Networks Project - Due today",
-      urgency: "urgent",
-      timeEstimate: "45 min",
-      type: "assignment",
-      course: "CS229"
-    },
-    {
-      id: "cs224n-weak",
-      title: "CS224n Review", 
-      description: "Weak score on last quiz",
-      urgency: "medium",
-      timeEstimate: "20 min",
-      type: "review",
-      course: "CS224n"
-    },
-    {
-      id: "cs231n-streak",
-      title: "CS231n Practice",
-      description: "Maintain 5-day streak",
-      urgency: "low",
-      timeEstimate: "15 min",
-      type: "practice",
-      course: "CS231n"
-    }
-  ];
-
-  const aiRecommendations = [
-    {
-      id: "focus-session",
-      title: "Start 45-min Focus Session",
-      description: "Based on your energy patterns",
-      icon: "🧠",
-      action: "Start Now",
-      xpReward: 25,
-      estimatedTime: "45 min"
-    },
-    {
-      id: "quick-tutorial",
-      title: "10-min Neural Networks Recap",
-      description: "Prep for today's assignment",
-      icon: "⚡",
-      action: "Watch Now",
-      xpReward: 10,
-      estimatedTime: "10 min"
-    },
-    {
-      id: "streak-boost", 
-      title: "15-min Streak Booster",
-      description: "Keep momentum going",
-      icon: "🔥",
-      action: "Continue",
-      xpReward: 15,
-      estimatedTime: "15 min"
-    }
-  ];
-
-  const courses = [
-    { id: "cs229", title: "Machine Learning", code: "CS229", progress: 85 },
-    { id: "cs224n", title: "NLP", code: "CS224n", progress: 67 },
-    { id: "cs231n", title: "Computer Vision", code: "CS231n", progress: 92 }
-  ];
+  
+  const priorityActions = dashboardData?.priority_actions || [];
+  const aiRecommendations = aiData?.recommendations || [];
 
   const handleRecommendationClick = (rec: any) => {
     setCompletedRecommendations(prev => [...prev, rec.id]);
@@ -127,6 +70,39 @@ export function DashboardMainContent({
     }
   };
 
+  // Loading state
+  if (dashboardLoading) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-2 border-blue-100">
+          <CardContent className="p-8">
+            <div className="flex items-center justify-center space-x-2">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+              <span className="text-gray-600">Loading your dashboard...</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+  // Error state
+  if (dashboardError) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-2 border-red-100">
+          <CardContent className="p-8">
+            <div className="text-center text-red-600">
+              <AlertTriangle className="h-6 w-6 mx-auto mb-2" />
+              <p>Failed to load dashboard data</p>
+              <p className="text-sm text-gray-500 mt-1">{dashboardError}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Block 1: This Week's Mission */}
@@ -145,19 +121,19 @@ export function DashboardMainContent({
         <CardContent className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
-              <div className="text-lg font-bold text-yellow-600">{weeklyProgress.xp.current}/{weeklyProgress.xp.total}</div>
+              <div className="text-lg font-bold text-yellow-600">{weeklyProgress.xp.current}/{weeklyProgress.xp.target}</div>
               <div className="text-xs text-gray-600">XP Progress</div>
-              <div className="text-xs text-yellow-600 font-medium">+{weeklyProgress.xp.total - weeklyProgress.xp.current} to go</div>
+              <div className="text-xs text-yellow-600 font-medium">+{weeklyProgress.xp.target - weeklyProgress.xp.current} to go</div>
             </div>
             <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
-              <div className="text-lg font-bold text-blue-600">{weeklyProgress.tasks.current}/{weeklyProgress.tasks.total}</div>
+              <div className="text-lg font-bold text-blue-600">{weeklyProgress.tasks.completed}/{weeklyProgress.tasks.total}</div>
               <div className="text-xs text-gray-600">Tasks Done</div>
-              <div className="text-xs text-blue-600 font-medium">{weeklyProgress.tasks.total - weeklyProgress.tasks.current} remaining</div>
+              <div className="text-xs text-blue-600 font-medium">{weeklyProgress.tasks.total - weeklyProgress.tasks.completed} remaining</div>
             </div>
             <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
-              <div className="text-lg font-bold text-purple-600">{weeklyProgress.study.current}/{weeklyProgress.study.total}h</div>
+              <div className="text-lg font-bold text-purple-600">{weeklyProgress.study_time.current}/{weeklyProgress.study_time.target}h</div>
               <div className="text-xs text-gray-600">Study Time</div>
-              <div className="text-xs text-purple-600 font-medium">{weeklyProgress.study.total - weeklyProgress.study.current}h left</div>
+              <div className="text-xs text-purple-600 font-medium">{weeklyProgress.study_time.target - weeklyProgress.study_time.current}h left</div>
             </div>
           </div>
           
@@ -187,7 +163,7 @@ export function DashboardMainContent({
                 Your Priority Now
               </h3>
               <div className="space-y-3">
-                {priorityActions.map((action) => (
+                {priorityActions.length > 0 ? priorityActions.map((action) => (
                   <div 
                     key={action.id}
                     className={`p-3 rounded-lg border cursor-pointer hover:shadow-sm transition-all ${getUrgencyColor(action.urgency)}`}
@@ -203,7 +179,7 @@ export function DashboardMainContent({
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-gray-500 flex items-center">
                         <Timer className="h-3 w-3 mr-1" />
-                        {action.timeEstimate}
+                        {action.time_estimate}
                       </span>
                       <Button size="sm" variant={action.urgency === "urgent" ? "default" : "outline"}>
                         <Play className="h-3 w-3 mr-1" />
@@ -211,7 +187,13 @@ export function DashboardMainContent({
                       </Button>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="p-4 text-center text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+                    <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                    <p className="text-sm">All caught up! 🎉</p>
+                    <p className="text-xs">No urgent actions at the moment.</p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -220,9 +202,10 @@ export function DashboardMainContent({
               <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
                 <Brain className="h-4 w-4 mr-1 text-purple-500" />
                 AI Recommendations
+                {aiLoading && <Loader2 className="h-3 w-3 ml-2 animate-spin" />}
               </h3>
               <div className="space-y-3">
-                {aiRecommendations.map((rec) => {
+                {aiRecommendations.length > 0 ? aiRecommendations.map((rec) => {
                   const isCompleted = completedRecommendations.includes(rec.id);
                   
                   return (
@@ -243,13 +226,13 @@ export function DashboardMainContent({
                             <h4 className="font-medium text-gray-900 text-sm">{rec.title}</h4>
                             {!isCompleted && (
                               <Badge className="bg-purple-100 text-purple-700 text-xs">
-                                +{rec.xpReward} XP
+                                +{rec.xp_reward} XP
                               </Badge>
                             )}
                           </div>
                           <p className="text-xs text-gray-600 mb-2">{rec.description}</p>
                           <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-500">{rec.estimatedTime}</span>
+                            <span className="text-xs text-gray-500">{rec.estimated_time}</span>
                             {isCompleted ? (
                               <div className="flex items-center space-x-1 text-green-600">
                                 <CheckCircle className="h-3 w-3" />
@@ -266,11 +249,22 @@ export function DashboardMainContent({
                               <div className="bg-green-500 h-1 rounded-full w-full"></div>
                             </div>
                           )}
+                          {rec.confidence && (
+                            <div className="mt-1 text-xs text-gray-500">
+                              Confidence: {Math.round(rec.confidence * 100)}%
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
                   );
-                })}
+                }) : (
+                  <div className="p-4 text-center text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+                    <Brain className="h-8 w-8 mx-auto mb-2 text-purple-500" />
+                    <p className="text-sm">AI recommendations loading...</p>
+                    <p className="text-xs">Check back in a moment.</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
