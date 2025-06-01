@@ -157,6 +157,19 @@ class CourseRepository(BaseRepository[Course]):
             # Recreate access code with all data
             return AccessCode(**access_code_dict)
     
+    def find_by_access_code(self, access_code: str) -> Optional[Course]:
+        """Find course by access code"""
+        with self.get_session() as session:
+            course = session.query(Course)\
+                .join(AccessCode)\
+                .filter(AccessCode.code == access_code.upper())\
+                .first()
+            
+            if course:
+                session.expunge(course)
+            
+            return course
+    
     def count_files(self, course_id: str) -> int:
         """Count total files in a course"""
         with self.get_session() as session:

@@ -85,5 +85,8 @@ export {
   publicAPI,
 };
 
+// Export auth API
+export { authAPI } from './api/endpoints/auth';
+
 // Default export maintains backward compatibility
 export default api;

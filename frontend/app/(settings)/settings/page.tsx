@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import AudioUpload from '@/components/dashboard/AudioUpload';
 import Footer from '@/components/landing/Footer';
 import ProfessorDashboard from '@/components/dashboard/ProfessorDash'; // 🚨 make sure path is correct
-import { userAPI } from '@/lib/api'; // ✅ this will be a small API helper you create
+import { authAPI } from '@/lib/api'; // ✅ this will be a small API helper you create
 import StudentDashboard from '@/components/dashboard/StudentDash';
 import ProfessorSettings from '@/components/settings/ProfessorSettings';
 import StudentSettings from '@/components/settings/StudentSettings';
@@ -22,8 +22,9 @@ export default function Settings() {
   useEffect(() => {
     const fetchUserRole = async () => {
       try {
-        const user = await userAPI.getMe();
-        setRole(user.role || 'unknown');
+        const user = await authAPI.v2.getProfile();
+        // UserProfile doesn't have role, default to student for now  
+        setRole('student'); // TODO: Fix role API
       } catch (error) {
         console.error('Failed to fetch user:', error);
         //router.push("/login"); // maybe redirect if not logged in

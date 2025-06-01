@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   redis:
     image: redis:7-alpine
@@ -47,6 +45,9 @@ services:
       - prod
 
   celery-worker:
+    build:
+      context: ./docker-image
+      dockerfile: docker/Dockerfile.${DOCKER_ENV:-dev}
     image: learnx:${DOCKER_ENV:-dev}
     restart: always
     entrypoint: ["/app/docker/celery-entrypoint.sh"]
@@ -69,6 +70,9 @@ services:
       - workers
 
   celery-beat:
+    build:
+      context: ./docker-image
+      dockerfile: docker/Dockerfile.${DOCKER_ENV:-dev}
     image: learnx:${DOCKER_ENV:-dev}
     restart: always
     entrypoint: ["/app/docker/celery-entrypoint.sh"]
@@ -86,6 +90,9 @@ services:
       - workers
 
   flower:
+    build:
+      context: ./docker-image
+      dockerfile: docker/Dockerfile.${DOCKER_ENV:-dev}
     image: learnx:${DOCKER_ENV:-dev}
     restart: always
     entrypoint: ["/app/docker/celery-entrypoint.sh"]

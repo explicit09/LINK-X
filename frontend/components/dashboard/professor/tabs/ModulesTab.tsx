@@ -231,8 +231,8 @@ export function ModulesTab({ course, moduleHooks }: ModulesTabProps) {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Delete Module</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Are you sure you want to delete "
-                              <strong>{module.title}</strong>"? This will also
+                              Are you sure you want to delete &quot;
+                              <strong>{module.title}</strong>&quot;? This will also
                               delete all files in this module. This action
                               cannot be undone.
                             </AlertDialogDescription>
@@ -265,23 +265,21 @@ export function ModulesTab({ course, moduleHooks }: ModulesTabProps) {
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="pt-0">
-                          {uploadingModuleId === module.id ? (
-                            <div className="flex items-center justify-center py-4">
-                              <Loader2 className="h-6 w-6 animate-spin" />
-                              <span className="ml-2 text-sm">Uploading...</span>
-                            </div>
-                          ) : (
-                            <UploadPdf
-                              moduleId={module.id}
-                              onUploadStart={() =>
-                                setUploadingModuleId(module.id)
-                              }
-                              onUploadComplete={() => {
-                                setUploadingModuleId(null);
+                          <UploadPdf
+                            moduleId={module.id}
+                            uploading={uploadingModuleId === module.id}
+                            onUpload={async (file: File) => {
+                              setUploadingModuleId(module.id);
+                              try {
+                                // Handle the file upload here
+                                moduleHooks.addFileToModule(module.id, file);
+                                await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate upload
                                 moduleHooks.refetch();
-                              }}
-                            />
-                          )}
+                              } finally {
+                                setUploadingModuleId(null);
+                              }
+                            }}
+                          />
                         </CardContent>
                       </Card>
 
@@ -293,23 +291,21 @@ export function ModulesTab({ course, moduleHooks }: ModulesTabProps) {
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="pt-0">
-                          {uploadingAudioModuleId === module.id ? (
-                            <div className="flex items-center justify-center py-4">
-                              <Loader2 className="h-6 w-6 animate-spin" />
-                              <span className="ml-2 text-sm">Uploading...</span>
-                            </div>
-                          ) : (
-                            <UploadAudio
-                              moduleId={module.id}
-                              onUploadStart={() =>
-                                setUploadingAudioModuleId(module.id)
-                              }
-                              onUploadComplete={() => {
-                                setUploadingAudioModuleId(null);
+                          <UploadAudio
+                            moduleId={module.id}
+                            uploading={uploadingAudioModuleId === module.id}
+                            onUpload={async (file: File) => {
+                              setUploadingAudioModuleId(module.id);
+                              try {
+                                // Handle the file upload here
+                                moduleHooks.addFileToModule(module.id, file);
+                                await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate upload
                                 moduleHooks.refetch();
-                              }}
-                            />
-                          )}
+                              } finally {
+                                setUploadingAudioModuleId(null);
+                              }
+                            }}
+                          />
                         </CardContent>
                       </Card>
                     </div>

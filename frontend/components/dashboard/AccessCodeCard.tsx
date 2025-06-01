@@ -6,7 +6,8 @@ import { X, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { studentAPI } from '@/lib/api';
+import { courseAPI } from '@/lib/api';
+import { toast as sonnerToast } from 'sonner';
 
 interface Props {
   open: boolean;
@@ -31,20 +32,31 @@ export default function AccessCodePopup({ open, onClose, onSuccess }: Props) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    if (!accessCode.trim()) return;
+    if (!accessCode.trim()) {
+      setErrorMessage('Please enter an access code');
+      return;
+    }
 
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      await studentAPI.enrollInCourse(accessCode.trim());
+      const joinedCourse = await courseAPI.joinCourseByCode(accessCode.trim());
       setAccessCode('');
       onClose();
+      sonnerToast.success('🎉 Successfully joined the course! +15 XP earned');
       onSuccess?.(); // ✅ Call onSuccess if provided
     } catch (err: any) {
       console.error('Enrollment error:', err);
-      const errorMessage =
-        err.message ||
-        'Failed to enroll. Please check the access code and try again.';
+      let errorMessage = 'Failed to join course. Please try again.';
+      
+      if (err.message?.includes('Invalid access code')) {
+        errorMessage = 'Invalid access code. Please check and try again.';
+      } else if (err.message?.includes('already enrolled')) {
+        errorMessage = 'You are already enrolled in this course.';
+      } else if (err.message?.includes('not found')) {
+        errorMessage = 'Course not found. Please verify the access code.';
+      }
+      
       setErrorMessage(errorMessage);
     } finally {
       setIsLoading(false);
@@ -78,13 +90,19 @@ export default function AccessCodePopup({ open, onClose, onSuccess }: Props) {
             <div className="flex flex-col gap-4">
               <Input
                 type="text"
-                placeholder="Enter code..."
+                placeholder="Enter access code..."
                 value={accessCode}
                 onChange={(e) => {
-                  setAccessCode(e.target.value);
+                  setAccessCode(e.target.value.toUpperCase());
                   if (errorMessage) setErrorMessage(null);
                 }}
-                className={`text-lg ${errorMessage ? 'border-red-500' : ''}`}
+                className={`text-lg text-center font-mono tracking-wider ${errorMessage ? 'border-red-500' : ''}`}
+                maxLength={8}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSubmit();
+                  }
+                }}
               />
               {errorMessage && (
                 <div className="text-red-500 text-sm mt-1">{errorMessage}</div>

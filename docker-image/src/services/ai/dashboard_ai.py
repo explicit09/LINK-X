@@ -7,8 +7,8 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 
 from .base import BaseAIService
-from .utils.personalization import PersonalizationUtils
-from .utils.vector_search import VectorSearchUtils
+from .utils.personalization import PersonalizationService
+# from .utils.vector_search import VectorSearchUtils  # TODO: Fix this import
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +18,8 @@ class DashboardAIService(BaseAIService):
     
     def __init__(self):
         super().__init__()
-        self.personalization = PersonalizationUtils()
-        self.vector_search = VectorSearchUtils()
+        self.personalization = PersonalizationService(self.client)
+        # self.vector_search = VectorSearchUtils()  # TODO: Fix this
     
     def generate_ai_recommendations(self, user_id: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Generate personalized AI recommendations for the dashboard."""

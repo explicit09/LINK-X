@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { userAPI } from '@/lib/api';
+import { authAPI } from '@/lib/api';
 import {
   useScheduleDashboard,
   useCalendarData,
@@ -531,7 +531,7 @@ export default function SchedulePage() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const user = await userAPI.getMe();
+        const user = await authAPI.v2.getProfile();
         setCurrentUser(user);
       } catch (error) {
         console.error('Failed to fetch user:', error);

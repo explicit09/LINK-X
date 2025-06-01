@@ -76,6 +76,12 @@ def create_app():
     from core.jwt_config import configure_jwt
     configure_jwt(app)
     
+    # Add favicon route to prevent browser 404 errors
+    @app.route('/favicon.ico')
+    def favicon():
+        from flask import Response
+        return Response(status=204)  # No Content - prevents browser errors
+    
     # Register blueprints in order of priority
     # Health check (no prefix for load balancer compatibility)
     app.register_blueprint(health_bp)

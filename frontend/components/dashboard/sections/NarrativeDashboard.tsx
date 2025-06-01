@@ -25,6 +25,7 @@ import {
   Timer,
   TrendingUp,
   AlertTriangle,
+  CheckCircle,
 } from 'lucide-react';
 
 interface NarrativeDashboardProps {

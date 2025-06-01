@@ -309,8 +309,8 @@ export function SettingsTab({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete Course</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Are you sure you want to delete "
-                      <strong>{course.title}</strong>"? This will permanently
+                      Are you sure you want to delete &quot;
+                      <strong>{course.title}</strong>&quot;? This will permanently
                       delete:
                       <ul className="list-disc list-inside mt-2 space-y-1">
                         <li>All course materials and modules</li>
