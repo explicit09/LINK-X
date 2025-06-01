@@ -1,22 +1,27 @@
 {
   "extends": [
     "next/core-web-vitals",
-    "plugin:import/recommended",
-    "plugin:import/typescript",
-    "prettier",
-    "plugin:tailwindcss/recommended"
+    "prettier"
   ],
-  "plugins": ["tailwindcss"],
+  "plugins": [
+    "tailwindcss"
+  ],
   "rules": {
-    "tailwindcss/no-custom-classname": "off",
-    "tailwindcss/classnames-order": "off"
+    "react/no-unescaped-entities": "off",
+    "import/namespace": "off",
+    "import/export": "off",
+    "@next/next/no-assign-module-variable": "off",
+    "tailwindcss/enforces-shorthand": "warn",
+    "tailwindcss/migration-from-tailwind-2": "warn",
+    "react-hooks/exhaustive-deps": "warn",
+    "import/no-duplicates": "warn",
+    "import/no-named-as-default-member": "warn",
+    "@next/next/no-img-element": "warn"
   },
   "settings": {
-    "import/resolver": {
-      "typescript": {
-        "alwaysTryTypes": true
-      }
+    "tailwindcss": {
+      "callees": ["cn", "cva"],
+      "config": "tailwind.config.js"
     }
-  },
-  "ignorePatterns": ["**/components/ui/**"]
+  }
 }

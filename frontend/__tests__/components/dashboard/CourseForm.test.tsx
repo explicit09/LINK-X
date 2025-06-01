@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CourseForm } from '@/components/dashboard/CourseForm';
 import { api } from '@/lib/api';
@@ -289,7 +289,7 @@ describe('CourseForm', () => {
       
       // Check that years are current or future
       options.slice(1).forEach(option => {
-        const year = parseInt(option.textContent!.match(/\d{4}/)![0]);
+        const year = Number.parseInt(option.textContent?.match(/\d{4}/)?.[0]);
         expect(year).toBeGreaterThanOrEqual(currentYear);
       });
     });
