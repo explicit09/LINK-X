@@ -3,8 +3,9 @@
 import { ReactNode, useEffect, useState, useCallback } from 'react';
 import { auth } from '@/firebaseconfig';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { sessionLogin } from '@/lib/api';
+import { sessionLogin, authAPI } from '@/lib/api';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 interface FirebaseAuthProviderProps {
   children: ReactNode;
@@ -13,6 +14,7 @@ interface FirebaseAuthProviderProps {
 export function FirebaseAuthProvider({ children }: FirebaseAuthProviderProps) {
   const [authInitialized, setAuthInitialized] = useState(false);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   // Establish session with backend when user is authenticated
   const establishSession = useCallback(async (user: User | null) => {
@@ -23,40 +25,54 @@ export function FirebaseAuthProvider({ children }: FirebaseAuthProviderProps) {
         const freshToken = await user.getIdToken(true);
         // Fresh token obtained for session establishment
 
-        // Try to establish session with backend
-        const success = await sessionLogin();
-        if (!success) {
-          console.warn('Failed to establish backend session');
-
-          // Check if we&apos;re using 127.0.0.1 which might not be authorized
-          if (
-            typeof window !== 'undefined' &&
-            window.location.hostname === '127.0.0.1'
-          ) {
-            console.warn(
-              'Using 127.0.0.1 which may not be authorized in Firebase. Try using localhost instead.',
-            );
-            // Redirect to localhost equivalent if on 127.0.0.1
-            const currentPort = window.location.port;
-            const localhostUrl = `http://localhost:${currentPort}${window.location.pathname}${window.location.search}`;
-            window.location.href = localhostUrl;
-            return;
-          }
-
-          // Try one more time after a short delay
-          setTimeout(async () => {
-            const retrySuccess = await sessionLogin();
-            if (!retrySuccess) {
-              console.error('Failed to establish session after retry');
-              toast.error(
-                'Authentication error: Unable to establish a session with the backend',
-              );
+        // First check if user is registered
+        try {
+          const registrationCheck = await authAPI.v2.checkRegistration();
+          
+          if (registrationCheck.data?.registered) {
+            // User is registered, establish session
+            const success = await sessionLogin();
+            if (!success) {
+              console.warn('Failed to establish backend session');
+              toast.error('Authentication error: Unable to establish session');
             } else {
-              // Backend session established successfully on retry
+              // Backend session established successfully
+              console.log('Session established successfully');
             }
-          }, 2000);
-        } else {
-          // Backend session established successfully
+          } else {
+            // User is not registered, redirect to onboarding
+            console.log('User not registered, redirecting to onboarding');
+            // Only redirect if we're not already on the onboarding page
+            if (!window.location.pathname.includes('/onboarding')) {
+              router.push('/onboarding');
+            }
+          }
+        } catch (error: any) {
+          // If check-registration fails with 404, user needs to register
+          if (error?.status === 404 || error?.code === 'USER_NOT_REGISTERED') {
+            console.log('User needs to complete registration');
+            if (!window.location.pathname.includes('/onboarding')) {
+              router.push('/onboarding');
+            }
+          } else {
+            // Other errors
+            console.error('Registration check error:', error);
+            
+            // Check if we're using 127.0.0.1 which might not be authorized
+            if (
+              typeof window !== 'undefined' &&
+              window.location.hostname === '127.0.0.1'
+            ) {
+              console.warn(
+                'Using 127.0.0.1 which may not be authorized in Firebase. Try using localhost instead.',
+              );
+              // Redirect to localhost equivalent if on 127.0.0.1
+              const currentPort = window.location.port;
+              const localhostUrl = `http://localhost:${currentPort}${window.location.pathname}${window.location.search}`;
+              window.location.href = localhostUrl;
+              return;
+            }
+          }
         }
       } catch (error) {
         console.error('Error establishing session:', error);

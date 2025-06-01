@@ -5,7 +5,7 @@
 
 // Import all components
 import { apiClient } from './api/client';
-import { getAuthToken, sessionLogin } from './api/endpoints/auth';
+import { getAuthToken, sessionLogin, authAPI } from './api/endpoints/auth';
 import { studentAPI } from './api/studentAPI';
 import { instructorAPI } from './api/instructorAPI';
 import { userAPI } from './api/userAPI';
@@ -14,7 +14,8 @@ import { adminAPI } from './api/endpoints/admin';
 import { utilityAPI, publicAPI } from './api/endpoints/utilities';
 
 // Re-export auth helpers for backward compatibility
-export { getAuthToken, sessionLogin };
+export { getAuthToken, sessionLogin, authAPI };
+export { authService } from './auth-service';
 
 // Legacy fetchWithAuth - now uses the modern client
 export async function fetchWithAuth(
@@ -84,9 +85,6 @@ export {
   utilityAPI,
   publicAPI,
 };
-
-// Export auth API
-export { authAPI } from './api/endpoints/auth';
 
 // Default export maintains backward compatibility
 export default api;

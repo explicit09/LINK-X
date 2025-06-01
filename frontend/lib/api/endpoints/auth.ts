@@ -33,5 +33,16 @@ export const authAPI = {
     updateProfile: (data: Partial<UserProfile>) =>
       apiClient.patch('/api/v2/auth/me', data),
     deleteProfile: () => apiClient.delete('/api/v2/auth/me'),
+    
+    // Registration endpoints
+    checkRegistration: () => apiClient.get('/api/v2/auth/check-registration'),
+    register: (data: {
+      role: 'student' | 'instructor';
+      name?: string;
+      onboard_answers?: any;
+      want_quizzes?: boolean;
+      university?: string;
+      department?: string;
+    }) => apiClient.post('/api/v2/auth/register', data),
   },
 };
