@@ -16,6 +16,7 @@ import { AuthForm } from "@/components/auth-form";
 import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SiteFooter } from "@/components/SiteFooter";
 
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/firebaseconfig";
@@ -213,7 +214,8 @@ export default function Page() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white flex items-center justify-center px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
+      <div className="flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
       <div className="w-full max-w-md">
         {/* Logo & Header */}
         <div className="mb-8 text-center">
@@ -380,6 +382,10 @@ export default function Page() {
           </div>
         </div>
       </div>
+      </div>
+      
+      {/* Site Footer */}
+      <SiteFooter />
     </div>
   );
 }
