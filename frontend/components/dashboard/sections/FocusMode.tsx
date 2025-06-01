@@ -61,7 +61,7 @@ export function FocusMode({ isActive, onToggle, onStartPomodoro }: FocusModeProp
         onClick={() => onToggle(true)}
         variant="outline"
         size="sm"
-        className="fixed bottom-6 right-6 z-50 bg-white border-blue-200 text-blue-700 hover:bg-blue-50 shadow-lg"
+        className="fixed bottom-12 md:bottom-14 right-6 z-50 bg-white border-blue-200 text-blue-700 hover:bg-blue-50 shadow-lg"
       >
         <Eye className="h-4 w-4 mr-2" />
         Focus Mode
