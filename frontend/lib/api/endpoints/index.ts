@@ -14,3 +14,4 @@ export * from './quizzes';
 export * from './admin';
 export * from './utilities';
 export * from './study-plans';
+export * from './schedule';
