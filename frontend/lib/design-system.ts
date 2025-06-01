@@ -46,12 +46,15 @@ export const designTokens = {
 
 // File type styling utility
 export const getFileTypeStyle = (type: string) => {
-  const styles: Record<string, {
-    icon: string;
-    color: string;
-    bgColor: string;
-    borderColor: string;
-  }> = {
+  const styles: Record<
+    string,
+    {
+      icon: string;
+      color: string;
+      bgColor: string;
+      borderColor: string;
+    }
+  > = {
     pdf: {
       icon: 'FileText',
       color: 'text-red-600',
@@ -83,7 +86,7 @@ export const getFileTypeStyle = (type: string) => {
       borderColor: 'border-gray-200',
     },
   };
-  
+
   return styles[type] || styles.document;
 };
 
@@ -106,7 +109,7 @@ export const createInlineProgress = (progress: number, className?: string) => {
 // Create file card component configuration
 export const createFileCard = (file: any) => {
   const typeStyle = getFileTypeStyle(file.type);
-  
+
   // Format file size
   const formatFileSize = (bytes?: number) => {
     if (!bytes || bytes === 0) return null;
@@ -115,7 +118,7 @@ export const createFileCard = (file: any) => {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
-  
+
   // Format upload date
   const formatUploadDate = (dateString?: string) => {
     if (!dateString) return null;
@@ -126,7 +129,7 @@ export const createFileCard = (file: any) => {
       return null;
     }
   };
-  
+
   return {
     className: `p-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer`,
     typeStyle: typeStyle,
@@ -140,14 +143,15 @@ export const createFileCard = (file: any) => {
     size: formatFileSize(file.size),
     uploadedAt: formatUploadDate(file.uploadedAt),
     statusPill: {
-      text: file.processed ? 'Processed' : 'Processing'
-    }
+      text: file.processed ? 'Processed' : 'Processing',
+    },
   };
 };
 
 // Module card styling
 export const moduleCardStyles = {
-  container: 'bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200',
+  container:
+    'bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200',
   header: 'p-4 cursor-pointer hover:bg-gray-50 transition-colors',
   content: 'border-t border-gray-100',
   expandedContent: 'max-h-[600px] overflow-y-auto',

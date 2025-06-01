@@ -1,6 +1,6 @@
-import { initializeApp, getApps } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getAnalytics, isSupported } from "firebase/analytics";
+import { initializeApp, getApps } from 'firebase/app';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAnalytics, isSupported } from 'firebase/analytics';
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
@@ -14,7 +14,8 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase only if it hasn't been initialized yet
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const app =
+  getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 // Initialize auth
 const auth = getAuth(app);
@@ -32,7 +33,7 @@ if (typeof window !== 'undefined') {
 // Configure Google provider
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
-  prompt: 'select_account'
+  prompt: 'select_account',
 });
 
 export { auth, googleProvider, analytics, app as default };

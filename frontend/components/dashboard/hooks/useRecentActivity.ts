@@ -3,7 +3,7 @@ import { studentAPI } from '@/lib/api';
 
 interface RecentActivity {
   id: string;
-  type: "upload" | "quiz" | "ai_chat" | "completion" | "grade" | "announcement";
+  type: 'upload' | 'quiz' | 'ai_chat' | 'completion' | 'grade' | 'announcement';
   course: string;
   title: string;
   timestamp: string;
@@ -26,15 +26,19 @@ export const useRecentActivity = (userRole: string) => {
     }
   };
 
-  const addActivity = async (type: RecentActivity["type"], course: string, title: string) => {
+  const addActivity = async (
+    type: RecentActivity['type'],
+    course: string,
+    title: string,
+  ) => {
     try {
       if (userRole === 'student') {
         await studentAPI.logActivity({
           type: type,
           course: course,
-          title: title
+          title: title,
         });
-        
+
         await loadRecentActivity();
       }
     } catch (error) {
@@ -49,6 +53,6 @@ export const useRecentActivity = (userRole: string) => {
   return {
     recentActivity,
     loadRecentActivity,
-    addActivity
+    addActivity,
   };
 };

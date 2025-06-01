@@ -7,7 +7,11 @@ import { renderToString } from 'react-dom/server';
 
 import { Markdown } from '@/components/markdown';
 import { documentSchema } from './config';
-import { createSuggestionWidget, type UISuggestion, projectWithPositions } from './suggestions';
+import {
+  createSuggestionWidget,
+  type UISuggestion,
+  projectWithPositions,
+} from './suggestions';
 
 // ✅ Parses markdown content into a ProseMirror document
 export const buildDocumentFromContent = (content: string) => {
@@ -33,7 +37,10 @@ export const createDecorations = async (
     const suggestions = await fetchSuggestions(documentId);
 
     // Map suggestions to positions within the document
-    const mappedSuggestions = await projectWithPositions(view.state.doc, documentId);
+    const mappedSuggestions = await projectWithPositions(
+      view.state.doc,
+      documentId,
+    );
 
     const decorations: Array<Decoration> = [];
 
@@ -66,11 +73,10 @@ export const createDecorations = async (
       }
 
       decorations.push(
-        Decoration.widget(
-          suggestion.selectionStart,
-          () => widget.dom,
-          { suggestionId: suggestion.id, type: 'widget' },
-        ),
+        Decoration.widget(suggestion.selectionStart, () => widget.dom, {
+          suggestionId: suggestion.id,
+          type: 'widget',
+        }),
       );
     }
 
@@ -82,7 +88,9 @@ export const createDecorations = async (
 };
 
 // Function to fetch suggestions from the backend
-const fetchSuggestions = async (documentId: string): Promise<UISuggestion[]> => {
+const fetchSuggestions = async (
+  documentId: string,
+): Promise<UISuggestion[]> => {
   try {
     const response = await fetch(`/suggestions?documentId=${documentId}`, {
       method: 'GET',

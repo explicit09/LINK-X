@@ -35,5 +35,11 @@ export function useUserRole() {
     fetchUserRole();
   }, []);
 
-  return { role, loading, error, isInstructor: role === 'instructor', isStudent: role === 'student' };
+  return {
+    role,
+    loading,
+    error,
+    isInstructor: role === 'instructor',
+    isStudent: role === 'student',
+  };
 }

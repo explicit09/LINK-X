@@ -2,7 +2,12 @@
  * Block component types
  */
 
-import type { Attachment, ChatRequestOptions, CreateMessage, Message } from 'ai';
+import type {
+  Attachment,
+  ChatRequestOptions,
+  CreateMessage,
+  Message,
+} from 'ai';
 import type { Document, Suggestion, Vote } from '@/lib/db/schema';
 
 export type BlockKind = 'text' | 'code';

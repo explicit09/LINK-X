@@ -3,12 +3,15 @@ import { useState, useCallback } from 'react';
 export function useDragAndDrop() {
   const [isDragOver, setIsDragOver] = useState(false);
 
-  const handleDrop = useCallback((e: React.DragEvent, onFiles: (files: FileList) => void) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const files = e.dataTransfer.files;
-    if (files) onFiles(files);
-  }, []);
+  const handleDrop = useCallback(
+    (e: React.DragEvent, onFiles: (files: FileList) => void) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      const files = e.dataTransfer.files;
+      if (files) onFiles(files);
+    },
+    [],
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -24,6 +27,6 @@ export function useDragAndDrop() {
     isDragOver,
     handleDrop,
     handleDragOver,
-    handleDragLeave
+    handleDragLeave,
   };
 }

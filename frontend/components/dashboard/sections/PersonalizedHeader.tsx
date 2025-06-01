@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import React from "react";
-import { Bell, Settings } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import React from 'react';
+import { Bell, Settings } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 
 interface PersonalizedHeaderProps {
   currentUser?: {
@@ -14,13 +14,13 @@ interface PersonalizedHeaderProps {
 }
 
 export function PersonalizedHeader({ currentUser }: PersonalizedHeaderProps) {
-  const firstName = currentUser?.name?.split(" ")[0] || "Student";
+  const firstName = currentUser?.name?.split(' ')[0] || 'Student';
   const currentHour = new Date().getHours();
-  
+
   const getGreeting = () => {
-    if (currentHour < 12) return "Good morning";
-    if (currentHour < 17) return "Good afternoon";
-    return "Good evening";
+    if (currentHour < 12) return 'Good morning';
+    if (currentHour < 17) return 'Good afternoon';
+    return 'Good evening';
   };
 
   const getFocusTimeRemaining = () => {
@@ -41,7 +41,7 @@ export function PersonalizedHeader({ currentUser }: PersonalizedHeaderProps) {
           </p>
         </div>
       </div>
-      
+
       <div className="flex items-center space-x-3">
         <Button variant="ghost" size="sm" className="text-gray-500">
           <Bell className="h-4 w-4" />

@@ -8,10 +8,10 @@ interface UploadProgressProps {
   onRetry: (fileId: string) => void;
 }
 
-export const UploadProgress: React.FC<UploadProgressProps> = ({ 
-  uploadFiles, 
-  onRemove, 
-  onRetry 
+export const UploadProgress: React.FC<UploadProgressProps> = ({
+  uploadFiles,
+  onRemove,
+  onRetry,
 }) => {
   if (uploadFiles.length === 0) {
     return null;

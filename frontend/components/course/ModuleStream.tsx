@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
 import React from 'react';
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Loader2 } from "lucide-react";
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Custom hooks
@@ -34,7 +34,7 @@ export function ModuleStream({
   onViewMaterial,
   onAskAI,
   userRole = 'student',
-  className = ""
+  className = '',
 }: ModuleStreamProps) {
   // Custom hooks
   const {
@@ -50,7 +50,7 @@ export function ModuleStream({
     updateEditTitle,
     addMaterialToModule,
     removeMaterialFromModule,
-    canModify
+    canModify,
   } = useModuleManager(courseId, userRole);
 
   const {
@@ -65,7 +65,7 @@ export function ModuleStream({
     getUploadProgress,
     isModuleUploading,
     isModuleDragging,
-    canUpload
+    canUpload,
   } = useFileUpload(courseId, userRole);
 
   // Handle file upload with progress tracking
@@ -77,18 +77,21 @@ export function ModuleStream({
       },
       onError: (error) => {
         console.error('Upload error:', error);
-      }
+      },
     });
 
     return material;
   };
 
   // Handle file input change with module integration
-  const handleModuleFileInputChange = (moduleId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleModuleFileInputChange = (
+    moduleId: string,
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const files = e.target.files;
     if (!files) return;
 
-    Array.from(files).forEach(file => {
+    Array.from(files).forEach((file) => {
       handleFileUploadWithProgress(moduleId, file);
     });
 
@@ -102,7 +105,7 @@ export function ModuleStream({
     const files = e.dataTransfer.files;
     if (!files) return;
 
-    Array.from(files).forEach(file => {
+    Array.from(files).forEach((file) => {
       handleFileUploadWithProgress(moduleId, file);
     });
   };
@@ -120,8 +123,8 @@ export function ModuleStream({
       }
 
       // Find which module contains this material and remove it
-      const moduleWithMaterial = modules.find(module =>
-        module.materials.some(material => material.id === materialId)
+      const moduleWithMaterial = modules.find((module) =>
+        module.materials.some((material) => material.id === materialId),
       );
 
       if (moduleWithMaterial) {
@@ -139,7 +142,7 @@ export function ModuleStream({
   const handlePersonalize = async (moduleId: string) => {
     try {
       toast.info('Generating personalized content...');
-      
+
       const response = await fetch(`/api/modules/${moduleId}/personalize`, {
         method: 'POST',
         credentials: 'include',

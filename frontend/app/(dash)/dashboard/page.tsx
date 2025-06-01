@@ -1,15 +1,17 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast as sonnerToast } from 'sonner';
-import { SharedDashboardLayout } from "@/components/dashboard/layouts/SharedDashboardLayout";
-import { DashboardMainContent } from "@/components/dashboard/sections/DashboardMainContent";
-import { DashboardSidebar } from "@/components/dashboard/sections/DashboardSidebar";
-import { userAPI } from "@/lib/api";
+import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
+import { DashboardMainContent } from '@/components/dashboard/sections/DashboardMainContent';
+import { DashboardSidebar } from '@/components/dashboard/sections/DashboardSidebar';
+import { userAPI } from '@/lib/api';
 
 export default function Dashboard() {
-  const [role, setRole] = useState<"student" | "instructor" | "admin" | "unknown">("unknown");
+  const [role, setRole] = useState<
+    'student' | 'instructor' | 'admin' | 'unknown'
+  >('unknown');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const router = useRouter();
 
@@ -17,13 +19,13 @@ export default function Dashboard() {
     const fetchUserRole = async () => {
       try {
         const user = await userAPI.getMe();
-        setRole(user.role || "student"); // Default to student
+        setRole(user.role || 'student'); // Default to student
         setCurrentUser(user);
       } catch (error) {
-        console.error("Failed to fetch user:", error);
+        console.error('Failed to fetch user:', error);
         // For development, default to student instead of redirecting
-        setRole("student");
-        setCurrentUser({ name: "Student User", email: "student@example.com" });
+        setRole('student');
+        setCurrentUser({ name: 'Student User', email: 'student@example.com' });
       }
     };
 
@@ -33,14 +35,14 @@ export default function Dashboard() {
   // Unified handler functions for narrative flow
   const handleActionClick = (action: any) => {
     sonnerToast.success(`🎯 Starting: ${action.title}`);
-    
+
     // Route based on action type
     if (action.course) {
       router.push(`/courses/${action.course.toLowerCase()}`);
-    } else if (action.id === "focus-session") {
-      sonnerToast.success("🧠 Entering Focus Mode!");
-    } else if (action.id === "quick-tutorial") {
-      sonnerToast.success("⚡ Opening tutorial!");
+    } else if (action.id === 'focus-session') {
+      sonnerToast.success('🧠 Entering Focus Mode!');
+    } else if (action.id === 'quick-tutorial') {
+      sonnerToast.success('⚡ Opening tutorial!');
     }
   };
 
@@ -49,23 +51,23 @@ export default function Dashboard() {
   };
 
   const handleViewProgress = () => {
-    router.push("/progress");
+    router.push('/progress');
   };
 
   const handleMaintainRank = () => {
-    sonnerToast.success("🎯 Opening your personalized action plan!");
-    router.push("/study-plan");
+    sonnerToast.success('🎯 Opening your personalized action plan!');
+    router.push('/study-plan');
   };
 
   const handleViewAllCourses = () => {
-    router.push("/my-courses");
+    router.push('/my-courses');
   };
 
   const handleViewSchedule = () => {
-    router.push("/schedule");
+    router.push('/schedule');
   };
 
-  if (role === "unknown") {
+  if (role === 'unknown') {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
@@ -82,16 +84,16 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Main Content - 3 columns */}
         <div className="lg:col-span-3">
-          <DashboardMainContent 
+          <DashboardMainContent
             onActionClick={handleActionClick}
             onCourseClick={handleCourseClick}
             onViewProgress={handleViewProgress}
           />
         </div>
-        
+
         {/* Right Sidebar - 1 column (Reference & Reflection) */}
         <div className="lg:col-span-1">
-          <DashboardSidebar 
+          <DashboardSidebar
             onViewSchedule={handleViewSchedule}
             onMaintainRank={handleMaintainRank}
             onViewAllCourses={handleViewAllCourses}

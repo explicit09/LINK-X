@@ -1,4 +1,4 @@
-import { FileText, Mic, Video } from "lucide-react";
+import { FileText, Mic, Video } from 'lucide-react';
 
 export const acceptedTypes = {
   'application/pdf': '.pdf',
@@ -7,7 +7,8 @@ export const acceptedTypes = {
   'video/mp4': '.mp4',
   'video/quicktime': '.mov',
   'application/vnd.ms-powerpoint': '.ppt',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx'
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+    '.pptx',
 };
 
 export const getFileIcon = (file: File) => {
@@ -36,15 +37,15 @@ export const formatFileSize = (bytes: number) => {
 
 export const validateFileType = (file: File): string | null => {
   const maxSize = 100 * 1024 * 1024; // 100MB
-  
+
   if (file.size > maxSize) {
-    return "File size must be less than 100MB.";
+    return 'File size must be less than 100MB.';
   }
-  
+
   if (!Object.keys(acceptedTypes).includes(file.type)) {
-    return "File type not supported. Please upload PDF, audio, video, or presentation files.";
+    return 'File type not supported. Please upload PDF, audio, video, or presentation files.';
   }
-  
+
   return null;
 };
 

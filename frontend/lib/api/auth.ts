@@ -77,21 +77,24 @@ class AuthAPI {
   async refreshToken(): Promise<AuthResponse> {
     // Refresh token is in httpOnly cookie, server will handle it
     const response = await apiClient.post<AuthResponse>('/auth/refresh');
-    
+
     // Update CSRF token if provided
     if (response.csrf_token) {
       sessionStorage.setItem('csrf_token', response.csrf_token);
     }
-    
+
     return response;
   }
 
   // Firebase session management (for Firebase Auth integration)
   async sessionLogin(idToken: string): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>('/auth/firebase-login', { 
-      idToken 
-    });
-    
+    const response = await apiClient.post<AuthResponse>(
+      '/auth/firebase-login',
+      {
+        idToken,
+      },
+    );
+
     // Store tokens
     if (response.access_token) {
       localStorage.setItem('access_token', response.access_token);
@@ -99,7 +102,7 @@ class AuthAPI {
         localStorage.setItem('refresh_token', response.refresh_token);
       }
     }
-    
+
     return response;
   }
 
@@ -123,7 +126,7 @@ class AuthAPI {
   async registerStudent(idToken: string, data: RegisterData): Promise<User> {
     const response = await this.register({
       ...data,
-      role: 'student'
+      role: 'student',
     });
     return response.user;
   }
@@ -131,7 +134,7 @@ class AuthAPI {
   async registerInstructor(idToken: string, data: RegisterData): Promise<User> {
     const response = await this.register({
       ...data,
-      role: 'instructor'
+      role: 'instructor',
     });
     return response.user;
   }

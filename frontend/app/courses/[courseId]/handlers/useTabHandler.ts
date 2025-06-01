@@ -7,7 +7,7 @@ export function useTabHandler() {
 
   const handleTabChange = (tab: string) => {
     const url = new URL(window.location.href);
-    url.searchParams.set("tab", tab);
+    url.searchParams.set('tab', tab);
     router.replace(url.pathname + url.search);
     dispatch(courseActions.setActiveTab(tab));
   };

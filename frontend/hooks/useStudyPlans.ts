@@ -4,17 +4,17 @@
  */
 import { useCallback, useMemo } from 'react';
 import { useApiQuery, useApiMutation } from './useApi';
-import { 
-  studyPlansAPI, 
-  StudyPlan, 
-  StudyGoal, 
-  StudySession, 
+import {
+  studyPlansAPI,
+  StudyPlan,
+  StudyGoal,
+  StudySession,
   StudyRecommendation,
   CreateStudyPlanData,
   CreateGoalData,
   StartSessionData,
   EndSessionData,
-  LogProgressData
+  LogProgressData,
 } from '@/lib/api/endpoints/study-plans';
 
 // ===== STUDY PLAN HOOKS =====
@@ -24,30 +24,22 @@ export function useStudyPlans(includeInactive = false) {
     () => studyPlansAPI.listPlans(includeInactive),
     [includeInactive],
     {
-      showErrorToast: true
-    }
+      showErrorToast: true,
+    },
   );
 }
 
 export function useActivePlan() {
-  return useApiQuery(
-    () => studyPlansAPI.getActivePlan(),
-    [],
-    {
-      showErrorToast: false // Don't show error if no active plan
-    }
-  );
+  return useApiQuery(() => studyPlansAPI.getActivePlan(), [], {
+    showErrorToast: false, // Don't show error if no active plan
+  });
 }
 
 export function useStudyPlan(planId: string) {
-  return useApiQuery(
-    () => studyPlansAPI.getPlan(planId),
-    [planId],
-    {
-      enabled: !!planId,
-      showErrorToast: true
-    }
-  );
+  return useApiQuery(() => studyPlansAPI.getPlan(planId), [planId], {
+    enabled: !!planId,
+    showErrorToast: true,
+  });
 }
 
 export function useCreateStudyPlan() {
@@ -56,32 +48,39 @@ export function useCreateStudyPlan() {
     {
       showSuccessToast: true,
       successMessage: 'Study plan created successfully!',
-      showErrorToast: true
-    }
+      showErrorToast: true,
+    },
   );
 }
 
 export function useUpdateStudyPlan() {
   return useApiMutation(
-    ({ planId, data }: { planId: string; data: Partial<CreateStudyPlanData> }) =>
+    ({
+      planId,
+      data,
+    }: { planId: string; data: Partial<CreateStudyPlanData> }) =>
       studyPlansAPI.updatePlan(planId, data),
     {
       showSuccessToast: true,
       successMessage: 'Study plan updated successfully!',
-      showErrorToast: true
-    }
+      showErrorToast: true,
+    },
   );
 }
 
 // ===== STUDY GOAL HOOKS =====
 
-export function useStudyGoals(filters?: { status?: string; priority?: string; limit?: number }) {
+export function useStudyGoals(filters?: {
+  status?: string;
+  priority?: string;
+  limit?: number;
+}) {
   return useApiQuery(
     () => studyPlansAPI.listGoals(filters),
     [filters?.status, filters?.priority, filters?.limit],
     {
-      showErrorToast: true
-    }
+      showErrorToast: true,
+    },
   );
 }
 
@@ -91,8 +90,8 @@ export function useCreateGoal() {
     {
       showSuccessToast: true,
       successMessage: 'Goal created successfully!',
-      showErrorToast: true
-    }
+      showErrorToast: true,
+    },
   );
 }
 
@@ -103,20 +102,24 @@ export function useLogGoalProgress() {
     {
       showSuccessToast: true,
       successMessage: 'Progress logged successfully!',
-      showErrorToast: true
-    }
+      showErrorToast: true,
+    },
   );
 }
 
 // ===== STUDY SESSION HOOKS =====
 
-export function useStudySessions(filters?: { limit?: number; start_date?: string; end_date?: string }) {
+export function useStudySessions(filters?: {
+  limit?: number;
+  start_date?: string;
+  end_date?: string;
+}) {
   return useApiQuery(
     () => studyPlansAPI.listSessions(filters),
     [filters?.limit, filters?.start_date, filters?.end_date],
     {
-      showErrorToast: true
-    }
+      showErrorToast: true,
+    },
   );
 }
 
@@ -126,8 +129,8 @@ export function useStartSession() {
     {
       showSuccessToast: true,
       successMessage: 'Study session started!',
-      showErrorToast: true
-    }
+      showErrorToast: true,
+    },
   );
 }
 
@@ -138,21 +141,17 @@ export function useEndSession() {
     {
       showSuccessToast: true,
       successMessage: 'Session completed! XP earned.',
-      showErrorToast: true
-    }
+      showErrorToast: true,
+    },
   );
 }
 
 // ===== RECOMMENDATION HOOKS =====
 
 export function useStudyRecommendations(limit?: number) {
-  return useApiQuery(
-    () => studyPlansAPI.listRecommendations(limit),
-    [limit],
-    {
-      showErrorToast: true
-    }
-  );
+  return useApiQuery(() => studyPlansAPI.listRecommendations(limit), [limit], {
+    showErrorToast: true,
+  });
 }
 
 export function useApplyRecommendation() {
@@ -161,8 +160,8 @@ export function useApplyRecommendation() {
     {
       showSuccessToast: true,
       successMessage: 'Recommendation applied!',
-      showErrorToast: true
-    }
+      showErrorToast: true,
+    },
   );
 }
 
@@ -173,35 +172,48 @@ export function useUpdateGoalStatus() {
     {
       showSuccessToast: true,
       successMessage: 'Goal updated successfully!',
-      showErrorToast: true
-    }
+      showErrorToast: true,
+    },
   );
 }
 
 // ===== ANALYTICS HOOKS =====
 
 export function useStudyAnalytics(days = 30) {
-  return useApiQuery(
-    () => studyPlansAPI.getAnalytics(days),
-    [days],
-    {
-      showErrorToast: true
-    }
-  );
+  return useApiQuery(() => studyPlansAPI.getAnalytics(days), [days], {
+    showErrorToast: true,
+  });
 }
 
 // ===== COMPOSITE HOOKS =====
 
 export function useStudyPlanDashboard() {
-  const { data: activePlan, isLoading: planLoading, refetch: refetchPlan } = useActivePlan();
-  const { data: goals, isLoading: goalsLoading, refetch: refetchGoals } = useStudyGoals({
+  const {
+    data: activePlan,
+    isLoading: planLoading,
+    refetch: refetchPlan,
+  } = useActivePlan();
+  const {
+    data: goals,
+    isLoading: goalsLoading,
+    refetch: refetchGoals,
+  } = useStudyGoals({
     status: 'in_progress',
-    limit: 10
+    limit: 10,
   });
-  const { data: recommendations, isLoading: recsLoading, refetch: refetchRecs } = useStudyRecommendations(5);
-  const { data: analytics, isLoading: analyticsLoading, refetch: refetchAnalytics } = useStudyAnalytics(7);
+  const {
+    data: recommendations,
+    isLoading: recsLoading,
+    refetch: refetchRecs,
+  } = useStudyRecommendations(5);
+  const {
+    data: analytics,
+    isLoading: analyticsLoading,
+    refetch: refetchAnalytics,
+  } = useStudyAnalytics(7);
 
-  const isLoading = planLoading || goalsLoading || recsLoading || analyticsLoading;
+  const isLoading =
+    planLoading || goalsLoading || recsLoading || analyticsLoading;
 
   const refetchAll = useCallback(() => {
     refetchPlan();
@@ -212,17 +224,28 @@ export function useStudyPlanDashboard() {
 
   // Process data for dashboard display
   const dashboardData = useMemo(() => {
-    const weeklyGoals = goals?.filter(goal => 
-      goal.goal_type === 'weekly' || 
-      (goal.target_date && new Date(goal.target_date) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
-    ) || [];
+    const weeklyGoals =
+      goals?.filter(
+        (goal) =>
+          goal.goal_type === 'weekly' ||
+          (goal.target_date &&
+            new Date(goal.target_date) <=
+              new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
+      ) || [];
 
-    const todayGoals = goals?.filter(goal => 
-      goal.goal_type === 'daily' ||
-      (goal.target_date && new Date(goal.target_date).toDateString() === new Date().toDateString())
-    ) || [];
+    const todayGoals =
+      goals?.filter(
+        (goal) =>
+          goal.goal_type === 'daily' ||
+          (goal.target_date &&
+            new Date(goal.target_date).toDateString() ===
+              new Date().toDateString()),
+      ) || [];
 
-    const urgentGoals = goals?.filter(goal => goal.priority === 'urgent' || goal.priority === 'high') || [];
+    const urgentGoals =
+      goals?.filter(
+        (goal) => goal.priority === 'urgent' || goal.priority === 'high',
+      ) || [];
 
     return {
       activePlan,
@@ -230,14 +253,14 @@ export function useStudyPlanDashboard() {
       todayGoals,
       urgentGoals,
       recommendations: recommendations || [],
-      analytics: analytics || null
+      analytics: analytics || null,
     };
   }, [activePlan, goals, recommendations, analytics]);
 
   return {
     ...dashboardData,
     isLoading,
-    refetchAll
+    refetchAll,
   };
 }
 
@@ -256,20 +279,30 @@ export function useWeeklyStudyProgress() {
     return end.toISOString().split('T')[0];
   }, [weekStart]);
 
-  const { data: sessions, isLoading, refetch } = useStudySessions({
+  const {
+    data: sessions,
+    isLoading,
+    refetch,
+  } = useStudySessions({
     start_date: weekStart,
-    end_date: weekEnd
+    end_date: weekEnd,
   });
 
   const weeklyStats = useMemo(() => {
     if (!sessions) return null;
 
-    const totalMinutes = sessions.reduce((sum, session) => sum + (session.actual_duration || 0), 0);
+    const totalMinutes = sessions.reduce(
+      (sum, session) => sum + (session.actual_duration || 0),
+      0,
+    );
     const totalSessions = sessions.length;
-    const avgEffectiveness = sessions.length > 0 
-      ? sessions.reduce((sum, s) => sum + (s.effectiveness_rating || 0), 0) / sessions.length 
-      : 0;
-    const studyDays = new Set(sessions.map(s => s.start_time.split('T')[0])).size;
+    const avgEffectiveness =
+      sessions.length > 0
+        ? sessions.reduce((sum, s) => sum + (s.effectiveness_rating || 0), 0) /
+          sessions.length
+        : 0;
+    const studyDays = new Set(sessions.map((s) => s.start_time.split('T')[0]))
+      .size;
 
     return {
       totalHours: Math.round((totalMinutes / 60) * 10) / 10,
@@ -277,7 +310,7 @@ export function useWeeklyStudyProgress() {
       avgEffectiveness: Math.round(avgEffectiveness * 10) / 10,
       studyDays,
       weekStart,
-      weekEnd
+      weekEnd,
     };
   }, [sessions, weekStart, weekEnd]);
 
@@ -285,7 +318,7 @@ export function useWeeklyStudyProgress() {
     sessions: sessions || [],
     weeklyStats,
     isLoading,
-    refetch
+    refetch,
   };
 }
 
@@ -293,26 +326,36 @@ export function useWeeklyStudyProgress() {
 export function useGoalPriority() {
   const getPriorityColor = useCallback((priority: string) => {
     switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800 border-red-200';
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'low': return 'bg-blue-100 text-blue-800 border-blue-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'urgent':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'high':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'low':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   }, []);
 
   const getStatusColor = useCallback((status: string) => {
     switch (status) {
-      case 'completed': return 'text-green-600';
-      case 'in_progress': return 'text-blue-600';
-      case 'pending': return 'text-gray-400';
-      case 'cancelled': return 'text-red-600';
-      default: return 'text-gray-400';
+      case 'completed':
+        return 'text-green-600';
+      case 'in_progress':
+        return 'text-blue-600';
+      case 'pending':
+        return 'text-gray-400';
+      case 'cancelled':
+        return 'text-red-600';
+      default:
+        return 'text-gray-400';
     }
   }, []);
 
   return {
     getPriorityColor,
-    getStatusColor
+    getStatusColor,
   };
 }

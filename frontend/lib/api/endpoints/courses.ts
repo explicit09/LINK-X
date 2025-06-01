@@ -16,35 +16,37 @@ export const courseAPI = {
     return (response as any).data || (response as any).courses || [];
   },
 
-  createCourse: (data: CreateCourseRequest): Promise<Course> => 
+  createCourse: (data: CreateCourseRequest): Promise<Course> =>
     apiClient.post('/api/v2/courses', data),
 
-  getCourse: (courseId: string): Promise<Course> => 
+  getCourse: (courseId: string): Promise<Course> =>
     apiClient.get(`/api/v2/courses/${courseId}`),
 
-  updateCourse: (courseId: string, data: UpdateCourseRequest): Promise<Course> => 
-    apiClient.patch(`/api/v2/courses/${courseId}`, data),
+  updateCourse: (
+    courseId: string,
+    data: UpdateCourseRequest,
+  ): Promise<Course> => apiClient.patch(`/api/v2/courses/${courseId}`, data),
 
-  deleteCourse: (courseId: string) => 
+  deleteCourse: (courseId: string) =>
     apiClient.delete(`/api/v2/courses/${courseId}`),
 
   // Course search and utilities
-  search: (courseId: string, query: string) => 
+  search: (courseId: string, query: string) =>
     apiClient.post(`/courses/${courseId}/search`, { query }),
 
-  getCitations: (courseId: string) => 
+  getCitations: (courseId: string) =>
     apiClient.get(`/courses/${courseId}/citations`),
 
-  getCourseProgress: (courseId: string) => 
+  getCourseProgress: (courseId: string) =>
     apiClient.get(`/api/v2/courses/${courseId}/progress`),
 
-  getCourseStudents: (courseId: string) => 
+  getCourseStudents: (courseId: string) =>
     apiClient.get(`/api/v2/courses/${courseId}/students`),
 
-  getCourseDiscussions: (courseId: string) => 
+  getCourseDiscussions: (courseId: string) =>
     apiClient.get(`/api/v2/courses/${courseId}/discussions`),
 
-  getCourseQuizzes: (courseId: string) => 
+  getCourseQuizzes: (courseId: string) =>
     apiClient.get(`/api/v2/courses/${courseId}/quizzes`),
 
   // Course content management
@@ -62,12 +64,12 @@ export const courseAPI = {
   },
 
   // Reports (instructor-specific)
-  getCourseReport: (courseId: string) => 
+  getCourseReport: (courseId: string) =>
     apiClient.get(`/instructor/courses/${courseId}/reports`),
 
-  generateCourseReport: (courseId: string) => 
+  generateCourseReport: (courseId: string) =>
     apiClient.post(`/instructor/courses/${courseId}/reports`),
 
-  generateCourseFAQs: (courseId: string) => 
+  generateCourseFAQs: (courseId: string) =>
     apiClient.post(`/instructor/courses/${courseId}/faqs`),
 };

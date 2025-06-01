@@ -11,7 +11,7 @@ import type {
 
 export const activityAPI = {
   // Activity logging and tracking
-  logActivity: (data: CreateActivityRequest) => 
+  logActivity: (data: CreateActivityRequest) =>
     apiClient.post('/api/v2/activities/log', data),
 
   getRecentActivities: async () => {
@@ -25,10 +25,9 @@ export const activityAPI = {
   },
 
   // Discussions
-  postDiscussion: (courseId: string, data: CreateDiscussionRequest) => 
+  postDiscussion: (courseId: string, data: CreateDiscussionRequest) =>
     apiClient.post(`/api/v2/courses/${courseId}/discussions`, data),
 
   // AI Chat
-  chatWithAI: (data: ChatRequest) => 
-    apiClient.post('/api/v2/ai/chat', data),
+  chatWithAI: (data: ChatRequest) => apiClient.post('/api/v2/ai/chat', data),
 };

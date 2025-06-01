@@ -23,14 +23,14 @@ export function useNotificationSettings() {
     productUpdates: false,
     marketing: false,
   });
-  
+
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const updateSetting = (key: keyof NotificationSettings, value: boolean) => {
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
-      [key]: value
+      [key]: value,
     }));
   };
 
@@ -44,9 +44,9 @@ export function useNotificationSettings() {
 
       if (response.ok) {
         const data = await response.json();
-        setSettings(prev => ({
+        setSettings((prev) => ({
           ...prev,
-          ...data
+          ...data,
         }));
       }
     } catch (error) {
@@ -123,6 +123,6 @@ export function useNotificationSettings() {
     saveSettings,
     enableAll,
     disableAll,
-    loadSettings
+    loadSettings,
   };
 }

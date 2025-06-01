@@ -3,7 +3,7 @@ import { TOOLBAR_CLOSE_DELAY } from '../constants';
 
 export const useToolbarTimer = (
   setSelectedTool: (tool: string | null) => void,
-  setIsToolbarVisible: (visible: boolean) => void
+  setIsToolbarVisible: (visible: boolean) => void,
 ) => {
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 

@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import React from "react";
-import { useParams } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import React from 'react';
+import { useParams } from 'next/navigation';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
 
 // Custom hooks
 import { useStreamingCourse } from './hooks/useStreamingCourse';
@@ -21,18 +21,29 @@ import { AITutorChat } from './components/AITutorChat';
 
 export default function StreamingLearnPage() {
   const params = useParams();
-  const pfId = typeof params?.id === "string" ? params.id : null;
+  const pfId = typeof params?.id === 'string' ? params.id : null;
 
   // Custom hooks for state management and business logic
-  const { courseName, chapters, totalLessons, completedLessons, streamSectionContent } = useStreamingCourse(pfId);
-  const { studyTime, currentStreak, recommendedLesson, setRecommendedLessonData } = useProgressTracking();
+  const {
+    courseName,
+    chapters,
+    totalLessons,
+    completedLessons,
+    streamSectionContent,
+  } = useStreamingCourse(pfId);
+  const {
+    studyTime,
+    currentStreak,
+    recommendedLesson,
+    setRecommendedLessonData,
+  } = useProgressTracking();
   const {
     sidebarVisible,
     currentModuleIndex,
     selectedLesson,
     setSidebarVisible,
     handleModuleClick,
-    handleLessonSelect
+    handleLessonSelect,
   } = useResponsiveLayout();
   const {
     chatOpen,
@@ -44,24 +55,31 @@ export default function StreamingLearnPage() {
     setChatOpen,
     setChatInput,
     handleChatSubmit,
-    openChat
+    openChat,
   } = useAIChat(pfId);
 
   // Set recommended lesson when chapters are loaded
   React.useEffect(() => {
-    if (chapters.length > 0 && chapters[0].subsections.length > 0 && !recommendedLesson) {
+    if (
+      chapters.length > 0 &&
+      chapters[0].subsections.length > 0 &&
+      !recommendedLesson
+    ) {
       setRecommendedLessonData(0, 0);
     }
   }, [chapters, recommendedLesson, setRecommendedLessonData]);
 
   // Handle lesson selection with content streaming
-  const handleLessonSelectWithStreaming = async (moduleIndex: number, lessonIndex: number) => {
+  const handleLessonSelectWithStreaming = async (
+    moduleIndex: number,
+    lessonIndex: number,
+  ) => {
     handleLessonSelect(moduleIndex, lessonIndex);
-    
+
     // Stream content if not already loaded
     const chapter = chapters[moduleIndex];
     const lesson = chapter.subsections[lessonIndex];
-    
+
     if (!lesson.content && !lesson.isLoading && !lesson.isStreaming) {
       await streamSectionContent(chapter.id, lesson.id);
     }
@@ -69,13 +87,22 @@ export default function StreamingLearnPage() {
 
   const startRecommendedLesson = () => {
     if (recommendedLesson) {
-      handleLessonSelectWithStreaming(recommendedLesson.moduleIndex, recommendedLesson.lessonIndex);
+      handleLessonSelectWithStreaming(
+        recommendedLesson.moduleIndex,
+        recommendedLesson.lessonIndex,
+      );
     }
   };
 
   // Derived data
-  const currentModule = selectedLesson ? chapters[selectedLesson.moduleIndex] : null;
-  const currentLesson = selectedLesson ? chapters[selectedLesson.moduleIndex]?.subsections[selectedLesson.lessonIndex] : null;
+  const currentModule = selectedLesson
+    ? chapters[selectedLesson.moduleIndex]
+    : null;
+  const currentLesson = selectedLesson
+    ? chapters[selectedLesson.moduleIndex]?.subsections[
+        selectedLesson.lessonIndex
+      ]
+    : null;
 
   if (!pfId) {
     return (

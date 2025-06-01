@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useRef, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useState, useRef, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Brain,
   MessageSquare,
@@ -18,16 +18,16 @@ import {
   FileText,
   Lightbulb,
   HelpCircle,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { toast as sonnerToast } from 'sonner';
 
 interface Message {
   id: string;
   content: string;
-  sender: "user" | "ai";
+  sender: 'user' | 'ai';
   timestamp: Date;
-  type?: "text" | "suggestion" | "system";
+  type?: 'text' | 'suggestion' | 'system';
 }
 
 interface Suggestion {
@@ -47,15 +47,15 @@ interface FloatingAIAssistantProps {
   };
 }
 
-export function FloatingAIAssistant({ 
-  courseId, 
+export function FloatingAIAssistant({
+  courseId,
   courseName,
-  currentMaterial 
+  currentMaterial,
 }: FloatingAIAssistantProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -65,29 +65,37 @@ export function FloatingAIAssistant({
   const getContextualSuggestions = (): Suggestion[] => {
     const baseSuggestions = [
       {
-        id: "explain",
-        text: "Explain this concept",
+        id: 'explain',
+        text: 'Explain this concept',
         icon: Lightbulb,
-        action: () => handleSuggestionClick("Can you explain this concept in simple terms?")
+        action: () =>
+          handleSuggestionClick(
+            'Can you explain this concept in simple terms?',
+          ),
       },
       {
-        id: "quiz",
-        text: "Generate practice quiz",
+        id: 'quiz',
+        text: 'Generate practice quiz',
         icon: MessageSquare,
-        action: () => handleSuggestionClick("Create a practice quiz on this material")
+        action: () =>
+          handleSuggestionClick('Create a practice quiz on this material'),
       },
       {
-        id: "summary",
-        text: "Summarize key points",
+        id: 'summary',
+        text: 'Summarize key points',
         icon: FileText,
-        action: () => handleSuggestionClick("Can you summarize the key points?")
+        action: () =>
+          handleSuggestionClick('Can you summarize the key points?'),
       },
       {
-        id: "help",
-        text: "I need help understanding",
+        id: 'help',
+        text: 'I need help understanding',
         icon: HelpCircle,
-        action: () => handleSuggestionClick("I'm having trouble understanding this. Can you help?")
-      }
+        action: () =>
+          handleSuggestionClick(
+            "I'm having trouble understanding this. Can you help?",
+          ),
+      },
     ];
 
     return baseSuggestions;
@@ -108,9 +116,9 @@ export function FloatingAIAssistant({
       const welcomeMessage: Message = {
         id: Date.now().toString(),
         content: getWelcomeMessage(),
-        sender: "ai",
+        sender: 'ai',
         timestamp: new Date(),
-        type: "system"
+        type: 'system',
       };
       setMessages([welcomeMessage]);
     }
@@ -127,7 +135,7 @@ export function FloatingAIAssistant({
   }, [isOpen]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const handleSuggestionClick = (suggestionText: string) => {
@@ -143,25 +151,25 @@ export function FloatingAIAssistant({
     const userMessage: Message = {
       id: Date.now().toString(),
       content,
-      sender: "user",
+      sender: 'user',
       timestamp: new Date(),
-      type: "text"
+      type: 'text',
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue("");
+    setMessages((prev) => [...prev, userMessage]);
+    setInputValue('');
     setIsTyping(true);
 
     // Add empty AI message for streaming
     const aiMessageId = (Date.now() + 1).toString();
     const aiMessage: Message = {
       id: aiMessageId,
-      content: "",
-      sender: "ai",
+      content: '',
+      sender: 'ai',
       timestamp: new Date(),
-      type: "text"
+      type: 'text',
     };
-    setMessages(prev => [...prev, aiMessage]);
+    setMessages((prev) => [...prev, aiMessage]);
 
     try {
       const response = await fetch('http://localhost:8080/ai-chat-stream', {
@@ -172,9 +180,9 @@ export function FloatingAIAssistant({
         credentials: 'include',
         body: JSON.stringify({
           userMessage: content,
-          messages: messages.slice(-10).map(m => ({
+          messages: messages.slice(-10).map((m) => ({
             role: m.sender === 'user' ? 'user' : 'assistant',
-            content: m.content
+            content: m.content,
           })),
         }),
       });
@@ -185,11 +193,11 @@ export function FloatingAIAssistant({
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      
+
       if (reader) {
         let buffer = '';
         let accumulatedContent = '';
-        
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -197,21 +205,23 @@ export function FloatingAIAssistant({
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
           buffer = lines.pop() || '';
-          
+
           for (const line of lines) {
             if (line.trim().startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.trim().slice(6));
-                
+
                 if (data.type === 'token') {
                   accumulatedContent += data.content;
-                  
+
                   // Update message content
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === aiMessageId 
-                      ? { ...msg, content: accumulatedContent }
-                      : msg
-                  ));
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === aiMessageId
+                        ? { ...msg, content: accumulatedContent }
+                        : msg,
+                    ),
+                  );
                 }
               } catch (e) {
                 console.error('SSE parse error:', e);
@@ -219,24 +229,24 @@ export function FloatingAIAssistant({
             }
           }
         }
-        
+
         reader.releaseLock();
       }
     } catch (error) {
       console.error('Streaming error:', error);
       // Fallback to simulated response
       const fallbackResponse = generateAIResponse(content);
-      setMessages(prev => prev.map(msg => 
-        msg.id === aiMessageId 
-          ? { ...msg, content: fallbackResponse }
-          : msg
-      ));
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === aiMessageId ? { ...msg, content: fallbackResponse } : msg,
+        ),
+      );
     } finally {
       setIsTyping(false);
-      
+
       // If chat is minimized, increase unread count
       if (isMinimized) {
-        setUnreadCount(prev => prev + 1);
+        setUnreadCount((prev) => prev + 1);
       }
     }
   };
@@ -244,20 +254,20 @@ export function FloatingAIAssistant({
   const generateAIResponse = (userInput: string): string => {
     // Simple response generation based on keywords
     const input = userInput.toLowerCase();
-    
-    if (input.includes("quiz") || input.includes("practice")) {
+
+    if (input.includes('quiz') || input.includes('practice')) {
       return "I'd be happy to create a practice quiz for you! Based on the current material, I can generate questions covering the key concepts. Would you like multiple choice, short answer, or a mix of both?";
     }
-    
-    if (input.includes("explain") || input.includes("understand")) {
-      return "I can definitely help explain that! Let me break this down into simpler terms with examples. Which specific part would you like me to focus on first?";
+
+    if (input.includes('explain') || input.includes('understand')) {
+      return 'I can definitely help explain that! Let me break this down into simpler terms with examples. Which specific part would you like me to focus on first?';
     }
-    
-    if (input.includes("summary") || input.includes("summarize")) {
-      return "Here&apos;s a concise summary of the key points:\n\n• Main concept and definition\n• Key applications and examples\n• Important relationships to remember\n• Common misconceptions to avoid\n\nWould you like me to elaborate on any of these points?";
+
+    if (input.includes('summary') || input.includes('summarize')) {
+      return 'Here&apos;s a concise summary of the key points:\n\n• Main concept and definition\n• Key applications and examples\n• Important relationships to remember\n• Common misconceptions to avoid\n\nWould you like me to elaborate on any of these points?';
     }
-    
-    if (input.includes("help") || input.includes("stuck")) {
+
+    if (input.includes('help') || input.includes('stuck')) {
       return "I'm here to help! Learning can be challenging, but we'll work through this together. Can you tell me specifically what part is confusing? I can provide:\n\n• Step-by-step explanations\n• Visual analogies\n• Practice problems\n• Alternative explanations";
     }
 
@@ -266,7 +276,7 @@ export function FloatingAIAssistant({
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -302,8 +312,8 @@ export function FloatingAIAssistant({
           <div className="relative">
             <Brain className="h-6 w-6 text-white" />
             {unreadCount > 0 && (
-              <Badge 
-                variant="destructive" 
+              <Badge
+                variant="destructive"
                 className="absolute -top-2 -right-2 h-5 w-5 text-xs p-0 flex items-center justify-center"
               >
                 {unreadCount}
@@ -399,34 +409,40 @@ export function FloatingAIAssistant({
                 <div
                   key={message.id}
                   className={cn(
-                    "flex",
-                    message.sender === "user" ? "justify-end" : "justify-start"
+                    'flex',
+                    message.sender === 'user' ? 'justify-end' : 'justify-start',
                   )}
                 >
                   <div
                     className={cn(
-                      "max-w-[80%] rounded-lg px-3 py-2 text-sm",
-                      message.sender === "user"
-                        ? "bg-blue-600 text-white"
-                        : message.type === "system"
-                        ? "bg-purple-50 text-purple-800 border border-purple-200"
-                        : "bg-gray-100 text-gray-800"
+                      'max-w-[80%] rounded-lg px-3 py-2 text-sm',
+                      message.sender === 'user'
+                        ? 'bg-blue-600 text-white'
+                        : message.type === 'system'
+                          ? 'bg-purple-50 text-purple-800 border border-purple-200'
+                          : 'bg-gray-100 text-gray-800',
                     )}
                   >
                     <p className="whitespace-pre-wrap">
                       {message.content}
                       {/* Show cursor for streaming AI messages */}
-                      {isTyping && message.sender === "ai" && message === messages[messages.length - 1] && (
-                        <span className="inline-block w-0.5 h-4 bg-gray-600 animate-pulse ml-0.5" />
-                      )}
+                      {isTyping &&
+                        message.sender === 'ai' &&
+                        message === messages[messages.length - 1] && (
+                          <span className="inline-block w-0.5 h-4 bg-gray-600 animate-pulse ml-0.5" />
+                        )}
                     </p>
-                    <p className={cn(
-                      "text-xs mt-1 opacity-70",
-                      message.sender === "user" ? "text-blue-100" : "text-gray-500"
-                    )}>
-                      {message.timestamp.toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
+                    <p
+                      className={cn(
+                        'text-xs mt-1 opacity-70',
+                        message.sender === 'user'
+                          ? 'text-blue-100'
+                          : 'text-gray-500',
+                      )}
+                    >
+                      {message.timestamp.toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
                       })}
                     </p>
                   </div>
@@ -439,8 +455,14 @@ export function FloatingAIAssistant({
                   <div className="bg-gray-100 rounded-lg px-3 py-2">
                     <div className="flex space-x-1">
                       <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      <div
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: '0.1s' }}
+                      ></div>
+                      <div
+                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        style={{ animationDelay: '0.2s' }}
+                      ></div>
                     </div>
                   </div>
                 </div>
@@ -482,7 +504,7 @@ export function FloatingAIAssistant({
                 className="flex-1"
                 disabled={isTyping}
               />
-              <Button 
+              <Button
                 onClick={() => handleSendMessage()}
                 disabled={!inputValue.trim() || isTyping}
                 className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
@@ -495,4 +517,4 @@ export function FloatingAIAssistant({
       </Card>
     </div>
   );
-} 
+}

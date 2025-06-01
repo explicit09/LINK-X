@@ -1,19 +1,19 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 // Components
-import Sidebar from "@/components/dashboard/DashSidebar";
-import Footer from "@/components/landing/Footer";
-import { CourseDashboard } from "./professor/CourseDashboard";
-import { CourseDetailView } from "./professor/CourseDetailView";
+import Sidebar from '@/components/dashboard/DashSidebar';
+import Footer from '@/components/landing/Footer';
+import { CourseDashboard } from './professor/CourseDashboard';
+import { CourseDetailView } from './professor/CourseDetailView';
 
 // Hooks
-import { useCourses } from "./professor/hooks/useCourses";
-import { useModules } from "./professor/hooks/useModules";
-import { useStudentManagement } from "./professor/hooks/useStudentManagement";
-import { useProfessorNavigation } from "./professor/hooks/useProfessorNavigation";
+import { useCourses } from './professor/hooks/useCourses';
+import { useModules } from './professor/hooks/useModules';
+import { useStudentManagement } from './professor/hooks/useStudentManagement';
+import { useProfessorNavigation } from './professor/hooks/useProfessorNavigation';
 
 export default function ProfessorDashboard() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -22,19 +22,21 @@ export default function ProfessorDashboard() {
   const courseHooks = useCourses();
   const navigation = useProfessorNavigation();
   const moduleHooks = useModules(navigation.selectedCourse?.id || null);
-  const studentHooks = useStudentManagement(navigation.selectedCourse?.id || null);
+  const studentHooks = useStudentManagement(
+    navigation.selectedCourse?.id || null,
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="flex">
         {/* Sidebar */}
         <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
-        
+
         {/* Main Content */}
-        <div 
+        <div
           className={cn(
-            "flex-1 transition-all duration-300",
-            isCollapsed ? "ml-16" : "ml-64"
+            'flex-1 transition-all duration-300',
+            isCollapsed ? 'ml-16' : 'ml-64',
           )}
         >
           <div className="min-h-screen pb-20">
@@ -57,7 +59,7 @@ export default function ProfessorDashboard() {
               />
             )}
           </div>
-          
+
           {/* Footer */}
           <Footer />
         </div>

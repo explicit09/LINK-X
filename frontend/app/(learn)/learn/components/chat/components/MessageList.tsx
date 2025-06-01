@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useEffect, useRef } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageBubble } from "./MessageBubble";
-import { StreamingProgress } from "./StreamingProgress";
-import { SuggestionList } from "./SuggestionList";
-import { Message, Suggestion } from "../types";
+import { useEffect, useRef } from 'react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { MessageBubble } from './MessageBubble';
+import { StreamingProgress } from './StreamingProgress';
+import { SuggestionList } from './SuggestionList';
+import { Message, Suggestion } from '../types';
 
 interface MessageListProps {
   messages: Message[];
@@ -30,7 +30,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   useEffect(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isLoading]);
 
@@ -48,16 +48,13 @@ export const MessageList: React.FC<MessageListProps> = ({
           />
         ))}
 
-        <StreamingProgress 
-          isLoading={isLoading} 
-          streamingContent={streamingContent} 
+        <StreamingProgress
+          isLoading={isLoading}
+          streamingContent={streamingContent}
         />
 
         {showSuggestions && messages.length <= 1 && (
-          <SuggestionList 
-            suggestions={suggestions} 
-            visible={showSuggestions} 
-          />
+          <SuggestionList suggestions={suggestions} visible={showSuggestions} />
         )}
       </div>
       <div ref={messagesEndRef} />

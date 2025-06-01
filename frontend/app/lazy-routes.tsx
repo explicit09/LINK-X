@@ -27,13 +27,19 @@ export const LearnPage = dynamic(() => import('./(learn)/learn/[id]/page'), {
   loading: RouteLoader,
 });
 
-export const StreamingPage = dynamic(() => import('./(learn)/learn/streaming/[id]/page'), {
-  loading: RouteLoader,
-});
+export const StreamingPage = dynamic(
+  () => import('./(learn)/learn/streaming/[id]/page'),
+  {
+    loading: RouteLoader,
+  },
+);
 
-export const SettingsPage = dynamic(() => import('./(settings)/settings/page'), {
-  loading: RouteLoader,
-});
+export const SettingsPage = dynamic(
+  () => import('./(settings)/settings/page'),
+  {
+    loading: RouteLoader,
+  },
+);
 
 export const OnboardingPage = dynamic(() => import('./onboarding/page'), {
   loading: RouteLoader,
@@ -41,11 +47,7 @@ export const OnboardingPage = dynamic(() => import('./onboarding/page'), {
 
 // Wrapper component for lazy routes
 export function LazyRoute({ children }: { children: React.ReactNode }) {
-  return (
-    <Suspense fallback={<RouteLoader />}>
-      {children}
-    </Suspense>
-  );
+  return <Suspense fallback={<RouteLoader />}>{children}</Suspense>;
 }
 
 // Preload function for critical routes
@@ -70,13 +72,13 @@ if (typeof window !== 'undefined') {
   const observerOptions = {
     rootMargin: '50px',
   };
-  
+
   const linkObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
       if (entry.isIntersecting) {
         const link = entry.target as HTMLAnchorElement;
         const href = link.getAttribute('href');
-        
+
         if (href?.includes('/dashboard')) {
           preloadRoute('dashboard');
         } else if (href?.includes('/courses')) {
@@ -84,15 +86,15 @@ if (typeof window !== 'undefined') {
         } else if (href?.includes('/learn')) {
           preloadRoute('learn');
         }
-        
+
         linkObserver.unobserve(link);
       }
     });
   }, observerOptions);
-  
+
   // Observe navigation links
   document.addEventListener('DOMContentLoaded', () => {
     const links = document.querySelectorAll('a[href^="/"]');
-    links.forEach(link => linkObserver.observe(link));
+    links.forEach((link) => linkObserver.observe(link));
   });
 }

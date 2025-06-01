@@ -1,5 +1,11 @@
 import { Suspense, lazy } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Download, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -14,45 +20,50 @@ interface MaterialViewDialogProps {
   courseId: string;
 }
 
-export function MaterialViewDialog({ 
-  currentMaterial, 
-  onClose, 
-  currentUser, 
-  courseId 
+export function MaterialViewDialog({
+  currentMaterial,
+  onClose,
+  currentUser,
+  courseId,
 }: MaterialViewDialogProps) {
   const handleDownload = async () => {
     try {
       if (!currentMaterial?.id) {
-        toast.error("No file selected for download");
+        toast.error('No file selected for download');
         return;
       }
-      
+
       if (!currentUser) {
-        toast.error("Please log in to download files");
+        toast.error('Please log in to download files');
         return;
       }
-      
+
       const userRole = currentUser.role || 'student';
       const api = userRole === 'instructor' ? instructorAPI : studentAPI;
-      
-      toast.info("Starting download...");
-      
+
+      toast.info('Starting download...');
+
       await api.downloadFile(currentMaterial.id);
-      toast.success("Download started...");
-      
+      toast.success('Download started...');
     } catch (error) {
-      console.error("Download failed:", error);
-      toast.error("Download failed. Please try again.");
+      console.error('Download failed:', error);
+      toast.error('Download failed. Please try again.');
     }
   };
 
   return (
-    <Dialog open={!!currentMaterial} onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open={!!currentMaterial}
+      onOpenChange={(open) => !open && onClose()}
+    >
       <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
         <DialogHeader className="flex flex-row items-center justify-between">
-          <DialogTitle className="text-xl">{currentMaterial?.title || 'Course Material'}</DialogTitle>
+          <DialogTitle className="text-xl">
+            {currentMaterial?.title || 'Course Material'}
+          </DialogTitle>
           <DialogDescription className="sr-only">
-            View and interact with course material. You can download the file or ask AI questions about its content.
+            View and interact with course material. You can download the file or
+            ask AI questions about its content.
           </DialogDescription>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleDownload}>
@@ -69,7 +80,9 @@ export function MaterialViewDialog({
             <Suspense fallback={<div>Loading viewer...</div>}>
               <MaterialViewer
                 materialId={currentMaterial.id}
-                materialType={currentMaterial.type as 'pdf' | 'audio' | 'video' | 'document'}
+                materialType={
+                  currentMaterial.type as 'pdf' | 'audio' | 'video' | 'document'
+                }
                 materialTitle={currentMaterial.title}
                 userRole={currentUser?.role || 'student'}
                 courseId={courseId}

@@ -5,7 +5,7 @@ declare global {
       targetId: string,
       config?: {
         [key: string]: any;
-      }
+      },
     ) => void;
   }
 }

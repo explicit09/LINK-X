@@ -17,15 +17,17 @@ export function useStepNavigation({
   totalSteps,
   canProceed,
   onNext,
-  onPrev
+  onPrev,
 }: StepNavigationProps) {
-  
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Enter' && canProceed(currentStep)) {
-      e.preventDefault();
-      onNext();
-    }
-  }, [currentStep, canProceed, onNext]);
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && canProceed(currentStep)) {
+        e.preventDefault();
+        onNext();
+      }
+    },
+    [currentStep, canProceed, onNext],
+  );
 
   const getStepProgress = () => {
     return (currentStep / totalSteps) * 100;
@@ -40,6 +42,6 @@ export function useStepNavigation({
     isFirstStep,
     isLastStep,
     canGoNext: canProceed(currentStep),
-    canGoBack: !isFirstStep
+    canGoBack: !isFirstStep,
   };
 }

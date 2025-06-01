@@ -33,7 +33,7 @@ class AuthService {
     tokens: null,
     user: null,
   };
-  
+
   private tokenRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly TOKEN_REFRESH_MARGIN = 5 * 60 * 1000; // Refresh 5 minutes before expiry
 
@@ -107,7 +107,10 @@ class AuthService {
     if (!this.authState.tokens) return;
 
     const timeUntilExpiry = this.authState.tokens.expiresAt - Date.now();
-    const refreshTime = Math.max(0, timeUntilExpiry - this.TOKEN_REFRESH_MARGIN);
+    const refreshTime = Math.max(
+      0,
+      timeUntilExpiry - this.TOKEN_REFRESH_MARGIN,
+    );
 
     this.tokenRefreshTimer = setTimeout(() => {
       this.refreshTokens();
@@ -123,17 +126,17 @@ class AuthService {
 
       // Get fresh Firebase token
       const firebaseToken = await auth.currentUser.getIdToken(true);
-      
+
       // For now, just update the token expiry since we're using Firebase tokens
       // In a production system, you'd exchange for backend tokens
       this.authState.tokens = {
         accessToken: firebaseToken,
         expiresAt: Date.now() + 60 * 60 * 1000, // 1 hour
       };
-      
+
       this.saveAuthState();
       this.scheduleTokenRefresh();
-      
+
       return true;
     } catch (error) {
       console.error('Token refresh failed:', error);
@@ -149,7 +152,7 @@ class AuthService {
     try {
       // Get Firebase ID token
       const idToken = await firebaseUser.getIdToken();
-      
+
       // Try to establish session with backend
       // Create session with Firebase token
       const response = await fetch(`${API_URL}/auth/login`, {
@@ -170,7 +173,7 @@ class AuthService {
           this.saveAuthState();
           return true; // Firebase auth successful, but needs registration
         }
-        
+
         // For other errors, clear auth state
         console.error(`Login failed with status: ${response.status}`);
         this.clearAuthState();
@@ -178,14 +181,14 @@ class AuthService {
       }
 
       const data = await response.json();
-      
+
       // Validate response structure
       if (!data) {
         console.error('Login failed: Empty response from backend');
         this.clearAuthState();
         return false;
       }
-      
+
       // Update auth state
       this.authState = {
         isAuthenticated: true,
@@ -196,17 +199,17 @@ class AuthService {
         },
         user: data.user || null,
       };
-      
+
       this.saveAuthState();
       this.scheduleTokenRefresh();
-      
+
       // Safe logging with null check
       if (data.user && data.user.email) {
         // User successfully authenticated and registered
       } else {
         // User successfully authenticated and registered
       }
-      
+
       return true;
     } catch (error) {
       console.error('Login failed:', error);
@@ -232,7 +235,7 @@ class AuthService {
       const response = await fetch(`${API_URL}/auth/me`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         credentials: 'include',
@@ -269,7 +272,11 @@ class AuthService {
     if (auth.currentUser && !this.authState.tokens) {
       // No backend token found, attempting to establish session
       const sessionEstablished = await this.login(auth.currentUser);
-      if (sessionEstablished && this.authState.tokens && this.authState.tokens.accessToken) {
+      if (
+        sessionEstablished &&
+        this.authState.tokens &&
+        this.authState.tokens.accessToken
+      ) {
         return this.authState.tokens.accessToken;
       }
     }
@@ -302,9 +309,10 @@ class AuthService {
 
   private clearOldSessionCookies() {
     // Clear any old session cookies from different Firebase projects
-    document.cookie.split(';').forEach(cookie => {
+    document.cookie.split(';').forEach((cookie) => {
       const eqPos = cookie.indexOf('=');
-      const name = eqPos > -1 ? cookie.substring(0, eqPos).trim() : cookie.trim();
+      const name =
+        eqPos > -1 ? cookie.substring(0, eqPos).trim() : cookie.trim();
       if (name === 'session') {
         // Clear the cookie by setting it with an expired date
         document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
@@ -317,13 +325,13 @@ class AuthService {
     try {
       // Clear old session cookies first
       this.clearOldSessionCookies();
-      
+
       // Logout from backend
       if (this.authState.tokens) {
         await fetch(`${API_URL}/api/v2/auth/logout`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${this.authState.tokens.accessToken}`,
+            Authorization: `Bearer ${this.authState.tokens.accessToken}`,
           },
           credentials: 'include',
         });
@@ -334,7 +342,7 @@ class AuthService {
 
     // Clear local state
     this.clearAuthState();
-    
+
     // Logout from Firebase
     await auth.signOut();
   }
@@ -359,16 +367,19 @@ class AuthService {
     return this.authState.user;
   }
 
-  async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
+  async makeAuthenticatedRequest(
+    url: string,
+    options: RequestInit = {},
+  ): Promise<Response> {
     const token = await this.getValidToken();
-    
+
     if (!token) {
       throw new Error('No valid authentication token');
     }
 
     const headers = {
       ...options.headers,
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
     };
 
     const response = await fetch(url, {

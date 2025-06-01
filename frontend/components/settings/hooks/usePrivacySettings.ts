@@ -15,16 +15,16 @@ export function usePrivacySettings() {
     analyticsSharing: false,
     improvementSharing: false,
   });
-  
+
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const updateSetting = (key: keyof PrivacySettings, value: boolean) => {
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
-      [key]: value
+      [key]: value,
     }));
   };
 
@@ -38,9 +38,9 @@ export function usePrivacySettings() {
 
       if (response.ok) {
         const data = await response.json();
-        setSettings(prev => ({
+        setSettings((prev) => ({
           ...prev,
-          ...data
+          ...data,
         }));
       }
     } catch (error) {
@@ -124,7 +124,9 @@ export function usePrivacySettings() {
         throw new Error('Failed to delete account');
       }
 
-      toast.success('Account deletion initiated. You will receive a confirmation email.');
+      toast.success(
+        'Account deletion initiated. You will receive a confirmation email.',
+      );
       return true;
     } catch (error) {
       console.error('Error deleting account:', error);
@@ -150,6 +152,6 @@ export function usePrivacySettings() {
     saveSettings,
     downloadData,
     deleteAccount,
-    loadSettings
+    loadSettings,
   };
 }

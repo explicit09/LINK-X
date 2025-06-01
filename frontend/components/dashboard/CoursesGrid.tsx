@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { ChevronRight } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { ChevronRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 interface Course {
   id: string;
@@ -40,16 +40,16 @@ const CoursesGrid = ({
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const res = await fetch("http://localhost:8080/api/v2/courses", {
-          method: "GET",
-          credentials: "include",
+        const res = await fetch('http://localhost:8080/api/v2/courses', {
+          method: 'GET',
+          credentials: 'include',
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        console.log("Courses API response:", data);
+        console.log('Courses API response:', data);
         setCourses(data.data || []);
       } catch (err) {
-        console.error("Failed to load courses:", err);
+        console.error('Failed to load courses:', err);
       }
     };
 
@@ -57,7 +57,7 @@ const CoursesGrid = ({
   }, [search]);
 
   const filteredCourses = courses.filter((course) =>
-    course.title.toLowerCase().includes(search.toLowerCase())
+    course.title.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -88,13 +88,14 @@ const CoursesGrid = ({
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <p className="text-gray-700 text-sm line-clamp-3">
-                {course.description || "No description available"}
+                {course.description || 'No description available'}
               </p>
               <p className="text-gray-600 text-xs">
-                Instructor: {course.instructor?.name || "Unknown"}
+                Instructor: {course.instructor?.name || 'Unknown'}
               </p>
               <p className="text-gray-600 text-xs">
-                Students: {course.stats?.students || 0} • Modules: {course.stats?.modules || 0}
+                Students: {course.stats?.students || 0} • Modules:{' '}
+                {course.stats?.modules || 0}
               </p>
               <Button
                 size="sm"
@@ -112,7 +113,9 @@ const CoursesGrid = ({
         <div className="text-center text-gray-500 mt-8">Loading courses...</div>
       )}
       {filteredCourses.length === 0 && courses.length > 0 && (
-        <div className="text-center text-gray-500 mt-8">No courses found matching your search.</div>
+        <div className="text-center text-gray-500 mt-8">
+          No courses found matching your search.
+        </div>
       )}
     </div>
   );

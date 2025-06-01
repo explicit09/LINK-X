@@ -1,10 +1,10 @@
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 const RecentlyCompletedCourses: React.FC = () => {
   const completedCourses = [
-    "Introduction to Investing",
-    "Financial Statement Analysis",
-    "Risk Management Basics",
+    'Introduction to Investing',
+    'Financial Statement Analysis',
+    'Risk Management Basics',
   ];
 
   return (
@@ -19,7 +19,9 @@ const RecentlyCompletedCourses: React.FC = () => {
           {completedCourses.map((course, index) => (
             <Card key={index} className="bg-gray-100 border border-gray-200">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-gray-900">{course}</CardTitle>
+                <CardTitle className="text-sm text-gray-900">
+                  {course}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex justify-between items-center">

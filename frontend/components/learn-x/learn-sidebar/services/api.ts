@@ -2,15 +2,15 @@ import { OnboardingData, OnboardingResponse, Chapter } from '../types';
 
 export const fetchOnboarding = async (): Promise<OnboardingData | null> => {
   try {
-    const res = await fetch("http://localhost:8080/onboarding", {
-      method: "GET",
-      credentials: "include",
+    const res = await fetch('http://localhost:8080/onboarding', {
+      method: 'GET',
+      credentials: 'include',
     });
 
     const data: OnboardingResponse = await res.json();
 
     if (res.status !== 200) {
-      console.error("Failed to fetch onboarding:", data);
+      console.error('Failed to fetch onboarding:', data);
       return null;
     }
 
@@ -31,26 +31,29 @@ export const fetchOnboarding = async (): Promise<OnboardingData | null> => {
 
     return onboarding;
   } catch (err) {
-    console.error("Error loading onboarding data:", err);
+    console.error('Error loading onboarding data:', err);
     return null;
   }
 };
 
-export const fetchChapters = async (courseId?: string, pfId?: string): Promise<Chapter[]> => {
+export const fetchChapters = async (
+  courseId?: string,
+  pfId?: string,
+): Promise<Chapter[]> => {
   try {
-    let url = "";
+    let url = '';
     if (pfId) {
       url = `http://localhost:8080/student/personalized-files/${pfId}`;
     } else if (courseId) {
       url = `http://localhost:8080/courses/${courseId}`;
     } else {
-      console.warn("No courseId or pfId provided.");
+      console.warn('No courseId or pfId provided.');
       return [];
     }
 
     const res = await fetch(url, {
-      method: "GET",
-      credentials: "include",
+      method: 'GET',
+      credentials: 'include',
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -58,31 +61,28 @@ export const fetchChapters = async (courseId?: string, pfId?: string): Promise<C
 
     // Expecting { id, content }
     const content = data.content || data?.content?.chapters;
-    const parsed =
-      typeof content === "string" ? JSON.parse(content) : content;
+    const parsed = typeof content === 'string' ? JSON.parse(content) : content;
 
     if (parsed?.chapters) {
-      const formattedChapters: Chapter[] = parsed.chapters.map(
-        (ch: any) => ({
-          chapterTitle: ch.chapterTitle,
-          subsections: ch.subsections.map((sub: any) => ({
-            title: sub.title,
-            fullText: sub.fullText,
-          })),
-        })
-      );
+      const formattedChapters: Chapter[] = parsed.chapters.map((ch: any) => ({
+        chapterTitle: ch.chapterTitle,
+        subsections: ch.subsections.map((sub: any) => ({
+          title: sub.title,
+          fullText: sub.fullText,
+        })),
+      }));
 
       console.log(
-        "Loaded personalized chapters with fullText:",
-        formattedChapters
+        'Loaded personalized chapters with fullText:',
+        formattedChapters,
       );
       return formattedChapters;
     } else {
-      console.warn("No chapters found in personalized file content.");
+      console.warn('No chapters found in personalized file content.');
       return [];
     }
   } catch (err) {
-    console.error("Failed to load content:", err);
+    console.error('Failed to load content:', err);
     return [];
   }
 };

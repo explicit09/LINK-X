@@ -1,16 +1,16 @@
 import React from 'react';
-import { Button } from "@/components/ui/button";
-import { 
-  Eye, 
-  EyeOff, 
-  BarChart3, 
-  Share2, 
-  Download, 
-  Trash2, 
+import { Button } from '@/components/ui/button';
+import {
+  Eye,
+  EyeOff,
+  BarChart3,
+  Share2,
+  Download,
+  Trash2,
   Save,
   AlertTriangle,
-  Info
-} from "lucide-react";
+  Info,
+} from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,7 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
 import { SettingCard } from '../ui/SettingCard';
 import { SettingToggle } from '../ui/SettingToggle';
 import { usePrivacySettings } from '../hooks/usePrivacySettings';
@@ -36,7 +36,7 @@ export function PrivacySettings() {
     updateSetting,
     saveSettings,
     downloadData,
-    deleteAccount
+    deleteAccount,
   } = usePrivacySettings();
 
   const handleSave = async () => {
@@ -75,10 +75,15 @@ export function PrivacySettings() {
             label="Profile Visibility"
             description="Allow other students and instructors to see your basic profile information"
             checked={settings.profileVisible}
-            onCheckedChange={(checked) => updateSetting('profileVisible', checked)}
-            icon={settings.profileVisible ? 
-              <Eye className="h-4 w-4 text-green-500" /> : 
-              <EyeOff className="h-4 w-4 text-gray-500" />
+            onCheckedChange={(checked) =>
+              updateSetting('profileVisible', checked)
+            }
+            icon={
+              settings.profileVisible ? (
+                <Eye className="h-4 w-4 text-green-500" />
+              ) : (
+                <EyeOff className="h-4 w-4 text-gray-500" />
+              )
             }
           />
         </div>
@@ -95,7 +100,9 @@ export function PrivacySettings() {
             label="Activity Tracking"
             description="Allow us to track your learning activity to provide personalized recommendations"
             checked={settings.activityTracking}
-            onCheckedChange={(checked) => updateSetting('activityTracking', checked)}
+            onCheckedChange={(checked) =>
+              updateSetting('activityTracking', checked)
+            }
             icon={<BarChart3 className="h-4 w-4 text-blue-500" />}
           />
 
@@ -104,7 +111,9 @@ export function PrivacySettings() {
             label="Anonymous Analytics Sharing"
             description="Share anonymized learning data to help improve the platform for everyone"
             checked={settings.analyticsSharing}
-            onCheckedChange={(checked) => updateSetting('analyticsSharing', checked)}
+            onCheckedChange={(checked) =>
+              updateSetting('analyticsSharing', checked)
+            }
             icon={<Share2 className="h-4 w-4 text-purple-500" />}
           />
 
@@ -113,7 +122,9 @@ export function PrivacySettings() {
             label="Platform Improvement"
             description="Use your data to improve AI models and platform features"
             checked={settings.improvementSharing}
-            onCheckedChange={(checked) => updateSetting('improvementSharing', checked)}
+            onCheckedChange={(checked) =>
+              updateSetting('improvementSharing', checked)
+            }
             icon={<BarChart3 className="h-4 w-4 text-orange-500" />}
           />
         </div>
@@ -129,7 +140,11 @@ export function PrivacySettings() {
             <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
             <div className="text-sm text-blue-700">
               <p className="font-medium mb-1">Your Data Rights</p>
-              <p>You have the right to download or delete your personal data at any time. Downloaded data will include your profile, learning progress, and course materials.</p>
+              <p>
+                You have the right to download or delete your personal data at
+                any time. Downloaded data will include your profile, learning
+                progress, and course materials.
+              </p>
             </div>
           </div>
 
@@ -171,7 +186,10 @@ export function PrivacySettings() {
                     <span>Delete Account</span>
                   </AlertDialogTitle>
                   <AlertDialogDescription className="space-y-3">
-                    <p>Are you sure you want to delete your account? This action cannot be undone.</p>
+                    <p>
+                      Are you sure you want to delete your account? This action
+                      cannot be undone.
+                    </p>
                     <div className="bg-red-50 p-3 rounded">
                       <p className="text-red-800 text-sm">
                         <strong>This will permanently delete:</strong>
@@ -183,7 +201,10 @@ export function PrivacySettings() {
                         <li>Chat history and personalized content</li>
                       </ul>
                     </div>
-                    <p className="text-sm">You will receive a confirmation email before final deletion.</p>
+                    <p className="text-sm">
+                      You will receive a confirmation email before final
+                      deletion.
+                    </p>
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

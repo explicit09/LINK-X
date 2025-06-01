@@ -1,15 +1,15 @@
-import { ArrowLeft, Home, Users, Settings, BookOpen } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Home, Users, Settings, BookOpen } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 
-import { HomeTab } from "./tabs/HomeTab";
-import { PeopleTab } from "./tabs/PeopleTab";
-import { ModulesTab } from "./tabs/ModulesTab";
-import { SettingsTab } from "./tabs/SettingsTab";
+import { HomeTab } from './tabs/HomeTab';
+import { PeopleTab } from './tabs/PeopleTab';
+import { ModulesTab } from './tabs/ModulesTab';
+import { SettingsTab } from './tabs/SettingsTab';
 
-import { Course } from "./hooks/useCourses";
-import { TabType } from "./hooks/useProfessorNavigation";
+import { Course } from './hooks/useCourses';
+import { TabType } from './hooks/useProfessorNavigation';
 
 interface CourseDetailViewProps {
   course: Course;
@@ -28,7 +28,7 @@ export function CourseDetailView({
   onBackToDashboard,
   courseHooks,
   moduleHooks,
-  studentHooks
+  studentHooks,
 }: CourseDetailViewProps) {
   return (
     <div className="min-h-screen bg-gray-50">
@@ -45,8 +45,8 @@ export function CourseDetailView({
               <span>Back to Dashboard</span>
             </Button>
 
-            <Badge variant={course.published ? "default" : "secondary"}>
-              {course.published ? "Published" : "Draft"}
+            <Badge variant={course.published ? 'default' : 'secondary'}>
+              {course.published ? 'Published' : 'Draft'}
             </Badge>
           </div>
 
@@ -68,13 +68,19 @@ export function CourseDetailView({
 
       {/* Tabs */}
       <div className="px-8">
-        <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as TabType)}>
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => onTabChange(value as TabType)}
+        >
           <TabsList className="mt-6">
             <TabsTrigger value="home" className="flex items-center space-x-2">
               <Home className="h-4 w-4" />
               <span>Home</span>
             </TabsTrigger>
-            <TabsTrigger value="modules" className="flex items-center space-x-2">
+            <TabsTrigger
+              value="modules"
+              className="flex items-center space-x-2"
+            >
               <BookOpen className="h-4 w-4" />
               <span>Modules</span>
               <Badge variant="secondary" className="ml-1">
@@ -88,7 +94,10 @@ export function CourseDetailView({
                 {studentHooks.students.length}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center space-x-2">
+            <TabsTrigger
+              value="settings"
+              className="flex items-center space-x-2"
+            >
               <Settings className="h-4 w-4" />
               <span>Settings</span>
             </TabsTrigger>
@@ -105,10 +114,7 @@ export function CourseDetailView({
             </TabsContent>
 
             <TabsContent value="modules">
-              <ModulesTab
-                course={course}
-                moduleHooks={moduleHooks}
-              />
+              <ModulesTab course={course} moduleHooks={moduleHooks} />
             </TabsContent>
 
             <TabsContent value="people">

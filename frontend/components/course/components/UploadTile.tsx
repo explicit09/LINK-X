@@ -1,8 +1,8 @@
 import React from 'react';
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Upload, Plus, File } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Upload, Plus, File } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 import { UploadProgress } from '../hooks/useFileUpload';
 
@@ -18,7 +18,10 @@ interface UploadTileProps {
   onDragLeave: (moduleId: string, e: React.DragEvent) => void;
   onDrop: (moduleId: string, e: React.DragEvent) => void;
   setFileInputRef: (moduleId: string, ref: HTMLInputElement | null) => void;
-  onFileInputChange: (moduleId: string, e: React.ChangeEvent<HTMLInputElement>) => void;
+  onFileInputChange: (
+    moduleId: string,
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => void;
   className?: string;
 }
 
@@ -35,21 +38,21 @@ export function UploadTile({
   onDrop,
   setFileInputRef,
   onFileInputChange,
-  className = ""
+  className = '',
 }: UploadTileProps) {
   if (!canUpload) {
     return null;
   }
 
   return (
-    <div 
+    <div
       className={cn(
-        "border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200",
-        isDragging 
-          ? "border-blue-400 bg-blue-50" 
-          : "border-gray-300 hover:border-gray-400 hover:bg-gray-50",
-        isUploading && "pointer-events-none opacity-60",
-        className
+        'border-2 border-dashed rounded-lg p-6 text-center transition-all duration-200',
+        isDragging
+          ? 'border-blue-400 bg-blue-50'
+          : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50',
+        isUploading && 'pointer-events-none opacity-60',
+        className,
       )}
       onDragOver={onDragOver}
       onDragEnter={(e) => onDragEnter(moduleId, e)}
@@ -96,13 +99,12 @@ export function UploadTile({
 
           <div>
             <h4 className="text-sm font-medium text-gray-700 mb-1">
-              {isDragging ? "Drop files here" : "Upload materials"}
+              {isDragging ? 'Drop files here' : 'Upload materials'}
             </h4>
             <p className="text-xs text-gray-500 mb-3">
-              {isDragging 
-                ? "Release to upload" 
-                : "Drag & drop files or click to browse"
-              }
+              {isDragging
+                ? 'Release to upload'
+                : 'Drag & drop files or click to browse'}
             </p>
 
             {!isDragging && (

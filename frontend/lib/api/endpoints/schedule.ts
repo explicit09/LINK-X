@@ -1,5 +1,5 @@
 /**
- * Schedule API Endpoints
+ * Schedule API Endpoints - Fixed TypeScript version
  * TypeScript definitions and API methods for schedule management
  */
 
@@ -15,33 +15,38 @@ export interface StudySession {
   course_id?: string;
   study_plan_id?: string;
   study_goal_id?: string;
-  
+
   // Session Details
   title: string;
   description?: string;
   session_type: 'study' | 'assignment' | 'meeting' | 'lab' | 'review';
-  
+
   // Scheduling
   scheduled_start: string; // ISO string
-  scheduled_end: string;   // ISO string
+  scheduled_end: string; // ISO string
   duration_minutes: number;
-  
+
   // AI Optimization Fields (matching frontend expectations)
   cognitive_load: 'high' | 'medium' | 'low';
   urgency: 'urgent' | 'soon' | 'later';
   priority_score: number;
-  
+
   // Session Execution
   actual_start?: string;
   actual_end?: string;
   actual_duration_minutes?: number;
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled' | 'rescheduled';
+  status:
+    | 'scheduled'
+    | 'in_progress'
+    | 'completed'
+    | 'cancelled'
+    | 'rescheduled';
   completion_percentage: number;
-  
+
   // Rewards and Motivation (matching frontend xpReward)
   xp_reward: number;
   xp_earned: number;
-  
+
   // Metadata
   is_ai_suggested: boolean;
   optimization_score?: number;
@@ -49,7 +54,7 @@ export interface StudySession {
   session_notes?: string;
   effectiveness_rating?: number;
   focus_score?: number;
-  
+
   created_at: string;
   updated_at: string;
 }
@@ -84,40 +89,40 @@ export interface SessionNote {
 
 export interface UserSchedulePreferences {
   user_id: string;
-  
+
   // Core Hours Configuration
   core_start_hour: number;
   core_end_hour: number;
   timezone: string;
-  
+
   // Session Preferences
   default_session_length: number;
   default_break_length: number;
   max_daily_study_hours: number;
-  
+
   // Cognitive Load Distribution
   preferred_high_cognitive_slots?: number[];
   avoided_time_slots?: number[];
-  
+
   // AI Optimization Settings
   enable_ai_optimization: boolean;
   enable_ai_suggestions: boolean;
   optimization_aggressiveness: number;
-  
+
   // Notification Settings
   enable_session_reminders: boolean;
   reminder_minutes_before: number;
   enable_deadline_alerts: boolean;
-  
+
   // Display Preferences
   default_view: 'calendar' | 'list' | 'timeline';
   show_weekends: boolean;
   calendar_start_hour: number;
   calendar_end_hour: number;
-  
+
   // Course Color Mapping
   course_colors?: Record<string, string>;
-  
+
   created_at: string;
   updated_at: string;
 }
@@ -126,61 +131,65 @@ export interface SessionAnalytics {
   id: string;
   user_id: string;
   session_id?: string;
-  
+
   // Analytics Event Data
   event_type: string;
   event_timestamp: string;
-  
+
   // Performance Metrics
   planned_vs_actual_duration?: number;
   focus_interruptions: number;
   context_switches: number;
-  
+
   // AI Insights
   optimization_followed?: boolean;
   suggestion_effectiveness?: number;
-  
+
   // User Behavior
   device_type?: string;
   time_to_start?: number;
   session_satisfaction?: number;
-  
+
   // Contextual Data
   metadata?: Record<string, any>;
-  
+
   created_at: string;
 }
 
 export interface AISessionSuggestion {
   id: string;
   user_id: string;
-  
+
   // Suggestion Details
-  suggestion_type: 'schedule_optimization' | 'time_block' | 'break_reminder' | 'focus_session';
+  suggestion_type:
+    | 'schedule_optimization'
+    | 'time_block'
+    | 'break_reminder'
+    | 'focus_session';
   title: string;
   description?: string;
-  
+
   // Suggested Session Data
   suggested_start?: string;
   suggested_duration?: number;
   suggested_course_id?: string;
   suggested_cognitive_load?: 'high' | 'medium' | 'low';
-  
+
   // AI Confidence and Reasoning
   confidence_score: number;
   reasoning?: string;
   algorithm_version: string;
-  
+
   // User Response
   status: 'pending' | 'applied' | 'dismissed' | 'expired';
   user_feedback?: string;
   applied_at?: string;
-  
+
   // Metadata
   priority_score: number;
   expires_at?: string;
   suggestion_metadata?: Record<string, any>;
-  
+
   created_at: string;
   updated_at: string;
 }
@@ -202,24 +211,24 @@ export interface ScheduleDashboardAnalytics {
   today_sessions_completed: number;
   today_study_minutes: number;
   today_xp_earned: number;
-  
+
   // Weekly Overview
   week_sessions_planned: number;
   week_sessions_completed: number;
   week_completion_rate: number;
   week_study_hours: number;
-  
+
   // Monthly Trends
   month_average_daily_hours: number;
   month_most_productive_time: string;
   month_completion_streak: number;
-  
+
   // Performance Insights
   avg_session_effectiveness: number;
   avg_focus_score: number;
   optimal_session_length: number;
   peak_productivity_hours: number[];
-  
+
   // AI Insights
   ai_suggestions_followed: number;
   ai_suggestions_effectiveness: number;
@@ -289,8 +298,8 @@ export interface GetSessionsParams {
   course_id?: string;
   status?: string;
   session_type?: string;
-  limit?: number;
-  offset?: number;
+  limit?: string;
+  offset?: string;
 }
 
 export interface OptimizeScheduleRequest {
@@ -310,13 +319,15 @@ export interface OptimizeScheduleRequest {
 
 export const scheduleAPI = {
   // ===== SESSION MANAGEMENT =====
-  
+
   /**
    * Get user's study sessions with filtering
    */
   async getSessions(params: GetSessionsParams = {}) {
-    const response = await apiClient.get('/api/v2/schedule/sessions', { params });
-    return response.data;
+    const response = await apiClient.get('/api/v2/schedule/sessions', {
+      params,
+    });
+    return response;
   },
 
   /**
@@ -324,57 +335,70 @@ export const scheduleAPI = {
    */
   async createSession(data: CreateSessionRequest) {
     const response = await apiClient.post('/api/v2/schedule/sessions', data);
-    return response.data;
+    return response;
   },
 
   /**
    * Update an existing session
    */
   async updateSession(sessionId: string, data: UpdateSessionRequest) {
-    const response = await apiClient.put(`/api/v2/schedule/sessions/${sessionId}`, data);
-    return response.data;
+    const response = await apiClient.put(
+      `/api/v2/schedule/sessions/${sessionId}`,
+      data,
+    );
+    return response;
   },
 
   /**
    * Delete a session
    */
   async deleteSession(sessionId: string) {
-    const response = await apiClient.delete(`/api/v2/schedule/sessions/${sessionId}`);
-    return response.data;
+    const response = await apiClient.delete(
+      `/api/v2/schedule/sessions/${sessionId}`,
+    );
+    return response;
   },
 
   /**
    * Bulk update sessions (for drag-and-drop operations)
    */
   async bulkUpdateSessions(data: BulkUpdateSessionsRequest) {
-    const response = await apiClient.put('/api/v2/schedule/sessions/bulk', data);
-    return response.data;
+    const response = await apiClient.put(
+      '/api/v2/schedule/sessions/bulk',
+      data,
+    );
+    return response;
   },
 
   /**
    * Start a study session
    */
   async startSession(sessionId: string) {
-    const response = await apiClient.post(`/api/v2/schedule/sessions/${sessionId}/start`);
-    return response.data;
+    const response = await apiClient.post(
+      `/api/v2/schedule/sessions/${sessionId}/start`,
+    );
+    return response;
   },
 
   /**
    * Complete a study session
    */
   async completeSession(sessionId: string, data: CompleteSessionRequest = {}) {
-    const response = await apiClient.post(`/api/v2/schedule/sessions/${sessionId}/complete`, data);
-    return response.data;
+    const response = await apiClient.post(
+      `/api/v2/schedule/sessions/${sessionId}/complete`,
+      data,
+    );
+    return response;
   },
 
   // ===== USER PREFERENCES =====
-  
+
   /**
    * Get user's schedule preferences
    */
   async getPreferences(): Promise<{ data: UserSchedulePreferences }> {
     const response = await apiClient.get('/api/v2/schedule/preferences');
-    return response.data;
+    return response;
   },
 
   /**
@@ -382,45 +406,62 @@ export const scheduleAPI = {
    */
   async updatePreferences(data: Partial<UserSchedulePreferences>) {
     const response = await apiClient.put('/api/v2/schedule/preferences', data);
-    return response.data;
+    return response;
   },
 
   // ===== AI OPTIMIZATION =====
-  
+
   /**
    * AI-powered schedule optimization
    */
-  async optimizeSchedule(data: OptimizeScheduleRequest = {}): Promise<{ data: ScheduleOptimizationResult }> {
+  async optimizeSchedule(
+    data: OptimizeScheduleRequest = {},
+  ): Promise<{ data: ScheduleOptimizationResult }> {
     const response = await apiClient.post('/api/v2/schedule/ai/optimize', data);
-    return response.data;
+    return response;
   },
 
   /**
    * Get AI-generated schedule suggestions
    */
-  async getAISuggestions(params: { type?: string; status?: string; limit?: number } = {}) {
-    const response = await apiClient.get('/api/v2/schedule/ai/suggestions', { params });
-    return response.data;
+  async getAISuggestions(
+    params: { type?: string; status?: string; limit?: number } = {},
+  ) {
+    const response = await apiClient.get('/api/v2/schedule/ai/suggestions', {
+      params: {
+        type: params.type || '',
+        status: params.status || '',
+        limit: params.limit?.toString() || '',
+      },
+    });
+    return response;
   },
 
   /**
    * Apply an AI suggestion
    */
   async applyAISuggestion(suggestionId: string) {
-    const response = await apiClient.post(`/api/v2/schedule/ai/suggestions/${suggestionId}/apply`);
-    return response.data;
+    const response = await apiClient.post(
+      `/api/v2/schedule/ai/suggestions/${suggestionId}/apply`,
+    );
+    return response;
   },
 
   // ===== ANALYTICS =====
-  
+
   /**
    * Get comprehensive schedule analytics for dashboard
    */
-  async getDashboardAnalytics(daysBack: number = 30): Promise<{ data: ScheduleDashboardAnalytics }> {
-    const response = await apiClient.get('/api/v2/schedule/analytics/dashboard', {
-      params: { days_back: daysBack }
-    });
-    return response.data;
+  async getDashboardAnalytics(
+    daysBack: number = 30,
+  ): Promise<{ data: ScheduleDashboardAnalytics }> {
+    const response = await apiClient.get(
+      '/api/v2/schedule/analytics/dashboard',
+      {
+        params: { days_back: daysBack.toString() },
+      },
+    );
+    return response;
   },
 
   /**
@@ -428,8 +469,8 @@ export const scheduleAPI = {
    */
   async getScheduleInsights() {
     const response = await apiClient.get('/api/v2/schedule/analytics/insights');
-    return response.data;
-  }
+    return response;
+  },
 };
 
 // ===============================
@@ -439,13 +480,19 @@ export const scheduleAPI = {
 /**
  * Convert backend StudySession to frontend-compatible format
  */
-export function transformSessionForFrontend(session: StudySession, courseName?: string): FrontendStudySession {
+export function transformSessionForFrontend(
+  session: StudySession,
+  courseName?: string,
+): FrontendStudySession {
   // Extract time from ISO datetime
-  const startTime = new Date(session.scheduled_start).toLocaleTimeString('en-US', {
-    hour12: false,
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  const startTime = new Date(session.scheduled_start).toLocaleTimeString(
+    'en-US',
+    {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+    },
+  );
 
   return {
     id: session.id,
@@ -457,7 +504,7 @@ export function transformSessionForFrontend(session: StudySession, courseName?: 
     xpReward: session.xp_reward,
     type: session.session_type as FrontendStudySession['type'],
     estimatedStart: startTime,
-    isGhost: session.is_ai_suggested
+    isGhost: session.is_ai_suggested,
   };
 }
 
@@ -467,22 +514,25 @@ export function transformSessionForFrontend(session: StudySession, courseName?: 
 export function transformSessionForBackend(
   frontendSession: Partial<FrontendStudySession>,
   courseId?: string,
-  date?: Date
+  date?: Date,
 ): Partial<CreateSessionRequest> {
   const baseDate = date || new Date();
-  
+
   // Parse time and create full datetime
   let scheduledStart: Date | undefined;
   let scheduledEnd: Date | undefined;
-  
+
   if (frontendSession.estimatedStart) {
-    const [hours, minutes] = frontendSession.estimatedStart.split(':').map(Number);
+    const [hours, minutes] = frontendSession.estimatedStart
+      .split(':')
+      .map(Number);
     scheduledStart = new Date(baseDate);
     scheduledStart.setHours(hours, minutes, 0, 0);
-    
-    const durationMinutes = frontendSession.duration ? 
-      parseInt(frontendSession.duration.replace('min', '')) : 45;
-    
+
+    const durationMinutes = frontendSession.duration
+      ? parseInt(frontendSession.duration.replace('min', ''))
+      : 45;
+
     scheduledEnd = new Date(scheduledStart);
     scheduledEnd.setMinutes(scheduledEnd.getMinutes() + durationMinutes);
   }
@@ -492,13 +542,14 @@ export function transformSessionForBackend(
     course_id: courseId,
     scheduled_start: scheduledStart?.toISOString(),
     scheduled_end: scheduledEnd?.toISOString(),
-    duration_minutes: frontendSession.duration ? 
-      parseInt(frontendSession.duration.replace('min', '')) : undefined,
+    duration_minutes: frontendSession.duration
+      ? parseInt(frontendSession.duration.replace('min', ''))
+      : undefined,
     cognitive_load: frontendSession.cognitiveLoad,
     urgency: frontendSession.urgency,
     xp_reward: frontendSession.xpReward,
     session_type: frontendSession.type,
-    is_ai_suggested: frontendSession.isGhost || false
+    is_ai_suggested: frontendSession.isGhost || false,
   };
 }
 
@@ -522,7 +573,7 @@ export function getDefaultSchedulePreferences(): Partial<UserSchedulePreferences
     default_view: 'calendar',
     show_weekends: false,
     calendar_start_hour: 6,
-    calendar_end_hour: 22
+    calendar_end_hour: 22,
   };
 }
 

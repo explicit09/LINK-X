@@ -1,7 +1,7 @@
 export interface UploadFile {
   id: string;
   file: File;
-  status: "uploading" | "processing" | "completed" | "error";
+  status: 'uploading' | 'processing' | 'completed' | 'error';
   progress: number;
   processingStage?: string;
   error?: string;

@@ -57,7 +57,7 @@ export function useUserStats() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await apiClient.get('/api/v2/gamification/stats');
       setStats(response.data);
     } catch (err: any) {
@@ -76,7 +76,7 @@ export function useUserStats() {
     stats,
     loading,
     error,
-    refetch: fetchStats
+    refetch: fetchStats,
   };
 }
 
@@ -85,38 +85,41 @@ export function useAwardXP() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const awardXP = useCallback(async (
-    activityType: string, 
-    xpAmount: number, 
-    description?: string, 
-    metadata?: any
-  ) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await apiClient.post('/api/v2/gamification/award-xp', {
-        activity_type: activityType,
-        xp_amount: xpAmount,
-        description,
-        metadata
-      });
-      
-      return response.data;
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to award XP';
-      setError(errorMessage);
-      console.error('Award XP error:', err);
-      throw new Error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const awardXP = useCallback(
+    async (
+      activityType: string,
+      xpAmount: number,
+      description?: string,
+      metadata?: any,
+    ) => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await apiClient.post('/api/v2/gamification/award-xp', {
+          activity_type: activityType,
+          xp_amount: xpAmount,
+          description,
+          metadata,
+        });
+
+        return response.data;
+      } catch (err: any) {
+        const errorMessage = err.message || 'Failed to award XP';
+        setError(errorMessage);
+        console.error('Award XP error:', err);
+        throw new Error(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
 
   return {
     awardXP,
     loading,
-    error
+    error,
   };
 }
 
@@ -130,7 +133,7 @@ export function useAchievements() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await apiClient.get('/api/v2/gamification/achievements');
       setAchievements(response.data.achievements || []);
     } catch (err: any) {
@@ -149,7 +152,7 @@ export function useAchievements() {
     achievements,
     loading,
     error,
-    refetch: fetchAchievements
+    refetch: fetchAchievements,
   };
 }
 
@@ -167,8 +170,10 @@ export function useLeaderboard(limit: number = 10, offset: number = 0) {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await apiClient.get(`/api/v2/gamification/leaderboard?limit=${limit}&offset=${offset}`);
+
+      const response = await apiClient.get(
+        `/api/v2/gamification/leaderboard?limit=${limit}&offset=${offset}`,
+      );
       setData(response.data);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch leaderboard');
@@ -186,7 +191,7 @@ export function useLeaderboard(limit: number = 10, offset: number = 0) {
     data,
     loading,
     error,
-    refetch: fetchLeaderboard
+    refetch: fetchLeaderboard,
   };
 }
 
@@ -204,8 +209,10 @@ export function useActivityHistory(limit: number = 20, days: number = 7) {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await apiClient.get(`/api/v2/gamification/activity-history?limit=${limit}&days=${days}`);
+
+      const response = await apiClient.get(
+        `/api/v2/gamification/activity-history?limit=${limit}&days=${days}`,
+      );
       setData(response.data);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch activity history');
@@ -223,7 +230,7 @@ export function useActivityHistory(limit: number = 20, days: number = 7) {
     data,
     loading,
     error,
-    refetch: fetchActivityHistory
+    refetch: fetchActivityHistory,
   };
 }
 
@@ -235,29 +242,53 @@ export function useXPActions() {
     return awardXP('login', 5, 'Daily login bonus');
   }, [awardXP]);
 
-  const awardFileViewXP = useCallback((fileName: string) => {
-    return awardXP('file_view', 2, `Viewed ${fileName}`);
-  }, [awardXP]);
+  const awardFileViewXP = useCallback(
+    (fileName: string) => {
+      return awardXP('file_view', 2, `Viewed ${fileName}`);
+    },
+    [awardXP],
+  );
 
-  const awardTodoCompleteXP = useCallback((todoTitle: string) => {
-    return awardXP('todo_complete', 10, `Completed: ${todoTitle}`);
-  }, [awardXP]);
+  const awardTodoCompleteXP = useCallback(
+    (todoTitle: string) => {
+      return awardXP('todo_complete', 10, `Completed: ${todoTitle}`);
+    },
+    [awardXP],
+  );
 
   const awardChatMessageXP = useCallback(() => {
     return awardXP('chat_message', 3, 'Sent chat message');
   }, [awardXP]);
 
-  const awardQuizCompleteXP = useCallback((score: number) => {
-    return awardXP('quiz_complete', 15, `Quiz completed with ${score}% score`, { score });
-  }, [awardXP]);
+  const awardQuizCompleteXP = useCallback(
+    (score: number) => {
+      return awardXP(
+        'quiz_complete',
+        15,
+        `Quiz completed with ${score}% score`,
+        { score },
+      );
+    },
+    [awardXP],
+  );
 
-  const awardAssignmentCompleteXP = useCallback((assignmentName: string) => {
-    return awardXP('assignment_complete', 25, `Completed assignment: ${assignmentName}`);
-  }, [awardXP]);
+  const awardAssignmentCompleteXP = useCallback(
+    (assignmentName: string) => {
+      return awardXP(
+        'assignment_complete',
+        25,
+        `Completed assignment: ${assignmentName}`,
+      );
+    },
+    [awardXP],
+  );
 
-  const awardCourseEnrollXP = useCallback((courseName: string) => {
-    return awardXP('course_enroll', 20, `Enrolled in ${courseName}`);
-  }, [awardXP]);
+  const awardCourseEnrollXP = useCallback(
+    (courseName: string) => {
+      return awardXP('course_enroll', 20, `Enrolled in ${courseName}`);
+    },
+    [awardXP],
+  );
 
   return {
     awardLoginXP,
@@ -267,6 +298,6 @@ export function useXPActions() {
     awardQuizCompleteXP,
     awardAssignmentCompleteXP,
     awardCourseEnrollXP,
-    awardCustomXP: awardXP
+    awardCustomXP: awardXP,
   };
 }

@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Zap } from "lucide-react";
-import { SmartRecommendations } from "@/components/ai/SmartRecommendations";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Zap } from 'lucide-react';
+import { SmartRecommendations } from '@/components/ai/SmartRecommendations';
 
 interface AISuggestionsWidgetProps {
   courseId: string;
@@ -18,7 +18,7 @@ export function AISuggestionsWidget({ courseId }: AISuggestionsWidgetProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
-        <SmartRecommendations 
+        <SmartRecommendations
           courseId={courseId}
           prioritizedLayout={true}
           className="text-sm"

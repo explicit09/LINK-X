@@ -3,19 +3,23 @@ export interface IconProps {
   size?: number;
   className?: string;
   style?: React.CSSProperties;
-  "aria-label"?: string;
+  'aria-label'?: string;
 }
 
 const defaultStyle = { color: 'currentcolor' };
 
 // Helper function to create consistent icon props
-const getIconProps = (size: number = 16, className?: string, style?: React.CSSProperties) => ({
+const getIconProps = (
+  size: number = 16,
+  className?: string,
+  style?: React.CSSProperties,
+) => ({
   height: size,
   width: size,
   className,
   style: { ...defaultStyle, ...style },
-  strokeLinejoin: "round" as const,
-  viewBox: "0 0 16 16",
+  strokeLinejoin: 'round' as const,
+  viewBox: '0 0 16 16',
 });
 
 // Bot and User Icons

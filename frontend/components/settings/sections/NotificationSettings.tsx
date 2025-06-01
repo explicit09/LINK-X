@@ -1,6 +1,13 @@
 import React from 'react';
-import { Button } from "@/components/ui/button";
-import { Bell, Shield, Megaphone, Save, ToggleLeft, ToggleRight } from "lucide-react";
+import { Button } from '@/components/ui/button';
+import {
+  Bell,
+  Shield,
+  Megaphone,
+  Save,
+  ToggleLeft,
+  ToggleRight,
+} from 'lucide-react';
 import { SettingCard } from '../ui/SettingCard';
 import { SettingToggle } from '../ui/SettingToggle';
 import { useNotificationSettings } from '../hooks/useNotificationSettings';
@@ -13,7 +20,7 @@ export function NotificationSettings() {
     updateSetting,
     saveSettings,
     enableAll,
-    disableAll
+    disableAll,
   } = useNotificationSettings();
 
   const handleSave = async () => {
@@ -48,7 +55,9 @@ export function NotificationSettings() {
             label="Learning Reminders"
             description="Get reminded to continue your learning journey"
             checked={settings.learningReminders}
-            onCheckedChange={(checked) => updateSetting('learningReminders', checked)}
+            onCheckedChange={(checked) =>
+              updateSetting('learningReminders', checked)
+            }
             icon={<Bell className="h-4 w-4 text-blue-500" />}
           />
 
@@ -57,7 +66,9 @@ export function NotificationSettings() {
             label="Course Updates"
             description="Notifications when your courses are updated with new content"
             checked={settings.courseUpdates}
-            onCheckedChange={(checked) => updateSetting('courseUpdates', checked)}
+            onCheckedChange={(checked) =>
+              updateSetting('courseUpdates', checked)
+            }
             icon={<Bell className="h-4 w-4 text-green-500" />}
           />
 
@@ -75,7 +86,9 @@ export function NotificationSettings() {
             label="Weekly Progress Reports"
             description="Receive weekly summaries of your learning progress"
             checked={settings.weeklyProgress}
-            onCheckedChange={(checked) => updateSetting('weeklyProgress', checked)}
+            onCheckedChange={(checked) =>
+              updateSetting('weeklyProgress', checked)
+            }
             icon={<Bell className="h-4 w-4 text-orange-500" />}
           />
 
@@ -84,7 +97,9 @@ export function NotificationSettings() {
             label="Achievements"
             description="Celebrate your learning milestones and achievements"
             checked={settings.achievements}
-            onCheckedChange={(checked) => updateSetting('achievements', checked)}
+            onCheckedChange={(checked) =>
+              updateSetting('achievements', checked)
+            }
             icon={<Bell className="h-4 w-4 text-yellow-500" />}
           />
         </div>
@@ -101,7 +116,9 @@ export function NotificationSettings() {
             label="Security Alerts"
             description="Important security notifications about your account"
             checked={settings.securityAlerts}
-            onCheckedChange={(checked) => updateSetting('securityAlerts', checked)}
+            onCheckedChange={(checked) =>
+              updateSetting('securityAlerts', checked)
+            }
             icon={<Shield className="h-4 w-4 text-red-500" />}
           />
 
@@ -110,7 +127,9 @@ export function NotificationSettings() {
             label="Product Updates"
             description="Notifications about new features and platform improvements"
             checked={settings.productUpdates}
-            onCheckedChange={(checked) => updateSetting('productUpdates', checked)}
+            onCheckedChange={(checked) =>
+              updateSetting('productUpdates', checked)
+            }
             icon={<Megaphone className="h-4 w-4 text-blue-500" />}
           />
 

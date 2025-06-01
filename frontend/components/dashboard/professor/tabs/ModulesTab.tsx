@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { 
+} from '@/components/ui/dialog';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -21,20 +21,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { 
-  Plus, 
-  BookOpen, 
-  ChevronDown, 
-  ChevronRight, 
-  Upload, 
-  File, 
+} from '@/components/ui/alert-dialog';
+import {
+  Plus,
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  Upload,
+  File,
   Trash2,
-  Loader2
-} from "lucide-react";
+  Loader2,
+} from 'lucide-react';
 
-import UploadPdf from "@/components/dashboard/UploadPDF";
-import UploadAudio from "@/components/dashboard/AudioUpload";
+import UploadPdf from '@/components/dashboard/UploadPDF';
+import UploadAudio from '@/components/dashboard/AudioUpload';
 import { Course } from '../hooks/useCourses';
 import { Module } from '../hooks/useModules';
 
@@ -56,11 +56,15 @@ interface ModulesTabProps {
 
 export function ModulesTab({ course, moduleHooks }: ModulesTabProps) {
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
-  const [newModuleTitle, setNewModuleTitle] = useState("");
+  const [newModuleTitle, setNewModuleTitle] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
-  const [uploadingModuleId, setUploadingModuleId] = useState<string | null>(null);
-  const [uploadingAudioModuleId, setUploadingAudioModuleId] = useState<string | null>(null);
+  const [uploadingModuleId, setUploadingModuleId] = useState<string | null>(
+    null,
+  );
+  const [uploadingAudioModuleId, setUploadingAudioModuleId] = useState<
+    string | null
+  >(null);
 
   const { modules, loading, createModule, deleteModule } = moduleHooks;
 
@@ -69,7 +73,7 @@ export function ModulesTab({ course, moduleHooks }: ModulesTabProps) {
 
     const newModule = await createModule({ title: newModuleTitle.trim() });
     if (newModule) {
-      setNewModuleTitle("");
+      setNewModuleTitle('');
       setIsCreateDialogOpen(false);
     }
   };
@@ -111,7 +115,10 @@ export function ModulesTab({ course, moduleHooks }: ModulesTabProps) {
               <Badge variant="secondary">{modules.length}</Badge>
             </div>
 
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <Dialog
+              open={isCreateDialogOpen}
+              onOpenChange={setIsCreateDialogOpen}
+            >
               <DialogTrigger asChild>
                 <Button className="flex items-center space-x-2">
                   <Plus className="h-4 w-4" />
@@ -144,7 +151,7 @@ export function ModulesTab({ course, moduleHooks }: ModulesTabProps) {
                       variant="outline"
                       onClick={() => {
                         setIsCreateDialogOpen(false);
-                        setNewModuleTitle("");
+                        setNewModuleTitle('');
                       }}
                     >
                       Cancel
@@ -198,9 +205,12 @@ export function ModulesTab({ course, moduleHooks }: ModulesTabProps) {
                         <ChevronRight className="h-5 w-5 text-gray-400" />
                       )}
                       <div>
-                        <h4 className="font-medium text-gray-900">{module.title}</h4>
+                        <h4 className="font-medium text-gray-900">
+                          {module.title}
+                        </h4>
                         <p className="text-sm text-gray-600">
-                          {module.files.length} file{module.files.length !== 1 ? 's' : ''}
+                          {module.files.length} file
+                          {module.files.length !== 1 ? 's' : ''}
                         </p>
                       </div>
                     </div>
@@ -221,8 +231,10 @@ export function ModulesTab({ course, moduleHooks }: ModulesTabProps) {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Delete Module</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Are you sure you want to delete "<strong>{module.title}</strong>"? 
-                              This will also delete all files in this module. This action cannot be undone.
+                              Are you sure you want to delete "
+                              <strong>{module.title}</strong>"? This will also
+                              delete all files in this module. This action
+                              cannot be undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -261,7 +273,9 @@ export function ModulesTab({ course, moduleHooks }: ModulesTabProps) {
                           ) : (
                             <UploadPdf
                               moduleId={module.id}
-                              onUploadStart={() => setUploadingModuleId(module.id)}
+                              onUploadStart={() =>
+                                setUploadingModuleId(module.id)
+                              }
                               onUploadComplete={() => {
                                 setUploadingModuleId(null);
                                 moduleHooks.refetch();
@@ -287,7 +301,9 @@ export function ModulesTab({ course, moduleHooks }: ModulesTabProps) {
                           ) : (
                             <UploadAudio
                               moduleId={module.id}
-                              onUploadStart={() => setUploadingAudioModuleId(module.id)}
+                              onUploadStart={() =>
+                                setUploadingAudioModuleId(module.id)
+                              }
                               onUploadComplete={() => {
                                 setUploadingAudioModuleId(null);
                                 moduleHooks.refetch();
@@ -313,9 +329,13 @@ export function ModulesTab({ course, moduleHooks }: ModulesTabProps) {
                               <div className="flex items-center space-x-3">
                                 <File className="h-5 w-5 text-gray-400" />
                                 <div>
-                                  <p className="font-medium text-gray-900">{file.title}</p>
+                                  <p className="font-medium text-gray-900">
+                                    {file.title}
+                                  </p>
                                   {file.filename && (
-                                    <p className="text-sm text-gray-600">{file.filename}</p>
+                                    <p className="text-sm text-gray-600">
+                                      {file.filename}
+                                    </p>
                                   )}
                                 </div>
                               </div>
@@ -325,7 +345,10 @@ export function ModulesTab({ course, moduleHooks }: ModulesTabProps) {
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                 onClick={() => {
                                   // Handle file deletion
-                                  moduleHooks.removeFileFromModule(module.id, file.id);
+                                  moduleHooks.removeFileFromModule(
+                                    module.id,
+                                    file.id,
+                                  );
                                 }}
                               >
                                 <Trash2 className="h-4 w-4" />

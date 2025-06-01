@@ -10,7 +10,11 @@ export interface RetryConfig {
 }
 
 export class RetryError extends Error {
-  constructor(message: string, public readonly lastError: Error, public readonly attempts: number) {
+  constructor(
+    message: string,
+    public readonly lastError: Error,
+    public readonly attempts: number,
+  ) {
     super(message);
     this.name = 'RetryError';
   }
@@ -18,13 +22,13 @@ export class RetryError extends Error {
 
 export async function withRetry<T>(
   operation: () => Promise<T>,
-  config: RetryConfig = {}
+  config: RetryConfig = {},
 ): Promise<T> {
   const {
     maxRetries = 2,
     baseDelay = 500,
     maxDelay = 5000,
-    backoffFactor = 2
+    backoffFactor = 2,
   } = config;
 
   let lastError: Error;
@@ -34,20 +38,27 @@ export async function withRetry<T>(
     try {
       if (attempt > 0) {
         // Calculate delay with exponential backoff
-        const delay = Math.min(baseDelay * Math.pow(backoffFactor, attempt - 1), maxDelay);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        const delay = Math.min(
+          baseDelay * Math.pow(backoffFactor, attempt - 1),
+          maxDelay,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
-      
+
       return await operation();
     } catch (error) {
       lastError = error as Error;
       attempt++;
-      
+
       // Don't retry on certain errors
       if (error instanceof Error) {
         // Don't retry on 4xx errors (except 401)
         if ('status' in error && typeof error.status === 'number') {
-          if (error.status >= 400 && error.status < 500 && error.status !== 401) {
+          if (
+            error.status >= 400 &&
+            error.status < 500 &&
+            error.status !== 401
+          ) {
             throw error;
           }
         }
@@ -58,6 +69,6 @@ export async function withRetry<T>(
   throw new RetryError(
     `Operation failed after ${attempt} attempts`,
     lastError!,
-    attempt
+    attempt,
   );
 }

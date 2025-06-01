@@ -1,19 +1,19 @@
 import React from 'react';
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  Circle, 
-  CheckCircle, 
-  Clock, 
-  ChevronDown, 
-  ChevronUp, 
-  BookOpen, 
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Circle,
+  CheckCircle,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  BookOpen,
   ChevronRight,
-  Loader2 
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+  Loader2,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { DocumentOutline } from '../hooks/useDocumentOutline';
 
 interface DocumentSidebarProps {
@@ -41,13 +41,16 @@ export function DocumentSidebar({
   onToggleChapter,
   onStreamSection,
   onFocusSection,
-  onRegenerateSection
+  onRegenerateSection,
 }: DocumentSidebarProps) {
-  const getStatusIcon = (state: 'waiting' | 'streaming' | 'complete' | undefined, isActive: boolean) => {
+  const getStatusIcon = (
+    state: 'waiting' | 'streaming' | 'complete' | undefined,
+    isActive: boolean,
+  ) => {
     if (isActive) {
       return <Loader2 className="h-4 w-4 animate-spin text-blue-600" />;
     }
-    
+
     switch (state) {
       case 'complete':
         return <CheckCircle className="h-4 w-4 text-green-600" />;
@@ -61,10 +64,12 @@ export function DocumentSidebar({
 
   if (isLoadingOutline) {
     return (
-      <div className={cn(
-        "w-80 bg-white border-r border-gray-200 p-4 space-y-4",
-        isSticky ? "sticky top-4 h-[calc(100vh-2rem)]" : ""
-      )}>
+      <div
+        className={cn(
+          'w-80 bg-white border-r border-gray-200 p-4 space-y-4',
+          isSticky ? 'sticky top-4 h-[calc(100vh-2rem)]' : '',
+        )}
+      >
         <div className="space-y-4">
           <Skeleton className="h-6 w-3/4" />
           {[...Array(5)].map((_, i) => (
@@ -83,10 +88,12 @@ export function DocumentSidebar({
 
   if (!outline) {
     return (
-      <div className={cn(
-        "w-80 bg-white border-r border-gray-200 p-4",
-        isSticky ? "sticky top-4 h-[calc(100vh-2rem)]" : ""
-      )}>
+      <div
+        className={cn(
+          'w-80 bg-white border-r border-gray-200 p-4',
+          isSticky ? 'sticky top-4 h-[calc(100vh-2rem)]' : '',
+        )}
+      >
         <div className="text-center text-gray-500">
           <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
           <p>No document outline available</p>
@@ -96,10 +103,12 @@ export function DocumentSidebar({
   }
 
   return (
-    <div className={cn(
-      "w-80 bg-white border-r border-gray-200 overflow-y-auto",
-      isSticky ? "sticky top-4 h-[calc(100vh-2rem)]" : ""
-    )}>
+    <div
+      className={cn(
+        'w-80 bg-white border-r border-gray-200 overflow-y-auto',
+        isSticky ? 'sticky top-4 h-[calc(100vh-2rem)]' : '',
+      )}
+    >
       <div className="p-4">
         <div className="flex items-center space-x-2 mb-4">
           <BookOpen className="h-5 w-5 text-blue-600" />
@@ -146,12 +155,12 @@ export function DocumentSidebar({
                         <div
                           key={subsection.id}
                           className={cn(
-                            "flex items-center justify-between p-2 rounded-lg border transition-all",
-                            isFocused 
-                              ? "bg-blue-50 border-blue-200" 
+                            'flex items-center justify-between p-2 rounded-lg border transition-all',
+                            isFocused
+                              ? 'bg-blue-50 border-blue-200'
                               : isVisible
-                              ? "bg-gray-50 border-gray-200"
-                              : "border-transparent hover:bg-gray-50"
+                                ? 'bg-gray-50 border-gray-200'
+                                : 'border-transparent hover:bg-gray-50',
                           )}
                         >
                           <div className="flex items-center space-x-2 flex-1 min-w-0">
@@ -159,11 +168,12 @@ export function DocumentSidebar({
                             <button
                               onClick={() => {
                                 onFocusSection(isFocused ? null : sectionKey);
-                                const element = document.getElementById(sectionKey);
+                                const element =
+                                  document.getElementById(sectionKey);
                                 if (element) {
-                                  element.scrollIntoView({ 
+                                  element.scrollIntoView({
                                     behavior: 'smooth',
-                                    block: 'center'
+                                    block: 'center',
                                   });
                                 }
                               }}
@@ -183,19 +193,23 @@ export function DocumentSidebar({
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => onRegenerateSection(chapter.id, subsection.id)}
+                                onClick={() =>
+                                  onRegenerateSection(chapter.id, subsection.id)
+                                }
                                 className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
                                 title="Regenerate section"
                               >
                                 <ChevronRight className="h-3 w-3" />
                               </Button>
                             )}
-                            
+
                             {state !== 'complete' && state !== 'streaming' && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => onStreamSection(chapter.id, subsection.id)}
+                                onClick={() =>
+                                  onStreamSection(chapter.id, subsection.id)
+                                }
                                 className="h-6 w-6 p-0 text-blue-500 hover:text-blue-600"
                                 title="Generate section"
                               >

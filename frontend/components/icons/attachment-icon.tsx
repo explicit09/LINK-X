@@ -1,6 +1,12 @@
 import { IconProps, getSvgProps } from './types';
 
-export const AttachmentIcon = ({ size = 16, className, style, "aria-label": ariaLabel, ...props }: IconProps) => {
+export const AttachmentIcon = ({
+  size = 16,
+  className,
+  style,
+  'aria-label': ariaLabel,
+  ...props
+}: IconProps) => {
   return (
     <svg
       {...getSvgProps(size, className, style)}

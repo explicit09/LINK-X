@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
-import { Skeleton } from "@/components/ui/skeleton";
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Custom hooks
 import { useDocumentOutline } from './hooks/useDocumentOutline';
@@ -20,15 +20,18 @@ import { PerformanceMetricsPanel } from './components/PerformanceMetricsPanel';
 
 export default function StreamingLearnPage() {
   const { id: fileId } = useParams();
-  const searchParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const searchParams = new URLSearchParams(
+    typeof window !== 'undefined' ? window.location.search : '',
+  );
   const courseId = searchParams.get('courseId');
-  
+
   // State for sidebar sticky behavior
   const [isSticky, setIsSticky] = useState(false);
 
   // Custom hooks
-  const { outline, isLoadingOutline, toggleChapter } = useDocumentOutline(fileId);
-  
+  const { outline, isLoadingOutline, toggleChapter } =
+    useDocumentOutline(fileId);
+
   const {
     streamingContent,
     streamingStates,
@@ -46,7 +49,7 @@ export default function StreamingLearnPage() {
     streamSection,
     regenerateSection,
     prefetchNext,
-    metricsData
+    metricsData,
   } = useStreamingContent(fileId, outline);
 
   const {
@@ -61,10 +64,15 @@ export default function StreamingLearnPage() {
     awardXP,
     updateStreak,
     getRecentAchievements,
-    getNextLevelXP
+    getNextLevelXP,
   } = useGamification(completedCount, totalSections);
 
-  const chatProps = useChat(fileId, outline, focusedSectionKey, streamingContent);
+  const chatProps = useChat(
+    fileId,
+    outline,
+    focusedSectionKey,
+    streamingContent,
+  );
 
   const { showMetrics, toggleMetrics, closeMetrics } = usePerformanceMetrics();
 

@@ -10,7 +10,11 @@ interface StepIndicatorProps {
   canProceed: (step: number) => boolean;
 }
 
-export function StepIndicator({ currentStep, totalSteps, canProceed }: StepIndicatorProps) {
+export function StepIndicator({
+  currentStep,
+  totalSteps,
+  canProceed,
+}: StepIndicatorProps) {
   const getStepStatus = (step: number) => {
     if (step < currentStep) return 'completed';
     if (step === currentStep) return 'current';
@@ -19,8 +23,9 @@ export function StepIndicator({ currentStep, totalSteps, canProceed }: StepIndic
 
   const getStepClasses = (step: number) => {
     const status = getStepStatus(step);
-    const baseClasses = 'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300';
-    
+    const baseClasses =
+      'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300';
+
     switch (status) {
       case 'completed':
         return `${baseClasses} bg-green-500 text-white`;
@@ -42,7 +47,7 @@ export function StepIndicator({ currentStep, totalSteps, canProceed }: StepIndic
     <div className="w-full max-w-md mx-auto mb-8">
       {/* Progress bar */}
       <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
-        <div 
+        <div
           className="bg-gradient-to-r from-blue-600 to-purple-600 h-2 rounded-full transition-all duration-500 ease-out"
           style={{ width: `${(currentStep / totalSteps) * 100}%` }}
         />
@@ -53,7 +58,7 @@ export function StepIndicator({ currentStep, totalSteps, canProceed }: StepIndic
         {Array.from({ length: totalSteps }, (_, index) => {
           const step = index + 1;
           const status = getStepStatus(step);
-          
+
           return (
             <div key={step} className="flex items-center">
               <div className={getStepClasses(step)}>
@@ -63,7 +68,7 @@ export function StepIndicator({ currentStep, totalSteps, canProceed }: StepIndic
                   <span>{step}</span>
                 )}
               </div>
-              
+
               {/* Connector line (not for last step) */}
               {step < totalSteps && (
                 <div className={getConnectorClasses(step)} />

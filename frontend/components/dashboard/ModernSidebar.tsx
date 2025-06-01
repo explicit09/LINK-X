@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import Image from "next/image";
-import { cn } from "@/lib/utils";
-import { signOut } from "firebase/auth";
-import { auth } from "@/firebaseconfig";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import Image from 'next/image';
+import { cn } from '@/lib/utils';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/firebaseconfig';
+import { useRouter } from 'next/navigation';
 import {
   BookOpen,
   BarChart3,
@@ -25,17 +25,17 @@ import {
   Upload,
   MessageSquare,
   Circle,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { useIsMobile } from "@/hooks/use-mobile";
+} from '@/components/ui/tooltip';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Course {
   id: string;
@@ -49,7 +49,7 @@ interface Course {
 interface ModernSidebarProps {
   className?: string;
   onCollapseChange?: (value: boolean) => void;
-  userRole: "student" | "instructor" | "admin";
+  userRole: 'student' | 'instructor' | 'admin';
   courses?: Course[];
   currentUser?: {
     name?: string;
@@ -60,21 +60,21 @@ interface ModernSidebarProps {
 }
 
 const courseColors = [
-  "course-blue",
-  "course-green", 
-  "course-purple",
-  "course-orange",
-  "course-red",
-  "course-teal"
+  'course-blue',
+  'course-green',
+  'course-purple',
+  'course-orange',
+  'course-red',
+  'course-teal',
 ];
 
-const ModernSidebar = ({ 
-  className, 
-  onCollapseChange, 
+const ModernSidebar = ({
+  className,
+  onCollapseChange,
   userRole,
   courses = [],
   currentUser,
-  initialCollapsed = false
+  initialCollapsed = false,
 }: ModernSidebarProps) => {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const [mounted, setMounted] = useState(false);
@@ -111,45 +111,53 @@ const ModernSidebar = ({
   const handleSignOut = async () => {
     try {
       await signOut(auth);
-      router.push("/login");
+      router.push('/login');
     } catch (error) {
-      console.error("Error signing out:", error);
+      console.error('Error signing out:', error);
     }
   };
 
   const mainNavItems = [
     {
-      name: "Dashboard",
-      path: "/dashboard",
+      name: 'Dashboard',
+      path: '/dashboard',
       icon: Home,
-      active: pathname === "/dashboard",
+      active: pathname === '/dashboard',
     },
     {
-      name: "All Courses",
-      path: "/courses",
+      name: 'All Courses',
+      path: '/courses',
       icon: GraduationCap,
-      active: pathname === "/courses",
+      active: pathname === '/courses',
     },
-    ...(userRole === "student" ? [{
-      name: "My Courses",
-      path: "/my-courses",
-      icon: BookOpen,
-      active: pathname === "/my-courses",
-    }] : []),
-    ...(userRole === "instructor" ? [{
-      name: "Analytics",
-      path: "/analytics",
-      icon: BarChart3,
-      active: pathname === "/analytics",
-    }] : []),
+    ...(userRole === 'student'
+      ? [
+          {
+            name: 'My Courses',
+            path: '/my-courses',
+            icon: BookOpen,
+            active: pathname === '/my-courses',
+          },
+        ]
+      : []),
+    ...(userRole === 'instructor'
+      ? [
+          {
+            name: 'Analytics',
+            path: '/analytics',
+            icon: BarChart3,
+            active: pathname === '/analytics',
+          },
+        ]
+      : []),
   ];
 
   const bottomNavItems = [
     {
-      name: "Settings",
-      path: "/settings",
+      name: 'Settings',
+      path: '/settings',
       icon: Settings,
-      active: pathname === "/settings",
+      active: pathname === '/settings',
     },
   ];
 
@@ -168,12 +176,12 @@ const ModernSidebar = ({
 
       <aside
         className={cn(
-          "fixed top-0 left-0 h-screen z-50 flex flex-col",
-          "sidebar-bg border-r sidebar-border",
-          collapsed ? "w-16" : "w-64",
-          isMobile && collapsed ? "translate-x-[-100%]" : "translate-x-0",
-          "transition-all duration-300 ease-in-out",
-          className
+          'fixed top-0 left-0 h-screen z-50 flex flex-col',
+          'sidebar-bg border-r sidebar-border',
+          collapsed ? 'w-16' : 'w-64',
+          isMobile && collapsed ? 'translate-x-[-100%]' : 'translate-x-0',
+          'transition-all duration-300 ease-in-out',
+          className,
         )}
       >
         {/* Sidebar Header */}
@@ -196,8 +204,8 @@ const ModernSidebar = ({
             size="icon"
             onClick={toggleSidebar}
             className={cn(
-              "h-8 w-8 rounded-full hover:bg-gray-100",
-              collapsed && "mx-auto"
+              'h-8 w-8 rounded-full hover:bg-gray-100',
+              collapsed && 'mx-auto',
             )}
           >
             {collapsed ? (
@@ -212,17 +220,20 @@ const ModernSidebar = ({
         <div className="px-3 py-4">
           <nav className="space-y-1">
             {mainNavItems.map((item) => (
-              <TooltipProvider key={item.path} delayDuration={collapsed ? 200 : 1000}>
+              <TooltipProvider
+                key={item.path}
+                delayDuration={collapsed ? 200 : 1000}
+              >
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
                       href={item.path}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                        "hover:bg-gray-100",
-                        item.active 
-                          ? "sidebar-active-bg sidebar-active shadow-sm" 
-                          : "sidebar-text hover:sidebar-text"
+                        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                        'hover:bg-gray-100',
+                        item.active
+                          ? 'sidebar-active-bg sidebar-active shadow-sm'
+                          : 'sidebar-text hover:sidebar-text',
                       )}
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
@@ -255,7 +266,7 @@ const ModernSidebar = ({
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6 hover:bg-gray-100"
-                    onClick={() => router.push("/courses?action=join")}
+                    onClick={() => router.push('/courses?action=join')}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -273,15 +284,18 @@ const ModernSidebar = ({
               const colorIndex = parseInt(course.id, 10) % courseColors.length;
               const courseColor = course.color || courseColors[colorIndex];
               const isHovered = hoveredCourse === course.id;
-              
+
               return (
-                <TooltipProvider key={course.id} delayDuration={collapsed ? 200 : 1000}>
+                <TooltipProvider
+                  key={course.id}
+                  delayDuration={collapsed ? 200 : 1000}
+                >
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div
                         className={cn(
-                          "group relative rounded-lg transition-all duration-200",
-                          "hover:bg-gray-50 cursor-pointer"
+                          'group relative rounded-lg transition-all duration-200',
+                          'hover:bg-gray-50 cursor-pointer',
                         )}
                         onMouseEnter={() => setHoveredCourse(course.id)}
                         onMouseLeave={() => setHoveredCourse(null)}
@@ -290,12 +304,12 @@ const ModernSidebar = ({
                         <div className="flex items-center gap-3 px-3 py-2">
                           {/* Course Color Indicator */}
                           <div className="flex-shrink-0">
-                            <Circle 
-                              className={cn("h-3 w-3", courseColor)} 
+                            <Circle
+                              className={cn('h-3 w-3', courseColor)}
                               fill="currentColor"
                             />
                           </div>
-                          
+
                           {!collapsed && (
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">
@@ -359,17 +373,20 @@ const ModernSidebar = ({
           {/* Bottom Navigation */}
           <nav className="space-y-1 mb-4">
             {bottomNavItems.map((item) => (
-              <TooltipProvider key={item.path} delayDuration={collapsed ? 200 : 1000}>
+              <TooltipProvider
+                key={item.path}
+                delayDuration={collapsed ? 200 : 1000}
+              >
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
                       href={item.path}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                        "hover:bg-gray-100",
-                        item.active 
-                          ? "sidebar-active-bg sidebar-active" 
-                          : "sidebar-text"
+                        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all',
+                        'hover:bg-gray-100',
+                        item.active
+                          ? 'sidebar-active-bg sidebar-active'
+                          : 'sidebar-text',
                       )}
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
@@ -393,21 +410,21 @@ const ModernSidebar = ({
             <Avatar className="h-8 w-8">
               <AvatarImage src={currentUser?.avatar} />
               <AvatarFallback>
-                {currentUser?.name ? currentUser.name[0].toUpperCase() : "U"}
+                {currentUser?.name ? currentUser.name[0].toUpperCase() : 'U'}
               </AvatarFallback>
             </Avatar>
-            
+
             {!collapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium sidebar-text truncate">
-                  {currentUser?.name || "User"}
+                  {currentUser?.name || 'User'}
                 </p>
                 <p className="text-xs sidebar-text-muted truncate">
-                  {currentUser?.email || ""}
+                  {currentUser?.email || ''}
                 </p>
               </div>
             )}
-            
+
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -432,4 +449,4 @@ const ModernSidebar = ({
   );
 };
 
-export default ModernSidebar; 
+export default ModernSidebar;

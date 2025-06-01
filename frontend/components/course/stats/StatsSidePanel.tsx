@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useTodos, useAchievements } from './hooks';
 import {
@@ -6,17 +6,20 @@ import {
   TodosWidget,
   ProgressWidget,
   AISuggestionsWidget,
-  LoadingPlaceholder
+  LoadingPlaceholder,
 } from './widgets';
 import type { StatsSidePanelProps } from './types';
 
-export function StatsSidePanel({ 
-  course, 
-  courseProgress, 
-  onUpdateDescription, 
-  userRole 
+export function StatsSidePanel({
+  course,
+  courseProgress,
+  onUpdateDescription,
+  userRole,
 }: StatsSidePanelProps) {
-  const { todos, loadingTodos, toggleTodo, deleteTodo } = useTodos(course, userRole);
+  const { todos, loadingTodos, toggleTodo, deleteTodo } = useTodos(
+    course,
+    userRole,
+  );
   const achievementBadges = useAchievements(courseProgress);
 
   if (!course) {
@@ -26,7 +29,7 @@ export function StatsSidePanel({
   return (
     <div className="space-y-6 h-full overflow-y-auto">
       {/* Course Description */}
-      <CourseDescriptionWidget 
+      <CourseDescriptionWidget
         course={course}
         onUpdateDescription={onUpdateDescription}
       />

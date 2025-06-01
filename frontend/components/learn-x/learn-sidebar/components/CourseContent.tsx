@@ -1,13 +1,13 @@
 import React from 'react';
-import { BookOpen, CheckCircle, PlayCircle, FileText } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { BookOpen, CheckCircle, PlayCircle, FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { Chapter } from '../types';
 
 interface CourseContentProps {
@@ -23,7 +23,7 @@ export const CourseContent: React.FC<CourseContentProps> = ({
   collapsed,
   selectedLesson,
   completedLessons,
-  onLessonClick
+  onLessonClick,
 }) => {
   if (chapters.length === 0) {
     return (
@@ -43,10 +43,12 @@ export const CourseContent: React.FC<CourseContentProps> = ({
       {chapters.map((chapter, chapterIndex) => (
         <div key={chapterIndex} className="space-y-1">
           {/* Chapter Header */}
-          <div className={cn(
-            "px-3 py-2 rounded-lg bg-white/5 border border-white/10",
-            !collapsed && "mb-2"
-          )}>
+          <div
+            className={cn(
+              'px-3 py-2 rounded-lg bg-white/5 border border-white/10',
+              !collapsed && 'mb-2',
+            )}
+          >
             <div className="flex items-center gap-2">
               <BookOpen className="h-4 w-4 text-blue-400 flex-shrink-0" />
               {!collapsed && (
@@ -67,22 +69,27 @@ export const CourseContent: React.FC<CourseContentProps> = ({
             {chapter.subsections.map((subsection, subsectionIndex) => {
               const isCompleted = completedLessons.has(subsection.title);
               const isSelected = selectedLesson === subsection.title;
-              
+
               return (
-                <Tooltip key={subsectionIndex} delayDuration={collapsed ? 0 : 1000}>
+                <Tooltip
+                  key={subsectionIndex}
+                  delayDuration={collapsed ? 0 : 1000}
+                >
                   <TooltipTrigger asChild>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onLessonClick(subsection.title, subsection.fullText)}
+                      onClick={() =>
+                        onLessonClick(subsection.title, subsection.fullText)
+                      }
                       className={cn(
-                        "w-full transition-all duration-200 group",
-                        collapsed ? "px-2 py-2" : "px-3 py-2 justify-start",
-                        isSelected 
-                          ? "bg-blue-600 text-white shadow-lg" 
+                        'w-full transition-all duration-200 group',
+                        collapsed ? 'px-2 py-2' : 'px-3 py-2 justify-start',
+                        isSelected
+                          ? 'bg-blue-600 text-white shadow-lg'
                           : isCompleted
-                          ? "bg-green-600/20 text-green-100 hover:bg-green-600/30"
-                          : "text-gray-300 hover:text-white hover:bg-white/10"
+                            ? 'bg-green-600/20 text-green-100 hover:bg-green-600/30'
+                            : 'text-gray-300 hover:text-white hover:bg-white/10',
                       )}
                     >
                       <div className="flex items-center gap-2 w-full">
@@ -93,14 +100,17 @@ export const CourseContent: React.FC<CourseContentProps> = ({
                         ) : (
                           <div className="h-4 w-4 rounded-full border-2 border-gray-500 flex-shrink-0 group-hover:border-white transition-colors" />
                         )}
-                        
+
                         {!collapsed && (
                           <div className="flex-1 text-left">
                             <p className="text-sm font-medium truncate">
                               {subsection.title}
                             </p>
                             {isCompleted && (
-                              <Badge variant="secondary" className="mt-1 bg-green-500/20 text-green-300 text-xs">
+                              <Badge
+                                variant="secondary"
+                                className="mt-1 bg-green-500/20 text-green-300 text-xs"
+                              >
                                 Completed
                               </Badge>
                             )}
@@ -112,7 +122,9 @@ export const CourseContent: React.FC<CourseContentProps> = ({
                   {collapsed && (
                     <TooltipContent side="right" className="max-w-xs">
                       <p className="font-medium">{subsection.title}</p>
-                      <p className="text-xs text-gray-400">From: {chapter.chapterTitle}</p>
+                      <p className="text-xs text-gray-400">
+                        From: {chapter.chapterTitle}
+                      </p>
                     </TooltipContent>
                   )}
                 </Tooltip>

@@ -77,7 +77,7 @@ export function useDashboardOverview() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await apiClient.get('/api/v2/dashboard/overview');
       setData(response.data);
     } catch (err: any) {
@@ -96,7 +96,7 @@ export function useDashboardOverview() {
     data,
     loading,
     error,
-    refetch: fetchDashboardOverview
+    refetch: fetchDashboardOverview,
   };
 }
 
@@ -110,9 +110,11 @@ export function useWeeklyProgress(weekOffset: number = 0) {
     try {
       setLoading(true);
       setError(null);
-      
+
       const params = weekOffset !== 0 ? `?week_offset=${weekOffset}` : '';
-      const response = await apiClient.get(`/api/v2/dashboard/weekly-progress${params}`);
+      const response = await apiClient.get(
+        `/api/v2/dashboard/weekly-progress${params}`,
+      );
       setData(response.data);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch weekly progress');
@@ -130,7 +132,7 @@ export function useWeeklyProgress(weekOffset: number = 0) {
     data,
     loading,
     error,
-    refetch: fetchWeeklyProgress
+    refetch: fetchWeeklyProgress,
   };
 }
 
@@ -148,8 +150,10 @@ export function useAIRecommendations() {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await apiClient.get('/api/v2/dashboard/ai-recommendations');
+
+      const response = await apiClient.get(
+        '/api/v2/dashboard/ai-recommendations',
+      );
       setData(response.data);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch AI recommendations');
@@ -167,7 +171,7 @@ export function useAIRecommendations() {
     data,
     loading,
     error,
-    refetch: fetchRecommendations
+    refetch: fetchRecommendations,
   };
 }
 
@@ -185,8 +189,10 @@ export function usePerformancePulse() {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await apiClient.get('/api/v2/dashboard/performance-pulse');
+
+      const response = await apiClient.get(
+        '/api/v2/dashboard/performance-pulse',
+      );
       setData(response.data);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch performance pulse');
@@ -204,7 +210,7 @@ export function usePerformancePulse() {
     data,
     loading,
     error,
-    refetch: fetchPerformancePulse
+    refetch: fetchPerformancePulse,
   };
 }
 
@@ -223,12 +229,12 @@ export function useTodaySchedule() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await apiClient.get('/api/v2/dashboard/schedule/today');
       setData(response.data);
     } catch (err: any) {
-      setError(err.message || 'Failed to fetch today\'s schedule');
-      console.error('Today\'s schedule error:', err);
+      setError(err.message || "Failed to fetch today's schedule");
+      console.error("Today's schedule error:", err);
     } finally {
       setLoading(false);
     }
@@ -242,7 +248,7 @@ export function useTodaySchedule() {
     data,
     loading,
     error,
-    refetch: fetchTodaySchedule
+    refetch: fetchTodaySchedule,
   };
 }
 
@@ -256,8 +262,10 @@ export function useCoursesOverview() {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await apiClient.get('/api/v2/dashboard/courses-overview');
+
+      const response = await apiClient.get(
+        '/api/v2/dashboard/courses-overview',
+      );
       setData(response.data);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch courses overview');
@@ -275,12 +283,16 @@ export function useCoursesOverview() {
     data,
     loading,
     error,
-    refetch: fetchCoursesOverview
+    refetch: fetchCoursesOverview,
   };
 }
 
 // Custom hook for activity timeline
-export function useActivityTimeline(days: number = 7, page: number = 1, perPage: number = 20) {
+export function useActivityTimeline(
+  days: number = 7,
+  page: number = 1,
+  perPage: number = 20,
+) {
   const [data, setData] = useState<{
     activities: any[];
     days_range: number;
@@ -293,14 +305,16 @@ export function useActivityTimeline(days: number = 7, page: number = 1, perPage:
     try {
       setLoading(true);
       setError(null);
-      
+
       const params = new URLSearchParams({
         days: days.toString(),
         page: page.toString(),
-        per_page: perPage.toString()
+        per_page: perPage.toString(),
       });
-      
-      const response = await apiClient.get(`/api/v2/dashboard/activity-timeline?${params}`);
+
+      const response = await apiClient.get(
+        `/api/v2/dashboard/activity-timeline?${params}`,
+      );
       setData(response.data);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch activity timeline');
@@ -318,7 +332,7 @@ export function useActivityTimeline(days: number = 7, page: number = 1, perPage:
     data,
     loading,
     error,
-    refetch: fetchActivityTimeline
+    refetch: fetchActivityTimeline,
   };
 }
 
@@ -331,11 +345,11 @@ export function useActionPlan() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await apiClient.post('/api/v2/dashboard/action-plan', {
-        goal
+        goal,
       });
-      
+
       return response.data;
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to generate action plan';
@@ -350,27 +364,30 @@ export function useActionPlan() {
   return {
     generateActionPlan,
     loading,
-    error
+    error,
   };
 }
 
 // Utility hook for refreshing all dashboard data
 export function useDashboardRefresh() {
   const [refreshing, setRefreshing] = useState(false);
-  
-  const refreshDashboard = useCallback(async (refreshFunctions: (() => Promise<void>)[]) => {
-    try {
-      setRefreshing(true);
-      await Promise.all(refreshFunctions.map(fn => fn()));
-    } catch (error) {
-      console.error('Dashboard refresh error:', error);
-    } finally {
-      setRefreshing(false);
-    }
-  }, []);
+
+  const refreshDashboard = useCallback(
+    async (refreshFunctions: (() => Promise<void>)[]) => {
+      try {
+        setRefreshing(true);
+        await Promise.all(refreshFunctions.map((fn) => fn()));
+      } catch (error) {
+        console.error('Dashboard refresh error:', error);
+      } finally {
+        setRefreshing(false);
+      }
+    },
+    [],
+  );
 
   return {
     refreshDashboard,
-    refreshing
+    refreshing,
   };
 }

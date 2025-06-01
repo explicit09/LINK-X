@@ -2,8 +2,13 @@ import { useState } from 'react';
 import { Chapter } from '../types/learn.types';
 
 export const useLessonNavigation = (chapters: Chapter[]) => {
-  const [currentModuleIndex, setCurrentModuleIndex] = useState<number | null>(null);
-  const [selectedLesson, setSelectedLesson] = useState<{ moduleIndex: number; lessonIndex: number } | null>(null);
+  const [currentModuleIndex, setCurrentModuleIndex] = useState<number | null>(
+    null,
+  );
+  const [selectedLesson, setSelectedLesson] = useState<{
+    moduleIndex: number;
+    lessonIndex: number;
+  } | null>(null);
   const [currentContent, setCurrentContent] = useState<string | null>(null);
 
   const handleModuleClick = (moduleIndex: number) => {
@@ -21,15 +26,20 @@ export const useLessonNavigation = (chapters: Chapter[]) => {
   const handleLessonSelect = (moduleIndex: number, lessonIndex: number) => {
     setSelectedLesson({ moduleIndex, lessonIndex });
     setCurrentModuleIndex(moduleIndex);
-    
+
     // Set content immediately without loading delay
     const lesson = chapters[moduleIndex].subsections[lessonIndex];
     setCurrentContent(lesson.fullText);
   };
 
-  const startRecommendedLesson = (recommendedLesson: { moduleIndex: number; lessonIndex: number } | null) => {
+  const startRecommendedLesson = (
+    recommendedLesson: { moduleIndex: number; lessonIndex: number } | null,
+  ) => {
     if (recommendedLesson) {
-      handleLessonSelect(recommendedLesson.moduleIndex, recommendedLesson.lessonIndex);
+      handleLessonSelect(
+        recommendedLesson.moduleIndex,
+        recommendedLesson.lessonIndex,
+      );
     }
   };
 
@@ -40,6 +50,6 @@ export const useLessonNavigation = (chapters: Chapter[]) => {
     setCurrentModuleIndex,
     handleModuleClick,
     handleLessonSelect,
-    startRecommendedLesson
+    startRecommendedLesson,
   };
 };

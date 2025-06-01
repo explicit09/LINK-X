@@ -3,18 +3,21 @@ import { UploadType } from '../types';
 
 export const useDragAndDrop = (
   handleFiles: (files: FileList, uploadType: UploadType) => void,
-  activeTab: string
+  activeTab: string,
 ) => {
   const [isDragOver, setIsDragOver] = useState(false);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const files = e.dataTransfer.files;
-    if (files) {
-      handleFiles(files, activeTab as UploadType);
-    }
-  }, [handleFiles, activeTab]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      const files = e.dataTransfer.files;
+      if (files) {
+        handleFiles(files, activeTab as UploadType);
+      }
+    },
+    [handleFiles, activeTab],
+  );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -30,6 +33,6 @@ export const useDragAndDrop = (
     isDragOver,
     handleDrop,
     handleDragOver,
-    handleDragLeave
+    handleDragLeave,
   };
 };

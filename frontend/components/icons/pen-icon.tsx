@@ -1,10 +1,13 @@
 import { IconProps, getSvgProps } from './types';
 
-export const PenIcon = ({ size = 16, className, style, "aria-label": ariaLabel, ...props }: IconProps) => (
-  <svg
-      {...getSvgProps(size, className, style)}
-      aria-label={ariaLabel}
-  >
+export const PenIcon = ({
+  size = 16,
+  className,
+  style,
+  'aria-label': ariaLabel,
+  ...props
+}: IconProps) => (
+  <svg {...getSvgProps(size, className, style)} aria-label={ariaLabel}>
     <path
       fillRule="evenodd"
       clipRule="evenodd"

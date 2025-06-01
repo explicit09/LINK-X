@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from '@/components/ui/skeleton';
 
 export const ContentSkeleton = () => (
   <div className="space-y-4 animate-pulse">

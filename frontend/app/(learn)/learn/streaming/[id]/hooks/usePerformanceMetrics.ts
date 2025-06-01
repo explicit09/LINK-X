@@ -20,6 +20,6 @@ export function usePerformanceMetrics() {
   return {
     showMetrics,
     toggleMetrics,
-    closeMetrics
+    closeMetrics,
   };
 }

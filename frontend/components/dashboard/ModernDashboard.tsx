@@ -1,15 +1,20 @@
-"use client";
+'use client';
 
-import React, { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import ModernSidebar from "@/components/dashboard/ModernSidebar";
-import { FloatingAIAssistant } from "@/components/ai/FloatingAIAssistant";
-import { SmartSelection } from "@/components/ai/SmartSelection";
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import ModernSidebar from '@/components/dashboard/ModernSidebar';
+import { FloatingAIAssistant } from '@/components/ai/FloatingAIAssistant';
+import { SmartSelection } from '@/components/ai/SmartSelection';
 import { toast as sonnerToast } from 'sonner';
-import CourseForm from "@/components/dashboard/CourseForm";
-import AccessCodePopup from "@/components/dashboard/AccessCodeCard";
+import CourseForm from '@/components/dashboard/CourseForm';
+import AccessCodePopup from '@/components/dashboard/AccessCodeCard';
 
 // Custom hooks
 import { useDashboardData } from './hooks/useDashboardData';
@@ -40,7 +45,7 @@ interface Course {
 }
 
 interface ModernDashboardProps {
-  userRole: "student" | "instructor" | "admin";
+  userRole: 'student' | 'instructor' | 'admin';
   currentUser?: {
     name?: string;
     email?: string;
@@ -49,12 +54,24 @@ interface ModernDashboardProps {
   courses?: Course[];
 }
 
-function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboardProps) {
+function ModernDashboard({
+  userRole,
+  currentUser,
+  courses = [],
+}: ModernDashboardProps) {
   const router = useRouter();
 
   // Custom hooks for state management and business logic
-  const { loading, realCourses, userProfile, dashboardStats, loadCourses, loadDashboardStats } = useDashboardData(userRole);
-  const { recentActivity, loadRecentActivity, addActivity } = useRecentActivity(userRole);
+  const {
+    loading,
+    realCourses,
+    userProfile,
+    dashboardStats,
+    loadCourses,
+    loadDashboardStats,
+  } = useDashboardData(userRole);
+  const { recentActivity, loadRecentActivity, addActivity } =
+    useRecentActivity(userRole);
   const {
     todoItems,
     showAddTodo,
@@ -68,7 +85,7 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
     setNewTodoPriority,
     setNewTodoType,
     addTodoItem,
-    removeTodoItem
+    removeTodoItem,
   } = useTodoItems(userRole);
   const {
     isCollapsed,
@@ -79,7 +96,7 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
     setIsCollapsed,
     setSearchQuery,
     setShowCourseForm,
-    setShowAccessCodeDialog
+    setShowAccessCodeDialog,
   } = useDashboardState();
 
   // Load dashboard stats when recent activity changes
@@ -97,15 +114,16 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
     try {
       await loadCourses();
       setShowCourseForm(false);
-      sonnerToast.success("Course list updated!");
+      sonnerToast.success('Course list updated!');
     } catch (error) {
-      console.error("Failed to refresh courses:", error);
+      console.error('Failed to refresh courses:', error);
     }
   };
 
-  const filteredCourses = realCourses.filter(course =>
-    course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    course.code.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredCourses = realCourses.filter(
+    (course) =>
+      course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.code.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const handleCourseClick = (course: Course) => {
@@ -113,20 +131,32 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
   };
 
   const handleUpload = (courseId: string) => {
-    const course = realCourses.find(c => c.id === courseId);
-    addActivity("upload", course?.title || "Unknown Course", "Uploaded new material");
+    const course = realCourses.find((c) => c.id === courseId);
+    addActivity(
+      'upload',
+      course?.title || 'Unknown Course',
+      'Uploaded new material',
+    );
     router.push(`/courses/${courseId}?tab=materials`);
   };
 
   const handleAIChat = (courseId: string) => {
-    const course = realCourses.find(c => c.id === courseId);
-    addActivity("ai_chat", course?.title || "Unknown Course", "Started AI chat session");
+    const course = realCourses.find((c) => c.id === courseId);
+    addActivity(
+      'ai_chat',
+      course?.title || 'Unknown Course',
+      'Started AI chat session',
+    );
     router.push(`/courses/${courseId}?tab=ai`);
   };
 
   const handleQuiz = (courseId: string) => {
-    const course = realCourses.find(c => c.id === courseId);
-    addActivity("quiz", course?.title || "Unknown Course", "Generated new quiz");
+    const course = realCourses.find((c) => c.id === courseId);
+    addActivity(
+      'quiz',
+      course?.title || 'Unknown Course',
+      'Generated new quiz',
+    );
     router.push(`/courses/${courseId}?tab=quiz`);
   };
 
@@ -149,8 +179,13 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
         courses={realCourses}
         currentUser={currentUser}
       />
-      
-      <div className={cn("flex-1 transition-all duration-300 flex flex-col overflow-hidden", isCollapsed ? "ml-16" : "ml-64")}>
+
+      <div
+        className={cn(
+          'flex-1 transition-all duration-300 flex flex-col overflow-hidden',
+          isCollapsed ? 'ml-16' : 'ml-64',
+        )}
+      >
         {/* Header */}
         <DashboardHeader
           currentUser={currentUser}
@@ -217,22 +252,22 @@ function ModernDashboard({ userRole, currentUser, courses = [] }: ModernDashboar
           <DialogHeader>
             <DialogTitle>Create New Course</DialogTitle>
           </DialogHeader>
-          <CourseForm 
+          <CourseForm
             userRole={userRole === 'admin' ? 'instructor' : userRole}
-            onSave={handleCourseCreated} 
+            onSave={handleCourseCreated}
             onCancel={() => setShowCourseForm(false)}
           />
         </DialogContent>
       </Dialog>
 
       {/* Access Code Dialog */}
-      <AccessCodePopup 
+      <AccessCodePopup
         open={showAccessCodeDialog}
         onClose={() => setShowAccessCodeDialog(false)}
         onSuccess={() => {
           setShowAccessCodeDialog(false);
           loadCourses();
-          sonnerToast.success("Successfully enrolled in course!");
+          sonnerToast.success('Successfully enrolled in course!');
         }}
       />
     </div>

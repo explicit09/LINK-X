@@ -4,7 +4,7 @@ import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
 const nextConfig: NextConfig = {
   /* Performance optimizations */
   distDir: '.next',
-  
+
   experimental: {
     ppr: true,
     optimizePackageImports: [
@@ -29,28 +29,31 @@ const nextConfig: NextConfig = {
     // Use SWC minifier for better performance
     forceSwcTransforms: true,
   },
-  
+
   // Enable React strict mode for better error detection
   reactStrictMode: true,
-  
+
   // Compression and optimization
   compress: true,
   poweredByHeader: false,
-  
+
   // Compiler optimizations
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production' ? {
-      exclude: ['error', 'warn'],
-    } : false,
+    removeConsole:
+      process.env.NODE_ENV === 'production'
+        ? {
+            exclude: ['error', 'warn'],
+          }
+        : false,
     // Use emotion for better CSS-in-JS performance
     emotion: true,
   },
-  
+
   // Optimize CSS
   sassOptions: {
     includePaths: ['./app/styles'],
   },
-  
+
   // Image optimization
   images: {
     remotePatterns: [
@@ -74,7 +77,7 @@ const nextConfig: NextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
-  
+
   // Optimize module resolution
   modularizeImports: {
     'lucide-react': {
@@ -83,11 +86,11 @@ const nextConfig: NextConfig = {
     '@radix-ui/react-icons': {
       transform: '@radix-ui/react-icons/dist/{{member}}',
     },
-    'lodash': {
+    lodash: {
       transform: 'lodash/{{member}}',
     },
   },
-  
+
   // Bundle optimization
   webpack: (config, { dev, isServer, webpack }) => {
     // Add bundle analyzer in production build with ANALYZE=true
@@ -97,10 +100,10 @@ const nextConfig: NextConfig = {
           analyzerMode: 'static',
           reportFilename: './analyze.html',
           openAnalyzer: true,
-        })
+        }),
       );
     }
-    
+
     // Development performance optimizations
     if (dev) {
       config.cache = {
@@ -109,17 +112,17 @@ const nextConfig: NextConfig = {
           config: [__filename],
         },
       };
-      
+
       config.watchOptions = {
         ignored: ['**/node_modules', '**/.next'],
       };
     }
-    
+
     // Production optimizations
     if (!dev) {
       // Enable module concatenation
       config.optimization.concatenateModules = true;
-      
+
       // Aggressive code splitting for production
       if (!isServer) {
         config.optimization.splitChunks = {
@@ -187,26 +190,26 @@ const nextConfig: NextConfig = {
             },
           },
         };
-        
+
         // Runtime chunk optimization
         config.optimization.runtimeChunk = {
           name: 'runtime',
         };
       }
-      
+
       // Minimize main bundle
       config.optimization.minimize = true;
       config.optimization.usedExports = true;
       config.optimization.sideEffects = false;
-      
+
       // Replace heavy libraries with lighter alternatives
       config.resolve.alias = {
         ...config.resolve.alias,
-        'moment': 'date-fns',
-        'lodash': 'lodash-es',
+        moment: 'date-fns',
+        lodash: 'lodash-es',
       };
     }
-    
+
     // Add webpack aliases for cleaner imports
     config.resolve.alias = {
       ...config.resolve.alias,
@@ -216,21 +219,21 @@ const nextConfig: NextConfig = {
       '@hooks': './hooks',
       '@types': './types',
     };
-    
+
     // Ignore unnecessary files
     config.plugins.push(
       new webpack.IgnorePlugin({
         resourceRegExp: /^\.\/locale$/,
         contextRegExp: /moment$/,
-      })
+      }),
     );
-    
+
     return config;
   },
-  
+
   // Output configuration
   output: 'standalone',
-  
+
   // Headers for caching and security
   async headers() {
     return [
@@ -283,7 +286,7 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  
+
   // Redirects for performance
   async redirects() {
     return [
@@ -294,7 +297,7 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  
+
   // Environment variables to expose to the browser
   env: {
     NEXT_PUBLIC_APP_VERSION: process.env.npm_package_version || '1.0.0',
