@@ -122,6 +122,10 @@ export default {
 				shimmer: {
 					'0%': { transform: 'translateX(-100%)' },
 					'100%': { transform: 'translateX(100%)' },
+				},
+				'slide-up': {
+					'0%': { transform: 'translateY(100%)' },
+					'100%': { transform: 'translateY(0)' },
 				}
 			},
 			animation: {
@@ -133,6 +137,7 @@ export default {
 				'float': 'float 6s ease-in-out infinite',
 				'pulse': 'pulse 3s ease-in-out infinite',
 				'shimmer': 'shimmer 2s infinite',
+				'slide-up': 'slide-up 0.3s ease-out',
 			}
 		}
 	},
