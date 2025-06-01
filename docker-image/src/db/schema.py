@@ -325,3 +325,183 @@ class News(Base):
     title = Column(String(64), nullable=False)
     subject = Column(String(64), nullable=False)
     link = Column(String(120), nullable=False)
+
+
+class UserStats(Base):
+    __tablename__ = 'user_stats'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False, unique=True)
+    current_xp = Column(Integer, nullable=False, default=0)
+    current_level = Column(Integer, nullable=False, default=1)
+    total_xp = Column(Integer, nullable=False, default=0)
+    daily_streak = Column(Integer, nullable=False, default=0)
+    max_streak = Column(Integer, nullable=False, default=0)
+    last_activity_date = Column(Date)
+    weekly_goal = Column(Integer, nullable=False, default=5)
+    weekly_progress = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    user = relationship('User')
+
+
+class UserActivity(Base):
+    __tablename__ = 'user_activities'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    activity_type = Column(String(50), nullable=False)  # 'file_view', 'todo_complete', 'chat_message', etc.
+    xp_earned = Column(Integer, nullable=False, default=0)
+    description = Column(Text)
+    metadata = Column(JSONB)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    user = relationship('User')
+
+
+class UserAchievement(Base):
+    __tablename__ = 'user_achievements'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    achievement_type = Column(String(50), nullable=False)
+    achievement_name = Column(String(100), nullable=False)
+    description = Column(Text)
+    icon = Column(String(10))  # emoji or icon identifier
+    earned_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    __table_args__ = (
+        UniqueConstraint('user_id', 'achievement_type', name='uq_user_achievement'),
+    )
+    
+    user = relationship('User')
+
+
+class ApiUsageLog(Base):
+    __tablename__ = 'api_usage_logs'
+    id = Column(Integer, primary_key=True)
+    timestamp = Column(DateTime, nullable=False)
+    version = Column(String(10), nullable=False)
+    endpoint = Column(String(255), nullable=False)
+    method = Column(String(10), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='SET NULL'))
+    hour = Column(String(13), nullable=False)
+    response_status = Column(Integer)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    user = relationship('User')
+
+
+class StudyPlan(Base):
+    __tablename__ = 'study_plans'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    plan_name = Column(String(100), nullable=False, default='My Study Plan')
+    weekly_study_hours = Column(Integer, nullable=False, default=12)
+    preferred_session_length = Column(Integer, nullable=False, default=45)
+    break_length = Column(Integer, nullable=False, default=15)
+    peak_hours = Column(JSONB)
+    learning_style = Column(String(50))
+    difficulty_preference = Column(String(20), default='adaptive')
+    reminder_enabled = Column(Boolean, default=True)
+    reminder_time = Column(String(8), default='09:00:00')
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    user = relationship('User')
+    goals = relationship('StudyGoal', back_populates='study_plan', cascade='all, delete-orphan')
+
+
+class StudyGoal(Base):
+    __tablename__ = 'study_goals'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    study_plan_id = Column(UUID(as_uuid=True), ForeignKey('study_plans.id', ondelete='CASCADE'), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text)
+    goal_type = Column(String(20), nullable=False)  # 'daily', 'weekly', 'assignment', 'review', 'practice'
+    priority = Column(String(10), nullable=False, default='medium')
+    estimated_hours = Column(Numeric(4,2))
+    target_date = Column(Date)
+    course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='SET NULL'))
+    module_id = Column(UUID(as_uuid=True), ForeignKey('Module.id', ondelete='SET NULL'))
+    file_id = Column(UUID(as_uuid=True), ForeignKey('File.id', ondelete='SET NULL'))
+    status = Column(String(20), default='pending')
+    completion_percentage = Column(Integer, default=0)
+    xp_reward = Column(Integer, default=0)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    user = relationship('User')
+    study_plan = relationship('StudyPlan', back_populates='goals')
+    course = relationship('Course')
+    module = relationship('Module')
+    file = relationship('File')
+    progress_records = relationship('GoalProgress', back_populates='goal', cascade='all, delete-orphan')
+    sessions = relationship('StudySession', back_populates='goal')
+
+
+class StudySession(Base):
+    __tablename__ = 'study_sessions'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    goal_id = Column(UUID(as_uuid=True), ForeignKey('study_goals.id', ondelete='SET NULL'))
+    course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='SET NULL'))
+    session_type = Column(String(30), default='study')
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime)
+    planned_duration = Column(Integer)  # minutes
+    actual_duration = Column(Integer)   # minutes
+    effectiveness_rating = Column(Integer)  # 1-5
+    focus_score = Column(Numeric(3,1))     # 0.0-10.0
+    notes = Column(Text)
+    metadata = Column(JSONB)
+    xp_earned = Column(Integer, default=0)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    user = relationship('User')
+    goal = relationship('StudyGoal', back_populates='sessions')
+    course = relationship('Course')
+
+
+class StudyRecommendation(Base):
+    __tablename__ = 'study_recommendations'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    recommendation_type = Column(String(50), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text)
+    action_text = Column(String(100))
+    priority_score = Column(Numeric(3,2), default=0.5)
+    confidence_score = Column(Numeric(3,2), default=0.5)
+    reasoning = Column(Text)
+    suggested_time = Column(DateTime)
+    estimated_impact = Column(String(20))
+    xp_reward = Column(Integer, default=0)
+    status = Column(String(20), default='active')
+    expires_at = Column(DateTime)
+    metadata = Column(JSONB)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    user = relationship('User')
+
+
+class GoalProgress(Base):
+    __tablename__ = 'goal_progress'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    goal_id = Column(UUID(as_uuid=True), ForeignKey('study_goals.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    progress_date = Column(Date, nullable=False)
+    time_spent_minutes = Column(Integer, default=0)
+    tasks_completed = Column(Integer, default=0)
+    notes = Column(Text)
+    mood_rating = Column(Integer)      # 1-5
+    difficulty_rating = Column(Integer) # 1-5
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    __table_args__ = (
+        UniqueConstraint('goal_id', 'progress_date', name='uq_goal_progress_date'),
+    )
+    
+    goal = relationship('StudyGoal', back_populates='progress_records')
+    user = relationship('User')
