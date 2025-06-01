@@ -505,3 +505,194 @@ class GoalProgress(Base):
     
     goal = relationship('StudyGoal', back_populates='progress_records')
     user = relationship('User')
+
+
+class StudySession(Base):
+    __tablename__ = 'study_sessions'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='SET NULL'))
+    study_plan_id = Column(UUID(as_uuid=True), ForeignKey('study_plans.id', ondelete='SET NULL'))
+    study_goal_id = Column(UUID(as_uuid=True), ForeignKey('study_goals.id', ondelete='SET NULL'))
+    
+    # Session Details
+    title = Column(String(255), nullable=False)
+    description = Column(Text)
+    session_type = Column(String(30), default='study')
+    
+    # Scheduling
+    scheduled_start = Column(DateTime, nullable=False)
+    scheduled_end = Column(DateTime, nullable=False)
+    duration_minutes = Column(Integer, nullable=False)
+    
+    # AI Optimization Fields
+    cognitive_load = Column(String(10), default='medium')
+    urgency = Column(String(10), default='later')
+    priority_score = Column(Numeric(3,2), default=0.5)
+    
+    # Session Execution
+    actual_start = Column(DateTime)
+    actual_end = Column(DateTime)
+    actual_duration_minutes = Column(Integer)
+    status = Column(String(20), default='scheduled')
+    completion_percentage = Column(Integer, default=0)
+    
+    # Rewards and Motivation
+    xp_reward = Column(Integer, default=0)
+    xp_earned = Column(Integer, default=0)
+    
+    # Metadata
+    is_ai_suggested = Column(Boolean, default=False)
+    optimization_score = Column(Numeric(3,2))
+    calendar_position = Column(Integer)
+    session_notes = Column(Text)
+    effectiveness_rating = Column(Integer)
+    focus_score = Column(Numeric(3,1))
+    
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship('User')
+    course = relationship('Course')
+    study_plan = relationship('StudyPlan')
+    study_goal = relationship('StudyGoal')
+    notes = relationship('SessionNote', back_populates='session', cascade='all, delete-orphan')
+
+
+class SessionNote(Base):
+    __tablename__ = 'session_notes'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id = Column(UUID(as_uuid=True), ForeignKey('study_sessions.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    
+    note_type = Column(String(20), default='general')
+    content = Column(Text, nullable=False)
+    note_timestamp = Column(DateTime, default=datetime.utcnow)
+    
+    metadata = Column(JSONB)
+    is_private = Column(Boolean, default=True)
+    
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    session = relationship('StudySession', back_populates='notes')
+    user = relationship('User')
+
+
+class UserSchedulePreferences(Base):
+    __tablename__ = 'user_schedule_preferences'
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), primary_key=True)
+    
+    # Core Hours Configuration
+    core_start_hour = Column(Integer, default=8)
+    core_end_hour = Column(Integer, default=18)
+    timezone = Column(String(50), default='UTC')
+    
+    # Session Preferences
+    default_session_length = Column(Integer, default=45)
+    default_break_length = Column(Integer, default=15)
+    max_daily_study_hours = Column(Integer, default=8)
+    
+    # Cognitive Load Distribution
+    preferred_high_cognitive_slots = Column(JSONB)
+    avoided_time_slots = Column(JSONB)
+    
+    # AI Optimization Settings
+    enable_ai_optimization = Column(Boolean, default=True)
+    enable_ai_suggestions = Column(Boolean, default=True)
+    optimization_aggressiveness = Column(Numeric(2,1), default=5.0)
+    
+    # Notification Settings
+    enable_session_reminders = Column(Boolean, default=True)
+    reminder_minutes_before = Column(Integer, default=15)
+    enable_deadline_alerts = Column(Boolean, default=True)
+    
+    # Display Preferences
+    default_view = Column(String(20), default='calendar')
+    show_weekends = Column(Boolean, default=False)
+    calendar_start_hour = Column(Integer, default=6)
+    calendar_end_hour = Column(Integer, default=22)
+    
+    # Course Color Mapping
+    course_colors = Column(JSONB)
+    
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship('User')
+
+
+class SessionAnalytics(Base):
+    __tablename__ = 'session_analytics'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    session_id = Column(UUID(as_uuid=True), ForeignKey('study_sessions.id', ondelete='SET NULL'))
+    
+    # Analytics Event Data
+    event_type = Column(String(50), nullable=False)
+    event_timestamp = Column(DateTime, default=datetime.utcnow)
+    
+    # Performance Metrics
+    planned_vs_actual_duration = Column(Integer)
+    focus_interruptions = Column(Integer, default=0)
+    context_switches = Column(Integer, default=0)
+    
+    # AI Insights
+    optimization_followed = Column(Boolean)
+    suggestion_effectiveness = Column(Numeric(3,2))
+    
+    # User Behavior
+    device_type = Column(String(20))
+    time_to_start = Column(Integer)
+    session_satisfaction = Column(Integer)
+    
+    # Contextual Data
+    metadata = Column(JSONB)
+    
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship('User')
+    session = relationship('StudySession')
+
+
+class AISessionSuggestion(Base):
+    __tablename__ = 'ai_session_suggestions'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    
+    # Suggestion Details
+    suggestion_type = Column(String(30), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text)
+    
+    # Suggested Session Data
+    suggested_start = Column(DateTime)
+    suggested_duration = Column(Integer)
+    suggested_course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='SET NULL'))
+    suggested_cognitive_load = Column(String(10))
+    
+    # AI Confidence and Reasoning
+    confidence_score = Column(Numeric(3,2), nullable=False)
+    reasoning = Column(Text)
+    algorithm_version = Column(String(20))
+    
+    # User Response
+    status = Column(String(20), default='pending')
+    user_feedback = Column(Text)
+    applied_at = Column(DateTime)
+    
+    # Metadata
+    priority_score = Column(Numeric(3,2), default=0.5)
+    expires_at = Column(DateTime)
+    suggestion_metadata = Column(JSONB)
+    
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship('User')
+    suggested_course = relationship('Course')
