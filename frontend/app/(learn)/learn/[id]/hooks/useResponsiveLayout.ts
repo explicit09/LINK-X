@@ -2,8 +2,13 @@ import { useState, useEffect } from 'react';
 
 export const useResponsiveLayout = () => {
   const [sidebarVisible, setSidebarVisible] = useState(true);
-  const [currentModuleIndex, setCurrentModuleIndex] = useState<number | null>(null);
-  const [selectedLesson, setSelectedLesson] = useState<{ moduleIndex: number; lessonIndex: number } | null>(null);
+  const [currentModuleIndex, setCurrentModuleIndex] = useState<number | null>(
+    null,
+  );
+  const [selectedLesson, setSelectedLesson] = useState<{
+    moduleIndex: number;
+    lessonIndex: number;
+  } | null>(null);
 
   // Auto-hide sidebar on small screens
   useEffect(() => {
@@ -43,6 +48,6 @@ export const useResponsiveLayout = () => {
     setCurrentModuleIndex,
     setSelectedLesson,
     handleModuleClick,
-    handleLessonSelect
+    handleLessonSelect,
   };
 };

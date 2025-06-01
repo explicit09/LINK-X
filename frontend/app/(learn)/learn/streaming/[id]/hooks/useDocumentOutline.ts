@@ -28,15 +28,18 @@ export function useDocumentOutline(fileId: string | string[]) {
   useEffect(() => {
     const fetchOutline = async () => {
       if (!fileId) return;
-      
+
       setIsLoadingOutline(true);
-      
+
       try {
         // Check existing generated content
-        const existingResponse = await fetch(`http://localhost:8080/api/v2/files/${fileId}/existing-content`, {
-          credentials: 'include',
-        });
-        
+        const existingResponse = await fetch(
+          `http://localhost:8080/api/v2/files/${fileId}/existing-content`,
+          {
+            credentials: 'include',
+          },
+        );
+
         if (existingResponse.ok) {
           const existingData = await existingResponse.json();
           if (existingData.content && existingData.content.length > 0) {
@@ -44,9 +47,9 @@ export function useDocumentOutline(fileId: string | string[]) {
             const restoredOutline: DocumentOutline = {
               fileId: Array.isArray(fileId) ? fileId[0] : fileId,
               fileName: existingData.fileName || 'Document',
-              chapters: []
+              chapters: [],
             };
-            
+
             // Group content by chapters
             const chapterMap = new Map<string, any>();
             existingData.content.forEach((item: any) => {
@@ -57,45 +60,49 @@ export function useDocumentOutline(fileId: string | string[]) {
                   title: item.chapter_title || `Chapter ${chapterId}`,
                   estimatedTokens: 0,
                   subsections: [],
-                  isExpanded: true
+                  isExpanded: true,
                 });
               }
               chapterMap.get(chapterId).subsections.push({
                 id: subsectionId,
                 title: item.subsection_title || `Section ${subsectionId}`,
-                estimatedTokens: 300
+                estimatedTokens: 300,
               });
             });
-            
+
             restoredOutline.chapters = Array.from(chapterMap.values());
             setOutline(restoredOutline);
             setIsLoadingOutline(false);
             return;
           }
         }
-        
+
         // If no existing content, generate new outline
-        const outlineResponse = await fetch(`http://localhost:8080/api/v2/files/${fileId}/outline`, {
-          credentials: 'include',
-        });
-        
+        const outlineResponse = await fetch(
+          `http://localhost:8080/api/v2/files/${fileId}/outline`,
+          {
+            credentials: 'include',
+          },
+        );
+
         if (!outlineResponse.ok) {
           throw new Error(`HTTP error! status: ${outlineResponse.status}`);
         }
-        
+
         const outlineData = await outlineResponse.json();
-        
+
         if (outlineData.outline) {
           const processedOutline: DocumentOutline = {
             fileId: Array.isArray(fileId) ? fileId[0] : fileId,
             fileName: outlineData.fileName || 'Document',
-            chapters: outlineData.outline.chapters?.map((chapter: any) => ({
-              ...chapter,
-              isExpanded: true,
-              subsections: chapter.subsections || []
-            })) || []
+            chapters:
+              outlineData.outline.chapters?.map((chapter: any) => ({
+                ...chapter,
+                isExpanded: true,
+                subsections: chapter.subsections || [],
+              })) || [],
           };
-          
+
           setOutline(processedOutline);
         }
       } catch (error) {
@@ -110,15 +117,15 @@ export function useDocumentOutline(fileId: string | string[]) {
   }, [fileId]);
 
   const toggleChapter = (chapterId: string) => {
-    setOutline(prev => {
+    setOutline((prev) => {
       if (!prev) return prev;
       return {
         ...prev,
-        chapters: prev.chapters.map(chapter =>
+        chapters: prev.chapters.map((chapter) =>
           chapter.id === chapterId
             ? { ...chapter, isExpanded: !chapter.isExpanded }
-            : chapter
-        )
+            : chapter,
+        ),
       };
     });
   };
@@ -126,6 +133,6 @@ export function useDocumentOutline(fileId: string | string[]) {
   return {
     outline,
     isLoadingOutline,
-    toggleChapter
+    toggleChapter,
   };
 }

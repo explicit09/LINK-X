@@ -2,8 +2,20 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, Maximize2, Minimize2, Download, AlertCircle, ExternalLink } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Loader2,
+  Maximize2,
+  Minimize2,
+  Download,
+  AlertCircle,
+  ExternalLink,
+} from 'lucide-react';
 
 interface PDFViewerProps {
   fileUrl: string;
@@ -11,65 +23,72 @@ interface PDFViewerProps {
   onClose?: () => void;
 }
 
-export default function PDFViewer({ fileUrl, fileName, onClose }: PDFViewerProps) {
+export default function PDFViewer({
+  fileUrl,
+  fileName,
+  onClose,
+}: PDFViewerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const blobUrlRef = useRef<string | null>(null);
-  
+
   // Update the ref whenever blobUrl changes
   useEffect(() => {
     blobUrlRef.current = blobUrl;
   }, [blobUrl]);
-  
+
   // Fetch the PDF as a blob to handle authentication
   useEffect(() => {
     const fetchPDFAsBlob = async () => {
       try {
         setIsLoading(true);
         setHasError(false);
-        
-        
+
         if (!fileUrl) {
           throw new Error('Invalid file URL');
         }
-        
+
         const response = await fetch(fileUrl, {
           credentials: 'include', // Include cookies for authentication
           headers: {
-            'Accept': 'application/pdf,*/*'
-          }
+            Accept: 'application/pdf,*/*',
+          },
         });
-        
-        
+
         if (!response.ok) {
-          throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
+          throw new Error(
+            `Failed to fetch PDF: ${response.status} ${response.statusText}`,
+          );
         }
-        
+
         const blob = await response.blob();
-        
+
         if (blob.size === 0) {
           throw new Error('Empty PDF blob received');
         }
-        
+
         // Revoke previous blob URL if it exists
         if (blobUrlRef.current) {
           URL.revokeObjectURL(blobUrlRef.current);
         }
-        
+
         const url = URL.createObjectURL(blob);
         setBlobUrl(url);
         setIsLoading(false);
       } catch (error) {
-        console.error('Error fetching PDF:', error instanceof Error ? error.message : 'Unknown error');
+        console.error(
+          'Error fetching PDF:',
+          error instanceof Error ? error.message : 'Unknown error',
+        );
         setHasError(true);
         setIsLoading(false);
       }
     };
-    
+
     fetchPDFAsBlob();
-    
+
     // Cleanup blob URL on unmount or when fileUrl changes
     return () => {
       if (blobUrlRef.current) {
@@ -91,7 +110,7 @@ export default function PDFViewer({ fileUrl, fileName, onClose }: PDFViewerProps
       console.error('Download failed:', error);
     }
   };
-  
+
   const toggleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
   };
@@ -107,7 +126,9 @@ export default function PDFViewer({ fileUrl, fileName, onClose }: PDFViewerProps
         <div className="flex items-center justify-center h-full p-4">
           <div className="text-center max-w-md">
             <AlertCircle className="h-16 w-16 text-orange-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">Unable to display document</h3>
+            <h3 className="text-lg font-medium mb-2">
+              Unable to display document
+            </h3>
             <p className="text-gray-600 mb-6">
               The document couldn&apos;t be displayed in the viewer.
             </p>
@@ -116,7 +137,11 @@ export default function PDFViewer({ fileUrl, fileName, onClose }: PDFViewerProps
                 <ExternalLink className="h-4 w-4 mr-2" />
                 Open in New Tab
               </Button>
-              <Button variant="outline" onClick={handleDownload} className="w-full">
+              <Button
+                variant="outline"
+                onClick={handleDownload}
+                className="w-full"
+              >
                 <Download className="h-4 w-4 mr-2" />
                 Download PDF
               </Button>
@@ -125,12 +150,12 @@ export default function PDFViewer({ fileUrl, fileName, onClose }: PDFViewerProps
         </div>
       );
     }
-    
+
     return blobUrl ? (
       <iframe
         src={blobUrl}
         className="w-full h-full border-0"
-        title={fileName || "PDF Document"}
+        title={fileName || 'PDF Document'}
       />
     ) : null;
   };
@@ -187,7 +212,7 @@ export default function PDFViewer({ fileUrl, fileName, onClose }: PDFViewerProps
           {renderContent()}
         </div>
       </div>
-      
+
       {/* Fullscreen dialog */}
       {isFullscreen && (
         <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>

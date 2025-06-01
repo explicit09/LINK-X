@@ -26,21 +26,24 @@ export function useContentSync({
   const { block, setBlock } = useBlock();
 
   // Handle content changes from editor
-  const handleContentChange = useCallback((updatedContent: string) => {
-    if (!block) return;
+  const handleContentChange = useCallback(
+    (updatedContent: string) => {
+      if (!block) return;
 
-    // Update block content immediately for UI responsiveness
-    setBlock((currentBlock) => ({
-      ...currentBlock,
-      content: updatedContent,
-    }));
+      // Update block content immediately for UI responsiveness
+      setBlock((currentBlock) => ({
+        ...currentBlock,
+        content: updatedContent,
+      }));
 
-    // Mark content as dirty
-    setIsContentDirty(true);
+      // Mark content as dirty
+      setIsContentDirty(true);
 
-    // Debounced save to backend
-    debouncedHandleContentChange(updatedContent);
-  }, [block, setBlock, setIsContentDirty, debouncedHandleContentChange]);
+      // Debounced save to backend
+      debouncedHandleContentChange(updatedContent);
+    },
+    [block, setBlock, setIsContentDirty, debouncedHandleContentChange],
+  );
 
   // Update block content when version changes
   useEffect(() => {

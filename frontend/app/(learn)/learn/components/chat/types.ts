@@ -1,8 +1,8 @@
 // Chat-related type definitions
-import { LucideIcon } from "lucide-react";
+import { LucideIcon } from 'lucide-react';
 
 export interface Message {
-  role: "user" | "assistant" | "system";
+  role: 'user' | 'assistant' | 'system';
   content: string;
   id?: string;
   timestamp?: string;

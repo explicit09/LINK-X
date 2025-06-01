@@ -12,28 +12,37 @@ const LoadingSpinner = () => {
     { className: 'flex items-center justify-center p-4' },
     React.createElement('div', {
       className: 'animate-spin rounded-full h-8 w-8 border-b-2 border-primary',
-    })
+    }),
   );
 };
 
 // Heavy UI components - lazy load these
-export const Dialog = dynamic(() => import('./dialog').then(mod => mod.Dialog), {
+export const Dialog = dynamic(
+  () => import('./dialog').then((mod) => mod.Dialog),
+  {
+    loading: LoadingSpinner,
+  },
+);
+
+export const Sheet = dynamic(() => import('./sheet').then((mod) => mod.Sheet), {
   loading: LoadingSpinner,
 });
 
-export const Sheet = dynamic(() => import('./sheet').then(mod => mod.Sheet), {
-  loading: LoadingSpinner,
-});
+export const Calendar = dynamic(
+  () => import('./calendar').then((mod) => mod.Calendar),
+  {
+    loading: LoadingSpinner,
+  },
+);
 
-export const Calendar = dynamic(() => import('./calendar').then(mod => mod.Calendar), {
-  loading: LoadingSpinner,
-});
+export const DataTable = dynamic(
+  () => import('./table').then((mod) => mod.Table),
+  {
+    loading: LoadingSpinner,
+  },
+);
 
-export const DataTable = dynamic(() => import('./table').then(mod => mod.Table), {
-  loading: LoadingSpinner,
-});
-
-export const Chart = dynamic(() => import('./chart').then(mod => mod.Chart), {
+export const Chart = dynamic(() => import('./chart').then((mod) => mod.Chart), {
   loading: LoadingSpinner,
   ssr: false, // Charts often don't work well with SSR
 });
@@ -55,14 +64,20 @@ export const MarkdownEditor = dynamic(() => import('../editor'), {
 });
 
 // AI components - these are heavy
-export const FloatingAIAssistant = dynamic(() => import('../ai/FloatingAIAssistant'), {
-  loading: LoadingSpinner,
-  ssr: false,
-});
+export const FloatingAIAssistant = dynamic(
+  () => import('../ai/FloatingAIAssistant'),
+  {
+    loading: LoadingSpinner,
+    ssr: false,
+  },
+);
 
-export const SmartRecommendations = dynamic(() => import('../ai/SmartRecommendations'), {
-  loading: LoadingSpinner,
-});
+export const SmartRecommendations = dynamic(
+  () => import('../ai/SmartRecommendations'),
+  {
+    loading: LoadingSpinner,
+  },
+);
 
 // Dashboard components
 export const MarketTrends = dynamic(() => import('../dashboard/MarketTrends'), {
@@ -75,16 +90,22 @@ export const AudioUpload = dynamic(() => import('../dashboard/AudioUpload'), {
 });
 
 // Authentication components
-export const GoogleAuthButton = dynamic(() => import('../auth/GoogleAuthButton'), {
-  loading: LoadingSpinner,
-  ssr: false, // Prevent hydration mismatches
-});
+export const GoogleAuthButton = dynamic(
+  () => import('../auth/GoogleAuthButton'),
+  {
+    loading: LoadingSpinner,
+    ssr: false, // Prevent hydration mismatches
+  },
+);
 
 // Performance monitoring
-export const PerformanceMonitor = dynamic(() => import('../performance/PerformanceMonitor'), {
-  loading: () => null, // Don't show loading for monitoring
-  ssr: false,
-});
+export const PerformanceMonitor = dynamic(
+  () => import('../performance/PerformanceMonitor'),
+  {
+    loading: () => null, // Don't show loading for monitoring
+    ssr: false,
+  },
+);
 
 // Helper function to preload components
 export const preloadComponent = (component: ComponentType<unknown>) => {
@@ -104,7 +125,7 @@ if (typeof window !== 'undefined') {
       });
     }
   };
-  
+
   // Wait for initial load
   window.addEventListener('load', preloadOnIdle);
 }

@@ -1,21 +1,21 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { X, Loader2 } from "lucide-react";
+import { useState, useEffect } from 'react';
+import { X, Loader2 } from 'lucide-react';
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { studentAPI } from "@/lib/api";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { studentAPI } from '@/lib/api';
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSuccess?: () => void;  // ✅ Add the onSuccess prop, optional
+  onSuccess?: () => void; // ✅ Add the onSuccess prop, optional
 }
 
 export default function AccessCodePopup({ open, onClose, onSuccess }: Props) {
-  const [accessCode, setAccessCode] = useState("");
+  const [accessCode, setAccessCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [show, setShow] = useState(false);
 
@@ -37,12 +37,14 @@ export default function AccessCodePopup({ open, onClose, onSuccess }: Props) {
     setErrorMessage(null);
     try {
       await studentAPI.enrollInCourse(accessCode.trim());
-      setAccessCode("");
+      setAccessCode('');
       onClose();
-      onSuccess?.();  // ✅ Call onSuccess if provided
+      onSuccess?.(); // ✅ Call onSuccess if provided
     } catch (err: any) {
-      console.error("Enrollment error:", err);
-      const errorMessage = err.message || "Failed to enroll. Please check the access code and try again.";
+      console.error('Enrollment error:', err);
+      const errorMessage =
+        err.message ||
+        'Failed to enroll. Please check the access code and try again.';
       setErrorMessage(errorMessage);
     } finally {
       setIsLoading(false);
@@ -55,7 +57,7 @@ export default function AccessCodePopup({ open, onClose, onSuccess }: Props) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-300">
       <div
         className={`bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all duration-300 ${
-          show ? "scale-100 opacity-100" : "scale-95 opacity-0"
+          show ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
         }`}
       >
         <Card className="p-6 relative">
@@ -85,19 +87,17 @@ export default function AccessCodePopup({ open, onClose, onSuccess }: Props) {
                 className={`text-lg ${errorMessage ? 'border-red-500' : ''}`}
               />
               {errorMessage && (
-                <div className="text-red-500 text-sm mt-1">
-                  {errorMessage}
-                </div>
+                <div className="text-red-500 text-sm mt-1">{errorMessage}</div>
               )}
               <Button
                 className="bg-blue-600 hover:bg-blue-700 text-white"
                 onClick={handleSubmit}
-                disabled={isLoading || accessCode.trim() === ""}
+                disabled={isLoading || accessCode.trim() === ''}
               >
                 {isLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  "Submit"
+                  'Submit'
                 )}
               </Button>
             </div>

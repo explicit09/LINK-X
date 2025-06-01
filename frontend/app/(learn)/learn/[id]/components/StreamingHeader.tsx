@@ -1,6 +1,6 @@
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Menu, CheckCircle2, Clock, Flame } from "lucide-react";
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { ArrowLeft, Menu, CheckCircle2, Clock, Flame } from 'lucide-react';
 import { Chapter, Subsection } from '../types/streaming.types';
 
 interface StreamingHeaderProps {
@@ -24,9 +24,10 @@ export const StreamingHeader = ({
   studyTime,
   currentStreak,
   sidebarVisible,
-  setSidebarVisible
+  setSidebarVisible,
 }: StreamingHeaderProps) => {
-  const progressPercentage = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
+  const progressPercentage =
+    totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
@@ -43,7 +44,7 @@ export const StreamingHeader = ({
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
-            
+
             <Button
               variant="ghost"
               size="sm"
@@ -52,7 +53,7 @@ export const StreamingHeader = ({
             >
               <Menu className="h-4 w-4" />
             </Button>
-            
+
             {/* Dynamic Breadcrumb */}
             <div className="flex items-center space-x-2 text-sm">
               <span className="font-semibold text-gray-900">{courseName}</span>
@@ -65,7 +66,9 @@ export const StreamingHeader = ({
               {currentLesson && (
                 <>
                   <span className="text-gray-400">›</span>
-                  <span className="font-medium text-blue-600">{currentLesson.title}</span>
+                  <span className="font-medium text-blue-600">
+                    {currentLesson.title}
+                  </span>
                 </>
               )}
             </div>
@@ -77,19 +80,23 @@ export const StreamingHeader = ({
           <div className="flex items-center space-x-8 text-sm">
             <div className="flex items-center space-x-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              <span className="font-semibold text-gray-900">{completedLessons}/{totalLessons}</span>
+              <span className="font-semibold text-gray-900">
+                {completedLessons}/{totalLessons}
+              </span>
               <span className="text-gray-600">lessons</span>
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <Clock className="h-4 w-4 text-blue-600" />
               <span className="font-semibold text-gray-900">{studyTime}m</span>
               <span className="text-gray-600">today</span>
             </div>
-            
+
             <div className="flex items-center space-x-2">
               <Flame className="h-4 w-4 text-orange-600" />
-              <span className="font-semibold text-gray-900">{currentStreak}-day</span>
+              <span className="font-semibold text-gray-900">
+                {currentStreak}-day
+              </span>
               <span className="text-gray-600">streak</span>
             </div>
           </div>
@@ -97,7 +104,9 @@ export const StreamingHeader = ({
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Progress value={progressPercentage} className="w-24 h-2" />
-              <span className="text-sm font-semibold text-gray-900">{Math.round(progressPercentage)}%</span>
+              <span className="text-sm font-semibold text-gray-900">
+                {Math.round(progressPercentage)}%
+              </span>
             </div>
           </div>
         </div>

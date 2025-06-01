@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import React from "react";
-import { Mail, Linkedin, Twitter } from "lucide-react";
-import Image from "next/image";
+import React from 'react';
+import { Mail, Linkedin, Twitter } from 'lucide-react';
+import Image from 'next/image';
 
 function FooterGroup({ title, links }: { title: string; links: string[] }) {
   return (
@@ -41,7 +41,8 @@ export function SiteFooter() {
             <span className="text-xl font-bold text-slate-100">LEARN-X</span>
           </div>
           <p className="max-w-xs text-sm leading-relaxed">
-            Adaptive learning experiences that help every student master complex subjects faster.
+            Adaptive learning experiences that help every student master complex
+            subjects faster.
           </p>
           <p className="text-xs font-medium text-slate-400">
             Adaptive Learning, Real Results
@@ -49,21 +50,26 @@ export function SiteFooter() {
         </div>
 
         {/* Product Links */}
-        <FooterGroup 
-          title="Product" 
-          links={["Dashboard", "Study Plan", "Courses", "Help Center"]} 
+        <FooterGroup
+          title="Product"
+          links={['Dashboard', 'Study Plan', 'Courses', 'Help Center']}
         />
 
         {/* Resources Links */}
-        <FooterGroup 
-          title="Resources" 
-          links={["Blog", "API Docs", "Educator Toolkit"]} 
+        <FooterGroup
+          title="Resources"
+          links={['Blog', 'API Docs', 'Educator Toolkit']}
         />
 
         {/* Legal Links */}
-        <FooterGroup 
-          title="Legal" 
-          links={["Privacy Policy", "Terms of Service", "Acceptable Use", "Cookie Settings"]} 
+        <FooterGroup
+          title="Legal"
+          links={[
+            'Privacy Policy',
+            'Terms of Service',
+            'Acceptable Use',
+            'Cookie Settings',
+          ]}
         />
 
         {/* Social & Contact */}
@@ -71,8 +77,8 @@ export function SiteFooter() {
           <h4 className="text-sm font-semibold text-slate-100">Connect</h4>
           <div className="flex gap-4">
             {[
-              { Icon: Linkedin, href: "#", label: "LinkedIn" },
-              { Icon: Twitter, href: "#", label: "Twitter" },
+              { Icon: Linkedin, href: '#', label: 'LinkedIn' },
+              { Icon: Twitter, href: '#', label: 'Twitter' },
             ].map(({ Icon, href, label }) => (
               <a
                 key={label}
@@ -87,7 +93,7 @@ export function SiteFooter() {
           <div className="mt-4 space-y-2">
             <div className="flex items-center gap-2 text-sm">
               <Mail className="h-4 w-4" />
-              <a 
+              <a
                 href="mailto:contact@learn-x.ai"
                 className="hover:text-white transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:outline-none"
               >

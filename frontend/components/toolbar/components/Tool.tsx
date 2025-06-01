@@ -28,7 +28,7 @@ export const Tool = ({
   const { handleToolSelect } = useToolSelection(
     append,
     isToolbarVisible,
-    setIsToolbarVisible
+    setIsToolbarVisible,
   );
 
   useEffect(() => {

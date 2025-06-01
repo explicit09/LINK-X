@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import React from "react";
-import { cn } from "@/lib/utils";
-import { signOut } from "firebase/auth";
-import { auth } from "@/firebaseconfig";
-import { useRouter } from "next/navigation";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import React from 'react';
+import { cn } from '@/lib/utils';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/firebaseconfig';
+import { useRouter } from 'next/navigation';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { SidebarProps } from './types';
 import { useSidebar } from './hooks/useSidebar';
 import {
@@ -14,7 +14,7 @@ import {
   ProgressOverview,
   QuickActions,
   CourseContent,
-  SidebarFooter
+  SidebarFooter,
 } from './components';
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -35,7 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     totalLessons,
     progressPercentage,
     toggleSidebar,
-    handleLessonSelect
+    handleLessonSelect,
   } = useSidebar(courseId, pfId, onCollapseChange);
 
   const handleChatClick = async (title: string, fullText: string) => {
@@ -47,9 +47,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleSignOut = async () => {
     try {
       await signOut(auth);
-      router.push("/");
+      router.push('/');
     } catch (error) {
-      console.error("Sign out error:", error);
+      console.error('Sign out error:', error);
     }
   };
 
@@ -59,13 +59,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     <TooltipProvider>
       <div
         className={cn(
-          "h-full bg-gradient-to-b from-gray-900 via-blue-900 to-indigo-900 text-white transition-all duration-300 ease-in-out border-r border-gray-700/50 shadow-2xl",
-          collapsed ? "w-16" : "w-80",
-          className
+          'h-full bg-gradient-to-b from-gray-900 via-blue-900 to-indigo-900 text-white transition-all duration-300 ease-in-out border-r border-gray-700/50 shadow-2xl',
+          collapsed ? 'w-16' : 'w-80',
+          className,
         )}
       >
         <SidebarHeader collapsed={collapsed} onToggle={toggleSidebar} />
-        
+
         {!collapsed && (
           <ProgressOverview
             progressPercentage={progressPercentage}
@@ -77,14 +77,14 @@ const Sidebar: React.FC<SidebarProps> = ({
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-1">
             <QuickActions collapsed={collapsed} />
-            
+
             <div className="space-y-2">
               {!collapsed && (
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-2">
                   Course Content
                 </h3>
               )}
-              
+
               <CourseContent
                 chapters={chapters}
                 collapsed={collapsed}

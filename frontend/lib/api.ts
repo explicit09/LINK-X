@@ -22,7 +22,7 @@ export async function fetchWithAuth(
   options: RequestInit = {},
   retryWithSessionLogin = true,
   timeoutMs = 10000,
-  maxRetries = 2
+  maxRetries = 2,
 ) {
   const method = options.method || 'GET';
   const config = {
@@ -55,27 +55,35 @@ export const api = {
   put: apiClient.put.bind(apiClient),
   patch: apiClient.patch.bind(apiClient),
   delete: apiClient.delete.bind(apiClient),
-  
+
   // Streaming API
   streaming: {
     streamLearningContent: (
       fileId: string,
       options: { style?: string } = {},
       onMessage: (message: unknown) => void,
-      onError: (error: Error) => void
+      onError: (error: Error) => void,
     ) => {
       return apiClient.stream(
         `/api/v2/files/${fileId}/stream-content`,
         options,
         onMessage,
-        onError
+        onError,
       );
-    }
-  }
+    },
+  },
 };
 
 // Export all role-specific APIs
-export { userAPI, studentAPI, instructorAPI, courseAPI, adminAPI, utilityAPI, publicAPI };
+export {
+  userAPI,
+  studentAPI,
+  instructorAPI,
+  courseAPI,
+  adminAPI,
+  utilityAPI,
+  publicAPI,
+};
 
 // Default export maintains backward compatibility
 export default api;

@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,9 +10,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { Trash2, AlertTriangle } from "lucide-react";
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Trash2, AlertTriangle } from 'lucide-react';
 
 interface DeleteConfirmationDialogProps {
   open: boolean;
@@ -28,14 +28,14 @@ export function DeleteConfirmationDialog({
   open,
   onOpenChange,
   onConfirm,
-  title = "Delete File",
+  title = 'Delete File',
   description,
   itemName,
   isLoading = false,
 }: DeleteConfirmationDialogProps) {
-  const defaultDescription = itemName 
+  const defaultDescription = itemName
     ? `Are you sure you want to delete "${itemName}"? This action cannot be undone.`
-    : "Are you sure you want to delete this item? This action cannot be undone.";
+    : 'Are you sure you want to delete this item? This action cannot be undone.';
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -56,10 +56,7 @@ export function DeleteConfirmationDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="gap-2 sm:gap-2">
-          <AlertDialogCancel 
-            disabled={isLoading}
-            className="mt-0"
-          >
+          <AlertDialogCancel disabled={isLoading} className="mt-0">
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
@@ -83,4 +80,4 @@ export function DeleteConfirmationDialog({
       </AlertDialogContent>
     </AlertDialog>
   );
-} 
+}

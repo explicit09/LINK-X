@@ -1,15 +1,10 @@
 import React, { useRef, useEffect } from 'react';
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { 
-  ChevronRight, 
-  Maximize2, 
-  Minimize2,
-  RotateCcw
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { ChevronRight, Maximize2, Minimize2, RotateCcw } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { DocumentOutline } from '../hooks/useDocumentOutline';
 import { StreamingText } from '@/components/StreamingText';
 
@@ -34,7 +29,7 @@ export function StreamingContent({
   contentRefs,
   onStreamSection,
   onRegenerateSection,
-  onSetVisibleSections
+  onSetVisibleSections,
 }: StreamingContentProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -54,8 +49,8 @@ export function StreamingContent({
       },
       {
         threshold: 0.1,
-        rootMargin: '-10% 0px -10% 0px'
-      }
+        rootMargin: '-10% 0px -10% 0px',
+      },
     );
 
     // Observe all section elements
@@ -131,10 +126,10 @@ export function StreamingContent({
                     }
                   }}
                   className={cn(
-                    "border transition-all duration-200",
-                    isFocused 
-                      ? "border-blue-300 shadow-lg ring-2 ring-blue-100" 
-                      : "border-gray-200 hover:border-gray-300"
+                    'border transition-all duration-200',
+                    isFocused
+                      ? 'border-blue-300 shadow-lg ring-2 ring-blue-100'
+                      : 'border-gray-200 hover:border-gray-300',
                   )}
                 >
                   <CardContent className="p-6">
@@ -164,19 +159,23 @@ export function StreamingContent({
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => onRegenerateSection(chapter.id, subsection.id)}
+                            onClick={() =>
+                              onRegenerateSection(chapter.id, subsection.id)
+                            }
                             className="text-xs"
                           >
                             <RotateCcw className="h-3 w-3 mr-1" />
                             Regenerate
                           </Button>
                         )}
-                        
+
                         {!content && state !== 'streaming' && (
                           <Button
                             variant="default"
                             size="sm"
-                            onClick={() => onStreamSection(chapter.id, subsection.id)}
+                            onClick={() =>
+                              onStreamSection(chapter.id, subsection.id)
+                            }
                             className="text-xs"
                           >
                             <ChevronRight className="h-3 w-3 mr-1" />
@@ -195,7 +194,7 @@ export function StreamingContent({
                           <div
                             className="text-gray-800 leading-relaxed"
                             dangerouslySetInnerHTML={{
-                              __html: content.replace(/\n/g, '<br />')
+                              __html: content.replace(/\n/g, '<br />'),
                             }}
                           />
                         )
@@ -206,7 +205,9 @@ export function StreamingContent({
                           <Skeleton className="h-4 w-4/5" />
                           <div className="flex items-center space-x-2 mt-4">
                             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                            <span className="text-sm text-gray-500">Generating content...</span>
+                            <span className="text-sm text-gray-500">
+                              Generating content...
+                            </span>
                           </div>
                         </div>
                       ) : (

@@ -3,12 +3,18 @@ import { Chapter } from '../types';
 import { fetchChapters } from '../services/api';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-export const useSidebar = (courseId?: string, pfId?: string, onCollapseChange?: (value: boolean) => void) => {
+export const useSidebar = (
+  courseId?: string,
+  pfId?: string,
+  onCollapseChange?: (value: boolean) => void,
+) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [selectedLesson, setSelectedLesson] = useState<string | null>(null);
-  const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
+  const [completedLessons, setCompletedLessons] = useState<Set<string>>(
+    new Set(),
+  );
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -31,11 +37,15 @@ export const useSidebar = (courseId?: string, pfId?: string, onCollapseChange?: 
 
   const handleLessonSelect = (title: string) => {
     setSelectedLesson(title);
-    setCompletedLessons(prev => new Set([...prev, title]));
+    setCompletedLessons((prev) => new Set([...prev, title]));
   };
 
-  const totalLessons = chapters.reduce((acc, chapter) => acc + chapter.subsections.length, 0);
-  const progressPercentage = totalLessons > 0 ? (completedLessons.size / totalLessons) * 100 : 0;
+  const totalLessons = chapters.reduce(
+    (acc, chapter) => acc + chapter.subsections.length,
+    0,
+  );
+  const progressPercentage =
+    totalLessons > 0 ? (completedLessons.size / totalLessons) * 100 : 0;
 
   return {
     collapsed,
@@ -46,6 +56,6 @@ export const useSidebar = (courseId?: string, pfId?: string, onCollapseChange?: 
     totalLessons,
     progressPercentage,
     toggleSidebar,
-    handleLessonSelect
+    handleLessonSelect,
   };
 };

@@ -9,19 +9,21 @@ export interface ChatMessage {
 }
 
 export function useChat(
-  fileId: string | string[], 
-  outline: DocumentOutline | null, 
-  focusedSectionKey: string | null, 
-  streamingContent: Map<string, string>
+  fileId: string | string[],
+  outline: DocumentOutline | null,
+  focusedSectionKey: string | null,
+  streamingContent: Map<string, string>,
 ) {
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [isChatMinimized, setIsChatMinimized] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState("");
+  const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [showChatSuggestions, setShowChatSuggestions] = useState(true);
-  const [chatGenerationTime, setChatGenerationTime] = useState<number | null>(null);
-  const [streamingChatContent, setStreamingChatContent] = useState("");
+  const [chatGenerationTime, setChatGenerationTime] = useState<number | null>(
+    null,
+  );
+  const [streamingChatContent, setStreamingChatContent] = useState('');
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
@@ -34,12 +36,12 @@ export function useChat(
 
   // Chat suggestions
   const chatSuggestions = [
-    "Explain this concept in simpler terms",
-    "What are the key takeaways?",
-    "Give me examples of this in practice",
-    "How does this relate to previous concepts?",
-    "Quiz me on this material",
-    "What should I focus on most?",
+    'Explain this concept in simpler terms',
+    'What are the key takeaways?',
+    'Give me examples of this in practice',
+    'How does this relate to previous concepts?',
+    'Quiz me on this material',
+    'What should I focus on most?',
   ];
 
   const sendChatMessage = async (message: string) => {
@@ -52,19 +54,19 @@ export function useChat(
       timestamp: new Date(),
     };
 
-    setChatMessages(prev => [...prev, userMessage]);
-    setChatInput("");
+    setChatMessages((prev) => [...prev, userMessage]);
+    setChatInput('');
     setIsChatLoading(true);
     setShowChatSuggestions(false);
-    setStreamingChatContent("");
+    setStreamingChatContent('');
 
     const startTime = Date.now();
 
     try {
       // Get context from the focused section or all generated content
-      let context = "";
+      let context = '';
       if (focusedSectionKey && streamingContent.has(focusedSectionKey)) {
-        context = streamingContent.get(focusedSectionKey) || "";
+        context = streamingContent.get(focusedSectionKey) || '';
       } else {
         // Use all generated content as context
         context = Array.from(streamingContent.values()).join('\n\n');
@@ -99,7 +101,7 @@ This is a mock AI response since the backend server isn't running. In production
 The response would be streamed in real-time and tailored to your learning style and current understanding level.`;
 
         setStreamingChatContent(mockResponse);
-        
+
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
@@ -107,9 +109,9 @@ The response would be streamed in real-time and tailored to your learning style 
           timestamp: new Date(),
         };
 
-        setChatMessages(prev => [...prev, assistantMessage]);
+        setChatMessages((prev) => [...prev, assistantMessage]);
         setChatGenerationTime(Date.now() - startTime);
-        setStreamingChatContent("");
+        setStreamingChatContent('');
         setIsChatLoading(false);
         return;
       }
@@ -117,7 +119,7 @@ The response would be streamed in real-time and tailored to your learning style 
       const reader = response.body?.getReader();
       if (!reader) throw new Error('No reader available');
 
-      let accumulatedContent = "";
+      let accumulatedContent = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -149,23 +151,23 @@ The response would be streamed in real-time and tailored to your learning style 
         timestamp: new Date(),
       };
 
-      setChatMessages(prev => [...prev, assistantMessage]);
+      setChatMessages((prev) => [...prev, assistantMessage]);
       setChatGenerationTime(Date.now() - startTime);
-
     } catch (error) {
       console.error('Error sending chat message:', error);
-      
+
       // Error fallback message
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: "I'm sorry, I'm having trouble responding right now. Please try again in a moment.",
+        content:
+          "I'm sorry, I'm having trouble responding right now. Please try again in a moment.",
         timestamp: new Date(),
       };
 
-      setChatMessages(prev => [...prev, errorMessage]);
+      setChatMessages((prev) => [...prev, errorMessage]);
     } finally {
-      setStreamingChatContent("");
+      setStreamingChatContent('');
       setIsChatLoading(false);
     }
   };
@@ -205,6 +207,6 @@ The response would be streamed in real-time and tailored to your learning style 
     clearChat,
     toggleChat,
     toggleChatMinimized,
-    useSuggestion
+    useSuggestion,
   };
 }

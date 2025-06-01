@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
+import { useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
   Search,
   Filter,
   X,
@@ -13,9 +13,9 @@ import {
   Music,
   Image,
   CheckCircle2,
-  Clock
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+  Clock,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface SearchAndFilterProps {
   onSearch: (query: string) => void;
@@ -35,13 +35,28 @@ const fileTypeOptions = [
   { value: 'pdf', label: 'PDF', icon: FileText, color: 'text-red-600' },
   { value: 'video', label: 'Video', icon: Video, color: 'text-blue-600' },
   { value: 'audio', label: 'Audio', icon: Music, color: 'text-purple-600' },
-  { value: 'document', label: 'Document', icon: FileText, color: 'text-gray-600' },
+  {
+    value: 'document',
+    label: 'Document',
+    icon: FileText,
+    color: 'text-gray-600',
+  },
 ];
 
 const aiProcessedOptions = [
   { value: 'all', label: 'All Files', icon: null },
-  { value: 'processed', label: 'AI Ready', icon: CheckCircle2, color: 'text-green-600' },
-  { value: 'unprocessed', label: 'Processing', icon: Clock, color: 'text-yellow-600' },
+  {
+    value: 'processed',
+    label: 'AI Ready',
+    icon: CheckCircle2,
+    color: 'text-green-600',
+  },
+  {
+    value: 'unprocessed',
+    label: 'Processing',
+    icon: Clock,
+    color: 'text-yellow-600',
+  },
 ];
 
 const dateRangeOptions = [
@@ -51,14 +66,14 @@ const dateRangeOptions = [
   { value: 'month', label: 'This Month' },
 ];
 
-export function SearchAndFilter({ 
-  onSearch, 
-  onFilterChange, 
-  totalFiles, 
-  filteredFiles, 
-  className 
+export function SearchAndFilter({
+  onSearch,
+  onFilterChange,
+  totalFiles,
+  filteredFiles,
+  className,
 }: SearchAndFilterProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
     fileTypes: [],
@@ -79,9 +94,9 @@ export function SearchAndFilter({
 
   const toggleFileType = (fileType: string) => {
     const newFileTypes = filters.fileTypes.includes(fileType)
-      ? filters.fileTypes.filter(t => t !== fileType)
+      ? filters.fileTypes.filter((t) => t !== fileType)
       : [...filters.fileTypes, fileType];
-    
+
     handleFilterUpdate({ fileTypes: newFileTypes });
   };
 
@@ -93,18 +108,18 @@ export function SearchAndFilter({
     };
     setFilters(clearedFilters);
     onFilterChange(clearedFilters);
-    setSearchQuery("");
-    onSearch("");
+    setSearchQuery('');
+    onSearch('');
   };
 
-  const hasActiveFilters = 
-    searchQuery.length > 0 || 
-    filters.fileTypes.length > 0 || 
-    filters.aiProcessed !== 'all' || 
+  const hasActiveFilters =
+    searchQuery.length > 0 ||
+    filters.fileTypes.length > 0 ||
+    filters.aiProcessed !== 'all' ||
     filters.dateRange !== 'all';
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn('space-y-4', className)}>
       {/* Search Bar */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
@@ -120,19 +135,19 @@ export function SearchAndFilter({
               variant="ghost"
               size="sm"
               className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
-              onClick={() => handleSearchChange("")}
+              onClick={() => handleSearchChange('')}
             >
               <X className="h-4 w-4" />
             </Button>
           )}
         </div>
-        
+
         <Button
           variant="outline"
           onClick={() => setShowFilters(!showFilters)}
           className={cn(
-            "border-gray-300 text-gray-700 hover:bg-gray-50",
-            showFilters && "bg-gray-100"
+            'border-gray-300 text-gray-700 hover:bg-gray-50',
+            showFilters && 'bg-gray-100',
           )}
         >
           <Filter className="h-4 w-4 mr-2" />
@@ -149,9 +164,9 @@ export function SearchAndFilter({
       <div className="flex items-center justify-between text-sm text-gray-600">
         <span>
           Showing {filteredFiles} of {totalFiles} files
-          {hasActiveFilters && " (filtered)"}
+          {hasActiveFilters && ' (filtered)'}
         </span>
-        
+
         {hasActiveFilters && (
           <Button
             variant="ghost"
@@ -169,12 +184,14 @@ export function SearchAndFilter({
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4">
           {/* File Type Filters */}
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-2">File Type</h4>
+            <h4 className="text-sm font-medium text-gray-900 mb-2">
+              File Type
+            </h4>
             <div className="flex flex-wrap gap-2">
               {fileTypeOptions.map((option) => {
                 const IconComponent = option.icon;
                 const isSelected = filters.fileTypes.includes(option.value);
-                
+
                 return (
                   <Button
                     key={option.value}
@@ -182,11 +199,14 @@ export function SearchAndFilter({
                     size="sm"
                     onClick={() => toggleFileType(option.value)}
                     className={cn(
-                      "border-gray-300 text-gray-700 hover:bg-gray-100",
-                      isSelected && "bg-indigo-100 border-indigo-300 text-indigo-700"
+                      'border-gray-300 text-gray-700 hover:bg-gray-100',
+                      isSelected &&
+                        'bg-indigo-100 border-indigo-300 text-indigo-700',
                     )}
                   >
-                    <IconComponent className={cn("h-4 w-4 mr-2", option.color)} />
+                    <IconComponent
+                      className={cn('h-4 w-4 mr-2', option.color)}
+                    />
                     {option.label}
                   </Button>
                 );
@@ -196,24 +216,33 @@ export function SearchAndFilter({
 
           {/* AI Processing Status */}
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-2">AI Status</h4>
+            <h4 className="text-sm font-medium text-gray-900 mb-2">
+              AI Status
+            </h4>
             <div className="flex flex-wrap gap-2">
               {aiProcessedOptions.map((option) => {
                 const IconComponent = option.icon;
                 const isSelected = filters.aiProcessed === option.value;
-                
+
                 return (
                   <Button
                     key={option.value}
                     variant="outline"
                     size="sm"
-                    onClick={() => handleFilterUpdate({ aiProcessed: option.value as any })}
+                    onClick={() =>
+                      handleFilterUpdate({ aiProcessed: option.value as any })
+                    }
                     className={cn(
-                      "border-gray-300 text-gray-700 hover:bg-gray-100",
-                      isSelected && "bg-indigo-100 border-indigo-300 text-indigo-700"
+                      'border-gray-300 text-gray-700 hover:bg-gray-100',
+                      isSelected &&
+                        'bg-indigo-100 border-indigo-300 text-indigo-700',
                     )}
                   >
-                    {IconComponent && <IconComponent className={cn("h-4 w-4 mr-2", option.color)} />}
+                    {IconComponent && (
+                      <IconComponent
+                        className={cn('h-4 w-4 mr-2', option.color)}
+                      />
+                    )}
                     {option.label}
                   </Button>
                 );
@@ -223,20 +252,25 @@ export function SearchAndFilter({
 
           {/* Date Range */}
           <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-2">Upload Date</h4>
+            <h4 className="text-sm font-medium text-gray-900 mb-2">
+              Upload Date
+            </h4>
             <div className="flex flex-wrap gap-2">
               {dateRangeOptions.map((option) => {
                 const isSelected = filters.dateRange === option.value;
-                
+
                 return (
                   <Button
                     key={option.value}
                     variant="outline"
                     size="sm"
-                    onClick={() => handleFilterUpdate({ dateRange: option.value as any })}
+                    onClick={() =>
+                      handleFilterUpdate({ dateRange: option.value as any })
+                    }
                     className={cn(
-                      "border-gray-300 text-gray-700 hover:bg-gray-100",
-                      isSelected && "bg-indigo-100 border-indigo-300 text-indigo-700"
+                      'border-gray-300 text-gray-700 hover:bg-gray-100',
+                      isSelected &&
+                        'bg-indigo-100 border-indigo-300 text-indigo-700',
                     )}
                   >
                     {option.label}
@@ -249,4 +283,4 @@ export function SearchAndFilter({
       )}
     </div>
   );
-} 
+}

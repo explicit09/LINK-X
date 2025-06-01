@@ -57,10 +57,13 @@ export function SidebarUserNav({ user }: { user: FirebaseUser }) {
                 onClick={async () => {
                   try {
                     await signOut(auth);
-                    await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/sessionLogout`, {
-                      method: 'POST',
-                      credentials: 'include',
-                    });
+                    await fetch(
+                      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/sessionLogout`,
+                      {
+                        method: 'POST',
+                        credentials: 'include',
+                      },
+                    );
                     window.location.href = '/';
                   } catch (err) {
                     console.error('Sign-out failed:', err);

@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { Send, Sparkles, Clock, Star } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ChatInputProps } from "../types";
+import { Send, Sparkles, Clock, Star } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ChatInputProps } from '../types';
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   value,
   onChange,
   onSubmit,
   isLoading,
-  placeholder = "Ask me anything about this lesson...",
+  placeholder = 'Ask me anything about this lesson...',
 }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +41,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             </Button>
           </div>
         </div>
-        
+
         <div className="flex items-center justify-between canvas-small text-gray-500">
           <div className="flex items-center space-x-2">
             <Sparkles className="h-3 w-3 text-purple-600" />

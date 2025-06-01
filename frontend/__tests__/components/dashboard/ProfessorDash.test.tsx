@@ -1,5 +1,11 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ProfessorDash } from '@/components/dashboard/ProfessorDash';
 import { useRouter } from 'next/navigation';
@@ -112,12 +118,16 @@ describe('ProfessorDash', () => {
       render(<ProfessorDash user={mockUser} />);
 
       expect(screen.getByText(`Welcome, ${mockUser.name}`)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /create new course/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /create new course/i }),
+      ).toBeInTheDocument();
     });
 
     it('shows loading state while fetching courses', () => {
-      (api.courses.getMyCourses as jest.Mock).mockImplementation(() => new Promise(() => {}));
-      
+      (api.courses.getMyCourses as jest.Mock).mockImplementation(
+        () => new Promise(() => {}),
+      );
+
       render(<ProfessorDash user={mockUser} />);
 
       expect(screen.getByTestId('loading-skeleton')).toBeInTheDocument();
@@ -146,7 +156,9 @@ describe('ProfessorDash', () => {
       await waitFor(() => {
         expect(screen.getByText('Fall 2024')).toBeInTheDocument();
         expect(screen.getByText('Spring 2024')).toBeInTheDocument();
-        expect(screen.getByText('Introduction to Programming')).toBeInTheDocument();
+        expect(
+          screen.getByText('Introduction to Programming'),
+        ).toBeInTheDocument();
         expect(screen.getByText('Data Structures')).toBeInTheDocument();
         expect(screen.getByText('Algorithms')).toBeInTheDocument();
       });
@@ -160,7 +172,9 @@ describe('ProfessorDash', () => {
 
       render(<ProfessorDash user={mockUser} />);
 
-      const createButton = screen.getByRole('button', { name: /create new course/i });
+      const createButton = screen.getByRole('button', {
+        name: /create new course/i,
+      });
       await user.click(createButton);
 
       expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -183,10 +197,15 @@ describe('ProfessorDash', () => {
       render(<ProfessorDash user={mockUser} />);
 
       // Open create modal
-      await user.click(screen.getByRole('button', { name: /create new course/i }));
+      await user.click(
+        screen.getByRole('button', { name: /create new course/i }),
+      );
 
       // Fill form
-      await user.type(screen.getByLabelText(/course title/i), 'Machine Learning');
+      await user.type(
+        screen.getByLabelText(/course title/i),
+        'Machine Learning',
+      );
       await user.type(screen.getByLabelText(/course code/i), 'CS401');
       await user.selectOptions(screen.getByLabelText(/term/i), 'Fall 2024');
 
@@ -214,12 +233,16 @@ describe('ProfessorDash', () => {
       render(<ProfessorDash user={mockUser} />);
 
       await waitFor(() => {
-        expect(screen.getByText('Introduction to Programming')).toBeInTheDocument();
+        expect(
+          screen.getByText('Introduction to Programming'),
+        ).toBeInTheDocument();
       });
 
       // Open course menu
       const courseCard = screen.getByTestId(`course-card-${mockCourses[0].id}`);
-      const menuButton = within(courseCard).getByRole('button', { name: /more options/i });
+      const menuButton = within(courseCard).getByRole('button', {
+        name: /more options/i,
+      });
       await user.click(menuButton);
 
       // Click edit
@@ -228,7 +251,9 @@ describe('ProfessorDash', () => {
 
       // Should open edit modal
       expect(screen.getByRole('dialog')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('Introduction to Programming')).toBeInTheDocument();
+      expect(
+        screen.getByDisplayValue('Introduction to Programming'),
+      ).toBeInTheDocument();
     });
 
     it('handles course deletion with confirmation', async () => {
@@ -244,7 +269,9 @@ describe('ProfessorDash', () => {
 
       // Open course menu for unpublished course
       const courseCard = screen.getByTestId(`course-card-${mockCourses[1].id}`);
-      const menuButton = within(courseCard).getByRole('button', { name: /more options/i });
+      const menuButton = within(courseCard).getByRole('button', {
+        name: /more options/i,
+      });
       await user.click(menuButton);
 
       // Click delete
@@ -253,14 +280,18 @@ describe('ProfessorDash', () => {
 
       // Confirmation dialog
       expect(screen.getByRole('alertdialog')).toBeInTheDocument();
-      expect(screen.getByText(/are you sure you want to delete/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/are you sure you want to delete/i),
+      ).toBeInTheDocument();
 
       // Confirm deletion
       const confirmButton = screen.getByRole('button', { name: /delete/i });
       await user.click(confirmButton);
 
       await waitFor(() => {
-        expect(api.courses.deleteCourse).toHaveBeenCalledWith(mockCourses[1].id);
+        expect(api.courses.deleteCourse).toHaveBeenCalledWith(
+          mockCourses[1].id,
+        );
         expect(mockToast.toast).toHaveBeenCalledWith({
           title: 'Success',
           description: 'Course deleted successfully',
@@ -275,12 +306,16 @@ describe('ProfessorDash', () => {
       render(<ProfessorDash user={mockUser} />);
 
       await waitFor(() => {
-        expect(screen.getByText('Introduction to Programming')).toBeInTheDocument();
+        expect(
+          screen.getByText('Introduction to Programming'),
+        ).toBeInTheDocument();
       });
 
       // Open course menu for published course
       const courseCard = screen.getByTestId(`course-card-${mockCourses[0].id}`);
-      const menuButton = within(courseCard).getByRole('button', { name: /more options/i });
+      const menuButton = within(courseCard).getByRole('button', {
+        name: /more options/i,
+      });
       await user.click(menuButton);
 
       // Delete option should be disabled
@@ -305,14 +340,18 @@ describe('ProfessorDash', () => {
       });
 
       const courseCard = screen.getByTestId(`course-card-${mockCourses[1].id}`);
-      const menuButton = within(courseCard).getByRole('button', { name: /more options/i });
+      const menuButton = within(courseCard).getByRole('button', {
+        name: /more options/i,
+      });
       await user.click(menuButton);
 
       const publishButton = screen.getByRole('menuitem', { name: /publish/i });
       await user.click(publishButton);
 
       await waitFor(() => {
-        expect(api.courses.publishCourse).toHaveBeenCalledWith(mockCourses[1].id);
+        expect(api.courses.publishCourse).toHaveBeenCalledWith(
+          mockCourses[1].id,
+        );
         expect(mockToast.toast).toHaveBeenCalledWith({
           title: 'Success',
           description: 'Course published successfully',
@@ -331,25 +370,35 @@ describe('ProfessorDash', () => {
       render(<ProfessorDash user={mockUser} />);
 
       await waitFor(() => {
-        expect(screen.getByText('Introduction to Programming')).toBeInTheDocument();
+        expect(
+          screen.getByText('Introduction to Programming'),
+        ).toBeInTheDocument();
       });
 
       const courseCard = screen.getByTestId(`course-card-${mockCourses[0].id}`);
-      const menuButton = within(courseCard).getByRole('button', { name: /more options/i });
+      const menuButton = within(courseCard).getByRole('button', {
+        name: /more options/i,
+      });
       await user.click(menuButton);
 
-      const unpublishButton = screen.getByRole('menuitem', { name: /unpublish/i });
+      const unpublishButton = screen.getByRole('menuitem', {
+        name: /unpublish/i,
+      });
       await user.click(unpublishButton);
 
       // Should show confirmation
       expect(screen.getByRole('alertdialog')).toBeInTheDocument();
-      expect(screen.getByText(/students will lose access/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/students will lose access/i),
+      ).toBeInTheDocument();
 
       const confirmButton = screen.getByRole('button', { name: /unpublish/i });
       await user.click(confirmButton);
 
       await waitFor(() => {
-        expect(api.courses.unpublishCourse).toHaveBeenCalledWith(mockCourses[0].id);
+        expect(api.courses.unpublishCourse).toHaveBeenCalledWith(
+          mockCourses[0].id,
+        );
       });
     });
   });
@@ -357,8 +406,10 @@ describe('ProfessorDash', () => {
   describe('File Upload', () => {
     it('handles PDF upload to course', async () => {
       const user = userEvent.setup();
-      const file = new File(['content'], 'lecture.pdf', { type: 'application/pdf' });
-      
+      const file = new File(['content'], 'lecture.pdf', {
+        type: 'application/pdf',
+      });
+
       (api.courses.getMyCourses as jest.Mock).mockResolvedValue(mockCourses);
       (api.files.uploadFile as jest.Mock).mockResolvedValue({
         id: 'file-123',
@@ -368,12 +419,16 @@ describe('ProfessorDash', () => {
       render(<ProfessorDash user={mockUser} />);
 
       await waitFor(() => {
-        expect(screen.getByText('Introduction to Programming')).toBeInTheDocument();
+        expect(
+          screen.getByText('Introduction to Programming'),
+        ).toBeInTheDocument();
       });
 
       const courseCard = screen.getByTestId(`course-card-${mockCourses[0].id}`);
-      const fileInput = within(courseCard).getByLabelText(/upload file/i) as HTMLInputElement;
-      
+      const fileInput = within(courseCard).getByLabelText(
+        /upload file/i,
+      ) as HTMLInputElement;
+
       await user.upload(fileInput, file);
 
       await waitFor(() => {
@@ -381,7 +436,7 @@ describe('ProfessorDash', () => {
           mockCourses[0].id,
           undefined, // No module ID for course-level upload
           file,
-          expect.any(Function)
+          expect.any(Function),
         );
         expect(mockToast.toast).toHaveBeenCalledWith({
           title: 'Success',
@@ -392,37 +447,48 @@ describe('ProfessorDash', () => {
 
     it('shows upload progress', async () => {
       const user = userEvent.setup();
-      const file = new File(['content'], 'lecture.pdf', { type: 'application/pdf' });
-      
+      const file = new File(['content'], 'lecture.pdf', {
+        type: 'application/pdf',
+      });
+
       let progressCallback: (progress: number) => void;
       (api.courses.getMyCourses as jest.Mock).mockResolvedValue(mockCourses);
-      (api.files.uploadFile as jest.Mock).mockImplementation((courseId, moduleId, file, onProgress) => {
-        progressCallback = onProgress;
-        return new Promise((resolve) => {
-          setTimeout(() => {
-            progressCallback(50);
+      (api.files.uploadFile as jest.Mock).mockImplementation(
+        (courseId, moduleId, file, onProgress) => {
+          progressCallback = onProgress;
+          return new Promise((resolve) => {
             setTimeout(() => {
-              progressCallback(100);
-              resolve({ id: 'file-123' });
+              progressCallback(50);
+              setTimeout(() => {
+                progressCallback(100);
+                resolve({ id: 'file-123' });
+              }, 10);
             }, 10);
-          }, 10);
-        });
-      });
+          });
+        },
+      );
 
       render(<ProfessorDash user={mockUser} />);
 
       await waitFor(() => {
-        expect(screen.getByText('Introduction to Programming')).toBeInTheDocument();
+        expect(
+          screen.getByText('Introduction to Programming'),
+        ).toBeInTheDocument();
       });
 
       const courseCard = screen.getByTestId(`course-card-${mockCourses[0].id}`);
-      const fileInput = within(courseCard).getByLabelText(/upload file/i) as HTMLInputElement;
-      
+      const fileInput = within(courseCard).getByLabelText(
+        /upload file/i,
+      ) as HTMLInputElement;
+
       await user.upload(fileInput, file);
 
       await waitFor(() => {
         expect(screen.getByText(/uploading/i)).toBeInTheDocument();
-        expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '50');
+        expect(screen.getByRole('progressbar')).toHaveAttribute(
+          'aria-valuenow',
+          '50',
+        );
       });
     });
   });
@@ -435,15 +501,21 @@ describe('ProfessorDash', () => {
       render(<ProfessorDash user={mockUser} />);
 
       await waitFor(() => {
-        expect(screen.getByText('Introduction to Programming')).toBeInTheDocument();
+        expect(
+          screen.getByText('Introduction to Programming'),
+        ).toBeInTheDocument();
       });
 
       const courseCard = screen.getByTestId(`course-card-${mockCourses[0].id}`);
-      const viewButton = within(courseCard).getByRole('button', { name: /view course/i });
-      
+      const viewButton = within(courseCard).getByRole('button', {
+        name: /view course/i,
+      });
+
       await user.click(viewButton);
 
-      expect(mockRouter.push).toHaveBeenCalledWith(`/courses/${mockCourses[0].id}`);
+      expect(mockRouter.push).toHaveBeenCalledWith(
+        `/courses/${mockCourses[0].id}`,
+      );
     });
 
     it('opens course in new tab with middle click', async () => {
@@ -453,17 +525,24 @@ describe('ProfessorDash', () => {
       render(<ProfessorDash user={mockUser} />);
 
       await waitFor(() => {
-        expect(screen.getByText('Introduction to Programming')).toBeInTheDocument();
+        expect(
+          screen.getByText('Introduction to Programming'),
+        ).toBeInTheDocument();
       });
 
       const courseCard = screen.getByTestId(`course-card-${mockCourses[0].id}`);
-      const viewButton = within(courseCard).getByRole('button', { name: /view course/i });
-      
+      const viewButton = within(courseCard).getByRole('button', {
+        name: /view course/i,
+      });
+
       // Middle click
       fireEvent.mouseDown(viewButton, { button: 1 });
 
       // Should open in new tab (implementation depends on component)
-      expect(window.open).toHaveBeenCalledWith(`/courses/${mockCourses[0].id}`, '_blank');
+      expect(window.open).toHaveBeenCalledWith(
+        `/courses/${mockCourses[0].id}`,
+        '_blank',
+      );
     });
   });
 
@@ -475,7 +554,9 @@ describe('ProfessorDash', () => {
       render(<ProfessorDash user={mockUser} />);
 
       await waitFor(() => {
-        expect(screen.getByText('Introduction to Programming')).toBeInTheDocument();
+        expect(
+          screen.getByText('Introduction to Programming'),
+        ).toBeInTheDocument();
         expect(screen.getByText('Data Structures')).toBeInTheDocument();
       });
 
@@ -483,7 +564,9 @@ describe('ProfessorDash', () => {
       await user.type(searchInput, 'Programming');
 
       await waitFor(() => {
-        expect(screen.getByText('Introduction to Programming')).toBeInTheDocument();
+        expect(
+          screen.getByText('Introduction to Programming'),
+        ).toBeInTheDocument();
         expect(screen.queryByText('Data Structures')).not.toBeInTheDocument();
       });
     });
@@ -495,14 +578,20 @@ describe('ProfessorDash', () => {
       render(<ProfessorDash user={mockUser} />);
 
       await waitFor(() => {
-        expect(screen.getByText('Introduction to Programming')).toBeInTheDocument();
+        expect(
+          screen.getByText('Introduction to Programming'),
+        ).toBeInTheDocument();
       });
 
-      const filterSelect = screen.getByRole('combobox', { name: /filter by status/i });
+      const filterSelect = screen.getByRole('combobox', {
+        name: /filter by status/i,
+      });
       await user.selectOptions(filterSelect, 'draft');
 
       await waitFor(() => {
-        expect(screen.queryByText('Introduction to Programming')).not.toBeInTheDocument();
+        expect(
+          screen.queryByText('Introduction to Programming'),
+        ).not.toBeInTheDocument();
         expect(screen.getByText('Data Structures')).toBeInTheDocument();
       });
     });
@@ -514,7 +603,9 @@ describe('ProfessorDash', () => {
       render(<ProfessorDash user={mockUser} />);
 
       await waitFor(() => {
-        expect(screen.getByText('Introduction to Programming')).toBeInTheDocument();
+        expect(
+          screen.getByText('Introduction to Programming'),
+        ).toBeInTheDocument();
       });
 
       const sortSelect = screen.getByRole('combobox', { name: /sort by/i });
@@ -529,13 +620,17 @@ describe('ProfessorDash', () => {
 
   describe('Error Handling', () => {
     it('shows error message when courses fail to load', async () => {
-      (api.courses.getMyCourses as jest.Mock).mockRejectedValue(new Error('Network error'));
+      (api.courses.getMyCourses as jest.Mock).mockRejectedValue(
+        new Error('Network error'),
+      );
 
       render(<ProfessorDash user={mockUser} />);
 
       await waitFor(() => {
         expect(screen.getByText(/failed to load courses/i)).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: /retry/i }),
+        ).toBeInTheDocument();
       });
     });
 
@@ -543,12 +638,14 @@ describe('ProfessorDash', () => {
       const user = userEvent.setup();
       (api.courses.getMyCourses as jest.Mock).mockResolvedValue(mockCourses);
       (api.courses.createCourse as jest.Mock).mockRejectedValue(
-        new Error('Course code already exists')
+        new Error('Course code already exists'),
       );
 
       render(<ProfessorDash user={mockUser} />);
 
-      await user.click(screen.getByRole('button', { name: /create new course/i }));
+      await user.click(
+        screen.getByRole('button', { name: /create new course/i }),
+      );
 
       await user.type(screen.getByLabelText(/course title/i), 'New Course');
       await user.type(screen.getByLabelText(/course code/i), 'CS101');
@@ -592,14 +689,18 @@ describe('ProfessorDash', () => {
       });
 
       const courseCard = screen.getByTestId(`course-card-${mockCourses[1].id}`);
-      const menuButton = within(courseCard).getByRole('button', { name: /more options/i });
+      const menuButton = within(courseCard).getByRole('button', {
+        name: /more options/i,
+      });
       await user.click(menuButton);
 
       const publishButton = screen.getByRole('menuitem', { name: /publish/i });
       await user.click(publishButton);
 
       await waitFor(() => {
-        expect(screen.getByRole('status')).toHaveTextContent(/course published successfully/i);
+        expect(screen.getByRole('status')).toHaveTextContent(
+          /course published successfully/i,
+        );
       });
     });
 
@@ -609,16 +710,22 @@ describe('ProfessorDash', () => {
       render(<ProfessorDash user={mockUser} />);
 
       await waitFor(() => {
-        expect(screen.getByText('Introduction to Programming')).toBeInTheDocument();
+        expect(
+          screen.getByText('Introduction to Programming'),
+        ).toBeInTheDocument();
       });
 
-      const createButton = screen.getByRole('button', { name: /create new course/i });
+      const createButton = screen.getByRole('button', {
+        name: /create new course/i,
+      });
       createButton.focus();
 
       // Tab to first course card
       fireEvent.keyDown(document.activeElement!, { key: 'Tab' });
-      
-      const firstCourseCard = screen.getByTestId(`course-card-${mockCourses[0].id}`);
+
+      const firstCourseCard = screen.getByTestId(
+        `course-card-${mockCourses[0].id}`,
+      );
       expect(document.activeElement).toBeInTheDocument();
       expect(firstCourseCard).toContainElement(document.activeElement!);
     });

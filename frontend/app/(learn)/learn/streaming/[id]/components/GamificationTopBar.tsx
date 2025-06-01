@@ -1,11 +1,26 @@
 import React from 'react';
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ArrowLeft, Trophy, Flame, Star, Zap, Target, Award, TrendingUp, Activity } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  ArrowLeft,
+  Trophy,
+  Flame,
+  Star,
+  Zap,
+  Target,
+  Award,
+  TrendingUp,
+  Activity,
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 interface GamificationTopBarProps {
   userXP: number;
@@ -38,11 +53,11 @@ export function GamificationTopBar({
   totalSections,
   completedCount,
   progress,
-  courseId
+  courseId,
 }: GamificationTopBarProps) {
   const router = useRouter();
 
-  const recentAchievements = achievements.filter(a => a.unlocked).slice(-3);
+  const recentAchievements = achievements.filter((a) => a.unlocked).slice(-3);
 
   const handleBackToCourse = () => {
     if (courseId) {
@@ -68,7 +83,11 @@ export function GamificationTopBar({
 
           <div className="flex items-center space-x-4">
             {/* Performance Metrics Toggle */}
-            <Button variant="ghost" size="sm" className="text-white hover:bg-white/20">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-white hover:bg-white/20"
+            >
               <Activity className="w-4 h-4 mr-2" />
               Metrics
             </Button>
@@ -91,7 +110,9 @@ export function GamificationTopBar({
               </div>
               <div>
                 <div className="text-sm opacity-90">Level {userLevel}</div>
-                <div className="text-xl font-bold">{userXP.toLocaleString()} XP</div>
+                <div className="text-xl font-bold">
+                  {userXP.toLocaleString()} XP
+                </div>
               </div>
             </div>
             <div className="mt-2">
@@ -148,8 +169,12 @@ export function GamificationTopBar({
                         </TooltipTrigger>
                         <TooltipContent>
                           <div className="text-center">
-                            <div className="font-semibold">{achievement.name}</div>
-                            <div className="text-xs opacity-75">{achievement.description}</div>
+                            <div className="font-semibold">
+                              {achievement.name}
+                            </div>
+                            <div className="text-xs opacity-75">
+                              {achievement.description}
+                            </div>
                           </div>
                         </TooltipContent>
                       </Tooltip>
@@ -178,16 +203,20 @@ export function GamificationTopBar({
                           <div
                             key={achievement.id}
                             className={cn(
-                              "flex items-center space-x-2 text-xs p-1 rounded",
+                              'flex items-center space-x-2 text-xs p-1 rounded',
                               achievement.unlocked
-                                ? "bg-green-100 text-green-800"
-                                : "bg-gray-100 text-gray-600"
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-600',
                             )}
                           >
                             <span>{achievement.icon}</span>
                             <div>
-                              <div className="font-medium">{achievement.name}</div>
-                              <div className="opacity-75">{achievement.description}</div>
+                              <div className="font-medium">
+                                {achievement.name}
+                              </div>
+                              <div className="opacity-75">
+                                {achievement.description}
+                              </div>
                             </div>
                           </div>
                         ))}

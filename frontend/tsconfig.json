@@ -21,8 +21,8 @@
     "paths": {
       "@/*": ["./*"]
     },
-    "types": ["react", "react-dom", "node", "jest"],  // Ensure react, react-dom, node, and jest are included
-    "typeRoots": ["./node_modules/@types"]  // Specify the directory for type definitions
+    "types": ["react", "react-dom", "node", "jest"], // Ensure react, react-dom, node, and jest are included
+    "typeRoots": ["./node_modules/@types"] // Specify the directory for type definitions
   },
   "include": [
     "next-env.d.ts",

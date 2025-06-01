@@ -1,22 +1,22 @@
 import React from 'react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { 
-  MessageSquare, 
-  X, 
-  Send, 
-  User, 
-  Bot, 
-  Maximize2, 
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import {
+  MessageSquare,
+  X,
+  Send,
+  User,
+  Bot,
+  Maximize2,
   Minimize2,
   Trash2,
-  Sparkles
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+  Sparkles,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { ChatMessage } from '../hooks/useChat';
 
 interface AIChatProps {
@@ -54,7 +54,7 @@ export function AIChat({
   onClearChat,
   onToggleChat,
   onToggleChatMinimized,
-  onUseSuggestion
+  onUseSuggestion,
 }: AIChatProps) {
   if (!isChatOpen) {
     return (
@@ -69,12 +69,10 @@ export function AIChat({
   }
 
   return (
-    <Card 
+    <Card
       className={cn(
-        "fixed right-6 bg-white shadow-xl border border-gray-200 z-40 transition-all duration-300",
-        isChatMinimized 
-          ? "bottom-6 w-80 h-16" 
-          : "bottom-6 w-96 h-[600px]"
+        'fixed right-6 bg-white shadow-xl border border-gray-200 z-40 transition-all duration-300',
+        isChatMinimized ? 'bottom-6 w-80 h-16' : 'bottom-6 w-96 h-[600px]',
       )}
     >
       {/* Chat Header */}
@@ -85,7 +83,9 @@ export function AIChat({
               <Sparkles className="h-4 w-4 text-white" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-900">AI Learning Assistant</h3>
+              <h3 className="text-sm font-semibold text-gray-900">
+                AI Learning Assistant
+              </h3>
               {chatGenerationTime && (
                 <div className="text-xs text-gray-500">
                   Last response: {chatGenerationTime}ms
@@ -93,7 +93,7 @@ export function AIChat({
               )}
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-1">
             <Button
               variant="ghost"
@@ -130,7 +130,7 @@ export function AIChat({
                   <p>Hi! I'm your AI learning assistant.</p>
                   <p>Ask me anything about what you're studying!</p>
                 </div>
-                
+
                 <div className="space-y-2">
                   <div className="text-xs font-medium text-gray-600 mb-2">
                     Suggested questions:
@@ -154,8 +154,8 @@ export function AIChat({
                   <div
                     key={message.id}
                     className={cn(
-                      "flex space-x-3",
-                      message.role === 'user' ? "justify-end" : "justify-start"
+                      'flex space-x-3',
+                      message.role === 'user' ? 'justify-end' : 'justify-start',
                     )}
                   >
                     {message.role === 'assistant' && (
@@ -165,30 +165,32 @@ export function AIChat({
                         </AvatarFallback>
                       </Avatar>
                     )}
-                    
+
                     <div
                       className={cn(
-                        "max-w-[80%] p-3 rounded-lg text-sm",
+                        'max-w-[80%] p-3 rounded-lg text-sm',
                         message.role === 'user'
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-100 text-gray-900"
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-900',
                       )}
                     >
-                      <div 
+                      <div
                         dangerouslySetInnerHTML={{
-                          __html: message.content.replace(/\n/g, '<br />')
+                          __html: message.content.replace(/\n/g, '<br />'),
                         }}
                       />
-                      <div 
+                      <div
                         className={cn(
-                          "text-xs mt-1 opacity-70",
-                          message.role === 'user' ? "text-blue-100" : "text-gray-500"
+                          'text-xs mt-1 opacity-70',
+                          message.role === 'user'
+                            ? 'text-blue-100'
+                            : 'text-gray-500',
                         )}
                       >
                         {message.timestamp.toLocaleTimeString()}
                       </div>
                     </div>
-                    
+
                     {message.role === 'user' && (
                       <Avatar className="w-8 h-8">
                         <AvatarFallback className="bg-gray-100">
@@ -198,7 +200,7 @@ export function AIChat({
                     )}
                   </div>
                 ))}
-                
+
                 {/* Streaming Message */}
                 {streamingChatContent && (
                   <div className="flex space-x-3 justify-start">
@@ -208,16 +210,16 @@ export function AIChat({
                       </AvatarFallback>
                     </Avatar>
                     <div className="max-w-[80%] p-3 rounded-lg text-sm bg-gray-100 text-gray-900">
-                      <div 
+                      <div
                         dangerouslySetInnerHTML={{
-                          __html: streamingChatContent.replace(/\n/g, '<br />')
+                          __html: streamingChatContent.replace(/\n/g, '<br />'),
                         }}
                       />
                       <div className="inline-block w-2 h-4 bg-blue-500 animate-pulse ml-1" />
                     </div>
                   </div>
                 )}
-                
+
                 {isChatLoading && !streamingChatContent && (
                   <div className="flex space-x-3 justify-start">
                     <Avatar className="w-8 h-8">
@@ -228,8 +230,14 @@ export function AIChat({
                     <div className="p-3 rounded-lg bg-gray-100">
                       <div className="flex space-x-1">
                         <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                        <div
+                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                          style={{ animationDelay: '0.1s' }}
+                        />
+                        <div
+                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                          style={{ animationDelay: '0.2s' }}
+                        />
                       </div>
                     </div>
                   </div>
@@ -256,7 +264,7 @@ export function AIChat({
                 </Button>
               </div>
             )}
-            
+
             <div className="flex space-x-2">
               <Textarea
                 value={chatInput}
@@ -280,7 +288,7 @@ export function AIChat({
                 <Send className="h-4 w-4" />
               </Button>
             </div>
-            
+
             <div className="text-xs text-gray-400 mt-2 text-center">
               Press Enter to send, Shift+Enter for new line
             </div>

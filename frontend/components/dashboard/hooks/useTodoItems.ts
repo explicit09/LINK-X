@@ -7,17 +7,21 @@ interface TodoItem {
   title: string;
   course: string;
   dueDate?: string;
-  type: "quiz" | "assignment" | "reading" | "review";
-  priority: "high" | "medium" | "low";
+  type: 'quiz' | 'assignment' | 'reading' | 'review';
+  priority: 'high' | 'medium' | 'low';
 }
 
 export const useTodoItems = (userRole: string) => {
   const [todoItems, setTodoItems] = useState<TodoItem[]>([]);
   const [showAddTodo, setShowAddTodo] = useState(false);
-  const [newTodoTitle, setNewTodoTitle] = useState("");
-  const [newTodoCourse, setNewTodoCourse] = useState("");
-  const [newTodoPriority, setNewTodoPriority] = useState<"high" | "medium" | "low">("medium");
-  const [newTodoType, setNewTodoType] = useState<"quiz" | "assignment" | "reading" | "review">("assignment");
+  const [newTodoTitle, setNewTodoTitle] = useState('');
+  const [newTodoCourse, setNewTodoCourse] = useState('');
+  const [newTodoPriority, setNewTodoPriority] = useState<
+    'high' | 'medium' | 'low'
+  >('medium');
+  const [newTodoType, setNewTodoType] = useState<
+    'quiz' | 'assignment' | 'reading' | 'review'
+  >('assignment');
 
   const loadTodoItems = async () => {
     try {
@@ -41,23 +45,23 @@ export const useTodoItems = (userRole: string) => {
       if (userRole === 'student') {
         const newTodo = await studentAPI.createTodoItem({
           title: newTodoTitle,
-          course: newTodoCourse || "General",
+          course: newTodoCourse || 'General',
           type: newTodoType,
-          priority: newTodoPriority
+          priority: newTodoPriority,
         });
-        
-        setTodoItems(prev => [...prev, newTodo]);
+
+        setTodoItems((prev) => [...prev, newTodo]);
       }
-      
+
       // Clear form
-      setNewTodoTitle("");
-      setNewTodoCourse("");
+      setNewTodoTitle('');
+      setNewTodoCourse('');
       setShowAddTodo(false);
-      
-      sonnerToast.success("Todo item added successfully!");
+
+      sonnerToast.success('Todo item added successfully!');
     } catch (error) {
       console.error('Error adding todo item:', error);
-      sonnerToast.error("Failed to add todo item");
+      sonnerToast.error('Failed to add todo item');
     }
   };
 
@@ -65,24 +69,31 @@ export const useTodoItems = (userRole: string) => {
     try {
       if (userRole === 'student') {
         await studentAPI.deleteTodoItem(id);
-        
-        setTodoItems(prev => {
-          const filtered = prev.filter(item => item.id !== id);
+
+        setTodoItems((prev) => {
+          const filtered = prev.filter((item) => item.id !== id);
           return filtered;
         });
-        
-        sonnerToast.success("Todo item deleted successfully!");
+
+        sonnerToast.success('Todo item deleted successfully!');
       }
     } catch (error) {
       console.error('Error deleting todo item:', error);
-      
+
       if (error instanceof Error && error.message.includes('401')) {
-        sonnerToast.error("Authentication failed. Please refresh the page and try again.");
+        sonnerToast.error(
+          'Authentication failed. Please refresh the page and try again.',
+        );
       } else if (error instanceof Error && error.message.includes('404')) {
-        sonnerToast.error("Todo item not found. It may have already been deleted.");
-        setTodoItems(prev => prev.filter(item => item.id !== id));
+        sonnerToast.error(
+          'Todo item not found. It may have already been deleted.',
+        );
+        setTodoItems((prev) => prev.filter((item) => item.id !== id));
       } else {
-        sonnerToast.error("Failed to delete todo item: " + (error instanceof Error ? error.message : 'Unknown error'));
+        sonnerToast.error(
+          'Failed to delete todo item: ' +
+            (error instanceof Error ? error.message : 'Unknown error'),
+        );
       }
     }
   };
@@ -105,6 +116,6 @@ export const useTodoItems = (userRole: string) => {
     setNewTodoType,
     addTodoItem,
     removeTodoItem,
-    loadTodoItems
+    loadTodoItems,
   };
 };

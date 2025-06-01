@@ -1,23 +1,23 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast as sonnerToast } from 'sonner';
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 // Import all modular components
-import { StudentSidebar } from "./sections/StudentSidebar";
-import { PersonalizedHeader } from "./sections/PersonalizedHeader";
-import { WeeklyMission } from "./sections/WeeklyMission";
-import { PriorityCards } from "./sections/PriorityCards";
-import { ModernCoursesSection } from "./sections/ModernCoursesSection";
-import { PerformancePulse } from "./sections/PerformancePulse";
-import { AIStudyCoach } from "./sections/AIStudyCoach";
-import { SmartActionEngine } from "./sections/SmartActionEngine";
-import { TodaysSchedule } from "./sections/TodaysSchedule";
-import { FocusMode } from "./sections/FocusMode";
-import { GamificationEngine } from "./sections/GamificationEngine";
-import { TaskCompletionFeedback } from "./sections/TaskCompletionFeedback";
+import { StudentSidebar } from './sections/StudentSidebar';
+import { PersonalizedHeader } from './sections/PersonalizedHeader';
+import { WeeklyMission } from './sections/WeeklyMission';
+import { PriorityCards } from './sections/PriorityCards';
+import { ModernCoursesSection } from './sections/ModernCoursesSection';
+import { PerformancePulse } from './sections/PerformancePulse';
+import { AIStudyCoach } from './sections/AIStudyCoach';
+import { SmartActionEngine } from './sections/SmartActionEngine';
+import { TodaysSchedule } from './sections/TodaysSchedule';
+import { FocusMode } from './sections/FocusMode';
+import { GamificationEngine } from './sections/GamificationEngine';
+import { TaskCompletionFeedback } from './sections/TaskCompletionFeedback';
 
 // Types
 interface Course {
@@ -43,9 +43,9 @@ interface ModernStudentDashboardProps {
   courses?: Course[];
 }
 
-export function ModernStudentDashboard({ 
-  currentUser, 
-  courses = [] 
+export function ModernStudentDashboard({
+  currentUser,
+  courses = [],
 }: ModernStudentDashboardProps) {
   const router = useRouter();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -64,11 +64,11 @@ export function ModernStudentDashboard({
   };
 
   const handleViewAllCourses = () => {
-    router.push("/my-courses");
+    router.push('/my-courses');
   };
 
   const handleGetStudyPlan = () => {
-    sonnerToast.success("Generating personalized study plan...");
+    sonnerToast.success('Generating personalized study plan...');
     // Could open a modal or navigate to study plan page
   };
 
@@ -79,24 +79,32 @@ export function ModernStudentDashboard({
 
   const handleSmartAction = (action: any) => {
     sonnerToast.success(`🚀 Starting: ${action.action}`);
-    
+
     // Simulate task completion after 3 seconds (demo)
     setTimeout(() => {
       setTaskCompletion({
         id: action.id,
         taskName: action.action,
         timeSpent: action.timeEstimate,
-        xpGained: action.urgency === "high" ? 75 : action.urgency === "medium" ? 50 : 25,
-        achievementUnlocked: action.urgency === "high" ? {
-          title: "Deadline Crusher",
-          description: "Completed urgent task on time",
-          icon: "🔥"
-        } : undefined,
-        performanceBoost: action.urgency === "high" ? 12 : undefined,
-        streakIncreased: true
+        xpGained:
+          action.urgency === 'high'
+            ? 75
+            : action.urgency === 'medium'
+              ? 50
+              : 25,
+        achievementUnlocked:
+          action.urgency === 'high'
+            ? {
+                title: 'Deadline Crusher',
+                description: 'Completed urgent task on time',
+                icon: '🔥',
+              }
+            : undefined,
+        performanceBoost: action.urgency === 'high' ? 12 : undefined,
+        streakIncreased: true,
       });
     }, 3000);
-    
+
     // Navigate to specific course or start action
     if (action.course) {
       router.push(`/courses/${action.course.toLowerCase()}`);
@@ -104,27 +112,27 @@ export function ModernStudentDashboard({
   };
 
   const handleMaintainRank = () => {
-    sonnerToast.success("🎯 Opening your personalized action plan!");
-    router.push("/study-plan");
+    sonnerToast.success('🎯 Opening your personalized action plan!');
+    router.push('/study-plan');
   };
 
   const handleFocusMode = (active: boolean) => {
     setFocusModeActive(active);
     if (active) {
-      sonnerToast.success("🎯 Entering Focus Mode - eliminate distractions!");
+      sonnerToast.success('🎯 Entering Focus Mode - eliminate distractions!');
     }
   };
 
   const handleStartPomodoro = () => {
-    sonnerToast.success("⏱️ Pomodoro session started!");
+    sonnerToast.success('⏱️ Pomodoro session started!');
   };
 
   const handleStreakClick = () => {
-    sonnerToast.success("🔥 5-day streak! Keep the momentum going!");
+    sonnerToast.success('🔥 5-day streak! Keep the momentum going!');
   };
 
   const handleLevelClick = () => {
-    sonnerToast.success("🎯 Level 12 progress! 160 XP to next level!");
+    sonnerToast.success('🎯 Level 12 progress! 160 XP to next level!');
   };
 
   const handleTaskCompletionClose = () => {
@@ -133,50 +141,50 @@ export function ModernStudentDashboard({
 
   const handleViewProgress = () => {
     setTaskCompletion(null);
-    router.push("/progress");
+    router.push('/progress');
   };
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <StudentSidebar 
+      <StudentSidebar
         currentUser={currentUser}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={setSidebarCollapsed}
       />
-      
+
       {/* Main Content Area */}
-      <div className={cn("flex-1 flex flex-col transition-all duration-300")}>
+      <div className={cn('flex-1 flex flex-col transition-all duration-300')}>
         {/* Header */}
         <PersonalizedHeader currentUser={currentUser} />
-        
+
         {/* Dashboard Content */}
         <div className="flex-1 p-6">
           <div className="max-w-7xl mx-auto">
             {/* Gamification Header */}
             <div className="mb-6">
-              <GamificationEngine 
+              <GamificationEngine
                 onStreakClick={handleStreakClick}
                 onLevelClick={handleLevelClick}
               />
             </div>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               {/* Left Content - 3 columns */}
               <div className="lg:col-span-3 space-y-6">
                 {/* Weekly Mission */}
                 <WeeklyMission />
-                
+
                 {/* Priority Cards */}
                 <PriorityCards onActionClick={handlePriorityAction} />
-                
+
                 {/* Courses Section */}
-                <ModernCoursesSection 
+                <ModernCoursesSection
                   onCourseClick={handleCourseClick}
                   onViewAll={handleViewAllCourses}
                 />
               </div>
-              
+
               {/* Right Sidebar - 1 column */}
               <div className="lg:col-span-1 space-y-6">
                 <SmartActionEngine onActionClick={handleSmartAction} />
@@ -187,14 +195,14 @@ export function ModernStudentDashboard({
           </div>
         </div>
       </div>
-      
+
       {/* Focus Mode */}
-      <FocusMode 
+      <FocusMode
         isActive={focusModeActive}
         onToggle={handleFocusMode}
         onStartPomodoro={handleStartPomodoro}
       />
-      
+
       {/* Task Completion Feedback */}
       <TaskCompletionFeedback
         completion={taskCompletion}

@@ -1,15 +1,17 @@
-"use client"
+'use client';
 
-import { useEffect, useState } from "react"
+import { useEffect, useState } from 'react';
 
 interface Chapter {
-  chapterTitle: string
-  metadata: string[]
+  chapterTitle: string;
+  metadata: string[];
 }
 
 export default function Sidebar() {
-  const [chapters, setChapters] = useState<Chapter[]>([])
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([])
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [messages, setMessages] = useState<{ role: string; content: string }[]>(
+    [],
+  );
 
   // useEffect(() => {
   //   async function fetchChapters() {
@@ -32,83 +34,80 @@ export default function Sidebar() {
         const dummyData = {
           chapters: [
             {
-              chapterTitle: "Fundamentals",
+              chapterTitle: 'Fundamentals',
               metadata: [
-                "Introduction to Cryptocurrency",
-                "Blockchain Technology",
-                "Types of Cryptocurrencies",
+                'Introduction to Cryptocurrency',
+                'Blockchain Technology',
+                'Types of Cryptocurrencies',
               ],
             },
             {
-              chapterTitle: "Practical Knowledge",
+              chapterTitle: 'Practical Knowledge',
               metadata: [
-                "Crypto Wallets and Security",
-                "Buying and Selling Crypto",
-                "Crypto Mining",
+                'Crypto Wallets and Security',
+                'Buying and Selling Crypto',
+                'Crypto Mining',
               ],
             },
             {
-              chapterTitle: "Advanced Topics",
+              chapterTitle: 'Advanced Topics',
               metadata: [
-                "DeFi and Smart Contracts",
-                "Crypto Regulations",
-                "Crypto Investment Strategies",
-                "Future of Cryptocurrency",
+                'DeFi and Smart Contracts',
+                'Crypto Regulations',
+                'Crypto Investment Strategies',
+                'Future of Cryptocurrency',
               ],
             },
             {
-              chapterTitle: "Assessment",
-              metadata: ["Skills Check"],
+              chapterTitle: 'Assessment',
+              metadata: ['Skills Check'],
             },
           ],
-        }
-  
+        };
+
         // Simulate delay to mimic fetch
-        await new Promise((res) => setTimeout(res, 500))
-  
-        setChapters(dummyData.chapters)
+        await new Promise((res) => setTimeout(res, 500));
+
+        setChapters(dummyData.chapters);
       } catch (err) {
-        console.error("Failed to load chapters:", err)
+        console.error('Failed to load chapters:', err);
       }
     }
-  
-    fetchChapters()
-  }, [])
+
+    fetchChapters();
+  }, []);
 
   const handleChatClick = async (message: string) => {
-    if (!message.trim()) return
-  
-  
+    if (!message.trim()) return;
+
     try {
-      const response = await fetch("http://localhost:8080/chat", {
-        method: "POST",
+      const response = await fetch('http://localhost:8080/chat', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
-        credentials: "include",
+        credentials: 'include',
         body: JSON.stringify({ message }),
-      })
-  
-      const data = await response.json()
-  
+      });
+
+      const data = await response.json();
+
       if (data.error) {
-        console.error("Chatbot error:", data.error)
-        return
+        console.error('Chatbot error:', data.error);
+        return;
       }
-  
+
       if (data.response) {
         setMessages((prev) => [
           ...prev,
-          { role: "user", content: message },
-          { role: "assistant", content: data.response },
-        ])
+          { role: 'user', content: message },
+          { role: 'assistant', content: data.response },
+        ]);
       }
     } catch (err) {
-      console.error("Failed to send message:", err)
+      console.error('Failed to send message:', err);
     }
-  }
-  
-  
+  };
 
   // const handleChatClick = async (message: string) => {
   //   if (!message.trim()) return
@@ -144,10 +143,14 @@ export default function Sidebar() {
 
   return (
     <nav className="w-64 bg-gray-900 text-gray-300 p-4 overflow-y-auto">
-      <h2 className="text-2xl font-bold mb-6 text-center text-blue-400">CryptoEdu</h2>
+      <h2 className="text-2xl font-bold mb-6 text-center text-blue-400">
+        CryptoEdu
+      </h2>
       {chapters.map((chapter, index) => (
         <div key={index} className="mb-6">
-          <h3 className="text-lg font-semibold mb-2 text-gray-400">{chapter.chapterTitle}</h3>
+          <h3 className="text-lg font-semibold mb-2 text-gray-400">
+            {chapter.chapterTitle}
+          </h3>
           <ul>
             {chapter.metadata.map((item, itemIndex) => (
               <li key={itemIndex} className="mb-2">
@@ -163,5 +166,5 @@ export default function Sidebar() {
         </div>
       ))}
     </nav>
-  )
+  );
 }

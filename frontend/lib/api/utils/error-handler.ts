@@ -7,7 +7,7 @@ export class ApiError extends Error {
     message: string,
     public readonly status: number,
     public readonly response?: Response,
-    public readonly data?: any
+    public readonly data?: any,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -15,7 +15,10 @@ export class ApiError extends Error {
 }
 
 export class NetworkError extends Error {
-  constructor(message: string, public readonly originalError: Error) {
+  constructor(
+    message: string,
+    public readonly originalError: Error,
+  ) {
     super(message);
     this.name = 'NetworkError';
   }
@@ -24,7 +27,7 @@ export class NetworkError extends Error {
 export async function handleApiResponse(response: Response): Promise<any> {
   const contentType = response.headers.get('content-type');
   const isJson = contentType?.includes('application/json');
-  
+
   let data: any;
   try {
     data = isJson ? await response.json() : await response.text();
@@ -33,7 +36,10 @@ export async function handleApiResponse(response: Response): Promise<any> {
   }
 
   if (!response.ok) {
-    const message = data?.message || data?.error || `HTTP ${response.status}: ${response.statusText}`;
+    const message =
+      data?.message ||
+      data?.error ||
+      `HTTP ${response.status}: ${response.statusText}`;
     throw new ApiError(message, response.status, response, data);
   }
 
@@ -64,13 +70,13 @@ export function createErrorHandler() {
   return {
     handleError: (error: any) => {
       console.error('API Error:', error);
-      
+
       if (error instanceof ApiError) {
         return {
           type: 'api',
           status: error.status,
           message: error.message,
-          data: error.data
+          data: error.data,
         };
       }
 
@@ -78,15 +84,15 @@ export function createErrorHandler() {
         return {
           type: 'network',
           message: 'Network connection failed',
-          originalError: error.originalError
+          originalError: error.originalError,
         };
       }
 
       return {
         type: 'unknown',
         message: error.message || 'An unexpected error occurred',
-        error
+        error,
       };
-    }
+    },
   };
 }

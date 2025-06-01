@@ -1,20 +1,20 @@
 'use client';
 
-import { Toaster } from "sonner";
-import { ThemeProvider } from "@/components/theme-provider";
-import { AuthProvider } from "./(auth)/AuthContext";
-import { useEffect, Suspense } from "react";
-import { Inter } from "next/font/google";
-import dynamic from "next/dynamic";
-import "./globals.css";
+import { Toaster } from 'sonner';
+import { ThemeProvider } from '@/components/theme-provider';
+import { AuthProvider } from './(auth)/AuthContext';
+import { useEffect, Suspense } from 'react';
+import { Inter } from 'next/font/google';
+import dynamic from 'next/dynamic';
+import './globals.css';
 
 // Lazy load performance monitor only in production
 const PerformanceMonitor = dynamic(
-  () => import("@/components/performance/PerformanceMonitor"),
-  { ssr: false }
+  () => import('@/components/performance/PerformanceMonitor'),
+  { ssr: false },
 );
 
-const inter = Inter({ 
+const inter = Inter({
   subsets: ['latin'],
   weight: ['400', '500', '700'],
   variable: '--font-inter',
@@ -22,13 +22,18 @@ const inter = Inter({
   preload: true,
 });
 
-const LIGHT_THEME_COLOR = "hsl(0 0% 100%)";
-const DARK_THEME_COLOR = "hsl(240deg 10% 3.92%)";
+const LIGHT_THEME_COLOR = 'hsl(0 0% 100%)';
+const DARK_THEME_COLOR = 'hsl(240deg 10% 3.92%)';
 
-export default function ClientLayout({ children }: { children: React.ReactNode }) {
+export default function ClientLayout({
+  children,
+}: { children: React.ReactNode }) {
   // Redirect from 127.0.0.1 to localhost for Firebase auth compatibility
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hostname === '127.0.0.1') {
+    if (
+      typeof window !== 'undefined' &&
+      window.location.hostname === '127.0.0.1'
+    ) {
       const port = window.location.port;
       const path = window.location.pathname;
       const search = window.location.search;
@@ -43,7 +48,10 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       const meta = document.querySelector('meta[name="theme-color"]');
       if (meta) {
         const isDark = html.classList.contains('dark');
-        meta.setAttribute('content', isDark ? DARK_THEME_COLOR : LIGHT_THEME_COLOR);
+        meta.setAttribute(
+          'content',
+          isDark ? DARK_THEME_COLOR : LIGHT_THEME_COLOR,
+        );
       }
     };
 
@@ -80,19 +88,26 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       <head>
         {/* Preload critical resources */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
         <link rel="dns-prefetch" href="//avatar.vercel.sh" />
-        
+
         {/* Optimize viewport for mobile */}
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
+
         {/* Firebase Auth Helper Script is now loaded via useEffect */}
       </head>
       <body className={`${inter.className} antialiased`}>
         <Suspense fallback={null}>
           <PerformanceMonitor />
         </Suspense>
-        
+
         <AuthProvider>
           <ThemeProvider
             attribute="class"
@@ -103,9 +118,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
             {children}
           </ThemeProvider>
         </AuthProvider>
-        
-        <Toaster 
-          position="top-center" 
+
+        <Toaster
+          position="top-center"
           toastOptions={{
             duration: 4000,
             style: {

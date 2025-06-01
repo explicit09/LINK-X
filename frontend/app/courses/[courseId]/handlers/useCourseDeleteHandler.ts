@@ -16,11 +16,11 @@ export function useCourseDeleteHandler(courseId: string) {
     try {
       setIsDeletingCourse(true);
       await instructorAPI.deleteCourse(courseId);
-      toast.success("Course deleted successfully");
-      router.push("/dashboard");
+      toast.success('Course deleted successfully');
+      router.push('/dashboard');
     } catch (error) {
-      console.error("Error deleting course:", error);
-      toast.error("Failed to delete course");
+      console.error('Error deleting course:', error);
+      toast.error('Failed to delete course');
     } finally {
       setIsDeletingCourse(false);
       setCourseDeleteDialogOpen(false);
@@ -32,6 +32,6 @@ export function useCourseDeleteHandler(courseId: string) {
     setCourseDeleteDialogOpen,
     isDeletingCourse,
     handleDeleteCourse,
-    confirmDeleteCourse
+    confirmDeleteCourse,
   };
 }

@@ -1,14 +1,17 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { useDashboardOverview, useAIRecommendations } from "@/hooks/useDashboardData";
-import { 
-  Target, 
-  Zap, 
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import {
+  useDashboardOverview,
+  useAIRecommendations,
+} from '@/hooks/useDashboardData';
+import {
+  Target,
+  Zap,
   Timer,
   Brain,
   Play,
@@ -18,8 +21,8 @@ import {
   BookOpen,
   ChevronRight,
   ArrowRight,
-  Loader2
-} from "lucide-react";
+  Loader2,
+} from 'lucide-react';
 
 interface DashboardMainContentProps {
   onActionClick?: (action: any) => void;
@@ -30,43 +33,55 @@ interface DashboardMainContentProps {
 export function DashboardMainContent({
   onActionClick,
   onCourseClick,
-  onViewProgress
+  onViewProgress,
 }: DashboardMainContentProps) {
-  const [completedRecommendations, setCompletedRecommendations] = useState<string[]>([]);
-  
+  const [completedRecommendations, setCompletedRecommendations] = useState<
+    string[]
+  >([]);
+
   // Real data from API
-  const { data: dashboardData, loading: dashboardLoading, error: dashboardError } = useDashboardOverview();
+  const {
+    data: dashboardData,
+    loading: dashboardLoading,
+    error: dashboardError,
+  } = useDashboardOverview();
   const { data: aiData, loading: aiLoading } = useAIRecommendations();
-  
+
   // Extract data with fallbacks
   const weeklyProgress = dashboardData?.weekly_progress || {
     overall: 0,
     xp: { current: 0, target: 150 },
     tasks: { completed: 0, total: 8 },
-    study_time: { current: 0, target: 12 }
+    study_time: { current: 0, target: 12 },
   };
-  
+
   const priorityActions = dashboardData?.priority_actions || [];
   const aiRecommendations = aiData?.recommendations || [];
 
   const handleRecommendationClick = (rec: any) => {
-    setCompletedRecommendations(prev => [...prev, rec.id]);
+    setCompletedRecommendations((prev) => [...prev, rec.id]);
     onActionClick?.(rec);
   };
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
-      case "urgent": return "border-red-200 bg-red-50";
-      case "medium": return "border-orange-200 bg-orange-50";
-      default: return "border-blue-200 bg-blue-50";
+      case 'urgent':
+        return 'border-red-200 bg-red-50';
+      case 'medium':
+        return 'border-orange-200 bg-orange-50';
+      default:
+        return 'border-blue-200 bg-blue-50';
     }
   };
 
   const getUrgencyBadge = (urgency: string) => {
     switch (urgency) {
-      case "urgent": return "bg-red-100 text-red-700 border-red-200";
-      case "medium": return "bg-orange-100 text-orange-700 border-orange-200";
-      default: return "bg-blue-100 text-blue-700 border-blue-200";
+      case 'urgent':
+        return 'bg-red-100 text-red-700 border-red-200';
+      case 'medium':
+        return 'bg-orange-100 text-orange-700 border-orange-200';
+      default:
+        return 'bg-blue-100 text-blue-700 border-blue-200';
     }
   };
 
@@ -85,7 +100,7 @@ export function DashboardMainContent({
       </div>
     );
   }
-  
+
   // Error state
   if (dashboardError) {
     return (
@@ -121,24 +136,43 @@ export function DashboardMainContent({
         <CardContent className="space-y-4">
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
-              <div className="text-lg font-bold text-yellow-600">{weeklyProgress.xp.current}/{weeklyProgress.xp.target}</div>
+              <div className="text-lg font-bold text-yellow-600">
+                {weeklyProgress.xp.current}/{weeklyProgress.xp.target}
+              </div>
               <div className="text-xs text-gray-600">XP Progress</div>
-              <div className="text-xs text-yellow-600 font-medium">+{weeklyProgress.xp.target - weeklyProgress.xp.current} to go</div>
+              <div className="text-xs text-yellow-600 font-medium">
+                +{weeklyProgress.xp.target - weeklyProgress.xp.current} to go
+              </div>
             </div>
             <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
-              <div className="text-lg font-bold text-blue-600">{weeklyProgress.tasks.completed}/{weeklyProgress.tasks.total}</div>
+              <div className="text-lg font-bold text-blue-600">
+                {weeklyProgress.tasks.completed}/{weeklyProgress.tasks.total}
+              </div>
               <div className="text-xs text-gray-600">Tasks Done</div>
-              <div className="text-xs text-blue-600 font-medium">{weeklyProgress.tasks.total - weeklyProgress.tasks.completed} remaining</div>
+              <div className="text-xs text-blue-600 font-medium">
+                {weeklyProgress.tasks.total - weeklyProgress.tasks.completed}{' '}
+                remaining
+              </div>
             </div>
             <div className="text-center p-3 bg-white rounded-lg border border-gray-200">
-              <div className="text-lg font-bold text-purple-600">{weeklyProgress.study_time.current}/{weeklyProgress.study_time.target}h</div>
+              <div className="text-lg font-bold text-purple-600">
+                {weeklyProgress.study_time.current}/
+                {weeklyProgress.study_time.target}h
+              </div>
               <div className="text-xs text-gray-600">Study Time</div>
-              <div className="text-xs text-purple-600 font-medium">{weeklyProgress.study_time.target - weeklyProgress.study_time.current}h left</div>
+              <div className="text-xs text-purple-600 font-medium">
+                {weeklyProgress.study_time.target -
+                  weeklyProgress.study_time.current}
+                h left
+              </div>
             </div>
           </div>
-          
+
           <div className="text-center pt-2">
-            <Button onClick={onViewProgress} className="bg-blue-600 hover:bg-blue-700">
+            <Button
+              onClick={onViewProgress}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
               <BarChart3 className="h-4 w-4 mr-2" />
               View Full Progress
             </Button>
@@ -163,31 +197,44 @@ export function DashboardMainContent({
                 Your Priority Now
               </h3>
               <div className="space-y-3">
-                {priorityActions.length > 0 ? priorityActions.map((action) => (
-                  <div 
-                    key={action.id}
-                    className={`p-3 rounded-lg border cursor-pointer hover:shadow-sm transition-all ${getUrgencyColor(action.urgency)}`}
-                    onClick={() => onActionClick?.(action)}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-gray-900">{action.title}</h4>
-                      <Badge className={`text-xs ${getUrgencyBadge(action.urgency)}`}>
-                        {action.urgency}
-                      </Badge>
+                {priorityActions.length > 0 ? (
+                  priorityActions.map((action) => (
+                    <div
+                      key={action.id}
+                      className={`p-3 rounded-lg border cursor-pointer hover:shadow-sm transition-all ${getUrgencyColor(action.urgency)}`}
+                      onClick={() => onActionClick?.(action)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-gray-900">
+                          {action.title}
+                        </h4>
+                        <Badge
+                          className={`text-xs ${getUrgencyBadge(action.urgency)}`}
+                        >
+                          {action.urgency}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">
+                        {action.description}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500 flex items-center">
+                          <Timer className="h-3 w-3 mr-1" />
+                          {action.time_estimate}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant={
+                            action.urgency === 'urgent' ? 'default' : 'outline'
+                          }
+                        >
+                          <Play className="h-3 w-3 mr-1" />
+                          Start
+                        </Button>
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-600 mb-2">{action.description}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500 flex items-center">
-                        <Timer className="h-3 w-3 mr-1" />
-                        {action.time_estimate}
-                      </span>
-                      <Button size="sm" variant={action.urgency === "urgent" ? "default" : "outline"}>
-                        <Play className="h-3 w-3 mr-1" />
-                        Start
-                      </Button>
-                    </div>
-                  </div>
-                )) : (
+                  ))
+                ) : (
                   <div className="p-4 text-center text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
                     <CheckCircle className="h-8 w-8 mx-auto mb-2 text-green-500" />
                     <p className="text-sm">All caught up! 🎉</p>
@@ -205,60 +252,78 @@ export function DashboardMainContent({
                 {aiLoading && <Loader2 className="h-3 w-3 ml-2 animate-spin" />}
               </h3>
               <div className="space-y-3">
-                {aiRecommendations.length > 0 ? aiRecommendations.map((rec) => {
-                  const isCompleted = completedRecommendations.includes(rec.id);
-                  
-                  return (
-                    <div 
-                      key={rec.id}
-                      className={cn(
-                        "p-3 rounded-lg border transition-all",
-                        isCompleted 
-                          ? "border-green-200 bg-green-50" 
-                          : "border-purple-200 bg-purple-50 cursor-pointer hover:shadow-sm"
-                      )}
-                      onClick={() => !isCompleted && handleRecommendationClick(rec)}
-                    >
-                      <div className="flex items-start space-x-3">
-                        <div className="text-lg">{rec.icon}</div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <h4 className="font-medium text-gray-900 text-sm">{rec.title}</h4>
-                            {!isCompleted && (
-                              <Badge className="bg-purple-100 text-purple-700 text-xs">
-                                +{rec.xp_reward} XP
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-gray-600 mb-2">{rec.description}</p>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-500">{rec.estimated_time}</span>
-                            {isCompleted ? (
-                              <div className="flex items-center space-x-1 text-green-600">
-                                <CheckCircle className="h-3 w-3" />
-                                <span className="text-xs font-medium">Complete</span>
+                {aiRecommendations.length > 0 ? (
+                  aiRecommendations.map((rec) => {
+                    const isCompleted = completedRecommendations.includes(
+                      rec.id,
+                    );
+
+                    return (
+                      <div
+                        key={rec.id}
+                        className={cn(
+                          'p-3 rounded-lg border transition-all',
+                          isCompleted
+                            ? 'border-green-200 bg-green-50'
+                            : 'border-purple-200 bg-purple-50 cursor-pointer hover:shadow-sm',
+                        )}
+                        onClick={() =>
+                          !isCompleted && handleRecommendationClick(rec)
+                        }
+                      >
+                        <div className="flex items-start space-x-3">
+                          <div className="text-lg">{rec.icon}</div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <h4 className="font-medium text-gray-900 text-sm">
+                                {rec.title}
+                              </h4>
+                              {!isCompleted && (
+                                <Badge className="bg-purple-100 text-purple-700 text-xs">
+                                  +{rec.xp_reward} XP
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-600 mb-2">
+                              {rec.description}
+                            </p>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-500">
+                                {rec.estimated_time}
+                              </span>
+                              {isCompleted ? (
+                                <div className="flex items-center space-x-1 text-green-600">
+                                  <CheckCircle className="h-3 w-3" />
+                                  <span className="text-xs font-medium">
+                                    Complete
+                                  </span>
+                                </div>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-purple-600 border-purple-300"
+                                >
+                                  {rec.action}
+                                </Button>
+                              )}
+                            </div>
+                            {isCompleted && (
+                              <div className="mt-2 w-full bg-green-200 rounded-full h-1">
+                                <div className="bg-green-500 h-1 rounded-full w-full"></div>
                               </div>
-                            ) : (
-                              <Button size="sm" variant="outline" className="text-purple-600 border-purple-300">
-                                {rec.action}
-                              </Button>
+                            )}
+                            {rec.confidence && (
+                              <div className="mt-1 text-xs text-gray-500">
+                                Confidence: {Math.round(rec.confidence * 100)}%
+                              </div>
                             )}
                           </div>
-                          {isCompleted && (
-                            <div className="mt-2 w-full bg-green-200 rounded-full h-1">
-                              <div className="bg-green-500 h-1 rounded-full w-full"></div>
-                            </div>
-                          )}
-                          {rec.confidence && (
-                            <div className="mt-1 text-xs text-gray-500">
-                              Confidence: {Math.round(rec.confidence * 100)}%
-                            </div>
-                          )}
                         </div>
                       </div>
-                    </div>
-                  );
-                }) : (
+                    );
+                  })
+                ) : (
                   <div className="p-4 text-center text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
                     <Brain className="h-8 w-8 mx-auto mb-2 text-purple-500" />
                     <p className="text-sm">AI recommendations loading...</p>
@@ -270,7 +335,6 @@ export function DashboardMainContent({
           </div>
         </CardContent>
       </Card>
-
     </div>
   );
 }

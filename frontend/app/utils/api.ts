@@ -13,11 +13,14 @@ export async function getAuthToken() {
   }
 }
 
-export async function fetchWithAuth(endpoint: string, options: RequestInit = {}) {
+export async function fetchWithAuth(
+  endpoint: string,
+  options: RequestInit = {},
+) {
   const token = await getAuthToken();
   const headers = {
     'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   };
 
@@ -60,15 +63,18 @@ export async function fetchWithAuth(endpoint: string, options: RequestInit = {})
 
 export const api = {
   get: (endpoint: string) => fetchWithAuth(endpoint),
-  post: (endpoint: string, data: unknown) => fetchWithAuth(endpoint, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  }),
-  put: (endpoint: string, data: unknown) => fetchWithAuth(endpoint, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  }),
-  delete: (endpoint: string) => fetchWithAuth(endpoint, {
-    method: 'DELETE',
-  }),
+  post: (endpoint: string, data: unknown) =>
+    fetchWithAuth(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  put: (endpoint: string, data: unknown) =>
+    fetchWithAuth(endpoint, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  delete: (endpoint: string) =>
+    fetchWithAuth(endpoint, {
+      method: 'DELETE',
+    }),
 };

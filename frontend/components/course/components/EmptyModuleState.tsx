@@ -1,7 +1,7 @@
 import React from 'react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, Plus, Upload, Lightbulb } from "lucide-react";
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { BookOpen, Plus, Upload, Lightbulb } from 'lucide-react';
 
 interface EmptyModuleStateProps {
   onCreateModule: () => void;
@@ -9,10 +9,10 @@ interface EmptyModuleStateProps {
   className?: string;
 }
 
-export function EmptyModuleState({ 
-  onCreateModule, 
+export function EmptyModuleState({
+  onCreateModule,
   canCreateModule = false,
-  className = "" 
+  className = '',
 }: EmptyModuleStateProps) {
   return (
     <Card className={`border-dashed ${className}`}>
@@ -31,10 +31,9 @@ export function EmptyModuleState({
               No modules yet
             </h3>
             <p className="text-gray-600 max-w-md mx-auto">
-              {canCreateModule 
-                ? "Create your first module to organize course materials and make them accessible to students."
-                : "Your instructor hasn't created any modules yet. Check back later for course materials."
-              }
+              {canCreateModule
+                ? 'Create your first module to organize course materials and make them accessible to students.'
+                : "Your instructor hasn't created any modules yet. Check back later for course materials."}
             </p>
           </div>
 
@@ -58,7 +57,9 @@ export function EmptyModuleState({
                   <ul className="text-blue-800 space-y-1">
                     <li>• Organize content by topics or weeks</li>
                     <li>• Upload PDFs, documents, audio, and video files</li>
-                    <li>• Students can ask AI questions about uploaded materials</li>
+                    <li>
+                      • Students can ask AI questions about uploaded materials
+                    </li>
                     <li>• Use descriptive module names for easy navigation</li>
                   </ul>
                 </div>
@@ -72,7 +73,9 @@ export function EmptyModuleState({
               <div className="flex items-start space-x-3 text-left">
                 <Upload className="h-5 w-5 text-gray-600 mt-0.5 flex-shrink-0" />
                 <div className="text-sm">
-                  <h4 className="font-medium text-gray-900 mb-1">When modules are available:</h4>
+                  <h4 className="font-medium text-gray-900 mb-1">
+                    When modules are available:
+                  </h4>
                   <ul className="text-gray-700 space-y-1">
                     <li>• Access course materials organized by topic</li>
                     <li>• Download files for offline study</li>

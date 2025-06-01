@@ -79,7 +79,7 @@ function BlockEditorComponent({
             readOnly={isReadonly || !isCurrentVersion}
           />
         </div>
-        
+
         {consoleOutputs.length > 0 && (
           <div className="h-48 border-t border-gray-200 dark:border-gray-700">
             <Console

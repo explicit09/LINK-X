@@ -234,5 +234,8 @@ export function getMessageIdFromAnnotations(message: Message) {
   if (!annotation) return message.id;
 
   // Type assertion for custom annotation property
-  return (annotation as { messageIdFromServer?: string }).messageIdFromServer || message.id;
+  return (
+    (annotation as { messageIdFromServer?: string }).messageIdFromServer ||
+    message.id
+  );
 }

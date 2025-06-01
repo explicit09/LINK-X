@@ -48,15 +48,17 @@ describe('GoogleAuthButton', () => {
 
   it('renders Google sign-in button', () => {
     render(<GoogleAuthButton />);
-    
-    const button = screen.getByRole('button', { name: /continue with google/i });
+
+    const button = screen.getByRole('button', {
+      name: /continue with google/i,
+    });
     expect(button).toBeInTheDocument();
     expect(button).toHaveClass('w-full');
   });
 
   it('renders with custom text', () => {
     render(<GoogleAuthButton text="Sign up with Google" />);
-    
+
     expect(screen.getByText(/sign up with google/i)).toBeInTheDocument();
   });
 
@@ -86,10 +88,12 @@ describe('GoogleAuthButton', () => {
 
     const user = userEvent.setup();
     render(<GoogleAuthButton />);
-    
-    const button = screen.getByRole('button', { name: /continue with google/i });
+
+    const button = screen.getByRole('button', {
+      name: /continue with google/i,
+    });
     await user.click(button);
-    
+
     await waitFor(() => {
       expect(signInWithPopup).toHaveBeenCalled();
       expect(authApi.loginWithGoogle).toHaveBeenCalledWith('google-token');
@@ -124,9 +128,9 @@ describe('GoogleAuthButton', () => {
 
     const user = userEvent.setup();
     render(<GoogleAuthButton />);
-    
+
     await user.click(screen.getByRole('button'));
-    
+
     await waitFor(() => {
       expect(mockRouter.push).toHaveBeenCalledWith('/onboarding');
     });
@@ -135,14 +139,14 @@ describe('GoogleAuthButton', () => {
   it('handles Google popup cancellation', async () => {
     const cancelError = new Error('Popup closed by user');
     (cancelError as any).code = 'auth/popup-closed-by-user';
-    
+
     (signInWithPopup as jest.Mock).mockRejectedValue(cancelError);
 
     const user = userEvent.setup();
     render(<GoogleAuthButton />);
-    
+
     await user.click(screen.getByRole('button'));
-    
+
     await waitFor(() => {
       expect(mockToast.toast).not.toHaveBeenCalled();
       expect(mockRouter.push).not.toHaveBeenCalled();
@@ -152,14 +156,14 @@ describe('GoogleAuthButton', () => {
   it('handles authentication errors', async () => {
     const authError = new Error('Authentication failed');
     (authError as any).code = 'auth/operation-not-allowed';
-    
+
     (signInWithPopup as jest.Mock).mockRejectedValue(authError);
 
     const user = userEvent.setup();
     render(<GoogleAuthButton />);
-    
+
     await user.click(screen.getByRole('button'));
-    
+
     await waitFor(() => {
       expect(mockToast.toast).toHaveBeenCalledWith({
         title: 'Authentication Error',
@@ -183,9 +187,9 @@ describe('GoogleAuthButton', () => {
 
     const user = userEvent.setup();
     render(<GoogleAuthButton />);
-    
+
     await user.click(screen.getByRole('button'));
-    
+
     await waitFor(() => {
       expect(mockToast.toast).toHaveBeenCalledWith({
         title: 'Error',
@@ -200,22 +204,22 @@ describe('GoogleAuthButton', () => {
     const authPromise = new Promise((resolve) => {
       resolveAuth = resolve;
     });
-    
+
     (signInWithPopup as jest.Mock).mockReturnValue(authPromise);
 
     const user = userEvent.setup();
     render(<GoogleAuthButton />);
-    
+
     const button = screen.getByRole('button');
     await user.click(button);
-    
+
     // Check loading state
     expect(button).toBeDisabled();
     expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
-    
+
     // Resolve authentication
     resolveAuth({ user: { getIdToken: jest.fn().mockResolvedValue('token') } });
-    
+
     await waitFor(() => {
       expect(button).not.toBeDisabled();
     });
@@ -223,7 +227,7 @@ describe('GoogleAuthButton', () => {
 
   it('applies custom className', () => {
     render(<GoogleAuthButton className="custom-class" />);
-    
+
     const button = screen.getByRole('button');
     expect(button).toHaveClass('custom-class');
   });
@@ -240,9 +244,9 @@ describe('GoogleAuthButton', () => {
 
     const user = userEvent.setup();
     render(<GoogleAuthButton />);
-    
+
     await user.click(screen.getByRole('button'));
-    
+
     await waitFor(() => {
       expect(mockToast.toast).toHaveBeenCalledWith({
         title: 'Error',

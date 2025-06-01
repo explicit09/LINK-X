@@ -1,5 +1,5 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, Timer, Star, Clock } from "lucide-react";
+import { Card, CardContent } from '@/components/ui/card';
+import { BookOpen, Timer, Star, Clock } from 'lucide-react';
 import { Subsection } from '../types/streaming.types';
 import { ContentSkeleton } from './ui/ContentSkeleton';
 import { BlinkingCursor } from './ui/BlinkingCursor';
@@ -8,7 +8,9 @@ interface LessonContentViewerProps {
   currentLesson: Subsection | null;
 }
 
-export const LessonContentViewer = ({ currentLesson }: LessonContentViewerProps) => {
+export const LessonContentViewer = ({
+  currentLesson,
+}: LessonContentViewerProps) => {
   if (!currentLesson) {
     return null;
   }
@@ -21,20 +23,20 @@ export const LessonContentViewer = ({ currentLesson }: LessonContentViewerProps)
           <h1 className="text-3xl font-bold text-gray-900 mb-4">
             {currentLesson.title}
           </h1>
-          
+
           <div className="flex items-center space-x-4 text-sm text-gray-600">
             <div className="flex items-center space-x-1">
               <Timer className="h-4 w-4" />
               <span>{currentLesson.timeToComplete || 5} minutes</span>
             </div>
-            
+
             {currentLesson.score && (
               <div className="flex items-center space-x-1">
                 <Star className="h-4 w-4" />
                 <span>Your best: {currentLesson.score}%</span>
               </div>
             )}
-            
+
             {currentLesson.lastVisited && (
               <div className="flex items-center space-x-1">
                 <Clock className="h-4 w-4" />

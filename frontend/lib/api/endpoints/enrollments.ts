@@ -6,16 +6,15 @@ import { apiClient } from '../client';
 
 export const enrollmentAPI = {
   // Student enrollment
-  enrollInCourse: (accessCode: string) => 
+  enrollInCourse: (accessCode: string) =>
     apiClient.post('/api/v2/enrollments', { accessCode }),
 
-  getEnrollments: () => 
-    apiClient.get('/api/v2/enrollments'),
+  getEnrollments: () => apiClient.get('/api/v2/enrollments'),
 
-  unenrollFromCourse: (enrollmentId: string) => 
+  unenrollFromCourse: (enrollmentId: string) =>
     apiClient.delete(`/api/v2/enrollments/${enrollmentId}`),
 
   // Instructor enrollment management
-  unenrollStudent: (enrollmentId: string) => 
+  unenrollStudent: (enrollmentId: string) =>
     apiClient.delete(`/api/v2/enrollments/${enrollmentId}`),
 };

@@ -1,7 +1,7 @@
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Brain, ChevronRight, ArrowLeft } from "lucide-react";
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Brain, ChevronRight, ArrowLeft } from 'lucide-react';
 import { ChatMessage } from '../types/streaming.types';
 import { BlinkingCursor } from './ui/BlinkingCursor';
 
@@ -28,7 +28,7 @@ export const AITutorChat = ({
   setChatOpen,
   setChatInput,
   handleChatSubmit,
-  openChat
+  openChat,
 }: AITutorChatProps) => {
   return (
     <>
@@ -74,33 +74,49 @@ export const AITutorChat = ({
             {chatMessages.length === 0 ? (
               <div className="text-center text-gray-500 text-sm py-8">
                 <Brain className="h-8 w-8 text-purple-400 mx-auto mb-2" />
-                <p className="font-medium">Ask me anything about your lesson!</p>
-                <p className="text-xs mt-1">I can explain concepts, create quizzes, or help with questions.</p>
+                <p className="font-medium">
+                  Ask me anything about your lesson!
+                </p>
+                <p className="text-xs mt-1">
+                  I can explain concepts, create quizzes, or help with
+                  questions.
+                </p>
               </div>
             ) : (
               chatMessages.map((message, index) => (
                 <div
                   key={index}
                   className={cn(
-                    "p-3 rounded-lg text-sm max-w-[85%] break-words",
+                    'p-3 rounded-lg text-sm max-w-[85%] break-words',
                     message.role === 'user'
-                      ? "bg-blue-500 text-white ml-auto"
-                      : "bg-gray-100 text-gray-800"
+                      ? 'bg-blue-500 text-white ml-auto'
+                      : 'bg-gray-100 text-gray-800',
                   )}
                 >
                   {message.content ? (
                     <>
                       <span>{message.content}</span>
-                      {isStreaming && message.role === 'ai' && index === chatMessages.length - 1 && (
-                        <BlinkingCursor />
-                      )}
+                      {isStreaming &&
+                        message.role === 'ai' &&
+                        index === chatMessages.length - 1 && <BlinkingCursor />}
                     </>
                   ) : (
-                    isStreaming && message.role === 'ai' && index === chatMessages.length - 1 && (
+                    isStreaming &&
+                    message.role === 'ai' &&
+                    index === chatMessages.length - 1 && (
                       <div className="flex items-center space-x-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        <div
+                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                          style={{ animationDelay: '0s' }}
+                        ></div>
+                        <div
+                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                          style={{ animationDelay: '0.1s' }}
+                        ></div>
+                        <div
+                          className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                          style={{ animationDelay: '0.2s' }}
+                        ></div>
                       </div>
                     )
                   )}
@@ -117,8 +133,12 @@ export const AITutorChat = ({
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && !isStreaming && handleChatSubmit()}
-                placeholder={isStreaming ? "AI is thinking..." : "Ask a question..."}
+                onKeyPress={(e) =>
+                  e.key === 'Enter' && !isStreaming && handleChatSubmit()
+                }
+                placeholder={
+                  isStreaming ? 'AI is thinking...' : 'Ask a question...'
+                }
                 disabled={isStreaming}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
               />

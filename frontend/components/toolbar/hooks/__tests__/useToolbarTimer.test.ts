@@ -9,7 +9,7 @@ describe('useToolbarTimer', () => {
     const setIsToolbarVisible = jest.fn();
 
     const { result } = renderHook(() =>
-      useToolbarTimer(setSelectedTool, setIsToolbarVisible)
+      useToolbarTimer(setSelectedTool, setIsToolbarVisible),
     );
 
     // Start timer
@@ -41,7 +41,7 @@ describe('useToolbarTimer', () => {
     const setIsToolbarVisible = jest.fn();
 
     const { result } = renderHook(() =>
-      useToolbarTimer(setSelectedTool, setIsToolbarVisible)
+      useToolbarTimer(setSelectedTool, setIsToolbarVisible),
     );
 
     act(() => {

@@ -1,24 +1,24 @@
 import React from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { 
-  ChevronDown, 
-  ChevronRight, 
-  Edit, 
-  Check, 
-  X, 
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
+  ChevronDown,
+  ChevronRight,
+  Edit,
+  Check,
+  X,
   MoreVertical,
   Trash2,
   BookOpen,
-  Sparkles
-} from "lucide-react";
+  Sparkles,
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 
 import { Module } from '../hooks/useModuleManager';
 
@@ -45,7 +45,7 @@ export function ModuleHeader({
   onUpdateEditTitle,
   onDelete,
   onPersonalize,
-  className = ""
+  className = '',
 }: ModuleHeaderProps) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -109,7 +109,7 @@ export function ModuleHeader({
               </div>
             ) : (
               <div className="flex items-center space-x-2">
-                <h3 
+                <h3
                   className="text-lg font-semibold text-gray-900 truncate cursor-pointer hover:text-blue-600 transition-colors"
                   onClick={() => onToggle(module.id)}
                 >
@@ -131,7 +131,8 @@ export function ModuleHeader({
 
           {/* Material Count Badge */}
           <Badge variant="secondary" className="flex-shrink-0">
-            {module.materials.length} file{module.materials.length !== 1 ? 's' : ''}
+            {module.materials.length} file
+            {module.materials.length !== 1 ? 's' : ''}
           </Badge>
         </div>
 
@@ -154,11 +155,7 @@ export function ModuleHeader({
           {canModify && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                >
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -173,7 +170,7 @@ export function ModuleHeader({
                     Personalize
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={() => onDelete(module.id)}
                   className="text-red-600 focus:text-red-600"
                 >
@@ -190,7 +187,9 @@ export function ModuleHeader({
       <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
         <span>Created {new Date(module.createdAt).toLocaleDateString()}</span>
         {module.updatedAt !== module.createdAt && (
-          <span>• Updated {new Date(module.updatedAt).toLocaleDateString()}</span>
+          <span>
+            • Updated {new Date(module.updatedAt).toLocaleDateString()}
+          </span>
         )}
       </div>
     </div>

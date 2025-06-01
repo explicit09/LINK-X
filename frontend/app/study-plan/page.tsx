@@ -1,30 +1,30 @@
-"use client";
+'use client';
 
-import { SharedDashboardLayout } from "@/components/dashboard/layouts/SharedDashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { useState, useEffect } from "react";
-import { userAPI } from "@/lib/api";
-import { useRouter } from "next/navigation";
-import { 
-  useStudyPlanDashboard, 
-  useGoalPriority, 
+import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { useState, useEffect } from 'react';
+import { userAPI } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import {
+  useStudyPlanDashboard,
+  useGoalPriority,
   useApplyRecommendation,
   useUpdateGoalStatus,
   useCreateStudyPlan,
   useCreateGoal,
-  useStartSession
-} from "@/hooks/useStudyPlans";
-import { toast } from "sonner";
-import { 
+  useStartSession,
+} from '@/hooks/useStudyPlans';
+import { toast } from 'sonner';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -33,17 +33,23 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  Target, 
-  Calendar, 
-  Clock, 
-  TrendingUp, 
-  CheckCircle, 
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Target,
+  Calendar,
+  Clock,
+  TrendingUp,
+  CheckCircle,
   AlertCircle,
   Zap,
   Brain,
@@ -58,11 +64,13 @@ import {
   Video,
   Trophy,
   Play,
-  RotateCcw
-} from "lucide-react";
+  RotateCcw,
+} from 'lucide-react';
 
 export default function StudyPlanPage() {
-  const [activeRecommendations, setActiveRecommendations] = useState<Set<string>>(new Set());
+  const [activeRecommendations, setActiveRecommendations] = useState<
+    Set<string>
+  >(new Set());
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [showCreatePlan, setShowCreatePlan] = useState(false);
   const [showCreateGoal, setShowCreateGoal] = useState(false);
@@ -71,7 +79,7 @@ export default function StudyPlanPage() {
     weekly_study_hours: 12,
     preferred_session_length: 45,
     learning_style: '',
-    difficulty_preference: 'adaptive'
+    difficulty_preference: 'adaptive',
   });
   const [goalFormData, setGoalFormData] = useState({
     title: '',
@@ -79,11 +87,11 @@ export default function StudyPlanPage() {
     goal_type: 'weekly',
     priority: 'medium',
     estimated_hours: '',
-    target_date: ''
+    target_date: '',
   });
 
   const router = useRouter();
-  
+
   // Study plan hooks
   const {
     activePlan,
@@ -93,9 +101,9 @@ export default function StudyPlanPage() {
     recommendations,
     analytics,
     isLoading,
-    refetchAll
+    refetchAll,
   } = useStudyPlanDashboard();
-  
+
   const { getPriorityColor, getStatusColor } = useGoalPriority();
   const { execute: applyRecommendation } = useApplyRecommendation();
   const { execute: updateGoalStatus } = useUpdateGoalStatus();
@@ -109,19 +117,19 @@ export default function StudyPlanPage() {
         const user = await userAPI.getMe();
         setCurrentUser(user);
       } catch (error) {
-        console.error("Failed to fetch user:", error);
+        console.error('Failed to fetch user:', error);
         // Fallback for development
-        setCurrentUser({ name: "Student User", email: "student@example.com" });
+        setCurrentUser({ name: 'Student User', email: 'student@example.com' });
       }
     };
 
     fetchUser();
   }, []);
-  
+
   const toggleRecommendation = async (recId: string) => {
     try {
       await applyRecommendation(recId);
-      setActiveRecommendations(prev => new Set(prev).add(recId));
+      setActiveRecommendations((prev) => new Set(prev).add(recId));
       refetchAll(); // Refresh data after applying recommendation
     } catch (error) {
       console.error('Failed to apply recommendation:', error);
@@ -131,7 +139,7 @@ export default function StudyPlanPage() {
   const handleGoalAction = async (goalId: string, currentStatus: string) => {
     try {
       let newStatus = currentStatus;
-      
+
       if (currentStatus === 'pending') {
         newStatus = 'in_progress';
         toast.success('🎯 Goal started! Good luck!');
@@ -139,7 +147,7 @@ export default function StudyPlanPage() {
         newStatus = 'completed';
         toast.success('🎉 Congratulations! Goal completed!');
       }
-      
+
       if (newStatus !== currentStatus) {
         await updateGoalStatus({ goalId, status: newStatus });
         refetchAll();
@@ -154,7 +162,7 @@ export default function StudyPlanPage() {
       await startSession({
         goal_id: goalId,
         session_type: 'study',
-        planned_duration: activePlan?.preferred_session_length || 45
+        planned_duration: activePlan?.preferred_session_length || 45,
       });
       toast.success(`📚 Study session started for: ${goalTitle}`);
       // Could redirect to a study session page
@@ -168,7 +176,7 @@ export default function StudyPlanPage() {
     try {
       await createStudyPlan({
         ...planFormData,
-        is_active: true
+        is_active: true,
       });
       setShowCreatePlan(false);
       setPlanFormData({
@@ -176,7 +184,7 @@ export default function StudyPlanPage() {
         weekly_study_hours: 12,
         preferred_session_length: 45,
         learning_style: '',
-        difficulty_preference: 'adaptive'
+        difficulty_preference: 'adaptive',
       });
       refetchAll();
     } catch (error) {
@@ -194,8 +202,10 @@ export default function StudyPlanPage() {
       await createGoal({
         study_plan_id: activePlan.id,
         ...goalFormData,
-        estimated_hours: goalFormData.estimated_hours ? parseFloat(goalFormData.estimated_hours) : undefined,
-        target_date: goalFormData.target_date || undefined
+        estimated_hours: goalFormData.estimated_hours
+          ? parseFloat(goalFormData.estimated_hours)
+          : undefined,
+        target_date: goalFormData.target_date || undefined,
       });
 
       setShowCreateGoal(false);
@@ -205,7 +215,7 @@ export default function StudyPlanPage() {
         goal_type: 'weekly',
         priority: 'medium',
         estimated_hours: '',
-        target_date: ''
+        target_date: '',
       });
       refetchAll();
     } catch (error) {
@@ -240,22 +250,27 @@ export default function StudyPlanPage() {
   };
 
   // Format goals for display
-  const displayGoals = weeklyGoals?.map(goal => ({
-    id: goal.id,
-    title: goal.title,
-    dueDate: goal.target_date ? formatDueDate(goal.target_date) : 'No due date',
-    priority: goal.priority,
-    estimatedTime: goal.estimated_hours ? `${goal.estimated_hours} hours` : 'Not estimated',
-    progress: goal.completion_percentage,
-    status: goal.status
-  })) || [];
-  
+  const displayGoals =
+    weeklyGoals?.map((goal) => ({
+      id: goal.id,
+      title: goal.title,
+      dueDate: goal.target_date
+        ? formatDueDate(goal.target_date)
+        : 'No due date',
+      priority: goal.priority,
+      estimatedTime: goal.estimated_hours
+        ? `${goal.estimated_hours} hours`
+        : 'Not estimated',
+      progress: goal.completion_percentage,
+      status: goal.status,
+    })) || [];
+
   const formatDueDate = (dateString: string) => {
     const date = new Date(dateString);
     const today = new Date();
     const diffTime = date.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Tomorrow';
     if (diffDays < 0) return 'Overdue';
@@ -265,17 +280,25 @@ export default function StudyPlanPage() {
 
   const getRecommendationIcon = (type: string) => {
     switch (type) {
-      case 'schedule': return <Brain className="h-5 w-5 text-purple-600" />;
-      case 'technique': return <Zap className="h-5 w-5 text-yellow-600" />;
-      case 'content': return <Target className="h-5 w-5 text-green-600" />;
-      default: return <Sparkles className="h-5 w-5 text-blue-600" />;
+      case 'schedule':
+        return <Brain className="h-5 w-5 text-purple-600" />;
+      case 'technique':
+        return <Zap className="h-5 w-5 text-yellow-600" />;
+      case 'content':
+        return <Target className="h-5 w-5 text-green-600" />;
+      default:
+        return <Sparkles className="h-5 w-5 text-blue-600" />;
     }
   };
 
   // Loading state
   if (isLoading) {
     return (
-      <SharedDashboardLayout pageTitle="Study Plan" showGamification={false} currentUser={currentUser}>
+      <SharedDashboardLayout
+        pageTitle="Study Plan"
+        showGamification={false}
+        currentUser={currentUser}
+      >
         <div className="flex justify-center items-center min-h-[400px]">
           <div className="text-center">
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -285,16 +308,25 @@ export default function StudyPlanPage() {
       </SharedDashboardLayout>
     );
   }
-  
+
   // No active plan state
   if (!activePlan) {
     return (
-      <SharedDashboardLayout pageTitle="Study Plan" showGamification={false} currentUser={currentUser}>
+      <SharedDashboardLayout
+        pageTitle="Study Plan"
+        showGamification={false}
+        currentUser={currentUser}
+      >
         <div className="text-center py-12">
           <Target className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">No Active Study Plan</h2>
-          <p className="text-gray-600 mb-6">Create your first study plan to get started with personalized learning.</p>
-          
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            No Active Study Plan
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Create your first study plan to get started with personalized
+            learning.
+          </p>
+
           <Dialog open={showCreatePlan} onOpenChange={setShowCreatePlan}>
             <DialogTrigger asChild>
               <Button className="bg-blue-600 hover:bg-blue-700">
@@ -306,48 +338,74 @@ export default function StudyPlanPage() {
               <DialogHeader>
                 <DialogTitle>Create Your Study Plan</DialogTitle>
                 <DialogDescription>
-                  Set up a personalized study plan to achieve your learning goals.
+                  Set up a personalized study plan to achieve your learning
+                  goals.
                 </DialogDescription>
               </DialogHeader>
-              
+
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="plan_name">Plan Name</Label>
                   <Input
                     id="plan_name"
                     value={planFormData.plan_name}
-                    onChange={(e) => setPlanFormData({...planFormData, plan_name: e.target.value})}
+                    onChange={(e) =>
+                      setPlanFormData({
+                        ...planFormData,
+                        plan_name: e.target.value,
+                      })
+                    }
                     placeholder="e.g., Spring 2024 Study Plan"
                   />
                 </div>
-                
+
                 <div>
                   <Label htmlFor="weekly_hours">Weekly Study Hours</Label>
                   <Input
                     id="weekly_hours"
                     type="number"
                     value={planFormData.weekly_study_hours}
-                    onChange={(e) => setPlanFormData({...planFormData, weekly_study_hours: parseInt(e.target.value)})}
+                    onChange={(e) =>
+                      setPlanFormData({
+                        ...planFormData,
+                        weekly_study_hours: parseInt(e.target.value),
+                      })
+                    }
                     min="1"
                     max="80"
                   />
                 </div>
-                
+
                 <div>
-                  <Label htmlFor="session_length">Preferred Session Length (minutes)</Label>
+                  <Label htmlFor="session_length">
+                    Preferred Session Length (minutes)
+                  </Label>
                   <Input
                     id="session_length"
                     type="number"
                     value={planFormData.preferred_session_length}
-                    onChange={(e) => setPlanFormData({...planFormData, preferred_session_length: parseInt(e.target.value)})}
+                    onChange={(e) =>
+                      setPlanFormData({
+                        ...planFormData,
+                        preferred_session_length: parseInt(e.target.value),
+                      })
+                    }
                     min="15"
                     max="180"
                   />
                 </div>
-                
+
                 <div>
                   <Label htmlFor="learning_style">Learning Style</Label>
-                  <Select value={planFormData.learning_style} onValueChange={(value) => setPlanFormData({...planFormData, learning_style: value})}>
+                  <Select
+                    value={planFormData.learning_style}
+                    onValueChange={(value) =>
+                      setPlanFormData({
+                        ...planFormData,
+                        learning_style: value,
+                      })
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select your learning style" />
                     </SelectTrigger>
@@ -360,10 +418,18 @@ export default function StudyPlanPage() {
                   </Select>
                 </div>
               </div>
-              
+
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowCreatePlan(false)}>Cancel</Button>
-                <Button onClick={handleCreatePlan} disabled={!planFormData.plan_name}>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCreatePlan(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreatePlan}
+                  disabled={!planFormData.plan_name}
+                >
                   Create Plan
                 </Button>
               </DialogFooter>
@@ -376,15 +442,23 @@ export default function StudyPlanPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "completed": return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case "in_progress": return <Clock className="h-4 w-4 text-blue-600" />;
-      case "pending": return <AlertCircle className="h-4 w-4 text-gray-400" />;
-      default: return <Clock className="h-4 w-4 text-gray-400" />;
+      case 'completed':
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'in_progress':
+        return <Clock className="h-4 w-4 text-blue-600" />;
+      case 'pending':
+        return <AlertCircle className="h-4 w-4 text-gray-400" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-400" />;
     }
   };
 
   return (
-    <SharedDashboardLayout pageTitle="Study Plan" showGamification={false} currentUser={currentUser}>
+    <SharedDashboardLayout
+      pageTitle="Study Plan"
+      showGamification={false}
+      currentUser={currentUser}
+    >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Study Plan */}
         <div className="lg:col-span-2 space-y-6">
@@ -407,12 +481,17 @@ export default function StudyPlanPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 text-xs font-semibold px-2 py-0.5 rounded">
-                        <Trophy className="h-3 w-3" />
-                        +{urgentGoals[0].xp_reward} XP
+                        <Trophy className="h-3 w-3" />+
+                        {urgentGoals[0].xp_reward} XP
                       </span>
-                      <Button 
+                      <Button
                         size="sm"
-                        onClick={() => handleStartStudySession(urgentGoals[0].id, urgentGoals[0].title)}
+                        onClick={() =>
+                          handleStartStudySession(
+                            urgentGoals[0].id,
+                            urgentGoals[0].title,
+                          )
+                        }
                         className="px-3 py-1 border border-primary text-primary text-sm font-medium rounded hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       >
                         <Play className="h-3 w-3 mr-1" />
@@ -421,15 +500,20 @@ export default function StudyPlanPage() {
                     </div>
                   </div>
                 )}
-                
+
                 {displayGoals.length > 0 ? (
                   displayGoals.map((goal) => (
-                    <div key={goal.id} className="bg-white border border-gray-200 rounded-lg px-4 py-3">
+                    <div
+                      key={goal.id}
+                      className="bg-white border border-gray-200 rounded-lg px-4 py-3"
+                    >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-2">
                             {getStatusIcon(goal.status)}
-                            <h3 className="font-medium text-gray-900">{goal.title}</h3>
+                            <h3 className="font-medium text-gray-900">
+                              {goal.title}
+                            </h3>
                           </div>
                           <div className="flex items-center space-x-4 text-sm text-gray-500">
                             <div className="flex items-center space-x-1">
@@ -446,7 +530,7 @@ export default function StudyPlanPage() {
                           {goal.priority}
                         </Badge>
                       </div>
-                      
+
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Progress</span>
@@ -454,33 +538,39 @@ export default function StudyPlanPage() {
                         </div>
                         <Progress value={goal.progress} className="h-2" />
                       </div>
-                      
+
                       <div className="flex justify-between mt-3">
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleStartStudySession(goal.id, goal.title)}
-                          disabled={goal.status === "completed"}
+                          onClick={() =>
+                            handleStartStudySession(goal.id, goal.title)
+                          }
+                          disabled={goal.status === 'completed'}
                         >
                           <Play className="h-3 w-3 mr-1" />
                           Study
                         </Button>
-                        
-                        <Button 
-                          size="sm" 
-                          variant={goal.status === "completed" ? "secondary" : "default"}
-                          disabled={goal.status === "completed"}
+
+                        <Button
+                          size="sm"
+                          variant={
+                            goal.status === 'completed'
+                              ? 'secondary'
+                              : 'default'
+                          }
+                          disabled={goal.status === 'completed'}
                           onClick={() => handleGoalAction(goal.id, goal.status)}
                         >
-                          {goal.status === "completed" ? (
+                          {goal.status === 'completed' ? (
                             <>
                               <CheckCircle className="h-3 w-3 mr-1" />
                               Completed
                             </>
-                          ) : goal.status === "in_progress" ? (
-                            "Mark Complete"
+                          ) : goal.status === 'in_progress' ? (
+                            'Mark Complete'
                           ) : (
-                            "Start Goal"
+                            'Start Goal'
                           )}
                         </Button>
                       </div>
@@ -490,7 +580,9 @@ export default function StudyPlanPage() {
                   <div className="text-center py-8 text-gray-500">
                     <Target className="h-12 w-12 mx-auto mb-3 text-gray-400" />
                     <p className="text-sm">No goals for this week</p>
-                    <p className="text-xs mb-4">Create new goals to get started</p>
+                    <p className="text-xs mb-4">
+                      Create new goals to get started
+                    </p>
                     <Button onClick={() => setShowCreateGoal(true)} size="sm">
                       <Plus className="h-3 w-3 mr-1" />
                       Create Goal
@@ -513,7 +605,14 @@ export default function StudyPlanPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-blue-600">
-                    {analytics?.plan_analytics ? Math.round((analytics.plan_analytics.completed_goals / Math.max(analytics.plan_analytics.total_goals, 1)) * 100) : 0}%
+                    {analytics?.plan_analytics
+                      ? Math.round(
+                          (analytics.plan_analytics.completed_goals /
+                            Math.max(analytics.plan_analytics.total_goals, 1)) *
+                            100,
+                        )
+                      : 0}
+                    %
                   </div>
                   <div className="text-sm text-gray-500">Goals Completed</div>
                 </div>
@@ -525,7 +624,9 @@ export default function StudyPlanPage() {
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-purple-600">
-                    {Math.round((analytics?.plan_analytics?.avg_effectiveness || 0) * 10) / 10}
+                    {Math.round(
+                      (analytics?.plan_analytics?.avg_effectiveness || 0) * 10,
+                    ) / 10}
                   </div>
                   <div className="text-sm text-gray-500">Efficiency</div>
                 </div>
@@ -552,19 +653,23 @@ export default function StudyPlanPage() {
             <CardContent className="space-y-4">
               {recommendations && recommendations.length > 0 ? (
                 recommendations.map((rec) => {
-                  const isActive = activeRecommendations.has(rec.id) || rec.status === 'applied';
+                  const isActive =
+                    activeRecommendations.has(rec.id) ||
+                    rec.status === 'applied';
                   return (
-                    <div 
-                      key={rec.id} 
+                    <div
+                      key={rec.id}
                       className={`border rounded-lg p-3 cursor-pointer transition-all duration-200 ${
-                        isActive 
-                          ? "border-green-300 bg-green-50 shadow-sm" 
-                          : "border-gray-200 hover:border-gray-300"
+                        isActive
+                          ? 'border-green-300 bg-green-50 shadow-sm'
+                          : 'border-gray-200 hover:border-gray-300'
                       }`}
                       onClick={() => !isActive && toggleRecommendation(rec.id)}
                     >
                       <div className="flex items-start space-x-3">
-                        <div className="mt-0.5">{getRecommendationIcon(rec.recommendation_type)}</div>
+                        <div className="mt-0.5">
+                          {getRecommendationIcon(rec.recommendation_type)}
+                        </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-1">
                             <h4 className="font-medium text-gray-900 text-sm">
@@ -573,7 +678,9 @@ export default function StudyPlanPage() {
                             {isActive && (
                               <div className="flex items-center space-x-1 bg-green-100 px-2 py-0.5 rounded-full">
                                 <CheckCircle className="h-3 w-3 text-green-600" />
-                                <span className="text-xs font-medium text-green-700">+{rec.xp_reward} XP</span>
+                                <span className="text-xs font-medium text-green-700">
+                                  +{rec.xp_reward} XP
+                                </span>
                               </div>
                             )}
                           </div>
@@ -581,16 +688,20 @@ export default function StudyPlanPage() {
                             {rec.description}
                           </p>
                           <div className="flex items-center justify-between">
-                            <Button 
-                              size="sm" 
-                              variant={isActive ? "default" : "outline"} 
-                              className={`text-xs ${isActive ? "bg-green-600 hover:bg-green-700" : ""}`}
+                            <Button
+                              size="sm"
+                              variant={isActive ? 'default' : 'outline'}
+                              className={`text-xs ${isActive ? 'bg-green-600 hover:bg-green-700' : ''}`}
                               disabled={isActive}
                             >
-                              {isActive ? "Applied" : rec.action_text || "Apply"}
+                              {isActive
+                                ? 'Applied'
+                                : rec.action_text || 'Apply'}
                             </Button>
                             {isActive && (
-                              <span className="text-xs text-green-600 font-medium">Active</span>
+                              <span className="text-xs text-green-600 font-medium">
+                                Active
+                              </span>
                             )}
                           </div>
                         </div>
@@ -602,7 +713,9 @@ export default function StudyPlanPage() {
                 <div className="text-center py-6 text-gray-500">
                   <Sparkles className="h-8 w-8 mx-auto mb-2 text-gray-400" />
                   <p className="text-sm">No recommendations available</p>
-                  <p className="text-xs">Complete more study sessions to get AI suggestions</p>
+                  <p className="text-xs">
+                    Complete more study sessions to get AI suggestions
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -624,24 +737,39 @@ export default function StudyPlanPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="start">
-                  <DropdownMenuItem className="cursor-pointer" onClick={() => handleQuickAction('new-goal')}>
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={() => handleQuickAction('new-goal')}
+                  >
                     <Target className="h-4 w-4 mr-2" />
                     Set New Goal
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer" onClick={() => handleQuickAction('study-session')}>
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={() => handleQuickAction('study-session')}
+                  >
                     <Calendar className="h-4 w-4 mr-2" />
                     Start Study Session
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer" onClick={() => handleQuickAction('add-material')}>
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={() => handleQuickAction('add-material')}
+                  >
                     <FileText className="h-4 w-4 mr-2" />
                     Add Study Material
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer" onClick={() => handleQuickAction('progress-report')}>
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={() => handleQuickAction('progress-report')}
+                  >
                     <TrendingUp className="h-4 w-4 mr-2" />
                     View Progress Report
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer" onClick={() => handleQuickAction('study-group')}>
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={() => handleQuickAction('study-group')}
+                  >
                     <Video className="h-4 w-4 mr-2" />
                     Join Study Group
                   </DropdownMenuItem>
@@ -661,32 +789,44 @@ export default function StudyPlanPage() {
               Add a new goal to your study plan to stay organized and motivated.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div>
               <Label htmlFor="goal_title">Goal Title</Label>
               <Input
                 id="goal_title"
                 value={goalFormData.title}
-                onChange={(e) => setGoalFormData({...goalFormData, title: e.target.value})}
+                onChange={(e) =>
+                  setGoalFormData({ ...goalFormData, title: e.target.value })
+                }
                 placeholder="e.g., Complete Chapter 5 exercises"
               />
             </div>
-            
+
             <div>
               <Label htmlFor="goal_description">Description (Optional)</Label>
               <Textarea
                 id="goal_description"
                 value={goalFormData.description}
-                onChange={(e) => setGoalFormData({...goalFormData, description: e.target.value})}
+                onChange={(e) =>
+                  setGoalFormData({
+                    ...goalFormData,
+                    description: e.target.value,
+                  })
+                }
                 placeholder="Additional details about this goal..."
               />
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="goal_type">Goal Type</Label>
-                <Select value={goalFormData.goal_type} onValueChange={(value) => setGoalFormData({...goalFormData, goal_type: value})}>
+                <Select
+                  value={goalFormData.goal_type}
+                  onValueChange={(value) =>
+                    setGoalFormData({ ...goalFormData, goal_type: value })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -699,10 +839,15 @@ export default function StudyPlanPage() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div>
                 <Label htmlFor="goal_priority">Priority</Label>
-                <Select value={goalFormData.priority} onValueChange={(value) => setGoalFormData({...goalFormData, priority: value})}>
+                <Select
+                  value={goalFormData.priority}
+                  onValueChange={(value) =>
+                    setGoalFormData({ ...goalFormData, priority: value })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -715,7 +860,7 @@ export default function StudyPlanPage() {
                 </Select>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="estimated_hours">Estimated Hours</Label>
@@ -724,25 +869,37 @@ export default function StudyPlanPage() {
                   type="number"
                   step="0.5"
                   value={goalFormData.estimated_hours}
-                  onChange={(e) => setGoalFormData({...goalFormData, estimated_hours: e.target.value})}
+                  onChange={(e) =>
+                    setGoalFormData({
+                      ...goalFormData,
+                      estimated_hours: e.target.value,
+                    })
+                  }
                   placeholder="2.5"
                 />
               </div>
-              
+
               <div>
                 <Label htmlFor="target_date">Target Date</Label>
                 <Input
                   id="target_date"
                   type="date"
                   value={goalFormData.target_date}
-                  onChange={(e) => setGoalFormData({...goalFormData, target_date: e.target.value})}
+                  onChange={(e) =>
+                    setGoalFormData({
+                      ...goalFormData,
+                      target_date: e.target.value,
+                    })
+                  }
                 />
               </div>
             </div>
           </div>
-          
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateGoal(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowCreateGoal(false)}>
+              Cancel
+            </Button>
             <Button onClick={handleCreateGoal} disabled={!goalFormData.title}>
               Create Goal
             </Button>

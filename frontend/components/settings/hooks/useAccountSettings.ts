@@ -17,9 +17,9 @@ export function useAccountSettings() {
   const [loadingAccount, setLoadingAccount] = useState(false);
 
   const updateAccountField = (field: keyof AccountData, value: string) => {
-    setAccountData(prev => ({
+    setAccountData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
@@ -29,7 +29,10 @@ export function useAccountSettings() {
       return false;
     }
 
-    if (accountData.password && accountData.password !== accountData.confirmPassword) {
+    if (
+      accountData.password &&
+      accountData.password !== accountData.confirmPassword
+    ) {
       toast.error('Passwords do not match');
       return false;
     }
@@ -95,7 +98,7 @@ export function useAccountSettings() {
       }
 
       // Clear password fields after successful update
-      setAccountData(prev => ({
+      setAccountData((prev) => ({
         ...prev,
         password: '',
         confirmPassword: '',
@@ -122,9 +125,9 @@ export function useAccountSettings() {
 
       if (response.ok) {
         const data = await response.json();
-        setAccountData(prev => ({
+        setAccountData((prev) => ({
           ...prev,
-          email: data.email || ''
+          email: data.email || '',
         }));
       }
     } catch (error) {
@@ -143,6 +146,6 @@ export function useAccountSettings() {
     updatePassword,
     loadCurrentEmail,
     validatePassword,
-    validateEmail
+    validateEmail,
   };
 }

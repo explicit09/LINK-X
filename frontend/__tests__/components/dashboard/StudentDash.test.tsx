@@ -75,26 +75,34 @@ describe('StudentDash', () => {
   describe('Rendering', () => {
     it('renders student dashboard with user info', async () => {
       (api.users.getProfile as jest.Mock).mockResolvedValue(mockUser);
-      (api.courses.getMyCourses as jest.Mock).mockResolvedValue(mockCourses.filter(c => c.enrolled));
+      (api.courses.getMyCourses as jest.Mock).mockResolvedValue(
+        mockCourses.filter((c) => c.enrolled),
+      );
       (api.courses.listCourses as jest.Mock).mockResolvedValue(mockCourses);
 
       render(<StudentDash user={mockUser} />);
 
-      expect(screen.getByText(`Welcome back, ${mockUser.name}!`)).toBeInTheDocument();
+      expect(
+        screen.getByText(`Welcome back, ${mockUser.name}!`),
+      ).toBeInTheDocument();
       expect(screen.getByText('My Courses')).toBeInTheDocument();
       expect(screen.getByText('Available Courses')).toBeInTheDocument();
     });
 
     it('shows loading state while fetching courses', () => {
-      (api.courses.getMyCourses as jest.Mock).mockImplementation(() => new Promise(() => {}));
-      
+      (api.courses.getMyCourses as jest.Mock).mockImplementation(
+        () => new Promise(() => {}),
+      );
+
       render(<StudentDash user={mockUser} />);
 
       expect(screen.getByTestId('loading-skeleton')).toBeInTheDocument();
     });
 
     it('displays enrolled courses correctly', async () => {
-      (api.courses.getMyCourses as jest.Mock).mockResolvedValue([mockCourses[0]]);
+      (api.courses.getMyCourses as jest.Mock).mockResolvedValue([
+        mockCourses[0],
+      ]);
       (api.courses.listCourses as jest.Mock).mockResolvedValue(mockCourses);
 
       render(<StudentDash user={mockUser} />);
@@ -102,7 +110,9 @@ describe('StudentDash', () => {
       await waitFor(() => {
         expect(screen.getByText('Introduction to React')).toBeInTheDocument();
         expect(screen.getByText('45% Complete')).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /continue learning/i })).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: /continue learning/i }),
+        ).toBeInTheDocument();
       });
     });
 
@@ -114,7 +124,9 @@ describe('StudentDash', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Advanced JavaScript')).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /enroll now/i })).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: /enroll now/i }),
+        ).toBeInTheDocument();
       });
     });
   });
@@ -124,7 +136,9 @@ describe('StudentDash', () => {
       const user = userEvent.setup();
       (api.courses.getMyCourses as jest.Mock).mockResolvedValue([]);
       (api.courses.listCourses as jest.Mock).mockResolvedValue(mockCourses);
-      (api.courses.enrollInCourse as jest.Mock).mockResolvedValue({ success: true });
+      (api.courses.enrollInCourse as jest.Mock).mockResolvedValue({
+        success: true,
+      });
 
       render(<StudentDash user={mockUser} />);
 
@@ -149,7 +163,10 @@ describe('StudentDash', () => {
       await user.click(submitButton);
 
       await waitFor(() => {
-        expect(api.courses.enrollInCourse).toHaveBeenCalledWith('course-2', 'TESTCODE123');
+        expect(api.courses.enrollInCourse).toHaveBeenCalledWith(
+          'course-2',
+          'TESTCODE123',
+        );
         expect(mockRouter.push).toHaveBeenCalledWith('/courses/course-2');
       });
     });
@@ -158,7 +175,9 @@ describe('StudentDash', () => {
       const user = userEvent.setup();
       (api.courses.getMyCourses as jest.Mock).mockResolvedValue([]);
       (api.courses.listCourses as jest.Mock).mockResolvedValue(mockCourses);
-      (api.courses.enrollInCourse as jest.Mock).mockRejectedValue(new Error('Invalid access code'));
+      (api.courses.enrollInCourse as jest.Mock).mockRejectedValue(
+        new Error('Invalid access code'),
+      );
 
       render(<StudentDash user={mockUser} />);
 
@@ -205,7 +224,9 @@ describe('StudentDash', () => {
   describe('Navigation', () => {
     it('navigates to course page when continue learning is clicked', async () => {
       const user = userEvent.setup();
-      (api.courses.getMyCourses as jest.Mock).mockResolvedValue([mockCourses[0]]);
+      (api.courses.getMyCourses as jest.Mock).mockResolvedValue([
+        mockCourses[0],
+      ]);
       (api.courses.listCourses as jest.Mock).mockResolvedValue(mockCourses);
 
       render(<StudentDash user={mockUser} />);
@@ -214,7 +235,9 @@ describe('StudentDash', () => {
         expect(screen.getByText('Introduction to React')).toBeInTheDocument();
       });
 
-      const continueButton = screen.getByRole('button', { name: /continue learning/i });
+      const continueButton = screen.getByRole('button', {
+        name: /continue learning/i,
+      });
       await user.click(continueButton);
 
       expect(mockRouter.push).toHaveBeenCalledWith('/learn/course-1');
@@ -227,7 +250,9 @@ describe('StudentDash', () => {
       render(<StudentDash user={mockUser} />);
 
       await waitFor(() => {
-        const viewAllLink = screen.getByRole('link', { name: /view all courses/i });
+        const viewAllLink = screen.getByRole('link', {
+          name: /view all courses/i,
+        });
         expect(viewAllLink).toBeInTheDocument();
         expect(viewAllLink).toHaveAttribute('href', '/courses');
       });
@@ -241,7 +266,9 @@ describe('StudentDash', () => {
         { ...mockCourses[1], progress: 50, enrolled: true },
       ];
 
-      (api.courses.getMyCourses as jest.Mock).mockResolvedValue(enrolledCourses);
+      (api.courses.getMyCourses as jest.Mock).mockResolvedValue(
+        enrolledCourses,
+      );
       (api.courses.listCourses as jest.Mock).mockResolvedValue([]);
 
       render(<StudentDash user={mockUser} />);
@@ -261,7 +288,9 @@ describe('StudentDash', () => {
 
       await waitFor(() => {
         expect(screen.getByText('0')).toBeInTheDocument(); // No courses
-        expect(screen.getByText('Get started by enrolling in a course!')).toBeInTheDocument();
+        expect(
+          screen.getByText('Get started by enrolling in a course!'),
+        ).toBeInTheDocument();
       });
     });
   });
@@ -284,7 +313,9 @@ describe('StudentDash', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Introduction to React')).toBeInTheDocument();
-        expect(screen.queryByText('Advanced JavaScript')).not.toBeInTheDocument();
+        expect(
+          screen.queryByText('Advanced JavaScript'),
+        ).not.toBeInTheDocument();
       });
     });
 
@@ -296,7 +327,9 @@ describe('StudentDash', () => {
       ];
 
       (api.courses.getMyCourses as jest.Mock).mockResolvedValue([]);
-      (api.courses.listCourses as jest.Mock).mockResolvedValue(coursesWithTerms);
+      (api.courses.listCourses as jest.Mock).mockResolvedValue(
+        coursesWithTerms,
+      );
 
       render(<StudentDash user={mockUser} />);
 
@@ -304,26 +337,34 @@ describe('StudentDash', () => {
         expect(screen.getByText('Introduction to React')).toBeInTheDocument();
       });
 
-      const termFilter = screen.getByRole('combobox', { name: /filter by term/i });
+      const termFilter = screen.getByRole('combobox', {
+        name: /filter by term/i,
+      });
       await user.selectOptions(termFilter, 'Spring 2024');
 
       await waitFor(() => {
         expect(screen.getByText('Advanced JavaScript')).toBeInTheDocument();
-        expect(screen.queryByText('Introduction to React')).not.toBeInTheDocument();
+        expect(
+          screen.queryByText('Introduction to React'),
+        ).not.toBeInTheDocument();
       });
     });
   });
 
   describe('Error Handling', () => {
     it('shows error message when courses fail to load', async () => {
-      (api.courses.getMyCourses as jest.Mock).mockRejectedValue(new Error('Network error'));
+      (api.courses.getMyCourses as jest.Mock).mockRejectedValue(
+        new Error('Network error'),
+      );
       (api.courses.listCourses as jest.Mock).mockResolvedValue([]);
 
       render(<StudentDash user={mockUser} />);
 
       await waitFor(() => {
         expect(screen.getByText(/failed to load courses/i)).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: /retry/i }),
+        ).toBeInTheDocument();
       });
     });
 
@@ -351,14 +392,18 @@ describe('StudentDash', () => {
 
   describe('Accessibility', () => {
     it('has proper heading structure', async () => {
-      (api.courses.getMyCourses as jest.Mock).mockResolvedValue([mockCourses[0]]);
+      (api.courses.getMyCourses as jest.Mock).mockResolvedValue([
+        mockCourses[0],
+      ]);
       (api.courses.listCourses as jest.Mock).mockResolvedValue(mockCourses);
 
       render(<StudentDash user={mockUser} />);
 
       await waitFor(() => {
         const headings = screen.getAllByRole('heading');
-        expect(headings[0]).toHaveTextContent(`Welcome back, ${mockUser.name}!`);
+        expect(headings[0]).toHaveTextContent(
+          `Welcome back, ${mockUser.name}!`,
+        );
         expect(headings[1]).toHaveTextContent('My Courses');
         expect(headings[2]).toHaveTextContent('Available Courses');
       });

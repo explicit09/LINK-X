@@ -13,7 +13,7 @@ import type { UIBlock } from '../types/block';
 export function useDocument() {
   const { block, setBlock } = useBlock();
   const { mutate } = useSWRConfig();
-  
+
   const [document, setDocument] = useState<Document | null>(null);
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
   const [isContentDirty, setIsContentDirty] = useState(false);
@@ -126,7 +126,7 @@ export function useDocument() {
           kind: block.kind,
         }),
       });
-      
+
       setIsContentDirty(false);
       mutateDocuments();
     } catch (error) {
@@ -135,12 +135,15 @@ export function useDocument() {
   }, [block, document, mutateDocuments]);
 
   // Get document content by index
-  const getDocumentContentById = useCallback((index: number): string => {
-    if (!documents || index < 0 || index >= documents.length) {
-      return '';
-    }
-    return documents[index]?.content ?? '';
-  }, [documents]);
+  const getDocumentContentById = useCallback(
+    (index: number): string => {
+      if (!documents || index < 0 || index >= documents.length) {
+        return '';
+      }
+      return documents[index]?.content ?? '';
+    },
+    [documents],
+  );
 
   return {
     // Data
@@ -150,7 +153,7 @@ export function useDocument() {
     currentVersionIndex,
     isContentDirty,
     isDocumentsFetching,
-    
+
     // Actions
     setDocument,
     setCurrentVersionIndex,

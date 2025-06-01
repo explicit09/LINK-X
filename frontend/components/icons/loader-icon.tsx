@@ -1,11 +1,14 @@
 import { IconProps, getSvgProps } from './types';
 
-export const LoaderIcon = ({ size = 16, className, style, "aria-label": ariaLabel, ...props }: IconProps) => {
+export const LoaderIcon = ({
+  size = 16,
+  className,
+  style,
+  'aria-label': ariaLabel,
+  ...props
+}: IconProps) => {
   return (
-    <svg
-      {...getSvgProps(size, className, style)}
-      aria-label={ariaLabel}
-    >
+    <svg {...getSvgProps(size, className, style)} aria-label={ariaLabel}>
       <g clipPath="url(#clip0_2393_1490)">
         <path d="M8 0V4" stroke="currentColor" strokeWidth="1.5" />
         <path

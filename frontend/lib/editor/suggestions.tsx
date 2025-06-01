@@ -73,7 +73,10 @@ function findPositionsInDoc(doc: Node, searchText: string): Position | null {
   return positions;
 }
 
-export async function projectWithPositions(doc: Node, documentId: string): Promise<UISuggestion[]> {
+export async function projectWithPositions(
+  doc: Node,
+  documentId: string,
+): Promise<UISuggestion[]> {
   const suggestions = await fetchSuggestions(documentId);
 
   return suggestions.map((suggestion) => {
@@ -83,7 +86,11 @@ export async function projectWithPositions(doc: Node, documentId: string): Promi
       return { ...suggestion, selectionStart: 0, selectionEnd: 0 };
     }
 
-    return { ...suggestion, selectionStart: positions.start, selectionEnd: positions.end };
+    return {
+      ...suggestion,
+      selectionStart: positions.start,
+      selectionEnd: positions.end,
+    };
   });
 }
 

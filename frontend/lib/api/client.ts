@@ -9,10 +9,10 @@ interface RequestConfig extends RequestInit {
 
 class APIError extends Error {
   constructor(
-    public status: number, 
-    message: string, 
+    public status: number,
+    message: string,
     public data?: unknown,
-    public code?: string
+    public code?: string,
   ) {
     super(message);
     this.name = 'APIError';
@@ -35,18 +35,20 @@ class APIClient {
   private async getAuthToken(): Promise<string | null> {
     // In v2, tokens are in httpOnly cookies, so we don't need to send them
     // The browser will automatically include cookies with credentials: 'include'
-    
+
     // For backward compatibility, check localStorage (will be removed)
     const accessToken = localStorage.getItem('access_token');
     if (accessToken) {
-      console.warn('Found token in localStorage - should migrate to cookie-based auth');
+      console.warn(
+        'Found token in localStorage - should migrate to cookie-based auth',
+      );
       return accessToken;
     }
-    
+
     // Fallback to Firebase auth if available
     const user = auth.currentUser;
     if (!user) return null;
-    
+
     try {
       return await user.getIdToken();
     } catch (error) {
@@ -56,42 +58,42 @@ class APIClient {
   }
 
   private async sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private shouldRetry(error: unknown, attempt: number): boolean {
     if (attempt >= this.maxRetries) return false;
-    
+
     // Retry on network errors
     if (error instanceof TypeError && error.message.includes('network')) {
       return true;
     }
-    
+
     // Retry on 5xx errors
     if (error instanceof APIError && error.status >= 500) {
       return true;
     }
-    
+
     // Retry on timeout
     if (error instanceof Error && error.name === 'AbortError') {
       return true;
     }
-    
+
     return false;
   }
 
   private async request<T>(
     endpoint: string,
-    config: RequestConfig = {}
+    config: RequestConfig = {},
   ): Promise<T> {
-    const { 
-      params, 
-      timeout = this.defaultTimeout, 
+    const {
+      params,
+      timeout = this.defaultTimeout,
       retryCount = 0,
       skipAuth = false,
-      ...options 
+      ...options
     } = config;
-    
+
     // Build URL with params
     const url = new URL(`${this.baseURL}${endpoint}`);
     if (params) {
@@ -160,12 +162,12 @@ class APIClient {
         } catch {
           errorData = { message: 'Unknown error' };
         }
-        
+
         throw new APIError(
-          response.status, 
+          response.status,
           errorData.message || errorData.error || 'Request failed',
           errorData,
-          errorData.code
+          errorData.code,
         );
       }
 
@@ -174,29 +176,40 @@ class APIClient {
       if (contentType?.includes('application/json')) {
         return await response.json();
       } else if (contentType?.includes('text/')) {
-        return await response.text() as unknown as T;
+        return (await response.text()) as unknown as T;
       } else {
         // For blob responses (files)
         return response as unknown as T;
       }
     } catch (error) {
       clearTimeout(timeoutId);
-      
+
       // Handle timeout
       if (error instanceof Error && error.name === 'AbortError') {
-        const timeoutError = new APIError(408, 'Request timeout', null, 'TIMEOUT');
-        
+        const timeoutError = new APIError(
+          408,
+          'Request timeout',
+          null,
+          'TIMEOUT',
+        );
+
         if (this.shouldRetry(timeoutError, retryCount)) {
-          return this.request<T>(endpoint, { ...config, retryCount: retryCount + 1 });
+          return this.request<T>(endpoint, {
+            ...config,
+            retryCount: retryCount + 1,
+          });
         }
         throw timeoutError;
       }
-      
+
       // Handle other errors with retry
       if (this.shouldRetry(error, retryCount)) {
-        return this.request<T>(endpoint, { ...config, retryCount: retryCount + 1 });
+        return this.request<T>(endpoint, {
+          ...config,
+          retryCount: retryCount + 1,
+        });
       }
-      
+
       throw error;
     }
   }
@@ -206,7 +219,11 @@ class APIClient {
     return this.request<T>(endpoint, { ...config, method: 'GET' });
   }
 
-  post<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
+  post<T>(
+    endpoint: string,
+    data?: unknown,
+    config?: RequestConfig,
+  ): Promise<T> {
     return this.request<T>(endpoint, {
       ...config,
       method: 'POST',
@@ -222,7 +239,11 @@ class APIClient {
     });
   }
 
-  patch<T>(endpoint: string, data?: unknown, config?: RequestConfig): Promise<T> {
+  patch<T>(
+    endpoint: string,
+    data?: unknown,
+    config?: RequestConfig,
+  ): Promise<T> {
     return this.request<T>(endpoint, {
       ...config,
       method: 'PATCH',
@@ -239,14 +260,14 @@ class APIClient {
     endpoint: string,
     data: unknown,
     onMessage: (message: unknown) => void,
-    onError: (error: Error) => void
+    onError: (error: Error) => void,
   ): Promise<() => void> {
     let isCancelled = false;
-    
+
     const cleanup = () => {
       isCancelled = true;
     };
-    
+
     (async () => {
       try {
         const token = await this.getAuthToken();
@@ -254,44 +275,44 @@ class APIClient {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify(data),
           credentials: 'include',
         });
-        
+
         if (!response.ok) {
           throw new APIError(
             response.status,
             `Streaming failed: ${response.status} ${response.statusText}`,
             null,
-            'STREAMING_ERROR'
+            'STREAMING_ERROR',
           );
         }
-        
+
         const reader = response.body?.getReader();
         if (!reader) {
           throw new Error('Response body is not readable');
         }
-        
+
         const decoder = new TextDecoder();
-        
+
         while (!isCancelled) {
           const { done, value } = await reader.read();
-          
+
           if (done) break;
-          
+
           if (isCancelled) {
             reader.cancel();
             break;
           }
-          
+
           const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n').filter(line => line.trim());
-          
+          const lines = chunk.split('\n').filter((line) => line.trim());
+
           for (const line of lines) {
             if (isCancelled) break;
-            
+
             try {
               const message = JSON.parse(line);
               onMessage(message);
@@ -302,11 +323,15 @@ class APIClient {
         }
       } catch (error) {
         if (!isCancelled) {
-          onError(error instanceof Error ? error : new Error('Unknown streaming error'));
+          onError(
+            error instanceof Error
+              ? error
+              : new Error('Unknown streaming error'),
+          );
         }
       }
     })();
-    
+
     return cleanup;
   }
 }

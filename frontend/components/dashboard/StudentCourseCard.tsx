@@ -1,7 +1,7 @@
-import { Book, Users } from "lucide-react";
+import { Book, Users } from 'lucide-react';
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -9,7 +9,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from '@/components/ui/card';
 
 interface CourseCardProps {
   course: {
@@ -43,8 +43,11 @@ export function CourseCard({ course, onClick }: CourseCardProps) {
 
       <CardContent className="space-y-2">
         <div className="flex items-center gap-2">
-          <Badge variant={course.published ? "default" : "outline"} className={course.published ? "purple-gradient" : ""}>
-            {course.published ? "Published" : "Unpublished"}
+          <Badge
+            variant={course.published ? 'default' : 'outline'}
+            className={course.published ? 'purple-gradient' : ''}
+          >
+            {course.published ? 'Published' : 'Unpublished'}
           </Badge>
           <Badge variant="secondary">
             <Users className="h-3 w-3 mr-1" />

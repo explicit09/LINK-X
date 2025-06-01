@@ -72,7 +72,10 @@ class CourseAPI {
     return apiClient.post<Course>('/api/v2/courses', data);
   }
 
-  async updateCourse(courseId: string, data: Partial<CreateCourseData>): Promise<Course> {
+  async updateCourse(
+    courseId: string,
+    data: Partial<CreateCourseData>,
+  ): Promise<Course> {
     return apiClient.patch<Course>(`/api/v2/courses/${courseId}`, data);
   }
 
@@ -89,11 +92,17 @@ class CourseAPI {
     return apiClient.get<Module[]>(`/api/v2/courses/${courseId}/modules`);
   }
 
-  async createModule(courseId: string, data: { title: string; description?: string }): Promise<Module> {
+  async createModule(
+    courseId: string,
+    data: { title: string; description?: string },
+  ): Promise<Module> {
     return apiClient.post<Module>(`/api/v2/courses/${courseId}/modules`, data);
   }
 
-  async updateModule(moduleId: string, data: { title?: string; description?: string }): Promise<Module> {
+  async updateModule(
+    moduleId: string,
+    data: { title?: string; description?: string },
+  ): Promise<Module> {
     return apiClient.patch<Module>(`/api/v2/modules/${moduleId}`, data);
   }
 
@@ -102,8 +111,13 @@ class CourseAPI {
   }
 
   // Enrollment
-  async enrollInCourse(courseId: string, accessCode: string): Promise<Enrollment> {
-    return apiClient.post<Enrollment>(`/api/v2/courses/${courseId}/enroll`, { accessCode });
+  async enrollInCourse(
+    courseId: string,
+    accessCode: string,
+  ): Promise<Enrollment> {
+    return apiClient.post<Enrollment>(`/api/v2/courses/${courseId}/enroll`, {
+      accessCode,
+    });
   }
 
   // Statistics

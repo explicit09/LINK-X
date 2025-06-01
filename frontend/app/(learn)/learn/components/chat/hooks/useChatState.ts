@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useState, useCallback, useEffect } from "react";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { Message, ChatState } from "../types";
+import { useState, useCallback, useEffect } from 'react';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { Message, ChatState } from '../types';
 
 const WELCOME_MESSAGE = `👋 **Welcome to your AI Learning Assistant!** 
 
@@ -23,7 +23,7 @@ export const useChatState = () => {
     chatId: null,
     messages: [],
     isLoading: false,
-    streamingContent: "",
+    streamingContent: '',
     generationTime: null,
     showLatency: false,
   });
@@ -34,47 +34,50 @@ export const useChatState = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) return;
-      
+
       const localStorageKey = `chatId_${user.uid}`;
       const savedChatId = localStorage.getItem(localStorageKey);
 
       if (savedChatId) {
         try {
-          const response = await fetch(`http://localhost:8080/student/chats/${savedChatId}/messages`, {
-            method: "GET",
-            credentials: "include",
-          });
+          const response = await fetch(
+            `http://localhost:8080/student/chats/${savedChatId}/messages`,
+            {
+              method: 'GET',
+              credentials: 'include',
+            },
+          );
           const data = await response.json();
-          
+
           if (data.error) {
             localStorage.removeItem(localStorageKey);
-            setState(prev => ({
+            setState((prev) => ({
               ...prev,
               chatId: null,
-              messages: [{ role: "assistant", content: WELCOME_MESSAGE }]
+              messages: [{ role: 'assistant', content: WELCOME_MESSAGE }],
             }));
           } else {
             const formattedMessages = data.map((msg: any) => ({
               role: msg.role,
               content: msg.content,
             }));
-            setState(prev => ({
+            setState((prev) => ({
               ...prev,
               chatId: savedChatId,
-              messages: formattedMessages
+              messages: formattedMessages,
             }));
           }
         } catch (err) {
-          console.error("Error fetching messages:", err);
-          setState(prev => ({
+          console.error('Error fetching messages:', err);
+          setState((prev) => ({
             ...prev,
-            messages: [{ role: "assistant", content: WELCOME_MESSAGE }]
+            messages: [{ role: 'assistant', content: WELCOME_MESSAGE }],
           }));
         }
       } else {
-        setState(prev => ({
+        setState((prev) => ({
           ...prev,
-          messages: [{ role: "assistant", content: WELCOME_MESSAGE }]
+          messages: [{ role: 'assistant', content: WELCOME_MESSAGE }],
         }));
       }
     });
@@ -83,22 +86,22 @@ export const useChatState = () => {
   }, []);
 
   const updateState = useCallback((updates: Partial<ChatState>) => {
-    setState(prev => ({ ...prev, ...updates }));
+    setState((prev) => ({ ...prev, ...updates }));
   }, []);
 
   const addMessage = useCallback((message: Message) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
-      messages: [...prev.messages, message]
+      messages: [...prev.messages, message],
     }));
   }, []);
 
   const updateMessage = useCallback((messageId: string, content: string) => {
-    setState(prev => ({
+    setState((prev) => ({
       ...prev,
-      messages: prev.messages.map(msg => 
-        msg.id === messageId ? { ...msg, content } : msg
-      )
+      messages: prev.messages.map((msg) =>
+        msg.id === messageId ? { ...msg, content } : msg,
+      ),
     }));
   }, []);
 
@@ -109,9 +112,9 @@ export const useChatState = () => {
     }
     setState({
       chatId: null,
-      messages: [{ role: "assistant", content: WELCOME_MESSAGE }],
+      messages: [{ role: 'assistant', content: WELCOME_MESSAGE }],
       isLoading: false,
-      streamingContent: "",
+      streamingContent: '',
       generationTime: null,
       showLatency: false,
     });

@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { ModernStudentDashboard } from "./ModernStudentDashboard";
-import { StudentDashProps } from "./student/types";
-import { useStudentData } from "./student/hooks";
-import { LoadingState, OnboardingPrompt } from "./student/components";
+import { ModernStudentDashboard } from './ModernStudentDashboard';
+import { StudentDashProps } from './student/types';
+import { useStudentData } from './student/hooks';
+import { LoadingState, OnboardingPrompt } from './student/components';
 
 export default function StudentDash({ currentUser }: StudentDashProps) {
   const {
@@ -12,7 +12,7 @@ export default function StudentDash({ currentUser }: StudentDashProps) {
     userProfile,
     showOnboardingPrompt,
     handleOnboardingComplete,
-    dismissOnboardingPrompt
+    dismissOnboardingPrompt,
   } = useStudentData();
 
   if (loading) {
@@ -30,11 +30,15 @@ export default function StudentDash({ currentUser }: StudentDashProps) {
 
   return (
     <ModernStudentDashboard
-      currentUser={userProfile ? {
-        name: userProfile.profile?.name || userProfile.email,
-        email: userProfile.email,
-        avatar: userProfile.profile?.avatar
-      } : currentUser}
+      currentUser={
+        userProfile
+          ? {
+              name: userProfile.profile?.name || userProfile.email,
+              email: userProfile.email,
+              avatar: userProfile.profile?.avatar,
+            }
+          : currentUser
+      }
       courses={courses}
     />
   );

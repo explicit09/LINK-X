@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import React from "react";
-import { useParams } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import React from 'react';
+import { useParams } from 'next/navigation';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
 
 // Custom hooks
 import { useCourseData } from './hooks/useCourseData';
@@ -22,10 +22,16 @@ import { AITutorChat } from './components/AITutorChat';
 
 export default function LearnPage() {
   const params = useParams();
-  const pfId = typeof params?.id === "string" ? params.id : null;
+  const pfId = typeof params?.id === 'string' ? params.id : null;
 
   // Custom hooks for state management and business logic
-  const { courseName, chapters, totalLessons, completedLessons, recommendedLesson } = useCourseData(pfId);
+  const {
+    courseName,
+    chapters,
+    totalLessons,
+    completedLessons,
+    recommendedLesson,
+  } = useCourseData(pfId);
   const { studyTime, currentStreak } = useProgressTracking();
   const {
     currentModuleIndex,
@@ -34,7 +40,7 @@ export default function LearnPage() {
     setCurrentModuleIndex,
     handleModuleClick,
     handleLessonSelect,
-    startRecommendedLesson
+    startRecommendedLesson,
   } = useLessonNavigation(chapters);
   const { sidebarVisible, setSidebarVisible } = useResponsiveLayout();
   const {
@@ -47,7 +53,7 @@ export default function LearnPage() {
     setChatOpen,
     setChatInput,
     handleChatSubmit,
-    openChat
+    openChat,
   } = useAIChat(pfId);
 
   // Set recommended lesson module as expanded when data loads
@@ -58,8 +64,14 @@ export default function LearnPage() {
   }, [recommendedLesson, currentModuleIndex, setCurrentModuleIndex]);
 
   // Derived data
-  const currentModule = selectedLesson ? chapters[selectedLesson.moduleIndex] : null;
-  const currentLesson = selectedLesson ? chapters[selectedLesson.moduleIndex]?.subsections[selectedLesson.lessonIndex] : null;
+  const currentModule = selectedLesson
+    ? chapters[selectedLesson.moduleIndex]
+    : null;
+  const currentLesson = selectedLesson
+    ? chapters[selectedLesson.moduleIndex]?.subsections[
+        selectedLesson.lessonIndex
+      ]
+    : null;
 
   const handleStartRecommendedLesson = () => {
     startRecommendedLesson(recommendedLesson);

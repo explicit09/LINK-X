@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
 import React from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Settings, Bell, Shield } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { User, Settings, Bell, Shield } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Hooks
 import { useUserRole } from './hooks/useUserRole';
@@ -51,24 +51,36 @@ export default function StudentSettings() {
         {/* Settings Tabs */}
         <Tabs defaultValue="account" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
-            <TabsTrigger value="account" className="flex items-center space-x-2">
+            <TabsTrigger
+              value="account"
+              className="flex items-center space-x-2"
+            >
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">Account</span>
             </TabsTrigger>
-            
+
             {isStudent && (
-              <TabsTrigger value="learning" className="flex items-center space-x-2">
+              <TabsTrigger
+                value="learning"
+                className="flex items-center space-x-2"
+              >
                 <Settings className="h-4 w-4" />
                 <span className="hidden sm:inline">Learning</span>
               </TabsTrigger>
             )}
-            
-            <TabsTrigger value="notifications" className="flex items-center space-x-2">
+
+            <TabsTrigger
+              value="notifications"
+              className="flex items-center space-x-2"
+            >
               <Bell className="h-4 w-4" />
               <span className="hidden sm:inline">Notifications</span>
             </TabsTrigger>
-            
-            <TabsTrigger value="privacy" className="flex items-center space-x-2">
+
+            <TabsTrigger
+              value="privacy"
+              className="flex items-center space-x-2"
+            >
               <Shield className="h-4 w-4" />
               <span className="hidden sm:inline">Privacy</span>
             </TabsTrigger>
@@ -78,7 +90,9 @@ export default function StudentSettings() {
           <TabsContent value="account">
             <div className="space-y-6">
               <div className="space-y-2">
-                <h2 className="text-2xl font-semibold tracking-tight">Account Settings</h2>
+                <h2 className="text-2xl font-semibold tracking-tight">
+                  Account Settings
+                </h2>
                 <p className="text-muted-foreground">
                   Manage your account information and security settings
                 </p>
@@ -92,7 +106,9 @@ export default function StudentSettings() {
             <TabsContent value="learning">
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <h2 className="text-2xl font-semibold tracking-tight">Learning Preferences</h2>
+                  <h2 className="text-2xl font-semibold tracking-tight">
+                    Learning Preferences
+                  </h2>
                   <p className="text-muted-foreground">
                     Customize your learning experience and AI interactions
                   </p>
@@ -106,7 +122,9 @@ export default function StudentSettings() {
           <TabsContent value="notifications">
             <div className="space-y-6">
               <div className="space-y-2">
-                <h2 className="text-2xl font-semibold tracking-tight">Notification Settings</h2>
+                <h2 className="text-2xl font-semibold tracking-tight">
+                  Notification Settings
+                </h2>
                 <p className="text-muted-foreground">
                   Control when and how you receive notifications
                 </p>
@@ -119,7 +137,9 @@ export default function StudentSettings() {
           <TabsContent value="privacy">
             <div className="space-y-6">
               <div className="space-y-2">
-                <h2 className="text-2xl font-semibold tracking-tight">Privacy Settings</h2>
+                <h2 className="text-2xl font-semibold tracking-tight">
+                  Privacy Settings
+                </h2>
                 <p className="text-muted-foreground">
                   Manage your privacy preferences and data usage
                 </p>

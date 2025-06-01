@@ -22,8 +22,10 @@ export const DEFAULT_READING_LEVEL = 2;
 export const TOOLBAR_CLOSE_DELAY = 2000;
 
 export const TOOL_MESSAGES: Record<string, string> = {
-  'final-polish': 'Please add final polish and check for grammar, add section titles for better structure, and ensure everything reads smoothly.',
-  'request-suggestions': 'Please add suggestions you have that could improve the writing.',
+  'final-polish':
+    'Please add final polish and check for grammar, add section titles for better structure, and ensure everything reads smoothly.',
+  'request-suggestions':
+    'Please add suggestions you have that could improve the writing.',
   'add-comments': 'Please add comments to explain the code.',
   'add-logs': 'Please add logs to help debug the code.',
 };

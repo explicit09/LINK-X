@@ -36,27 +36,31 @@ export function OptimizedImage({
   const [hasError, setHasError] = useState(false);
 
   // Generate a simple blur placeholder if none provided
-  const defaultBlurDataURL = 
+  const defaultBlurDataURL =
     'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q==';
 
   if (hasError) {
     return (
-      <div 
+      <div
         className={cn(
-          "flex items-center justify-center bg-gray-100 text-gray-400",
-          className
+          'flex items-center justify-center bg-gray-100 text-gray-400',
+          className,
         )}
         style={{ width, height }}
       >
         <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+          <path
+            fillRule="evenodd"
+            d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+            clipRule="evenodd"
+          />
         </svg>
       </div>
     );
   }
 
   return (
-    <div className={cn("relative overflow-hidden", className)}>
+    <div className={cn('relative overflow-hidden', className)}>
       <Image
         src={src}
         alt={alt}
@@ -69,8 +73,8 @@ export function OptimizedImage({
         placeholder={placeholder}
         blurDataURL={blurDataURL || defaultBlurDataURL}
         className={cn(
-          "transition-opacity duration-300",
-          isLoading ? "opacity-0" : "opacity-100"
+          'transition-opacity duration-300',
+          isLoading ? 'opacity-0' : 'opacity-100',
         )}
         onLoad={() => setIsLoading(false)}
         onError={() => {
@@ -79,10 +83,10 @@ export function OptimizedImage({
         }}
         {...props}
       />
-      
+
       {/* Loading skeleton */}
       {isLoading && (
-        <div 
+        <div
           className="absolute inset-0 bg-gray-200 animate-pulse"
           style={{ width, height }}
         />
@@ -91,4 +95,4 @@ export function OptimizedImage({
   );
 }
 
-export default OptimizedImage; 
+export default OptimizedImage;

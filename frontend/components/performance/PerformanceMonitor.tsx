@@ -11,7 +11,10 @@ interface PerformanceMetric {
 export function PerformanceMonitor() {
   useEffect(() => {
     // Only run in production and on client side
-    if (process.env.NODE_ENV !== 'production' || typeof window === 'undefined') {
+    if (
+      process.env.NODE_ENV !== 'production' ||
+      typeof window === 'undefined'
+    ) {
       return;
     }
 
@@ -23,7 +26,10 @@ export function PerformanceMonitor() {
 
       const observer = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
-          if (entry.entryType === 'layout-shift' && !(entry as any).hadRecentInput) {
+          if (
+            entry.entryType === 'layout-shift' &&
+            !(entry as any).hadRecentInput
+          ) {
             clsValue += (entry as any).value;
             clsEntries.push(entry as any);
           }
@@ -37,13 +43,13 @@ export function PerformanceMonitor() {
         for (const entry of list.getEntries()) {
           const fidEntry = entry as any;
           const fid = fidEntry.processingStart - fidEntry.startTime;
-          
+
           // Send to analytics if needed
           if (typeof window !== 'undefined' && (window as any).gtag) {
             (window as any).gtag('event', 'web_vitals', {
               name: 'FID',
               value: Math.round(fid),
-              event_label: 'first_input_delay'
+              event_label: 'first_input_delay',
             });
           }
         }
@@ -54,12 +60,12 @@ export function PerformanceMonitor() {
         const entries = list.getEntries();
         const lastEntry = entries[entries.length - 1];
         const lcp = lastEntry.startTime;
-        
+
         if (typeof window !== 'undefined' && (window as any).gtag) {
           (window as any).gtag('event', 'web_vitals', {
             name: 'LCP',
             value: Math.round(lcp),
-            event_label: 'largest_contentful_paint'
+            event_label: 'largest_contentful_paint',
           });
         }
       }).observe({ type: 'largest-contentful-paint', buffered: true });
@@ -67,12 +73,11 @@ export function PerformanceMonitor() {
       // Report CLS when page visibility changes
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
-          
           if (typeof window !== 'undefined' && (window as any).gtag) {
             (window as any).gtag('event', 'web_vitals', {
               name: 'CLS',
               value: Math.round(clsValue * 1000) / 1000,
-              event_label: 'cumulative_layout_shift'
+              event_label: 'cumulative_layout_shift',
             });
           }
         }
@@ -82,15 +87,19 @@ export function PerformanceMonitor() {
     // Track custom performance metrics
     const trackCustomMetrics = () => {
       // Time to Interactive (TTI) approximation
-      const navigationEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+      const navigationEntry = performance.getEntriesByType(
+        'navigation',
+      )[0] as PerformanceNavigationTiming;
       if (navigationEntry) {
         const tti = navigationEntry.domInteractive - navigationEntry.fetchStart;
       }
 
       // Resource loading performance
       const resourceEntries = performance.getEntriesByType('resource');
-      const slowResources = resourceEntries.filter(entry => entry.duration > 1000);
-      
+      const slowResources = resourceEntries.filter(
+        (entry) => entry.duration > 1000,
+      );
+
       if (slowResources.length > 0) {
         console.warn('Slow resources detected:', slowResources);
       }
@@ -101,9 +110,9 @@ export function PerformanceMonitor() {
         const memoryInfo = {
           used: Math.round(memory.usedJSHeapSize / 1048576),
           total: Math.round(memory.totalJSHeapSize / 1048576),
-          limit: Math.round(memory.jsHeapSizeLimit / 1048576)
+          limit: Math.round(memory.jsHeapSizeLimit / 1048576),
         };
-        
+
         // Log memory info if needed
         console.log('Memory usage:', memoryInfo);
       }
@@ -122,4 +131,4 @@ export function PerformanceMonitor() {
   return null; // This component doesn&apos;t render anything
 }
 
-export default PerformanceMonitor; 
+export default PerformanceMonitor;

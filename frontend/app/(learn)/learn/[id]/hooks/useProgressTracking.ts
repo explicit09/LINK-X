@@ -3,7 +3,10 @@ import { useState, useEffect } from 'react';
 export const useProgressTracking = () => {
   const [studyTime, setStudyTime] = useState(1);
   const [currentStreak, setCurrentStreak] = useState(3);
-  const [recommendedLesson, setRecommendedLesson] = useState<{ moduleIndex: number; lessonIndex: number } | null>(null);
+  const [recommendedLesson, setRecommendedLesson] = useState<{
+    moduleIndex: number;
+    lessonIndex: number;
+  } | null>(null);
 
   // Study time tracking
   useEffect(() => {
@@ -15,7 +18,10 @@ export const useProgressTracking = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const setRecommendedLessonData = (moduleIndex: number, lessonIndex: number) => {
+  const setRecommendedLessonData = (
+    moduleIndex: number,
+    lessonIndex: number,
+  ) => {
     setRecommendedLesson({ moduleIndex, lessonIndex });
   };
 
@@ -23,6 +29,6 @@ export const useProgressTracking = () => {
     studyTime,
     currentStreak,
     recommendedLesson,
-    setRecommendedLessonData
+    setRecommendedLessonData,
   };
 };

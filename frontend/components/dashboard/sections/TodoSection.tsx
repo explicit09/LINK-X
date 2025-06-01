@@ -1,8 +1,8 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import {
   Calendar,
   Plus,
@@ -10,16 +10,16 @@ import {
   X,
   BookmarkPlus,
   BookOpen,
-  Brain
-} from "lucide-react";
+  Brain,
+} from 'lucide-react';
 
 interface TodoItem {
   id: string;
   title: string;
   course: string;
   dueDate?: string;
-  type: "quiz" | "assignment" | "reading" | "review";
-  priority: "high" | "medium" | "low";
+  type: 'quiz' | 'assignment' | 'reading' | 'review';
+  priority: 'high' | 'medium' | 'low';
 }
 
 interface TodoSectionProps {
@@ -27,31 +27,40 @@ interface TodoSectionProps {
   showAddTodo: boolean;
   newTodoTitle: string;
   newTodoCourse: string;
-  newTodoPriority: "high" | "medium" | "low";
+  newTodoPriority: 'high' | 'medium' | 'low';
   setShowAddTodo: (show: boolean) => void;
   setNewTodoTitle: (title: string) => void;
   setNewTodoCourse: (course: string) => void;
-  setNewTodoPriority: (priority: "high" | "medium" | "low") => void;
+  setNewTodoPriority: (priority: 'high' | 'medium' | 'low') => void;
   addTodoItem: () => void;
   removeTodoItem: (id: string) => void;
 }
 
-const getTodoIcon = (type: TodoItem["type"]) => {
+const getTodoIcon = (type: TodoItem['type']) => {
   switch (type) {
-    case "quiz": return BookmarkPlus;
-    case "assignment": return BookOpen;
-    case "reading": return BookOpen;
-    case "review": return Brain;
-    default: return BookOpen;
+    case 'quiz':
+      return BookmarkPlus;
+    case 'assignment':
+      return BookOpen;
+    case 'reading':
+      return BookOpen;
+    case 'review':
+      return Brain;
+    default:
+      return BookOpen;
   }
 };
 
-const getPriorityColor = (priority: TodoItem["priority"]) => {
+const getPriorityColor = (priority: TodoItem['priority']) => {
   switch (priority) {
-    case "high": return "text-red-600";
-    case "medium": return "text-yellow-600";
-    case "low": return "text-green-600";
-    default: return "text-gray-600";
+    case 'high':
+      return 'text-red-600';
+    case 'medium':
+      return 'text-yellow-600';
+    case 'low':
+      return 'text-green-600';
+    default:
+      return 'text-gray-600';
   }
 };
 
@@ -66,7 +75,7 @@ export const TodoSection = ({
   setNewTodoCourse,
   setNewTodoPriority,
   addTodoItem,
-  removeTodoItem
+  removeTodoItem,
 }: TodoSectionProps) => {
   return (
     <Card className="bg-blue-50 border-l-4 border-blue-500 shadow-lg border">
@@ -78,8 +87,8 @@ export const TodoSection = ({
             </div>
             To Do
           </div>
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             variant="outline"
             onClick={() => setShowAddTodo(!showAddTodo)}
             className="h-8 w-8 p-0"
@@ -106,9 +115,13 @@ export const TodoSection = ({
                   onChange={(e) => setNewTodoCourse(e.target.value)}
                   className="text-sm"
                 />
-                <select 
+                <select
                   value={newTodoPriority}
-                  onChange={(e) => setNewTodoPriority(e.target.value as "high" | "medium" | "low")}
+                  onChange={(e) =>
+                    setNewTodoPriority(
+                      e.target.value as 'high' | 'medium' | 'low',
+                    )
+                  }
                   className="text-sm border border-gray-300 rounded-md px-2 py-1"
                 >
                   <option value="low">Low Priority</option>
@@ -117,16 +130,16 @@ export const TodoSection = ({
                 </select>
               </div>
               <div className="flex gap-2">
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   onClick={addTodoItem}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   <Check className="h-3 w-3 mr-1" />
                   Add
                 </Button>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="outline"
                   onClick={() => setShowAddTodo(false)}
                 >
@@ -137,7 +150,7 @@ export const TodoSection = ({
             </div>
           </div>
         )}
-        
+
         <div className="space-y-3 max-h-32 overflow-y-auto">
           {todoItems.length === 0 ? (
             <div className="text-center py-4 text-gray-500">
@@ -152,7 +165,12 @@ export const TodoSection = ({
                   key={item.id}
                   className="flex items-start gap-3 p-3 rounded-lg hover:bg-white hover:shadow-sm transition-all duration-200 group"
                 >
-                  <IconComponent className={cn("h-4 w-4 mt-0.5", getPriorityColor(item.priority))} />
+                  <IconComponent
+                    className={cn(
+                      'h-4 w-4 mt-0.5',
+                      getPriorityColor(item.priority),
+                    )}
+                  />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium sidebar-text truncate">
                       {item.title}

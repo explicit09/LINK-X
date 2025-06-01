@@ -31,7 +31,8 @@ export function useProfessorNavigation() {
   };
 
   // Check if currently viewing course details
-  const isViewingCourse = currentView === 'course-detail' && selectedCourse !== null;
+  const isViewingCourse =
+    currentView === 'course-detail' && selectedCourse !== null;
 
   // Check if specific tab is active
   const isTabActive = (tab: TabType) => activeTab === tab;
@@ -46,6 +47,6 @@ export function useProfessorNavigation() {
     isViewingCourse,
     isTabActive,
     setSelectedCourse,
-    setActiveTab
+    setActiveTab,
   };
 }

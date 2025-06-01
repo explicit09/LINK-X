@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { ChevronRight, X } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { ChevronRight, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 interface Course {
   id: string;
@@ -42,16 +42,16 @@ const CoursesList = ({
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const res = await fetch("http://localhost:8080/api/v2/courses", {
-          method: "GET",
-          credentials: "include",
+        const res = await fetch('http://localhost:8080/api/v2/courses', {
+          method: 'GET',
+          credentials: 'include',
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        console.log("CoursesList API response:", data);
+        console.log('CoursesList API response:', data);
         setCourses(data.data || []);
       } catch (err) {
-        console.error("Failed to load courses:", err);
+        console.error('Failed to load courses:', err);
       }
     };
 
@@ -59,26 +59,26 @@ const CoursesList = ({
   }, []);
 
   const filteredCourses = courses.filter((course) =>
-    course.title.toLowerCase().includes(search.toLowerCase())
+    course.title.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const visibleCourses = showAll ? filteredCourses : filteredCourses.slice(0, 5);
+  const visibleCourses = showAll
+    ? filteredCourses
+    : filteredCourses.slice(0, 5);
 
   return (
     <div
       className={cn(
-        "transition-all duration-300",
+        'transition-all duration-300',
         isExpanded
-          ? "fixed inset-0 bg-white z-50 flex items-center justify-center p-6"
-          : "relative"
+          ? 'fixed inset-0 bg-white z-50 flex items-center justify-center p-6'
+          : 'relative',
       )}
     >
       <Card
         className={cn(
-          "bg-white border border-gray-200 shadow-lg transition-all duration-300",
-          isExpanded
-            ? "w-full max-w-4xl h-full p-6 overflow-auto"
-            : "w-full"
+          'bg-white border border-gray-200 shadow-lg transition-all duration-300',
+          isExpanded ? 'w-full max-w-4xl h-full p-6 overflow-auto' : 'w-full',
         )}
         onClick={() => !isExpanded && setIsExpanded(true)}
       >
@@ -110,9 +110,11 @@ const CoursesList = ({
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          
+
           {courses.length === 0 ? (
-            <div className="text-center text-gray-500 mt-4">Loading your courses...</div>
+            <div className="text-center text-gray-500 mt-4">
+              Loading your courses...
+            </div>
           ) : (
             <>
               <ul className="space-y-4 mt-4">
@@ -122,12 +124,15 @@ const CoursesList = ({
                     className="flex items-center justify-between bg-gray-100 p-3 rounded-lg border border-gray-300"
                   >
                     <div>
-                      <div className="font-semibold text-black">{course.title}</div>
+                      <div className="font-semibold text-black">
+                        {course.title}
+                      </div>
                       <div className="text-sm text-gray-600">
-                        {course.category} • Instructor: {course.instructor?.name || "Unknown"}
+                        {course.category} • Instructor:{' '}
+                        {course.instructor?.name || 'Unknown'}
                       </div>
                       <div className="text-xs text-gray-500">
-                        {course.description || "No description"}
+                        {course.description || 'No description'}
                       </div>
                     </div>
                     <Button
@@ -147,7 +152,7 @@ const CoursesList = ({
                     className="text-blue-400 border-blue-400 hover:bg-blue-700 hover:text-white"
                     onClick={() => setShowAll((prev) => !prev)}
                   >
-                    {showAll ? "See Less" : "See More"}
+                    {showAll ? 'See Less' : 'See More'}
                   </Button>
                 </div>
               )}

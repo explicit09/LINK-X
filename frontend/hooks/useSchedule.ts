@@ -4,8 +4,8 @@
  */
 import { useCallback, useMemo } from 'react';
 import { useApiQuery, useApiMutation } from './useApi';
-import { 
-  scheduleAPI, 
+import {
+  scheduleAPI,
   StudySession,
   FrontendStudySession,
   UserSchedulePreferences,
@@ -21,7 +21,7 @@ import {
   OptimizeScheduleRequest,
   transformSessionForFrontend,
   transformSessionForBackend,
-  getDefaultSchedulePreferences
+  getDefaultSchedulePreferences,
 } from '@/lib/api/endpoints/schedule';
 
 // ===== SESSION MANAGEMENT HOOKS =====
@@ -35,8 +35,8 @@ export function useScheduleSessions(params: GetSessionsParams = {}) {
     [JSON.stringify(params)],
     {
       showErrorToast: true,
-      staleTime: 30000 // 30 seconds
-    }
+      staleTime: 30000, // 30 seconds
+    },
   );
 }
 
@@ -45,12 +45,16 @@ export function useScheduleSessions(params: GetSessionsParams = {}) {
  */
 export function useTodaySessions() {
   const today = new Date();
-  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const startOfDay = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
   const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
 
   return useScheduleSessions({
     start_date: startOfDay.toISOString(),
-    end_date: endOfDay.toISOString()
+    end_date: endOfDay.toISOString(),
   });
 }
 
@@ -58,20 +62,22 @@ export function useTodaySessions() {
  * Get week's sessions for calendar view
  */
 export function useWeekSessions(weekStart?: Date) {
-  const start = weekStart || (() => {
-    const now = new Date();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - now.getDay() + 1);
-    monday.setHours(0, 0, 0, 0);
-    return monday;
-  })();
-  
+  const start =
+    weekStart ||
+    (() => {
+      const now = new Date();
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - now.getDay() + 1);
+      monday.setHours(0, 0, 0, 0);
+      return monday;
+    })();
+
   const end = new Date(start);
   end.setDate(start.getDate() + 7);
 
   return useScheduleSessions({
     start_date: start.toISOString(),
-    end_date: end.toISOString()
+    end_date: end.toISOString(),
   });
 }
 
@@ -80,7 +86,7 @@ export function useWeekSessions(weekStart?: Date) {
  */
 export function useCourseSessions(courseId: string) {
   return useScheduleSessions({
-    course_id: courseId
+    course_id: courseId,
   });
 }
 
@@ -93,8 +99,8 @@ export function useCreateSession() {
     {
       showErrorToast: true,
       showSuccessToast: true,
-      successMessage: 'Session created successfully'
-    }
+      successMessage: 'Session created successfully',
+    },
   );
 }
 
@@ -103,13 +109,13 @@ export function useCreateSession() {
  */
 export function useUpdateSession() {
   return useApiMutation(
-    ({ sessionId, data }: { sessionId: string; data: UpdateSessionRequest }) => 
+    ({ sessionId, data }: { sessionId: string; data: UpdateSessionRequest }) =>
       scheduleAPI.updateSession(sessionId, data),
     {
       showErrorToast: true,
       showSuccessToast: true,
-      successMessage: 'Session updated successfully'
-    }
+      successMessage: 'Session updated successfully',
+    },
   );
 }
 
@@ -122,8 +128,8 @@ export function useDeleteSession() {
     {
       showErrorToast: true,
       showSuccessToast: true,
-      successMessage: 'Session deleted successfully'
-    }
+      successMessage: 'Session deleted successfully',
+    },
   );
 }
 
@@ -135,8 +141,8 @@ export function useBulkUpdateSessions() {
     (data: BulkUpdateSessionsRequest) => scheduleAPI.bulkUpdateSessions(data),
     {
       showErrorToast: true,
-      showSuccessToast: false // Avoid noise for drag operations
-    }
+      showSuccessToast: false, // Avoid noise for drag operations
+    },
   );
 }
 
@@ -149,8 +155,8 @@ export function useStartSession() {
     {
       showErrorToast: true,
       showSuccessToast: true,
-      successMessage: 'Session started! Good luck! 🚀'
-    }
+      successMessage: 'Session started! Good luck! 🚀',
+    },
   );
 }
 
@@ -159,13 +165,16 @@ export function useStartSession() {
  */
 export function useCompleteSession() {
   return useApiMutation(
-    ({ sessionId, data }: { sessionId: string; data?: CompleteSessionRequest }) => 
+    ({
+      sessionId,
+      data,
+    }: { sessionId: string; data?: CompleteSessionRequest }) =>
       scheduleAPI.completeSession(sessionId, data),
     {
       showErrorToast: true,
       showSuccessToast: true,
-      successMessage: 'Session completed! Well done! 🎉'
-    }
+      successMessage: 'Session completed! Well done! 🎉',
+    },
   );
 }
 
@@ -175,14 +184,10 @@ export function useCompleteSession() {
  * Get user's schedule preferences
  */
 export function useSchedulePreferences() {
-  return useApiQuery(
-    () => scheduleAPI.getPreferences(),
-    [],
-    {
-      showErrorToast: true,
-      staleTime: 300000 // 5 minutes
-    }
-  );
+  return useApiQuery(() => scheduleAPI.getPreferences(), [], {
+    showErrorToast: true,
+    staleTime: 300000, // 5 minutes
+  });
 }
 
 /**
@@ -190,12 +195,13 @@ export function useSchedulePreferences() {
  */
 export function useUpdateSchedulePreferences() {
   return useApiMutation(
-    (data: Partial<UserSchedulePreferences>) => scheduleAPI.updatePreferences(data),
+    (data: Partial<UserSchedulePreferences>) =>
+      scheduleAPI.updatePreferences(data),
     {
       showErrorToast: true,
       showSuccessToast: true,
-      successMessage: 'Preferences updated successfully'
-    }
+      successMessage: 'Preferences updated successfully',
+    },
   );
 }
 
@@ -210,22 +216,24 @@ export function useOptimizeSchedule() {
     {
       showErrorToast: true,
       showSuccessToast: true,
-      successMessage: 'Schedule optimized! Check the suggestions.'
-    }
+      successMessage: 'Schedule optimized! Check the suggestions.',
+    },
   );
 }
 
 /**
  * Get AI suggestions
  */
-export function useAISuggestions(params: { type?: string; status?: string; limit?: number } = {}) {
+export function useAISuggestions(
+  params: { type?: string; status?: string; limit?: number } = {},
+) {
   return useApiQuery(
     () => scheduleAPI.getAISuggestions(params),
     [JSON.stringify(params)],
     {
       showErrorToast: true,
-      staleTime: 60000 // 1 minute
-    }
+      staleTime: 60000, // 1 minute
+    },
   );
 }
 
@@ -245,8 +253,8 @@ export function useApplyAISuggestion() {
     {
       showErrorToast: true,
       showSuccessToast: true,
-      successMessage: 'AI suggestion applied successfully'
-    }
+      successMessage: 'AI suggestion applied successfully',
+    },
   );
 }
 
@@ -261,8 +269,8 @@ export function useScheduleAnalytics(daysBack: number = 30) {
     [daysBack],
     {
       showErrorToast: true,
-      staleTime: 300000 // 5 minutes
-    }
+      staleTime: 300000, // 5 minutes
+    },
   );
 }
 
@@ -270,14 +278,10 @@ export function useScheduleAnalytics(daysBack: number = 30) {
  * Get AI-powered schedule insights
  */
 export function useScheduleInsights() {
-  return useApiQuery(
-    () => scheduleAPI.getScheduleInsights(),
-    [],
-    {
-      showErrorToast: true,
-      staleTime: 600000 // 10 minutes
-    }
-  );
+  return useApiQuery(() => scheduleAPI.getScheduleInsights(), [], {
+    showErrorToast: true,
+    staleTime: 600000, // 10 minutes
+  });
 }
 
 // ===== COMPOSITE HOOKS =====
@@ -293,16 +297,16 @@ export function useScheduleDashboard() {
   const aiSuggestions = usePendingAISuggestions();
   const insights = useScheduleInsights();
 
-  const isLoading = 
-    todaySessions.isLoading || 
-    weekSessions.isLoading || 
-    preferences.isLoading || 
+  const isLoading =
+    todaySessions.isLoading ||
+    weekSessions.isLoading ||
+    preferences.isLoading ||
     analytics.isLoading;
 
-  const error = 
-    todaySessions.error || 
-    weekSessions.error || 
-    preferences.error || 
+  const error =
+    todaySessions.error ||
+    weekSessions.error ||
+    preferences.error ||
     analytics.error;
 
   return {
@@ -313,7 +317,7 @@ export function useScheduleDashboard() {
     aiSuggestions: aiSuggestions.data?.data || [],
     insights: insights.data?.data,
     isLoading,
-    error
+    error,
   };
 }
 
@@ -326,40 +330,47 @@ export function useCalendarData(courseMap?: Record<string, string>) {
 
   const transformedSessions = useMemo(() => {
     if (!weekSessions.data?.data) return [];
-    
-    return weekSessions.data.data.map((session: StudySession) => 
-      transformSessionForFrontend(session, courseMap?.[session.course_id || ''])
+
+    return weekSessions.data.data.map((session: StudySession) =>
+      transformSessionForFrontend(
+        session,
+        courseMap?.[session.course_id || ''],
+      ),
     );
   }, [weekSessions.data, courseMap]);
 
   const ghostSessions = useMemo(() => {
     if (!aiSuggestions.data?.data) return [];
-    
+
     return aiSuggestions.data.data
       .filter((suggestion: AISessionSuggestion) => suggestion.suggested_start)
-      .map((suggestion: AISessionSuggestion): FrontendStudySession => ({
-        id: `ghost-${suggestion.id}`,
-        title: suggestion.title,
-        course: 'AI Suggestion',
-        duration: `${suggestion.suggested_duration || 45}min`,
-        cognitiveLoad: suggestion.suggested_cognitive_load || 'medium',
-        urgency: 'later',
-        xpReward: 10,
-        type: 'study',
-        estimatedStart: new Date(suggestion.suggested_start!).toLocaleTimeString('en-US', {
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit'
+      .map(
+        (suggestion: AISessionSuggestion): FrontendStudySession => ({
+          id: `ghost-${suggestion.id}`,
+          title: suggestion.title,
+          course: 'AI Suggestion',
+          duration: `${suggestion.suggested_duration || 45}min`,
+          cognitiveLoad: suggestion.suggested_cognitive_load || 'medium',
+          urgency: 'later',
+          xpReward: 10,
+          type: 'study',
+          estimatedStart: new Date(
+            suggestion.suggested_start!,
+          ).toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          isGhost: true,
         }),
-        isGhost: true
-      }));
+      );
   }, [aiSuggestions.data]);
 
   return {
     sessions: transformedSessions,
     ghostSessions,
     isLoading: weekSessions.isLoading,
-    error: weekSessions.error
+    error: weekSessions.error,
   };
 }
 
@@ -374,71 +385,82 @@ export function useSessionOperations() {
   const startSession = useStartSession();
   const completeSession = useCompleteSession();
 
-  const moveSession = useCallback(async (
-    sessionId: string, 
-    newStart: Date, 
-    newDuration?: number
-  ) => {
-    const newEnd = new Date(newStart);
-    newEnd.setMinutes(newEnd.getMinutes() + (newDuration || 45));
+  const moveSession = useCallback(
+    async (sessionId: string, newStart: Date, newDuration?: number) => {
+      const newEnd = new Date(newStart);
+      newEnd.setMinutes(newEnd.getMinutes() + (newDuration || 45));
 
-    return updateSession.mutateAsync({
-      sessionId,
-      data: {
-        scheduled_start: newStart.toISOString(),
-        scheduled_end: newEnd.toISOString(),
-        duration_minutes: newDuration
-      }
-    });
-  }, [updateSession]);
-
-  const moveBulkSessions = useCallback(async (sessions: Array<{
-    id: string;
-    newStart: Date;
-    newDuration?: number;
-  }>) => {
-    const bulkData = {
-      sessions: sessions.map(session => {
-        const newEnd = new Date(session.newStart);
-        newEnd.setMinutes(newEnd.getMinutes() + (session.newDuration || 45));
-        
-        return {
-          id: session.id,
-          scheduled_start: session.newStart.toISOString(),
+      return updateSession.execute({
+        sessionId,
+        data: {
+          scheduled_start: newStart.toISOString(),
           scheduled_end: newEnd.toISOString(),
-          duration_minutes: session.newDuration
-        };
-      })
-    };
+          duration_minutes: newDuration,
+        },
+      });
+    },
+    [updateSession],
+  );
 
-    return bulkUpdate.mutateAsync(bulkData);
-  }, [bulkUpdate]);
+  const moveBulkSessions = useCallback(
+    async (
+      sessions: Array<{
+        id: string;
+        newStart: Date;
+        newDuration?: number;
+      }>,
+    ) => {
+      const bulkData = {
+        sessions: sessions.map((session) => {
+          const newEnd = new Date(session.newStart);
+          newEnd.setMinutes(newEnd.getMinutes() + (session.newDuration || 45));
 
-  const createSessionFromGhost = useCallback(async (
-    ghostSession: FrontendStudySession,
-    courseId?: string,
-    date?: Date
-  ) => {
-    const backendData = transformSessionForBackend(ghostSession, courseId, date);
-    return createSession.mutateAsync(backendData as CreateSessionRequest);
-  }, [createSession]);
+          return {
+            id: session.id,
+            scheduled_start: session.newStart.toISOString(),
+            scheduled_end: newEnd.toISOString(),
+            duration_minutes: session.newDuration,
+          };
+        }),
+      };
+
+      return bulkUpdate.execute(bulkData);
+    },
+    [bulkUpdate],
+  );
+
+  const createSessionFromGhost = useCallback(
+    async (
+      ghostSession: FrontendStudySession,
+      courseId?: string,
+      date?: Date,
+    ) => {
+      const backendData = transformSessionForBackend(
+        ghostSession,
+        courseId,
+        date,
+      );
+      return createSession.execute(backendData as CreateSessionRequest);
+    },
+    [createSession],
+  );
 
   return {
-    createSession: createSession.mutateAsync,
-    updateSession: updateSession.mutateAsync,
-    deleteSession: deleteSession.mutateAsync,
-    startSession: startSession.mutateAsync,
-    completeSession: completeSession.mutateAsync,
+    createSession: createSession.execute,
+    updateSession: updateSession.execute,
+    deleteSession: deleteSession.execute,
+    startSession: startSession.execute,
+    completeSession: completeSession.execute,
     moveSession,
     moveBulkSessions,
     createSessionFromGhost,
-    isLoading: 
-      createSession.isLoading || 
-      updateSession.isLoading || 
-      deleteSession.isLoading || 
+    isLoading:
+      createSession.isLoading ||
+      updateSession.isLoading ||
+      deleteSession.isLoading ||
       bulkUpdate.isLoading ||
       startSession.isLoading ||
-      completeSession.isLoading
+      completeSession.isLoading,
   };
 }
 
@@ -450,19 +472,25 @@ export function useAIOptimization() {
   const applyAISuggestion = useApplyAISuggestion();
   const aiSuggestions = usePendingAISuggestions();
 
-  const runOptimization = useCallback(async (params: OptimizeScheduleRequest = {}) => {
-    const result = await optimizeSchedule.mutateAsync(params);
-    // Refresh suggestions after optimization
-    await aiSuggestions.refetch();
-    return result;
-  }, [optimizeSchedule, aiSuggestions]);
+  const runOptimization = useCallback(
+    async (params: OptimizeScheduleRequest = {}) => {
+      const result = await optimizeSchedule.execute(params);
+      // Refresh suggestions after optimization
+      await aiSuggestions.refetch();
+      return result;
+    },
+    [optimizeSchedule, aiSuggestions],
+  );
 
-  const applySuggestion = useCallback(async (suggestionId: string) => {
-    const result = await applyAISuggestion.mutateAsync(suggestionId);
-    // Refresh suggestions after applying one
-    await aiSuggestions.refetch();
-    return result;
-  }, [applyAISuggestion, aiSuggestions]);
+  const applySuggestion = useCallback(
+    async (suggestionId: string) => {
+      const result = await applyAISuggestion.execute(suggestionId);
+      // Refresh suggestions after applying one
+      await aiSuggestions.refetch();
+      return result;
+    },
+    [applyAISuggestion, aiSuggestions],
+  );
 
   return {
     runOptimization,
@@ -470,7 +498,7 @@ export function useAIOptimization() {
     suggestions: aiSuggestions.data?.data || [],
     isOptimizing: optimizeSchedule.isLoading,
     isApplying: applyAISuggestion.isLoading,
-    error: optimizeSchedule.error || applyAISuggestion.error
+    error: optimizeSchedule.error || applyAISuggestion.error,
   };
 }
 
@@ -497,5 +525,5 @@ export default {
   useScheduleDashboard,
   useCalendarData,
   useSessionOperations,
-  useAIOptimization
+  useAIOptimization,
 };

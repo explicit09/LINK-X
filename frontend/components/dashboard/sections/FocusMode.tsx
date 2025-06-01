@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
-import { Eye, EyeOff, Timer, Play, Pause, RotateCcw } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import React, { useState, useEffect } from 'react';
+import { Eye, EyeOff, Timer, Play, Pause, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface FocusModeProps {
   isActive: boolean;
@@ -11,14 +11,18 @@ interface FocusModeProps {
   onStartPomodoro?: () => void;
 }
 
-export function FocusMode({ isActive, onToggle, onStartPomodoro }: FocusModeProps) {
+export function FocusMode({
+  isActive,
+  onToggle,
+  onStartPomodoro,
+}: FocusModeProps) {
   const [pomodoroTime, setPomodoroTime] = useState(25 * 60); // 25 minutes in seconds
   const [isRunning, setIsRunning] = useState(false);
-  const [sessionType, setSessionType] = useState<"work" | "break">("work");
+  const [sessionType, setSessionType] = useState<'work' | 'break'>('work');
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    
+
     if (isRunning && pomodoroTime > 0) {
       interval = setInterval(() => {
         setPomodoroTime((time) => time - 1);
@@ -26,12 +30,12 @@ export function FocusMode({ isActive, onToggle, onStartPomodoro }: FocusModeProp
     } else if (pomodoroTime === 0) {
       // Session complete
       setIsRunning(false);
-      if (sessionType === "work") {
+      if (sessionType === 'work') {
         setPomodoroTime(5 * 60); // 5 min break
-        setSessionType("break");
+        setSessionType('break');
       } else {
         setPomodoroTime(25 * 60); // 25 min work
-        setSessionType("work");
+        setSessionType('work');
       }
     }
 
@@ -52,7 +56,7 @@ export function FocusMode({ isActive, onToggle, onStartPomodoro }: FocusModeProp
   const handleReset = () => {
     setIsRunning(false);
     setPomodoroTime(25 * 60);
-    setSessionType("work");
+    setSessionType('work');
   };
 
   if (!isActive) {
@@ -91,13 +95,15 @@ export function FocusMode({ isActive, onToggle, onStartPomodoro }: FocusModeProp
           <div className="space-y-4">
             <div className="relative">
               <div className="w-32 h-32 mx-auto rounded-full border-8 border-gray-200 flex items-center justify-center relative">
-                <div 
+                <div
                   className={cn(
-                    "absolute inset-0 rounded-full border-8 border-transparent transition-all duration-1000",
-                    sessionType === "work" ? "border-t-blue-600" : "border-t-green-600"
+                    'absolute inset-0 rounded-full border-8 border-transparent transition-all duration-1000',
+                    sessionType === 'work'
+                      ? 'border-t-blue-600'
+                      : 'border-t-green-600',
                   )}
                   style={{
-                    transform: `rotate(${((sessionType === "work" ? 25 * 60 : 5 * 60) - pomodoroTime) / (sessionType === "work" ? 25 * 60 : 5 * 60) * 360}deg)`
+                    transform: `rotate(${(((sessionType === 'work' ? 25 * 60 : 5 * 60) - pomodoroTime) / (sessionType === 'work' ? 25 * 60 : 5 * 60)) * 360}deg)`,
                   }}
                 />
                 <div className="text-center">
@@ -116,8 +122,10 @@ export function FocusMode({ isActive, onToggle, onStartPomodoro }: FocusModeProp
               <Button
                 onClick={handleStartPause}
                 className={cn(
-                  "w-12 h-12 rounded-full",
-                  sessionType === "work" ? "bg-blue-600 hover:bg-blue-700" : "bg-green-600 hover:bg-green-700"
+                  'w-12 h-12 rounded-full',
+                  sessionType === 'work'
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-green-600 hover:bg-green-700',
                 )}
               >
                 {isRunning ? (
@@ -126,7 +134,7 @@ export function FocusMode({ isActive, onToggle, onStartPomodoro }: FocusModeProp
                   <Play className="h-5 w-5 text-white ml-0.5" />
                 )}
               </Button>
-              
+
               <Button
                 onClick={handleReset}
                 variant="outline"
@@ -142,7 +150,9 @@ export function FocusMode({ isActive, onToggle, onStartPomodoro }: FocusModeProp
           <div className="bg-gray-50 rounded-lg p-4 text-left">
             <h3 className="font-medium text-gray-900 mb-2">Current Priority</h3>
             <div className="text-sm text-gray-600">
-              <div className="font-medium">CS229 Neural Networks Assignment</div>
+              <div className="font-medium">
+                CS229 Neural Networks Assignment
+              </div>
               <div className="text-xs text-gray-500 mt-1">
                 Due today • 20 minutes remaining
               </div>

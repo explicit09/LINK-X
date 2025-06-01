@@ -1,23 +1,23 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { 
-  Home, 
-  BookOpen, 
-  Target, 
-  BarChart3, 
-  Users, 
-  Settings, 
+import React, { useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import {
+  Home,
+  BookOpen,
+  Target,
+  BarChart3,
+  Users,
+  Settings,
   HelpCircle,
   ChevronLeft,
   ChevronRight,
   Calendar,
-  MessageSquare
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+  MessageSquare,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 interface SidebarItem {
   id: string;
@@ -38,31 +38,43 @@ interface StudentSidebarProps {
 }
 
 const primaryNavItems: SidebarItem[] = [
-  { id: "dashboard", label: "Dashboard", icon: Home, href: "/dashboard" },
-  { id: "study-plan", label: "Study Plan", icon: Target, href: "/study-plan" },
-  { id: "schedule", label: "Schedule", icon: Calendar, href: "/schedule" },
+  { id: 'dashboard', label: 'Dashboard', icon: Home, href: '/dashboard' },
+  { id: 'study-plan', label: 'Study Plan', icon: Target, href: '/study-plan' },
+  { id: 'schedule', label: 'Schedule', icon: Calendar, href: '/schedule' },
 ];
 
 const secondaryNavItems: SidebarItem[] = [
-  { id: "courses", label: "Courses", icon: BookOpen, href: "/my-courses" },
-  { id: "progress", label: "Progress", icon: BarChart3, href: "/progress" },
-  { id: "community", label: "Community", icon: Users, href: "/community", badge: 3 },
-  { id: "messages", label: "Messages", icon: MessageSquare, href: "/messages", badge: 2 },
+  { id: 'courses', label: 'Courses', icon: BookOpen, href: '/my-courses' },
+  { id: 'progress', label: 'Progress', icon: BarChart3, href: '/progress' },
+  {
+    id: 'community',
+    label: 'Community',
+    icon: Users,
+    href: '/community',
+    badge: 3,
+  },
+  {
+    id: 'messages',
+    label: 'Messages',
+    icon: MessageSquare,
+    href: '/messages',
+    badge: 2,
+  },
 ];
 
 const bottomItems: SidebarItem[] = [
-  { id: "settings", label: "Settings", icon: Settings, href: "/settings" },
-  { id: "help", label: "Help & Support", icon: HelpCircle, href: "/help" },
+  { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
+  { id: 'help', label: 'Help & Support', icon: HelpCircle, href: '/help' },
 ];
 
-export function StudentSidebar({ 
-  currentUser, 
-  isCollapsed = false, 
-  onToggleCollapse 
+export function StudentSidebar({
+  currentUser,
+  isCollapsed = false,
+  onToggleCollapse,
 }: StudentSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const firstName = currentUser?.name?.split(" ")[0] || "Student";
+  const firstName = currentUser?.name?.split(' ')[0] || 'Student';
 
   const handleNavigation = (href: string) => {
     router.push(href);
@@ -73,10 +85,12 @@ export function StudentSidebar({
   };
 
   return (
-    <div className={cn(
-      "fixed left-0 top-0 h-screen bg-gray-900 text-white flex flex-col transition-all duration-300 z-50",
-      isCollapsed ? "w-16" : "w-64"
-    )}>
+    <div
+      className={cn(
+        'fixed left-0 top-0 h-screen bg-gray-900 text-white flex flex-col transition-all duration-300 z-50',
+        isCollapsed ? 'w-16' : 'w-64',
+      )}
+    >
       {/* Header */}
       <div className="p-4 border-b border-gray-800">
         <div className="flex items-center justify-between">
@@ -94,7 +108,7 @@ export function StudentSidebar({
               </div>
             </div>
           )}
-          
+
           <Button
             variant="ghost"
             size="sm"
@@ -116,28 +130,34 @@ export function StudentSidebar({
         <div className="space-y-1">
           {primaryNavItems.map((item) => {
             const IconComponent = item.icon;
-            const isActive = pathname === item.href || pathname.startsWith(item.href);
-            
+            const isActive =
+              pathname === item.href || pathname.startsWith(item.href);
+
             return (
               <Button
                 key={item.id}
                 variant="ghost"
                 onClick={() => handleNavigation(item.href)}
                 className={cn(
-                  "w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 transition-all duration-200",
-                  "hover:scale-105 hover:shadow-lg hover:bg-gradient-to-r hover:from-gray-800 hover:to-gray-700",
-                  isActive && "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg scale-105",
-                  isCollapsed ? "px-2" : "px-3"
+                  'w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 transition-all duration-200',
+                  'hover:scale-105 hover:shadow-lg hover:bg-gradient-to-r hover:from-gray-800 hover:to-gray-700',
+                  isActive &&
+                    'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg scale-105',
+                  isCollapsed ? 'px-2' : 'px-3',
                 )}
               >
-                <IconComponent className={cn(
-                  "h-4 w-4 transition-colors duration-200", 
-                  !isCollapsed && "mr-3",
-                  isActive && "text-blue-100"
-                )} />
+                <IconComponent
+                  className={cn(
+                    'h-4 w-4 transition-colors duration-200',
+                    !isCollapsed && 'mr-3',
+                    isActive && 'text-blue-100',
+                  )}
+                />
                 {!isCollapsed && (
                   <>
-                    <span className="flex-1 text-left font-medium">{item.label}</span>
+                    <span className="flex-1 text-left font-medium">
+                      {item.label}
+                    </span>
                     {item.badge && (
                       <span className="bg-blue-600 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center animate-pulse">
                         {item.badge}
@@ -152,7 +172,7 @@ export function StudentSidebar({
 
         {/* Divider */}
         {!isCollapsed && <div className="border-t border-gray-700 my-3" />}
-        
+
         {/* Secondary Navigation */}
         <div className="space-y-1">
           {!isCollapsed && (
@@ -162,26 +182,31 @@ export function StudentSidebar({
               </span>
             </div>
           )}
-          
+
           {secondaryNavItems.map((item) => {
             const IconComponent = item.icon;
-            const isActive = pathname === item.href || pathname.startsWith(item.href);
-            
+            const isActive =
+              pathname === item.href || pathname.startsWith(item.href);
+
             return (
               <Button
                 key={item.id}
                 variant="ghost"
                 onClick={() => handleNavigation(item.href)}
                 className={cn(
-                  "w-full justify-start text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-all duration-200",
-                  isActive && "bg-gray-800 text-white",
-                  isCollapsed ? "px-2" : "px-3 ml-3"
+                  'w-full justify-start text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-all duration-200',
+                  isActive && 'bg-gray-800 text-white',
+                  isCollapsed ? 'px-2' : 'px-3 ml-3',
                 )}
               >
-                <IconComponent className={cn("h-4 w-4", !isCollapsed && "mr-3")} />
+                <IconComponent
+                  className={cn('h-4 w-4', !isCollapsed && 'mr-3')}
+                />
                 {!isCollapsed && (
                   <>
-                    <span className="flex-1 text-left text-sm">{item.label}</span>
+                    <span className="flex-1 text-left text-sm">
+                      {item.label}
+                    </span>
                     {item.badge && (
                       <span className="bg-orange-600 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center animate-bounce">
                         {item.badge}
@@ -200,20 +225,24 @@ export function StudentSidebar({
         {bottomItems.map((item) => {
           const IconComponent = item.icon;
           const isActive = pathname === item.href;
-          
+
           return (
             <Button
               key={item.id}
               variant="ghost"
               onClick={() => handleNavigation(item.href)}
               className={cn(
-                "w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800",
-                isActive && "bg-gray-800 text-white",
-                isCollapsed ? "px-2" : "px-3"
+                'w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800',
+                isActive && 'bg-gray-800 text-white',
+                isCollapsed ? 'px-2' : 'px-3',
               )}
             >
-              <IconComponent className={cn("h-4 w-4", !isCollapsed && "mr-3")} />
-              {!isCollapsed && <span className="flex-1 text-left">{item.label}</span>}
+              <IconComponent
+                className={cn('h-4 w-4', !isCollapsed && 'mr-3')}
+              />
+              {!isCollapsed && (
+                <span className="flex-1 text-left">{item.label}</span>
+              )}
             </Button>
           );
         })}

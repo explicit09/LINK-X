@@ -23,16 +23,19 @@ export function useAuthService() {
     checkAuthStatus();
   }, [user]);
 
-  const makeAuthenticatedRequest = async (endpoint: string, options?: RequestInit) => {
+  const makeAuthenticatedRequest = async (
+    endpoint: string,
+    options?: RequestInit,
+  ) => {
     if (!isAuthenticated) {
       throw new Error('User not authenticated');
     }
 
     try {
-      const url = endpoint.startsWith('http') 
-        ? endpoint 
+      const url = endpoint.startsWith('http')
+        ? endpoint
         : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`;
-      
+
       return await authService.makeAuthenticatedRequest(url, options);
     } catch (error) {
       console.error('Authenticated request failed:', error);
@@ -50,6 +53,6 @@ export function useAuthService() {
     isLoading,
     makeAuthenticatedRequest,
     logout,
-    authService
+    authService,
   };
 }

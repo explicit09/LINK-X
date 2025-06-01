@@ -3,7 +3,7 @@ import { ChatMessage } from '../types/streaming.types';
 
 export const useAIChat = (pfId: string | null) => {
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatInput, setChatInput] = useState("");
+  const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -16,18 +16,18 @@ export const useAIChat = (pfId: string | null) => {
 
   const handleChatSubmit = async () => {
     if (!chatInput.trim()) return;
-    
+
     const newMessage = { role: 'user' as const, content: chatInput };
-    setChatMessages(prev => [...prev, newMessage]);
-    
+    setChatMessages((prev) => [...prev, newMessage]);
+
     // Add empty AI message for streaming
     const aiMessage = { role: 'ai' as const, content: '' };
-    setChatMessages(prev => [...prev, aiMessage]);
-    
+    setChatMessages((prev) => [...prev, aiMessage]);
+
     const messageIndex = chatMessages.length + 1;
-    setChatInput("");
+    setChatInput('');
     setIsStreaming(true);
-    
+
     try {
       const response = await fetch('http://localhost:8080/ai-chat-stream', {
         method: 'POST',
@@ -38,10 +38,12 @@ export const useAIChat = (pfId: string | null) => {
         body: JSON.stringify({
           userMessage: chatInput,
           fileId: pfId,
-          messages: chatMessages.map(m => ({
-            role: m.role === 'user' ? 'user' : 'assistant',
-            content: m.content
-          })).slice(-10),
+          messages: chatMessages
+            .map((m) => ({
+              role: m.role === 'user' ? 'user' : 'assistant',
+              content: m.content,
+            }))
+            .slice(-10),
         }),
       });
 
@@ -51,11 +53,11 @@ export const useAIChat = (pfId: string | null) => {
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-      
+
       if (reader) {
         let buffer = '';
         let accumulatedContent = '';
-        
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -63,21 +65,21 @@ export const useAIChat = (pfId: string | null) => {
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
           buffer = lines.pop() || '';
-          
+
           for (const line of lines) {
             if (line.trim().startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.trim().slice(6));
-                
+
                 if (data.type === 'token') {
                   accumulatedContent += data.content;
-                  
-                  setChatMessages(prev => {
+
+                  setChatMessages((prev) => {
                     const newMessages = [...prev];
                     if (newMessages[messageIndex]) {
                       newMessages[messageIndex] = {
                         ...newMessages[messageIndex],
-                        content: accumulatedContent
+                        content: accumulatedContent,
                       };
                     }
                     return newMessages;
@@ -89,23 +91,24 @@ export const useAIChat = (pfId: string | null) => {
             }
           }
         }
-        
+
         reader.releaseLock();
         setIsStreaming(false);
-        
+
         if (!chatOpen) {
-          setUnreadMessages(prev => prev + 1);
+          setUnreadMessages((prev) => prev + 1);
         }
       }
     } catch (error) {
       setIsStreaming(false);
       console.error('Chat streaming error:', error);
-      setChatMessages(prev => {
+      setChatMessages((prev) => {
         const newMessages = [...prev];
         if (newMessages[messageIndex]) {
           newMessages[messageIndex] = {
             ...newMessages[messageIndex],
-            content: "I'm sorry, I couldn't connect to the AI service. Please try again."
+            content:
+              "I'm sorry, I couldn't connect to the AI service. Please try again.",
           };
         }
         return newMessages;
@@ -128,6 +131,6 @@ export const useAIChat = (pfId: string | null) => {
     setChatOpen,
     setChatInput,
     handleChatSubmit,
-    openChat
+    openChat,
   };
 };
