@@ -74,7 +74,7 @@ export function StudentSidebar({
 
   return (
     <div className={cn(
-      "h-screen bg-gray-900 text-white flex flex-col transition-all duration-300 relative",
+      "fixed left-0 top-0 h-screen bg-gray-900 text-white flex flex-col transition-all duration-300 z-50",
       isCollapsed ? "w-16" : "w-64"
     )}>
       {/* Header */}

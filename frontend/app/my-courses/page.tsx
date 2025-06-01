@@ -24,10 +24,11 @@ import {
   TrendingUp,
   Clock,
   Star,
-  Filter
+  Filter,
+  Calendar
 } from "lucide-react";
 import { toast as sonnerToast } from 'sonner';
-import { studentAPI } from "@/lib/api";
+import { studentAPI, userAPI } from "@/lib/api";
 
 interface Course {
   id: string;
@@ -54,6 +55,21 @@ export default function MyCoursesPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [filter, setFilter] = useState<"all" | "published" | "draft">("all");
   const router = useRouter();
+
+  // Load user data
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const user = await userAPI.getMe();
+        setCurrentUser(user);
+      } catch (error) {
+        console.error("Failed to fetch user:", error);
+        setCurrentUser({ name: "Student User", email: "student@example.com" });
+      }
+    };
+
+    loadUser();
+  }, []);
 
   // Load student's created courses
   useEffect(() => {
@@ -168,7 +184,19 @@ export default function MyCoursesPage() {
 
   const publishedCount = courses.filter(c => c.published).length;
   const draftCount = courses.filter(c => !c.published).length;
-  const totalStudents = courses.reduce((sum, c) => sum + (c.studentsCount || 0), 0);
+  
+  // Mock upcoming deadlines - in real app, this would come from API
+  const getUpcomingDeadlines = () => {
+    // Simulate course-related deadlines
+    const deadlines = [
+      { course: "CS229", task: "Assignment 3 grading", dueIn: "2 days" },
+      { course: "CS224n", task: "Quiz review", dueIn: "3 days" },
+      { course: "CS231n", task: "Project submissions", dueIn: "5 days" }
+    ];
+    return deadlines.length;
+  };
+  
+  const upcomingDeadlines = getUpcomingDeadlines();
 
   if (loading) {
     return (
@@ -223,14 +251,15 @@ export default function MyCoursesPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200">
+        <Card className="bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200 hover:shadow-md transition-shadow cursor-pointer">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-600 text-sm font-medium">Total Students</p>
-                <p className="text-2xl font-bold text-purple-900">{totalStudents}</p>
+                <p className="text-purple-600 text-sm font-medium">Upcoming Deadlines</p>
+                <p className="text-2xl font-bold text-purple-900">{upcomingDeadlines}</p>
+                <p className="text-xs text-purple-600">Tasks due this week</p>
               </div>
-              <Users className="h-8 w-8 text-purple-600" />
+              <Calendar className="h-8 w-8 text-purple-600" />
             </div>
           </CardContent>
         </Card>
@@ -301,15 +330,41 @@ export default function MyCoursesPage() {
           {filteredCourses.map((course) => (
             <Card 
               key={course.id} 
-              className="hover:shadow-lg transition-all duration-200 cursor-pointer group border-gray-200 hover:border-blue-300"
+              className="transition-all duration-200 cursor-pointer group border border-blue-200 hover:border-blue-400 hover:shadow-lg hover:scale-[1.02] bg-gradient-to-br from-gray-50/50 to-white"
               onClick={() => router.push(`/courses/${course.id}`)}
+              style={{
+                boxShadow: '0px 2px 6px rgba(0,0,0,0.04)',
+              }}
             >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
+              <CardHeader className="pb-3 relative">
+                {/* Enhanced Status Badge - Top Left */}
+                <div className="absolute -top-1 -left-1 z-10">
+                  <Badge 
+                    className={`text-xs font-medium px-2 py-1 shadow-sm border-0 ${
+                      course.published 
+                        ? "bg-green-500 text-white" 
+                        : "bg-blue-500 text-white"
+                    }`}
+                  >
+                    {course.published ? (
+                      <>
+                        <Eye className="h-3 w-3 mr-1" />
+                        Published
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="h-3 w-3 mr-1" />
+                        Draft
+                      </>
+                    )}
+                  </Badge>
+                </div>
+
+                <div className="flex items-start justify-between pt-4">
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-2">
-                      <div className={`w-3 h-3 rounded-full ${course.color}`} />
-                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                      <div className={`w-3 h-3 rounded-full ${course.color} shadow-sm`} />
+                      <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
                         {course.code}
                       </span>
                     </div>
@@ -320,19 +375,6 @@ export default function MyCoursesPage() {
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <Badge variant={course.published ? "default" : "secondary"} className="text-xs">
-                      {course.published ? (
-                        <>
-                          <Eye className="h-3 w-3 mr-1" />
-                          Live
-                        </>
-                      ) : (
-                        <>
-                          <EyeOff className="h-3 w-3 mr-1" />
-                          Draft
-                        </>
-                      )}
-                    </Badge>
                     
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
@@ -376,7 +418,7 @@ export default function MyCoursesPage() {
                   {course.description || "No description provided"}
                 </p>
                 
-                {/* Progress Bar */}
+                {/* Enhanced Progress Bar */}
                 {course.progress !== undefined && (
                   <div className="mb-4">
                     <div className="flex justify-between text-xs text-gray-500 mb-1">
@@ -392,6 +434,7 @@ export default function MyCoursesPage() {
                   </div>
                 )}
                 
+                {/* Original 3-Column Stats Layout */}
                 <div className="grid grid-cols-3 gap-4 text-center text-sm">
                   <div>
                     <div className="flex items-center justify-center text-blue-600 mb-1">
@@ -417,9 +460,9 @@ export default function MyCoursesPage() {
                 </div>
                 
                 {course.accessCode && (
-                  <div className="mt-4 p-3 bg-gray-50 rounded-lg text-center">
-                    <p className="text-xs text-gray-500 mb-1">Access Code</p>
-                    <p className="font-mono font-semibold text-blue-600">{course.accessCode}</p>
+                  <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-lg text-center">
+                    <p className="text-xs text-blue-600 mb-1 font-medium">Access Code</p>
+                    <p className="font-mono font-bold text-blue-700 text-lg tracking-wider">{course.accessCode}</p>
                   </div>
                 )}
               </CardContent>
