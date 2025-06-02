@@ -51,11 +51,12 @@ export const authAPI = {
       }
       
       // Map backend fields to frontend expected format
+      // Use consistent name fallback logic matching dashboard and course pages
       return {
-        name: userData.display_name || 'Student',
+        name: userData.profile?.name || userData.email?.split('@')[0] || 'User',
         email: userData.email,
         avatar: userData.profile?.avatar_url,
-        role: userData.role?.type,
+        role: userData.role?.type || userData.role,
         id: userData.id,
         // Keep original data for compatibility
         data: userData
