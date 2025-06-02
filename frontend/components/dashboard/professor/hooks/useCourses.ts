@@ -40,6 +40,14 @@ export function useCourses() {
       setLoading(true);
       setError(null);
       const response = await instructorAPI.getCourses();
+      
+      // Ensure response is an array before setting courses
+      if (!Array.isArray(response)) {
+        console.warn('Courses response is not an array:', response);
+        setCourses([]);
+        return;
+      }
+      
       setCourses(response);
     } catch (err) {
       console.error('Error fetching courses:', err);
