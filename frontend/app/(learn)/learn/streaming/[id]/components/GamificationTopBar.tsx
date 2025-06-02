@@ -68,164 +68,167 @@ export function GamificationTopBar({
   };
 
   return (
-    <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 text-white p-4 shadow-lg">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleBackToCourse}
-            className="text-white hover:bg-white/20"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Course
-          </Button>
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      {/* Header with navigation */}
+      <div className="flex items-center justify-between mb-6">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleBackToCourse}
+          className="text-gray-700 border-gray-300"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Course
+        </Button>
 
-          <div className="flex items-center space-x-4">
-            {/* Performance Metrics Toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-white/20"
-            >
-              <Activity className="w-4 h-4 mr-2" />
-              Metrics
-            </Button>
+        <div className="flex items-center space-x-3">
+          <h1 className="text-[20px] font-semibold text-gray-900">AI Learning Session</h1>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          {/* Performance Metrics Toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-gray-700 border-gray-300"
+          >
+            <Activity className="w-4 h-4 mr-2" />
+            Metrics
+          </Button>
+        </div>
+      </div>
+
+      {/* Metrics Grid - v2 style */}
+      <div className="grid grid-cols-4 gap-4">
+        {/* Level & XP */}
+        <div className="bg-gray-50 rounded-lg p-4">
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="relative">
+              <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                <Star className="w-5 h-5 text-indigo-600" />
+              </div>
+              {showXPAnimation && (
+                <div className="absolute -top-1 -right-1 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full animate-bounce">
+                  +{lastXPGain}
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="text-[14px] font-medium text-gray-700">Level {userLevel}</div>
+              <div className="text-[16px] font-semibold text-gray-900">
+                {userXP.toLocaleString()} XP
+              </div>
+            </div>
+          </div>
+          <Progress value={levelProgress} className="h-2" />
+          <div className="text-[12px] text-gray-600 mt-1">
+            {Math.round(levelProgress)}% to Level {userLevel + 1}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
-          {/* Level & XP Section */}
-          <div className="lg:col-span-3">
-            <div className="flex items-center space-x-3">
-              <div className="relative">
-                <div className="w-12 h-12 rounded-full bg-yellow-400/20 flex items-center justify-center border-2 border-yellow-300">
-                  <Star className="w-6 h-6 text-yellow-300" />
-                </div>
-                {showXPAnimation && (
-                  <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full animate-bounce">
-                    +{lastXPGain}
-                  </div>
-                )}
-              </div>
-              <div>
-                <div className="text-sm opacity-90">Level {userLevel}</div>
-                <div className="text-xl font-bold">
-                  {userXP.toLocaleString()} XP
-                </div>
-              </div>
+        {/* Streak */}
+        <div className="bg-gray-50 rounded-lg p-4">
+          <div className="flex items-center space-x-2 mb-2">
+            <Flame className="w-5 h-5 text-orange-500" />
+            <div>
+              <div className="text-[14px] font-medium text-gray-700">Streak</div>
+              <div className="text-[16px] font-semibold text-gray-900">{streak} days</div>
             </div>
-            <div className="mt-2">
-              <Progress value={levelProgress} className="h-2 bg-white/20" />
-              <div className="text-xs opacity-75 mt-1">
-                {Math.round(levelProgress)}% to Level {userLevel + 1}
+          </div>
+        </div>
+
+        {/* Learning Progress */}
+        <div className="bg-gray-50 rounded-lg p-4">
+          <div className="flex items-center space-x-2 mb-2">
+            <Target className="w-5 h-5 text-green-500" />
+            <div>
+              <div className="text-[14px] font-medium text-gray-700">Progress</div>
+              <div className="text-[16px] font-semibold text-gray-900">
+                {completedCount}/{totalSections}
               </div>
             </div>
           </div>
-
-          {/* Streak Section */}
-          <div className="lg:col-span-2">
-            <div className="flex items-center space-x-2">
-              <Flame className="w-5 h-5 text-orange-300" />
-              <div>
-                <div className="text-sm opacity-90">Streak</div>
-                <div className="text-lg font-bold">{streak} days</div>
-              </div>
-            </div>
+          <Progress value={progress} className="h-2" />
+          <div className="text-[12px] text-gray-600 mt-1">
+            {Math.round(progress)}% Complete
           </div>
+        </div>
 
-          {/* Progress Section */}
-          <div className="lg:col-span-4">
-            <div className="text-center">
-              <div className="flex items-center justify-center space-x-2 mb-2">
-                <Target className="w-5 h-5 text-green-300" />
-                <span className="text-sm opacity-90">
-                  Learning Progress: {completedCount}/{totalSections} sections
-                </span>
-              </div>
-              <Progress value={progress} className="h-3 bg-white/20" />
-              <div className="text-xs opacity-75 mt-1">
-                {Math.round(progress)}% Complete
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Achievements */}
-          <div className="lg:col-span-3">
-            <div className="flex items-center justify-end space-x-2">
-              <div className="text-sm opacity-90">Recent:</div>
-              <div className="flex space-x-1">
-                {recentAchievements.length > 0 ? (
-                  recentAchievements.map((achievement) => (
-                    <TooltipProvider key={achievement.id}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge
-                            variant="secondary"
-                            className="bg-yellow-400/20 text-yellow-300 border-yellow-300/50 text-lg px-2 py-1"
-                          >
-                            {achievement.icon}
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <div className="text-center">
-                            <div className="font-semibold">
+        {/* Achievements */}
+        <div className="bg-gray-50 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[14px] font-medium text-gray-700">Achievements</div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-gray-600 hover:text-gray-900"
+                  >
+                    <Trophy className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <div className="max-w-xs">
+                    <h4 className="font-semibold mb-2">All Achievements</h4>
+                    <div className="space-y-1">
+                      {achievements.map((achievement) => (
+                        <div
+                          key={achievement.id}
+                          className={cn(
+                            'flex items-center space-x-2 text-xs p-1 rounded',
+                            achievement.unlocked
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-600',
+                          )}
+                        >
+                          <span>{achievement.icon}</span>
+                          <div>
+                            <div className="font-medium">
                               {achievement.name}
                             </div>
-                            <div className="text-xs opacity-75">
+                            <div className="opacity-75">
                               {achievement.description}
                             </div>
                           </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  ))
-                ) : (
-                  <div className="text-xs opacity-60">No achievements yet</div>
-                )}
-              </div>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-white hover:bg-white/20 p-1"
-                    >
-                      <Trophy className="w-4 h-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <div className="max-w-xs">
-                      <h4 className="font-semibold mb-2">All Achievements</h4>
-                      <div className="space-y-1">
-                        {achievements.map((achievement) => (
-                          <div
-                            key={achievement.id}
-                            className={cn(
-                              'flex items-center space-x-2 text-xs p-1 rounded',
-                              achievement.unlocked
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-100 text-gray-600',
-                            )}
-                          >
-                            <span>{achievement.icon}</span>
-                            <div>
-                              <div className="font-medium">
-                                {achievement.name}
-                              </div>
-                              <div className="opacity-75">
-                                {achievement.description}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
                     </div>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <div className="flex space-x-1">
+            {recentAchievements.length > 0 ? (
+              recentAchievements.map((achievement) => (
+                <TooltipProvider key={achievement.id}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="secondary"
+                        className="bg-yellow-100 text-yellow-700 border-yellow-200 text-sm px-1.5 py-0.5"
+                      >
+                        {achievement.icon}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <div className="text-center">
+                        <div className="font-semibold">
+                          {achievement.name}
+                        </div>
+                        <div className="text-xs opacity-75">
+                          {achievement.description}
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ))
+            ) : (
+              <div className="text-[12px] text-gray-500">No achievements yet</div>
+            )}
           </div>
         </div>
       </div>

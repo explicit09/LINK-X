@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
+import { useAuthUser } from '@/hooks/useAuthUser';
 
 // Custom hooks
 import { useDocumentOutline } from './hooks/useDocumentOutline';
@@ -24,6 +26,10 @@ export default function StreamingLearnPage() {
     typeof window !== 'undefined' ? window.location.search : '',
   );
   const courseId = searchParams.get('courseId');
+  const moduleId = searchParams.get('moduleId');
+  
+  // Get current user for layout
+  const { user: currentUser } = useAuthUser();
 
   // State for sidebar sticky behavior
   const [isSticky, setIsSticky] = useState(false);
@@ -88,75 +94,95 @@ export default function StreamingLearnPage() {
   // Loading state
   if (isLoadingOutline) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 h-24">
-          <Skeleton className="h-full w-full" />
-        </div>
-        <div className="flex">
-          <div className="w-80 p-4 space-y-4">
+      <SharedDashboardLayout 
+        pageTitle="Loading..." 
+        currentUser={currentUser}
+        showGamification={false}
+        showFocusMode={false}
+      >
+        <div className="flex min-h-screen">
+          <div className="w-80 p-4 space-y-4 bg-white rounded-xl border border-gray-200 shadow-sm">
             {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-20 w-full" />
+              <Skeleton key={i} className="h-20 w-full rounded-lg" />
             ))}
           </div>
-          <div className="flex-1 p-6 space-y-6">
+          <div className="flex-1 p-6 space-y-6 ml-6">
             {[...Array(3)].map((_, i) => (
-              <Skeleton key={i} className="h-40 w-full" />
+              <div key={i} className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <Skeleton className="h-40 w-full rounded-lg" />
+              </div>
             ))}
           </div>
         </div>
-      </div>
+      </SharedDashboardLayout>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
-      {/* Gamification Top Bar */}
-      <GamificationTopBar
-        userXP={userXP}
-        userLevel={userLevel}
-        streak={streak}
-        levelProgress={levelProgress}
-        showXPAnimation={showXPAnimation}
-        lastXPGain={lastXPGain}
-        achievements={achievements}
-        totalSections={totalSections}
-        completedCount={completedCount}
-        progress={progress}
-        courseId={courseId}
-      />
-
-      {/* Main Content */}
-      <div className="flex flex-1">
-        {/* Document Sidebar */}
-        <DocumentSidebar
-          outline={outline}
-          isLoadingOutline={isLoadingOutline}
-          streamingStates={streamingStates}
-          activeSectionKey={activeSectionKey}
-          focusedSectionKey={focusedSectionKey}
-          visibleSections={visibleSections}
-          isSticky={isSticky}
-          onToggleChapter={toggleChapter}
-          onStreamSection={streamSection}
-          onFocusSection={setFocusedSectionKey}
-          onRegenerateSection={regenerateSection}
-        />
-
-        {/* Streaming Content */}
-        <StreamingContent
-          outline={outline}
-          streamingContent={streamingContent}
-          streamingStates={streamingStates}
-          activeSectionKey={activeSectionKey}
-          focusedSectionKey={focusedSectionKey}
-          contentRefs={contentRefs}
-          onStreamSection={streamSection}
-          onRegenerateSection={regenerateSection}
-          onSetVisibleSections={setVisibleSections}
+    <SharedDashboardLayout 
+      pageTitle="AI Learning Assistant" 
+      currentUser={currentUser}
+      showGamification={false}
+      showFocusMode={false}
+      className="relative"
+    >
+      {/* Gamification Header - Integrated with v2 design */}
+      <div className="mb-6">
+        <GamificationTopBar
+          userXP={userXP}
+          userLevel={userLevel}
+          streak={streak}
+          levelProgress={levelProgress}
+          showXPAnimation={showXPAnimation}
+          lastXPGain={lastXPGain}
+          achievements={achievements}
+          totalSections={totalSections}
+          completedCount={completedCount}
+          progress={progress}
+          courseId={courseId}
         />
       </div>
 
-      {/* AI Chat */}
+      {/* Main Streaming Interface */}
+      <div className="flex min-h-screen gap-6">
+        {/* Document Sidebar - v2 styled */}
+        <div className="w-80 flex-shrink-0">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm h-full">
+            <DocumentSidebar
+              outline={outline}
+              isLoadingOutline={isLoadingOutline}
+              streamingStates={streamingStates}
+              activeSectionKey={activeSectionKey}
+              focusedSectionKey={focusedSectionKey}
+              visibleSections={visibleSections}
+              isSticky={isSticky}
+              onToggleChapter={toggleChapter}
+              onStreamSection={streamSection}
+              onFocusSection={setFocusedSectionKey}
+              onRegenerateSection={regenerateSection}
+            />
+          </div>
+        </div>
+
+        {/* Streaming Content - v2 styled */}
+        <div className="flex-1 min-w-0">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm h-full">
+            <StreamingContent
+              outline={outline}
+              streamingContent={streamingContent}
+              streamingStates={streamingStates}
+              activeSectionKey={activeSectionKey}
+              focusedSectionKey={focusedSectionKey}
+              contentRefs={contentRefs}
+              onStreamSection={streamSection}
+              onRegenerateSection={regenerateSection}
+              onSetVisibleSections={setVisibleSections}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* AI Chat - Floating overlay */}
       <AIChat
         {...chatProps}
         onSendMessage={chatProps.sendChatMessage}
@@ -166,13 +192,13 @@ export default function StreamingLearnPage() {
         onUseSuggestion={chatProps.useSuggestion}
       />
 
-      {/* Performance Metrics Panel */}
+      {/* Performance Metrics Panel - Floating overlay */}
       {showMetrics && (
         <PerformanceMetricsPanel
           metricsData={metricsData}
           onClose={closeMetrics}
         />
       )}
-    </div>
+    </SharedDashboardLayout>
   );
 }
