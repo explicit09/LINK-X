@@ -4,27 +4,20 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
 import { useCourseData } from '@/hooks/course/useCourseData';
-import { useCourseModules } from '@/hooks/course/useCourseModules';
+import { useCourseModules, type Module, type Material } from '@/hooks/course/useCourseModules';
 import { useCourseProgress } from '@/hooks/course/useCourseProgress';
 import { useAuthUser } from '@/hooks/useAuthUser';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ChevronDown, Play, BookOpen, Clock, AlertTriangle, TrendingUp } from 'lucide-react';
+import { ChevronDown, ChevronRight, Play, BookOpen, Clock, AlertTriangle, TrendingUp, FileText, Video, Music, Eye, Download } from 'lucide-react';
 import { courseAPI, type ResumeTarget } from '@/lib/api/courses';
 import { useAlert } from '@/contexts/AlertContext';
+import { FileCard } from '@/components/course/FileCard';
+import { EnhancedFileUpload } from '@/components/course/enhanced-file-upload/EnhancedFileUpload';
 
-interface ModuleState {
-  id: string;
-  title: string;
-  status: 'locked' | 'active' | 'urgent' | 'completed';
-  completionPercent: number;
-  confidencePercent: number;
-  estimatedTime: string;
-  lastAccessed?: string;
-  isNext?: boolean;
-}
+// Use the Module type from useCourseModules hook instead of custom interface
 
 export default function CoursePage() {
   const params = useParams();
@@ -36,8 +29,9 @@ export default function CoursePage() {
   const { modules, loading: modulesLoading, error: modulesError } = useCourseModules(courseId);
   const { progress: courseProgress, loading: progressLoading } = useCourseProgress(courseId);
   
-  const [nextModule, setNextModule] = useState<ModuleState | null>(null);
-  const [moduleStates, setModuleStates] = useState<ModuleState[]>([]);
+  const [nextModule, setNextModule] = useState<Module | null>(null);
+  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
+  const [uploadingModules, setUploadingModules] = useState<Set<string>>(new Set());
   const [showAlternateActions, setShowAlternateActions] = useState(false);
   const [resumeTarget, setResumeTarget] = useState<ResumeTarget | null>(null);
   const [resumeLoading, setResumeLoading] = useState(false);
@@ -45,42 +39,58 @@ export default function CoursePage() {
   
   const { addUrgentCourseAlert, clearAlerts } = useAlert();
 
-  // Process modules into clear states with real data
+  // Determine next module based on real data
   useEffect(() => {
     if (modules && modules.length > 0) {
-      const processed = modules.slice(0, 4).map((module) => ({
-        id: module.id,
-        title: module.title,
-        status: module.status as ModuleState['status'],
-        completionPercent: module.progress,
-        confidencePercent: module.confidenceLevel,
-        estimatedTime: module.estimatedTime,
-        lastAccessed: module.lastAccessed,
-        isNext: false // Will be determined below
-      }));
-      
-      // Determine next module based on real progress
-      const nextModuleIndex = processed.findIndex(m => 
-        m.status === 'in-progress' || (m.status === 'urgent' && m.completionPercent < 90)
+      // Find the next module to work on
+      const nextModuleCandidate = modules.find(m => 
+        m.status === 'in-progress' || (m.status === 'urgent' && m.progress < 90)
       );
       
-      if (nextModuleIndex >= 0) {
-        processed[nextModuleIndex].isNext = true;
-        setNextModule(processed[nextModuleIndex]);
+      if (nextModuleCandidate) {
+        setNextModule(nextModuleCandidate);
       } else {
         // Fallback: first incomplete module or first module
-        const firstIncomplete = processed.find(m => m.completionPercent < 90);
-        if (firstIncomplete) {
-          firstIncomplete.isNext = true;
-          setNextModule(firstIncomplete);
-        } else {
-          setNextModule(processed[0]);
-        }
+        const firstIncomplete = modules.find(m => m.progress < 90);
+        setNextModule(firstIncomplete || modules[0]);
       }
-      
-      setModuleStates(processed);
     }
   }, [modules]);
+
+  // Toggle module expansion
+  const toggleModuleExpansion = (moduleId: string) => {
+    setExpandedModules(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(moduleId)) {
+        newSet.delete(moduleId);
+      } else {
+        newSet.add(moduleId);
+      }
+      return newSet;
+    });
+  };
+
+  // Toggle upload mode for a module
+  const toggleUploadMode = (moduleId: string) => {
+    setUploadingModules(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(moduleId)) {
+        newSet.delete(moduleId);
+      } else {
+        newSet.add(moduleId);
+      }
+      return newSet;
+    });
+  };
+
+  // Handle upload completion - refresh modules data
+  const handleUploadComplete = () => {
+    // Trigger modules refetch to show new files
+    if (modules) {
+      // Use the refetch function from useCourseModules if available
+      window.location.reload(); // Simple refresh for now
+    }
+  };
 
   // Fetch resume target when course loads
   useEffect(() => {
@@ -101,13 +111,13 @@ export default function CoursePage() {
 
   // Check for urgent conditions and trigger global alerts (only once per course)
   useEffect(() => {
-    if (!course || moduleStates.length === 0 || alertsTriggered) {
+    if (!course || !modules || modules.length === 0 || alertsTriggered) {
       return;
     }
 
     let shouldTriggerAlert = false;
     
-    const hasUrgentDeadline = moduleStates.some(m => m.status === 'urgent') || 
+    const hasUrgentDeadline = modules.some(m => m.status === 'urgent') || 
                              (course.deadline && new Date(course.deadline).getTime() - Date.now() < 72 * 60 * 60 * 1000);
     
     if (hasUrgentDeadline) {
@@ -121,7 +131,7 @@ export default function CoursePage() {
         `You have ${hoursUntilDeadline} hours remaining. ${resumeTarget ? 'Continue where you left off' : 'Start studying now'} to stay on track.`,
         resumeTarget?.type === 'file' && resumeTarget.file_id 
           ? `/courses/${courseId}/modules/${resumeTarget.module_id}/files/${resumeTarget.file_id}`
-          : `/courses/${courseId}/modules/${resumeTarget?.module_id || moduleStates[0]?.id}`
+          : `/courses/${courseId}/modules/${resumeTarget?.module_id || modules[0]?.id}`
       );
       shouldTriggerAlert = true;
     }
@@ -129,14 +139,14 @@ export default function CoursePage() {
     if (shouldTriggerAlert) {
       setAlertsTriggered(true);
     }
-  }, [course, moduleStates, resumeTarget, courseId, addUrgentCourseAlert, alertsTriggered]);
+  }, [course, modules, resumeTarget, courseId, addUrgentCourseAlert, alertsTriggered]);
 
   // Reset alerts when courseId changes
   useEffect(() => {
     setAlertsTriggered(false);
   }, [courseId]);
 
-  const getModuleCardStyles = (status: ModuleState['status']) => {
+  const getModuleCardStyles = (status: Module['status']) => {
     switch (status) {
       case 'completed': 
         return {
@@ -187,7 +197,7 @@ export default function CoursePage() {
   };
 
 
-  const hasUrgentDeadline = moduleStates.some(m => m.status === 'urgent') || 
+  const hasUrgentDeadline = modules?.some(m => m.status === 'urgent') || 
                            (course?.deadline && new Date(course.deadline).getTime() - Date.now() < 72 * 60 * 60 * 1000);
 
   const loading = courseLoading || modulesLoading;
@@ -363,47 +373,120 @@ export default function CoursePage() {
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              {moduleStates.map((module, index) => {
+              {modules?.map((module, index) => {
                 const styles = getModuleCardStyles(module.status);
+                const isExpanded = expandedModules.has(module.id);
                 return (
                   <div key={module.id} className="border-b border-gray-100 last:border-b-0">
                     <div 
                       className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                      onClick={() => {
-                        if (module.status !== 'locked') {
-                          router.push(`/courses/${courseId}/modules/${module.id}`);
-                        }
-                      }}
+                      onClick={() => toggleModuleExpansion(module.id)}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
-                          <div className="text-[14px] text-gray-600">▼ Module {index + 1}</div>
+                          {/* Expand/Collapse Icon */}
+                          {isExpanded ? (
+                            <ChevronDown className="w-4 h-4 text-gray-600" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4 text-gray-600" />
+                          )}
+                          <div className="text-[14px] text-gray-600">Module {index + 1}</div>
                           {module.status === 'completed' && <span className="text-green-600">✓</span>}
                           {module.status === 'urgent' && (
-                            <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-[12px] font-medium">weak</span>
+                            <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-[12px] font-medium">urgent</span>
                           )}
                           <h3 className="text-[16px] font-medium text-gray-900">{module.title}</h3>
                         </div>
                         <div className="flex items-center space-x-4 text-right">
                           <div className="text-[14px] text-gray-900 font-medium">
-                            {Math.round(module.completionPercent)}%
+                            {Math.round(module.progress)}%
                           </div>
                           <div className="text-[14px] text-gray-600">
-                            {module.confidencePercent}% confidence
+                            {module.confidenceLevel}% confidence
+                          </div>
+                          <div className="text-[12px] text-gray-500">
+                            {module.materials} files
                           </div>
                         </div>
                       </div>
                       
-                      {/* Expanded content - showing for active modules */}
-                      {module.status === 'urgent' && (
-                        <div className="mt-3 pl-6 space-y-2">
-                          <div className="flex items-center space-x-2 text-[14px] text-gray-600">
-                            <span>• Logistic Regression (Start)</span>
-                            <span>...</span>
-                          </div>
+                      {/* Module Description */}
+                      {module.description && (
+                        <div className="mt-2 text-[14px] text-gray-600 pl-7">
+                          {module.description}
                         </div>
                       )}
                     </div>
+
+                    {/* Expanded Files Section */}
+                    {isExpanded && (
+                      <div className="border-t border-gray-100 bg-gray-50">
+                        <div className="p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-[14px] font-medium text-gray-700">
+                              Files ({module.materials_list.length})
+                            </h4>
+                            <Button 
+                              size="sm" 
+                              variant={uploadingModules.has(module.id) ? "default" : "outline"}
+                              className="text-[12px] h-7"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleUploadMode(module.id);
+                              }}
+                            >
+                              {uploadingModules.has(module.id) ? 'Cancel' : '+ Upload'}
+                            </Button>
+                          </div>
+                          
+                          {/* File Upload Section */}
+                          {uploadingModules.has(module.id) && (
+                            <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                              <EnhancedFileUpload
+                                courseId={courseId}
+                                moduleId={module.id}
+                                userRole="student" // TODO: Get from auth context
+                                onUploadComplete={handleUploadComplete}
+                                className="max-w-full"
+                              />
+                            </div>
+                          )}
+                          
+                          {module.materials_list.length > 0 ? (
+                            <div className="space-y-1">
+                              {module.materials_list.map((material, materialIndex) => (
+                                <FileCard
+                                  key={material.id}
+                                  file={{
+                                    id: material.id,
+                                    name: material.title,
+                                    type: material.file_type || material.type,
+                                    size: material.file_size,
+                                    processed: material.completed,
+                                    uploadedAt: undefined // TODO: Add upload date to Material interface
+                                  }}
+                                  onPreview={(fileId) => {
+                                    router.push(`/courses/${courseId}/modules/${module.id}/files/${fileId}`);
+                                  }}
+                                  onDownload={(fileId) => {
+                                    // TODO: Add download functionality
+                                    console.log('Download file:', fileId);
+                                  }}
+                                  isEven={materialIndex % 2 === 0}
+                                  className="rounded-lg"
+                                />
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-6 text-gray-500">
+                              <FileText className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                              <p className="text-[14px]">No files uploaded yet</p>
+                              <p className="text-[12px] text-gray-400">Upload course materials to get started</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
