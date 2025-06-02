@@ -291,15 +291,15 @@ class UnifiedAuthService:
                 user_id = decoded.get('sub')
                 user = self.user_repo.get_by_id(user_id)
                 if user:
-                    # Get user name with fallback logic
-                    name = getattr(user, 'name', None) or user.email.split('@')[0]  # Fallback to email prefix
+                    # Get user name from profile - User model doesn't have name field directly
+                    name = user.email.split('@')[0]  # Default fallback to email prefix
                     if user.role:
                         if user.role.role_type == 'student' and user.student_profile:
-                            name = user.student_profile.name or name
+                            name = user.student_profile.name
                         elif user.role.role_type == 'instructor' and user.instructor_profile:
-                            name = user.instructor_profile.name or name
+                            name = user.instructor_profile.name
                         elif user.role.role_type == 'admin' and user.admin_profile:
-                            name = user.admin_profile.name or name
+                            name = user.admin_profile.name
                     
                     return {
                         'valid': True,
