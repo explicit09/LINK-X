@@ -26,6 +26,12 @@ export function useStudentData() {
   };
 
   const transformCourseData = (coursesData: any[]) => {
+    // Ensure coursesData is an array before mapping
+    if (!Array.isArray(coursesData)) {
+      console.warn('Courses data is not an array in transformCourseData:', coursesData);
+      return [];
+    }
+    
     return coursesData.map((course: any, index: number) => ({
       id: course.id,
       title: course.title,
@@ -74,6 +80,13 @@ export function useStudentData() {
       setUserProfile(user);
 
       if (!checkOnboardingStatus(user)) {
+        return;
+      }
+
+      // Additional safety check before transforming
+      if (!Array.isArray(coursesData)) {
+        console.warn('Received non-array courses data:', coursesData);
+        setCourses([]);
         return;
       }
 

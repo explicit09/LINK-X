@@ -62,7 +62,8 @@ export function SharedDashboardLayout({
 
   const handleViewProgress = () => {
     setTaskCompletion(null);
-    router.push('/progress');
+    // Show coming soon message instead of navigation
+    alert('🔒 Progress analytics will be available after beta launch!');
   };
 
   return (
