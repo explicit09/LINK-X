@@ -49,7 +49,8 @@ import {
   Key,
 } from 'lucide-react';
 import { toast as sonnerToast } from 'sonner';
-import { courseAPI, authAPI } from '@/lib/api';
+import { courseAPI } from '@/lib/api';
+import { useAuthUser } from '@/hooks/useAuthUser';
 
 interface Course {
   id: string;
@@ -73,34 +74,31 @@ export default function MyCoursesPage() {
   const [showCourseForm, setShowCourseForm] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [deletingCourse, setDeletingCourse] = useState<Course | null>(null);
-  const [currentUser, setCurrentUser] = useState<any>(null);
   const [filter, setFilter] = useState<'all' | 'published' | 'draft'>('all');
   const [showJoinCourseDialog, setShowJoinCourseDialog] = useState(false);
   const [accessCode, setAccessCode] = useState('');
   const [joiningCourse, setJoiningCourse] = useState(false);
   const router = useRouter();
 
-  // Load user data
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const user = await authAPI.v2.getProfile();
-        setCurrentUser(user);
-      } catch (error) {
-        console.error('Failed to fetch user:', error);
-        setCurrentUser({ name: 'Student User', email: 'student@example.com' });
-      }
-    };
-
-    loadUser();
-  }, []);
+  // Use centralized auth user hook
+  const { user: currentUser } = useAuthUser();
 
   // Load student's created courses
   useEffect(() => {
     const loadMyCourses = async () => {
       try {
         setLoading(true);
+        console.log('🏫 MyCoursesPage: Starting to load courses...');
         const coursesData = await courseAPI.getCourses();
+        console.log('🎯 MyCoursesPage: Received courses data:', coursesData);
+        console.log('📊 MyCoursesPage: Data type:', typeof coursesData, 'Length:', coursesData?.length);
+
+        // Ensure coursesData is an array before mapping
+        if (!Array.isArray(coursesData)) {
+          console.warn('⚠️ MyCoursesPage: Courses data is not an array:', coursesData);
+          setCourses([]);
+          return;
+        }
 
         // Transform API data with enhanced course info
         const transformedCourses = coursesData.map(
