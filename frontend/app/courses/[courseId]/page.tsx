@@ -15,7 +15,8 @@ import { ChevronDown, ChevronRight, Play, BookOpen, Clock, AlertTriangle, Trendi
 import { courseAPI, type ResumeTarget } from '@/lib/api/courses';
 import { useAlert } from '@/contexts/AlertContext';
 import { FileCard } from '@/components/course/FileCard';
-import { EnhancedFileUpload } from '@/components/course/enhanced-file-upload/EnhancedFileUpload';
+import { toast as sonnerToast } from 'sonner';
+// import { EnhancedFileUpload } from '@/components/course/enhanced-file-upload';
 
 // Use the Module type from useCourseModules hook instead of custom interface
 
@@ -460,13 +461,33 @@ export default function CoursePage() {
                           {/* File Upload Section */}
                           {uploadingModules.has(module.id) && (
                             <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                              <EnhancedFileUpload
-                                courseId={courseId}
-                                moduleId={module.id}
-                                userRole="student" // TODO: Get from auth context
-                                onUploadComplete={handleUploadComplete}
-                                className="max-w-full"
-                              />
+                              <div className="text-center py-8">
+                                <div className="border-2 border-dashed border-blue-300 rounded-lg p-6">
+                                  <FileText className="w-8 h-8 mx-auto mb-2 text-blue-500" />
+                                  <p className="text-[14px] font-medium text-gray-700 mb-1">Drop files here or click to upload</p>
+                                  <p className="text-[12px] text-gray-500">PDF, DOC, TXT files up to 10MB</p>
+                                  <input
+                                    type="file"
+                                    multiple
+                                    accept=".pdf,.doc,.docx,.txt"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const files = e.target.files;
+                                      if (files) {
+                                        // Simple file upload logic will be implemented here
+                                        sonnerToast.success(`Selected ${files.length} file(s) for upload`);
+                                      }
+                                    }}
+                                    id={`file-upload-${module.id}`}
+                                  />
+                                  <label
+                                    htmlFor={`file-upload-${module.id}`}
+                                    className="inline-block mt-2 px-4 py-2 bg-blue-600 text-white text-[14px] rounded-lg cursor-pointer hover:bg-blue-700 transition-colors"
+                                  >
+                                    Choose Files
+                                  </label>
+                                </div>
+                              </div>
                             </div>
                           )}
                           
