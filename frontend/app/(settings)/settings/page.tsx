@@ -6,9 +6,7 @@ import { cn } from '@/lib/utils';
 //import Sidebar from "@/components/link-x/DashSidebar";
 import AudioUpload from '@/components/dashboard/AudioUpload';
 import Footer from '@/components/landing/Footer';
-import ProfessorDashboard from '@/components/dashboard/ProfessorDash'; // 🚨 make sure path is correct
 import { authAPI } from '@/lib/api'; // ✅ this will be a small API helper you create
-import StudentDashboard from '@/components/dashboard/StudentDash';
 import ProfessorSettings from '@/components/settings/ProfessorSettings';
 import StudentSettings from '@/components/settings/StudentSettings';
 
