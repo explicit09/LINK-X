@@ -171,8 +171,8 @@ class DashboardRepository:
                 
                 for enrollment, course in enrollments_query.all():
                     total_courses += 1
-                    if enrollment.status == "active":
-                        active_courses += 1
+                    # All enrollments are considered active since there's no status field
+                    active_courses += 1
                     
                     # Check if behind (simple heuristic based on last activity)
                     if self._is_course_behind_schedule(session, user_id, course.id):

@@ -176,11 +176,10 @@ class UnifiedAuthService:
         if existing_user:
             raise ValidationError("User already exists")
         
-        # Create user data
+        # Create user data (note: 'name' field doesn't exist in User table)
         user_data = {
             'email': email,
             'firebase_uid': firebase_uid,
-            'name': name or email.split('@')[0],
             'role': role
         }
         
@@ -292,12 +291,23 @@ class UnifiedAuthService:
                 user_id = decoded.get('sub')
                 user = self.user_repo.get_by_id(user_id)
                 if user:
+                    # Get user name with fallback logic
+                    name = getattr(user, 'name', None) or user.email.split('@')[0]  # Fallback to email prefix
+                    if user.role:
+                        if user.role.role_type == 'student' and user.student_profile:
+                            name = user.student_profile.name or name
+                        elif user.role.role_type == 'instructor' and user.instructor_profile:
+                            name = user.instructor_profile.name or name
+                        elif user.role.role_type == 'admin' and user.admin_profile:
+                            name = user.admin_profile.name or name
+                    
                     return {
                         'valid': True,
                         'user': {
                             'user_id': user.id,
                             'email': user.email,
-                            'role': user.role.role_type if user.role else 'student'
+                            'role': user.role.role_type if user.role else 'student',
+                            'name': name
                         }
                     }
                         
@@ -314,15 +324,15 @@ class UnifiedAuthService:
             
     def _generate_v2_tokens(self, user: User) -> Dict[str, Any]:
         """Generate v2 style tokens (access + refresh)"""
-        # Get user name from profile
-        name = None
+        # Get user name from profile or fallback to email
+        name = getattr(user, 'name', None) or user.email.split('@')[0]  # Fallback to email prefix
         if user.role:
             if user.role.role_type == 'student' and user.student_profile:
-                name = user.student_profile.name
+                name = user.student_profile.name or name
             elif user.role.role_type == 'instructor' and user.instructor_profile:
-                name = user.instructor_profile.name
+                name = user.instructor_profile.name or name
             elif user.role.role_type == 'admin' and user.admin_profile:
-                name = user.admin_profile.name
+                name = user.admin_profile.name or name
         
         # Create access token (30 minutes)
         access_token = create_access_token(
@@ -372,15 +382,15 @@ class UnifiedAuthService:
         
     def _generate_v1_tokens(self, user: User) -> Dict[str, Any]:
         """Generate v1 style response with session cookie"""
-        # Get user name from profile
-        name = None
+        # Get user name from profile or fallback to email
+        name = getattr(user, 'name', None) or user.email.split('@')[0]  # Fallback to email prefix
         if user.role:
             if user.role.role_type == 'student' and user.student_profile:
-                name = user.student_profile.name
+                name = user.student_profile.name or name
             elif user.role.role_type == 'instructor' and user.instructor_profile:
-                name = user.instructor_profile.name
+                name = user.instructor_profile.name or name
             elif user.role.role_type == 'admin' and user.admin_profile:
-                name = user.admin_profile.name
+                name = user.admin_profile.name or name
         
         # For v1 compatibility, we return user data
         # The session cookie will be set by the endpoint
@@ -401,11 +411,10 @@ class UnifiedAuthService:
         firebase_uid = decoded_token['uid']
         name = decoded_token.get('name', email.split('@')[0])
         
-        # Create user with default student role
+        # Create user with default student role (note: 'name' field doesn't exist in User table)
         user_data = {
             'email': email,
             'firebase_uid': firebase_uid,
-            'name': name,
             'role': 'student'  # Default to student role
         }
         

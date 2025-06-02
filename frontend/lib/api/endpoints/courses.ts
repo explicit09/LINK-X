@@ -12,8 +12,7 @@ import type {
 export const courseAPI = {
   // Common course operations
   getCourses: async (): Promise<Course[]> => {
-    const response = await apiClient.get('/api/v2/courses');
-    return (response as any).data || (response as any).courses || [];
+    return await apiClient.get('/api/v2/courses');
   },
 
   createCourse: (data: CreateCourseRequest): Promise<Course> =>

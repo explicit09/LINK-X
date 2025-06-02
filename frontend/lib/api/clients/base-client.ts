@@ -128,7 +128,21 @@ export class BaseAPIClient {
       // Handle different response types
       const contentType = response.headers.get('content-type');
       if (contentType?.includes('application/json')) {
-        return await response.json();
+        const jsonResponse = await response.json();
+        
+        // Auto-unwrap v2 API responses that have the format: {data: [...], message: "Success", status: "success"}
+        // Check if this is a v2 API response by looking for the wrapper structure
+        if (
+          jsonResponse && 
+          typeof jsonResponse === 'object' && 
+          'data' in jsonResponse && 
+          'status' in jsonResponse && 
+          jsonResponse.status === 'success'
+        ) {
+          return jsonResponse.data as T;
+        }
+        
+        return jsonResponse;
       } else if (contentType?.includes('text/')) {
         return (await response.text()) as unknown as T;
       } else {
