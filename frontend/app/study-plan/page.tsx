@@ -114,12 +114,26 @@ export default function StudyPlanPage() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const user = await authAPI.v2.getProfile();
-        setCurrentUser(user);
+        const response = await authAPI.v2.getProfile();
+        console.log('Study Plan - Auth API response:', response);
+        
+        // Handle wrapped response like dashboard does
+        const userData = response.data || response;
+        console.log('Study Plan - User data:', userData);
+        console.log('Study Plan - Profile data:', userData.profile);
+        
+        // Extract name from profile object
+        const name = userData.profile?.name || userData.email?.split('@')[0] || 'Student';
+        console.log('Study Plan - Extracted name:', name);
+        
+        setCurrentUser({
+          ...userData,
+          name: name
+        });
       } catch (error) {
         console.error('Failed to fetch user:', error);
         // Fallback for development
-        setCurrentUser({ name: 'Student User', email: 'student@example.com' });
+        setCurrentUser({ name: 'Student', email: 'student@example.com' });
       }
     };
 

@@ -45,7 +45,7 @@ def list_study_plans():
         include_inactive = request.args.get('include_inactive', 'false').lower() == 'true'
         
         plans = repos['study_plans'].get_user_plans(
-            user_id=g.current_user_id,
+            user_id=g.current_user.id,
             include_inactive=include_inactive
         )
         
@@ -109,14 +109,14 @@ def create_study_plan():
         
         # Create plan with goals
         plan = repos['study_plans'].create_plan_with_goals(
-            user_id=g.current_user_id,
+            user_id=g.current_user.id,
             plan_data=plan_data,
             goals_data=goals_data
         )
         
         # If this is set as active, deactivate other plans
         if data.get('is_active', True):
-            repos['study_plans'].deactivate_other_plans(g.current_user_id, plan.id)
+            repos['study_plans'].deactivate_other_plans(g.current_user.id, plan.id)
             repos['study_plans'].update(plan.id, is_active=True)
         
         response_data = {
@@ -141,7 +141,7 @@ def get_study_plan(plan_id):
         repos = get_repositories()
         
         plan = repos['study_plans'].get_by_id(UUID(plan_id))
-        if not plan or plan.user_id != g.current_user_id:
+        if not plan or plan.user_id != g.current_user.id:
             return error_response("Study plan not found", status_code=404)
             
         # Get plan analytics
@@ -209,7 +209,7 @@ def update_study_plan(plan_id):
         
         # Verify ownership
         plan = repos['study_plans'].get_by_id(UUID(plan_id))
-        if not plan or plan.user_id != g.current_user_id:
+        if not plan or plan.user_id != g.current_user.id:
             return error_response("Study plan not found", status_code=404)
             
         # Update preferences
@@ -242,7 +242,7 @@ def get_active_plan():
     try:
         repos = get_repositories()
         
-        plan = repos['study_plans'].get_active_plan_by_user(g.current_user_id)
+        plan = repos['study_plans'].get_active_plan_by_user(g.current_user.id)
         if not plan:
             return error_response("No active study plan found", status_code=404)
             
@@ -291,7 +291,7 @@ def list_goals():
         limit = request.args.get('limit', type=int)
         
         goals = repos['goals'].get_user_goals(
-            user_id=g.current_user_id,
+            user_id=g.current_user.id,
             status=status,
             priority=priority,
             limit=limit
@@ -342,11 +342,11 @@ def create_goal():
         
         # Verify plan ownership
         plan = repos['study_plans'].get_by_id(UUID(data['study_plan_id']))
-        if not plan or plan.user_id != g.current_user_id:
+        if not plan or plan.user_id != g.current_user.id:
             return error_response("Study plan not found", status_code=404)
             
         goal_data = {
-            'user_id': g.current_user_id,
+            'user_id': g.current_user.id,
             'study_plan_id': UUID(data['study_plan_id']),
             'title': data['title'],
             'description': data.get('description'),
@@ -391,7 +391,7 @@ def update_goal(goal_id):
         
         # Verify goal ownership
         goal = repos['goals'].get_by_id(UUID(goal_id))
-        if not goal or goal.user_id != g.current_user_id:
+        if not goal or goal.user_id != g.current_user.id:
             return error_response("Goal not found", status_code=404)
             
         # Update goal
@@ -430,7 +430,7 @@ def log_goal_progress(goal_id):
         
         # Verify goal ownership
         goal = repos['goals'].get_by_id(UUID(goal_id))
-        if not goal or goal.user_id != g.current_user_id:
+        if not goal or goal.user_id != g.current_user.id:
             return error_response("Goal not found", status_code=404)
             
         progress_data = {
@@ -444,7 +444,7 @@ def log_goal_progress(goal_id):
         
         progress = repos['progress'].log_progress(
             goal_id=UUID(goal_id),
-            user_id=g.current_user_id,
+            user_id=g.current_user.id,
             progress_data=progress_data
         )
         
@@ -478,7 +478,7 @@ def list_sessions():
         end_date = datetime.strptime(request.args.get('end_date'), '%Y-%m-%d').date() if request.args.get('end_date') else None
         
         sessions = repos['sessions'].get_user_sessions(
-            user_id=g.current_user_id,
+            user_id=g.current_user.id,
             limit=limit,
             start_date=start_date,
             end_date=end_date
@@ -522,7 +522,7 @@ def start_session():
         repos = get_repositories()
         
         # Check if user has active session
-        active_session = repos['sessions'].get_active_session(g.current_user_id)
+        active_session = repos['sessions'].get_active_session(g.current_user.id)
         if active_session:
             return error_response("You already have an active study session", status_code=409)
             
@@ -534,7 +534,7 @@ def start_session():
             'metadata': data.get('metadata')
         }
         
-        session = repos['sessions'].start_session(g.current_user_id, session_data)
+        session = repos['sessions'].start_session(g.current_user.id, session_data)
         
         response_data = {
             'id': str(session.id),
@@ -562,7 +562,7 @@ def end_session(session_id):
         
         # Verify session ownership
         session = repos['sessions'].get_by_id(UUID(session_id))
-        if not session or session.user_id != g.current_user_id:
+        if not session or session.user_id != g.current_user.id:
             return error_response("Session not found", status_code=404)
             
         if session.end_time:
@@ -608,7 +608,7 @@ def list_recommendations():
         
         limit = request.args.get('limit', type=int)
         recommendations = repos['recommendations'].get_active_recommendations(
-            user_id=g.current_user_id,
+            user_id=g.current_user.id,
             limit=limit
         )
         
@@ -646,7 +646,7 @@ def apply_recommendation(rec_id):
         
         # Verify recommendation ownership
         rec = repos['recommendations'].get_by_id(UUID(rec_id))
-        if not rec or rec.user_id != g.current_user_id:
+        if not rec or rec.user_id != g.current_user.id:
             return error_response("Recommendation not found", status_code=404)
             
         updated_rec = repos['recommendations'].apply_recommendation(UUID(rec_id))
@@ -675,17 +675,17 @@ def get_study_analytics():
         days = request.args.get('days', 30, type=int)
         
         # Get session analytics
-        session_analytics = repos['sessions'].get_session_analytics(g.current_user_id, days)
+        session_analytics = repos['sessions'].get_session_analytics(g.current_user.id, days)
         
         # Get active plan analytics
-        active_plan = repos['study_plans'].get_active_plan_by_user(g.current_user_id)
+        active_plan = repos['study_plans'].get_active_plan_by_user(g.current_user.id)
         plan_analytics = {}
         if active_plan:
             plan_analytics = repos['study_plans'].get_plan_analytics(active_plan.id)
         
         # Get weekly progress
         week_start = date.today() - timedelta(days=date.today().weekday())
-        weekly_progress = repos['progress'].get_weekly_progress(g.current_user_id, week_start)
+        weekly_progress = repos['progress'].get_weekly_progress(g.current_user.id, week_start)
         
         analytics_data = {
             'session_analytics': session_analytics,

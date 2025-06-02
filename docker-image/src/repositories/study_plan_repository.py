@@ -6,12 +6,12 @@ Provides data access methods for study plans and related entities
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date, timedelta
 from sqlalchemy.orm import sessionmaker, joinedload
-from sqlalchemy import and_, or_, func, desc, asc
+from sqlalchemy import and_, or_, func, desc, asc, case
 from uuid import UUID
 import logging
 
 from .base_repository import BaseRepository
-from ..db.schema import StudyPlan, StudyGoal, StudySession, StudyRecommendation, GoalProgress
+from db.schema import StudyPlan, StudyGoal, StudySession, StudyRecommendation, GoalProgress
 
 logger = logging.getLogger(__name__)
 
@@ -160,16 +160,15 @@ class StudyGoalRepository(BaseRepository[StudyGoal]):
                 query = query.filter(StudyGoal.priority == priority)
                 
             # Order by priority and target date
-            query = query.order_by(
-                func.case(
-                    (StudyGoal.priority == 'urgent', 1),
-                    (StudyGoal.priority == 'high', 2),
-                    (StudyGoal.priority == 'medium', 3),
-                    (StudyGoal.priority == 'low', 4),
-                    else_=5
-                ),
-                StudyGoal.target_date.asc()
+            # Use case expression for priority ordering
+            priority_order = case(
+                (StudyGoal.priority == 'urgent', 1),
+                (StudyGoal.priority == 'high', 2),
+                (StudyGoal.priority == 'medium', 3),
+                (StudyGoal.priority == 'low', 4),
+                else_=5
             )
+            query = query.order_by(priority_order, StudyGoal.target_date.asc())
             
             if limit:
                 query = query.limit(limit)

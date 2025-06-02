@@ -454,7 +454,7 @@ class StudySession(Base):
     effectiveness_rating = Column(Integer)  # 1-5
     focus_score = Column(Numeric(3,1))     # 0.0-10.0
     notes = Column(Text)
-    session_metadata = Column(JSONB)
+    session_metadata = Column('metadata', JSONB)
     xp_earned = Column(Integer, default=0)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     
@@ -480,7 +480,7 @@ class StudyRecommendation(Base):
     xp_reward = Column(Integer, default=0)
     status = Column(String(20), default='active')
     expires_at = Column(DateTime)
-    recommendation_metadata = Column(JSONB)
+    recommendation_metadata = Column('metadata', JSONB)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     

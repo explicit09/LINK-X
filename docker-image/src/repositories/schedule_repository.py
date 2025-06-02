@@ -11,7 +11,7 @@ from uuid import UUID
 import logging
 
 from .base_repository import BaseRepository
-from ..db.schema import (
+from db.schema import (
     StudySession, SessionNote, UserSchedulePreferences, 
     SessionAnalytics, AISessionSuggestion, Course, StudyGoal
 )
