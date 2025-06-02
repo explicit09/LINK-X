@@ -105,7 +105,7 @@ export function FileCard({
 
   // P5: Hover actions - slide-in buttons
   const actions = [
-    ...(onPersonalize && file.processed
+    ...(onPersonalize
       ? [
           {
             label: 'Personalize',
@@ -223,17 +223,13 @@ export function FileCard({
             )}
           </div>
 
-          {/* P1: Inline actions on hover - no overflow menu clutter */}
+          {/* P1: Actions - personalize always visible, others on hover */}
           <div className="flex-shrink-0">
             {actions.length > 0 && (
-              <div
-                className={cn(
-                  'flex items-center gap-1 transition-opacity duration-150',
-                  isHovered ? 'opacity-100' : 'opacity-0',
-                )}
-              >
+              <div className="flex items-center gap-1">
                 {actions.map((action, index) => {
                   const ActionIcon = action.icon;
+                  const isPersonalize = action.variant === 'personalize';
                   return (
                     <Button
                       key={index}
@@ -241,6 +237,10 @@ export function FileCard({
                       size="sm"
                       className={cn(
                         'h-8 w-8 p-0 transition-all duration-150',
+                        // Personalize button always visible, others on hover
+                        isPersonalize 
+                          ? 'opacity-100' 
+                          : isHovered ? 'opacity-100' : 'opacity-0',
                         action.variant === 'destructive'
                           ? onDelete
                             ? 'text-red-600 hover:text-red-700 hover:bg-red-50'
