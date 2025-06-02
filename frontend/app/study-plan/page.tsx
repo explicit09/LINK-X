@@ -79,6 +79,7 @@ export default function StudyPlanPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [showCreatePlan, setShowCreatePlan] = useState(false);
   const [showCreateGoal, setShowCreateGoal] = useState(false);
+  const [isCreatingFirstGoal, setIsCreatingFirstGoal] = useState(false);
   const [planFormData, setPlanFormData] = useState({
     plan_name: '',
     weekly_study_hours: 12,
@@ -340,6 +341,7 @@ export default function StudyPlanPage() {
       <SharedDashboardLayout
         pageTitle="Study Plan"
         showGamification={false}
+        showFocusMode={false}
         currentUser={currentUser}
       >
         <div className="flex justify-center items-center min-h-[400px]">
@@ -372,6 +374,7 @@ export default function StudyPlanPage() {
     <SharedDashboardLayout
       pageTitle="Study Plan"
       showGamification={false}
+      showFocusMode={false}
       currentUser={currentUser}
     >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -419,10 +422,26 @@ export default function StudyPlanPage() {
                 {/* Show skeleton row when no goals */}
                 {displayGoals.length === 0 && (
                   <div className="space-y-3">
-                    <SkeletonRow height={127} className="border border-gray-200" />
-                    <div className="text-center py-4">
+                    <div 
+                      className={cn(
+                        "transition-all duration-300 ease-out",
+                        isCreatingFirstGoal ? "transform -translate-y-[54px] opacity-0" : "transform translate-y-0 opacity-100"
+                      )}
+                    >
+                      <SkeletonRow height={88} className="border border-gray-200" />
+                    </div>
+                    <div className={cn(
+                      "text-center py-4 transition-opacity duration-300",
+                      isCreatingFirstGoal ? "opacity-0" : "opacity-100"
+                    )}>
                       <p className="text-sm text-gray-500 mb-3">Create your first goal to get started</p>
-                      <Button onClick={() => setShowCreateGoal(true)} size="sm">
+                      <Button 
+                        onClick={() => {
+                          setIsCreatingFirstGoal(true);
+                          setTimeout(() => setShowCreateGoal(true), 150);
+                        }} 
+                        size="sm"
+                      >
                         <Plus className="h-3 w-3 mr-1" />
                         Create Goal
                       </Button>
@@ -524,7 +543,7 @@ export default function StudyPlanPage() {
                 <div className="text-center">
                   <div className="text-2xl font-bold">
                     {analytics?.plan_analytics && analytics.plan_analytics.total_goals > 0 ? (
-                      <>
+                      <FadeInWhen dataReady={true} className="inline-block">
                         <span className="text-blue-600">
                           {Math.round(
                             (analytics.plan_analytics.completed_goals /
@@ -532,7 +551,7 @@ export default function StudyPlanPage() {
                               100,
                           )}%
                         </span>
-                      </>
+                      </FadeInWhen>
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}
@@ -550,7 +569,9 @@ export default function StudyPlanPage() {
                 <div className="text-center">
                   <div className="text-2xl font-bold">
                     {analytics?.plan_analytics && analytics.plan_analytics.total_study_hours > 0 ? (
-                      <span className="text-green-600">{analytics.plan_analytics.total_study_hours}h</span>
+                      <FadeInWhen dataReady={true} className="inline-block">
+                        <span className="text-green-600">{analytics.plan_analytics.total_study_hours}h</span>
+                      </FadeInWhen>
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}
@@ -568,7 +589,9 @@ export default function StudyPlanPage() {
                 <div className="text-center">
                   <div className="text-2xl font-bold">
                     {analytics?.plan_analytics && analytics.plan_analytics.avg_effectiveness > 0 ? (
-                      <span className="text-purple-600">{Math.round((analytics.plan_analytics.avg_effectiveness || 0) * 10) / 10}</span>
+                      <FadeInWhen dataReady={true} className="inline-block">
+                        <span className="text-purple-600">{Math.round((analytics.plan_analytics.avg_effectiveness || 0) * 10) / 10}</span>
+                      </FadeInWhen>
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}
@@ -586,7 +609,9 @@ export default function StudyPlanPage() {
                 <div className="text-center">
                   <div className="text-2xl font-bold">
                     {analytics?.plan_analytics && analytics.plan_analytics.study_days > 0 ? (
-                      <span className="text-orange-600">{analytics.plan_analytics.study_days}</span>
+                      <FadeInWhen dataReady={true} className="inline-block">
+                        <span className="text-orange-600">{analytics.plan_analytics.study_days}</span>
+                      </FadeInWhen>
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}
@@ -602,6 +627,14 @@ export default function StudyPlanPage() {
                   </div>
                 </div>
               </div>
+              {/* Footer tagline for empty state */}
+              {(!analytics || analytics.plan_analytics?.total_goals === 0) && (
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-xs text-gray-500 text-center">
+                    Your personalized study journey starts with your first goal ✨
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -619,11 +652,11 @@ export default function StudyPlanPage() {
               {/* Show skeleton rows when no recommendations */}
               {(!recommendations || recommendations.length === 0) && (
                 <div className="space-y-3">
-                  <SkeletonRow height={96} className="border border-gray-200" />
-                  <SkeletonRow height={96} className="border border-gray-200" />
+                  <SkeletonRow height={112} className="border border-gray-200" />
+                  <SkeletonRow height={112} className="border border-gray-200" />
                   <div className="text-center py-4">
                     <p className="text-xs text-gray-500">
-                      Complete study sessions to unlock AI recommendations
+                      Finish one 25-min session to unlock AI recommendations
                     </p>
                   </div>
                 </div>
@@ -704,16 +737,17 @@ export default function StudyPlanPage() {
                 <DropdownMenuTrigger asChild>
                   <Button 
                     data-quick-actions-button
+                    disabled={!activePlan || !analytics || analytics.plan_analytics?.total_goals === 0}
                     className={cn(
-                      "w-full justify-between",
+                      "w-[180px] justify-between",
                       (!activePlan || !analytics || analytics.plan_analytics?.total_goals === 0)
-                        ? "bg-gray-400 hover:bg-gray-500 text-gray-200"
+                        ? "bg-gray-200 hover:bg-gray-200 text-gray-400 cursor-not-allowed"
                         : "bg-blue-600 hover:bg-blue-700"
                     )}
                   >
                     <div className="flex items-center">
                       <Plus className="h-4 w-4 mr-2" />
-                      Create New
+                      Quick Actions
                     </div>
                     <ChevronDown className="h-4 w-4" />
                   </Button>
@@ -881,13 +915,6 @@ export default function StudyPlanPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Empty state footer message */}
-      {(!activePlan || !analytics || analytics.plan_analytics?.total_goals === 0) && (
-        <div className="mt-8 text-center text-sm text-gray-500">
-          <p>Your personalized study journey starts with your first goal ✨</p>
-        </div>
-      )}
     </SharedDashboardLayout>
   );
 }
