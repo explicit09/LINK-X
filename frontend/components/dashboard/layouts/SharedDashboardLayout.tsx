@@ -20,6 +20,7 @@ interface SharedDashboardLayoutProps {
   };
   pageTitle?: string;
   showGamification?: boolean;
+  showFocusMode?: boolean;
   className?: string;
 }
 
@@ -28,6 +29,7 @@ export function SharedDashboardLayout({
   currentUser,
   pageTitle,
   showGamification = true,
+  showFocusMode = true,
   className,
 }: SharedDashboardLayoutProps) {
   const router = useRouter();
@@ -110,12 +112,14 @@ export function SharedDashboardLayout({
         </div>
       </div>
 
-      {/* Focus Mode */}
-      <FocusMode
-        isActive={focusModeActive}
-        onToggle={handleFocusMode}
-        onStartPomodoro={handleStartPomodoro}
-      />
+      {/* Focus Mode - only show if enabled */}
+      {showFocusMode && (
+        <FocusMode
+          isActive={focusModeActive}
+          onToggle={handleFocusMode}
+          onStartPomodoro={handleStartPomodoro}
+        />
+      )}
 
       {/* Task Completion Feedback */}
       <TaskCompletionFeedback
