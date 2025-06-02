@@ -437,31 +437,93 @@ class StudyGoal(Base):
     module = relationship('Module')
     file = relationship('File')
     progress_records = relationship('GoalProgress', back_populates='goal', cascade='all, delete-orphan')
-    sessions = relationship('StudySession', back_populates='goal')
+    sessions = relationship('StudySession', back_populates='study_goal')
 
 
 class StudySession(Base):
     __tablename__ = 'study_sessions'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
-    goal_id = Column(UUID(as_uuid=True), ForeignKey('study_goals.id', ondelete='SET NULL'))
     course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='SET NULL'))
-    session_type = Column(String(30), default='study')
-    start_time = Column(DateTime, nullable=False)
-    end_time = Column(DateTime)
-    planned_duration = Column(Integer)  # minutes
-    actual_duration = Column(Integer)   # minutes
-    effectiveness_rating = Column(Integer)  # 1-5
-    focus_score = Column(Numeric(3,1))     # 0.0-10.0
-    notes = Column(Text)
-    session_metadata = Column('metadata', JSONB)
-    xp_earned = Column(Integer, default=0)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    study_plan_id = Column(UUID(as_uuid=True), ForeignKey('study_plans.id', ondelete='SET NULL'))
+    study_goal_id = Column(UUID(as_uuid=True), ForeignKey('study_goals.id', ondelete='SET NULL'))
     
+    # Session Details
+    title = Column(String(255), nullable=False)
+    description = Column(Text)
+    session_type = Column(String(30), default='study')  # 'study', 'assignment', 'meeting', 'lab', 'review'
+    
+    # Scheduling
+    scheduled_start = Column(DateTime, nullable=False)
+    scheduled_end = Column(DateTime, nullable=False)
+    duration_minutes = Column(Integer, nullable=False)  # Planned duration in minutes
+    
+    # AI Optimization Fields
+    cognitive_load = Column(String(10), default='medium')  # 'low', 'medium', 'high'
+    urgency = Column(String(10), default='later')  # 'urgent', 'soon', 'later'
+    priority_score = Column(Numeric(3,2), default=0.5)  # 0.0 to 1.0 for AI optimization
+    
+    # Session Execution
+    actual_start = Column(DateTime)
+    actual_end = Column(DateTime)
+    actual_duration_minutes = Column(Integer)
+    status = Column(String(20), default='scheduled')  # 'scheduled', 'active', 'completed', 'cancelled', 'missed'
+    completion_percentage = Column(Integer, default=0)
+    
+    # Rewards and Motivation
+    xp_reward = Column(Integer, default=0)
+    xp_earned = Column(Integer, default=0)
+    
+    # Metadata
+    is_ai_suggested = Column(Boolean, default=False)
+    optimization_score = Column(Numeric(3,2))  # AI optimization confidence
+    calendar_position = Column(Integer)  # Order in calendar view
+    session_notes = Column(Text)
+    effectiveness_rating = Column(Integer)  # 1-5
+    focus_score = Column(Numeric(3,1))  # 0.0-10.0
+    
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relationships
     user = relationship('User')
-    goal = relationship('StudyGoal', back_populates='sessions')
+    study_goal = relationship('StudyGoal', back_populates='sessions')
     course = relationship('Course')
-    note_objects = relationship('SessionNote', back_populates='session', cascade='all, delete-orphan')
+    notes = relationship('SessionNote', back_populates='session', cascade='all, delete-orphan')
+    
+    def to_dict(self):
+        """Convert StudySession to dictionary for JSON serialization"""
+        return {
+            'id': str(self.id),
+            'user_id': str(self.user_id),
+            'course_id': str(self.course_id) if self.course_id else None,
+            'study_plan_id': str(self.study_plan_id) if self.study_plan_id else None,
+            'study_goal_id': str(self.study_goal_id) if self.study_goal_id else None,
+            'title': self.title,
+            'description': self.description,
+            'session_type': self.session_type,
+            'scheduled_start': self.scheduled_start.isoformat() if self.scheduled_start else None,
+            'scheduled_end': self.scheduled_end.isoformat() if self.scheduled_end else None,
+            'duration_minutes': self.duration_minutes,
+            'cognitive_load': self.cognitive_load,
+            'urgency': self.urgency,
+            'priority_score': float(self.priority_score) if self.priority_score else None,
+            'actual_start': self.actual_start.isoformat() if self.actual_start else None,
+            'actual_end': self.actual_end.isoformat() if self.actual_end else None,
+            'actual_duration_minutes': self.actual_duration_minutes,
+            'status': self.status,
+            'completion_percentage': self.completion_percentage,
+            'xp_reward': self.xp_reward,
+            'xp_earned': self.xp_earned,
+            'is_ai_suggested': self.is_ai_suggested,
+            'optimization_score': float(self.optimization_score) if self.optimization_score else None,
+            'calendar_position': self.calendar_position,
+            'session_notes': self.session_notes,
+            'effectiveness_rating': self.effectiveness_rating,
+            'focus_score': float(self.focus_score) if self.focus_score else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
 
 
 class StudyRecommendation(Base):
@@ -526,7 +588,7 @@ class SessionNote(Base):
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    session = relationship('StudySession', back_populates='note_objects')
+    session = relationship('StudySession', back_populates='notes')
     user = relationship('User')
 
 

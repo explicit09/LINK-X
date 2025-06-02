@@ -81,48 +81,59 @@ class StudyPlanRepository(BaseRepository[StudyPlan]):
             
     def get_plan_analytics(self, plan_id: UUID) -> Dict[str, Any]:
         """Get analytics for a specific study plan"""
-        with self.get_session() as session:
-            # Get plan with goals
-            plan = session.query(StudyPlan).options(
-                joinedload(StudyPlan.goals)
-            ).filter(StudyPlan.id == plan_id).first()
-            
-            if not plan:
-                return {}
+        try:
+            with self.get_session() as session:
+                # Get plan with goals
+                plan = session.query(StudyPlan).options(
+                    joinedload(StudyPlan.goals)
+                ).filter(StudyPlan.id == plan_id).first()
                 
-            goals = plan.goals
-            total_goals = len(goals)
-            completed_goals = len([g for g in goals if g.status == 'completed'])
-            active_goals = len([g for g in goals if g.status == 'in_progress'])
-            pending_goals = len([g for g in goals if g.status == 'pending'])
-            
-            # Calculate average completion
-            avg_completion = sum(g.completion_percentage for g in goals) / total_goals if total_goals > 0 else 0
-            
-            # Get study session data
-            sessions = session.query(StudySession).filter(
-                StudySession.user_id == plan.user_id
-            ).all()
-            
-            total_study_minutes = sum(s.actual_duration or 0 for s in sessions)
-            study_days = len(set(s.start_time.date() for s in sessions if s.start_time))
-            avg_effectiveness = sum(s.effectiveness_rating or 0 for s in sessions) / len(sessions) if sessions else 0
-            avg_focus_score = sum(s.focus_score or 0 for s in sessions) / len(sessions) if sessions else 0
-            
-            return {
-                'plan_id': str(plan_id),
-                'plan_name': plan.plan_name,
-                'total_goals': total_goals,
-                'completed_goals': completed_goals,
-                'active_goals': active_goals,
-                'pending_goals': pending_goals,
-                'avg_completion': round(avg_completion, 1),
-                'total_study_minutes': total_study_minutes,
-                'total_study_hours': round(total_study_minutes / 60, 1),
-                'study_days': study_days,
-                'avg_effectiveness': round(avg_effectiveness, 1),
-                'avg_focus_score': round(avg_focus_score, 1)
-            }
+                if not plan:
+                    return {}
+                    
+                goals = plan.goals
+                total_goals = len(goals)
+                completed_goals = len([g for g in goals if g.status == 'completed'])
+                active_goals = len([g for g in goals if g.status == 'in_progress'])
+                pending_goals = len([g for g in goals if g.status == 'pending'])
+                
+                # Calculate average completion
+                avg_completion = sum(g.completion_percentage for g in goals) / total_goals if total_goals > 0 else 0
+                
+                # Get study session data with error handling
+                try:
+                    sessions = session.query(StudySession).filter(
+                        StudySession.user_id == plan.user_id
+                    ).all()
+                    
+                    total_study_minutes = sum(s.actual_duration_minutes or 0 for s in sessions)
+                    study_days = len(set(s.actual_start.date() for s in sessions if s.actual_start))
+                    avg_effectiveness = sum(s.effectiveness_rating or 0 for s in sessions) / len(sessions) if sessions else 0
+                    avg_focus_score = sum(s.focus_score or 0 for s in sessions) / len(sessions) if sessions else 0
+                except Exception as e:
+                    logger.warning(f"Error calculating session analytics for plan {plan_id}: {e}")
+                    total_study_minutes = 0
+                    study_days = 0
+                    avg_effectiveness = 0
+                    avg_focus_score = 0
+                
+                return {
+                    'plan_id': str(plan_id),
+                    'plan_name': plan.plan_name,
+                    'total_goals': total_goals,
+                    'completed_goals': completed_goals,
+                    'active_goals': active_goals,
+                    'pending_goals': pending_goals,
+                    'avg_completion': round(avg_completion, 1),
+                    'total_study_minutes': total_study_minutes,
+                    'total_study_hours': round(total_study_minutes / 60, 1),
+                    'study_days': study_days,
+                    'avg_effectiveness': round(avg_effectiveness, 1),
+                    'avg_focus_score': round(avg_focus_score, 1)
+                }
+        except Exception as e:
+            logger.error(f"Error getting plan analytics for {plan_id}: {e}")
+            return {}
             
     def update_plan_preferences(self, plan_id: UUID, preferences: Dict[str, Any]) -> Optional[StudyPlan]:
         """Update study plan preferences"""
@@ -257,12 +268,22 @@ class StudySessionRepository(BaseRepository[StudySession]):
         with self.get_session() as session:
             query = session.query(StudySession).filter(
                 StudySession.user_id == user_id
-            ).order_by(desc(StudySession.start_time))
+            ).order_by(desc(StudySession.actual_start.nullslast()))
             
             if start_date:
-                query = query.filter(StudySession.start_time >= start_date)
+                query = query.filter(
+                    or_(
+                        StudySession.actual_start >= start_date,
+                        and_(StudySession.actual_start.is_(None), StudySession.scheduled_start >= start_date)
+                    )
+                )
             if end_date:
-                query = query.filter(StudySession.start_time <= end_date)
+                query = query.filter(
+                    or_(
+                        StudySession.actual_start <= end_date,
+                        and_(StudySession.actual_start.is_(None), StudySession.scheduled_start <= end_date)
+                    )
+                )
             if limit:
                 query = query.limit(limit)
                 
@@ -272,14 +293,22 @@ class StudySessionRepository(BaseRepository[StudySession]):
             return sessions
             
     def get_active_session(self, user_id: UUID) -> Optional[StudySession]:
-        """Get user's current active session (end_time is None)"""
-        return self.find_by(user_id=user_id, end_time=None)
+        """Get user's current active session (actual_end is None)"""
+        return self.find_by(user_id=user_id, actual_end=None)
         
     def start_session(self, user_id: UUID, session_data: Dict[str, Any]) -> StudySession:
         """Start a new study session"""
+        now = datetime.utcnow()
+        planned_duration = session_data.get('planned_duration', 45)  # Default 45 minutes
+        
         session_data.update({
             'user_id': user_id,
-            'start_time': datetime.utcnow()
+            'title': f"Study Session - {now.strftime('%Y-%m-%d %H:%M')}",
+            'scheduled_start': now,
+            'scheduled_end': now + timedelta(minutes=planned_duration),
+            'duration_minutes': planned_duration,
+            'actual_start': now,
+            'status': 'active'
         })
         return self.create(**session_data)
         
@@ -289,8 +318,9 @@ class StudySessionRepository(BaseRepository[StudySession]):
                    notes: Optional[str] = None) -> Optional[StudySession]:
         """End a study session"""
         update_data = {
-            'end_time': datetime.utcnow(),
-            'actual_duration': actual_duration
+            'actual_end': datetime.utcnow(),
+            'actual_duration_minutes': actual_duration,
+            'status': 'completed'
         }
         
         if effectiveness_rating is not None:
@@ -298,53 +328,67 @@ class StudySessionRepository(BaseRepository[StudySession]):
         if focus_score is not None:
             update_data['focus_score'] = focus_score
         if notes is not None:
-            update_data['notes'] = notes
+            update_data['session_notes'] = notes
             
         return self.update(session_id, **update_data)
         
     def get_session_analytics(self, user_id: UUID, days: int = 30) -> Dict[str, Any]:
         """Get session analytics for user over specified days"""
-        start_date = datetime.utcnow() - timedelta(days=days)
-        
-        with self.get_session() as session:
-            sessions = session.query(StudySession).filter(
-                and_(
-                    StudySession.user_id == user_id,
-                    StudySession.start_time >= start_date,
-                    StudySession.actual_duration.isnot(None)
-                )
-            ).all()
+        try:
+            start_date = datetime.utcnow() - timedelta(days=days)
             
-            if not sessions:
-                return {
-                    'total_sessions': 0,
-                    'total_minutes': 0,
-                    'avg_session_length': 0,
-                    'avg_effectiveness': 0,
-                    'avg_focus_score': 0,
-                    'study_days': 0
-                }
+            with self.get_session() as session:
+                sessions = session.query(StudySession).filter(
+                    and_(
+                        StudySession.user_id == user_id,
+                        or_(
+                            StudySession.actual_start >= start_date,
+                            and_(StudySession.actual_start.is_(None), StudySession.scheduled_start >= start_date)
+                        ),
+                        StudySession.actual_duration_minutes.isnot(None)
+                    )
+                ).all()
                 
-            total_minutes = sum(s.actual_duration for s in sessions)
-            avg_session_length = total_minutes / len(sessions)
-            
-            # Calculate averages for non-null values
-            effectiveness_ratings = [s.effectiveness_rating for s in sessions if s.effectiveness_rating]
-            focus_scores = [s.focus_score for s in sessions if s.focus_score]
-            
-            avg_effectiveness = sum(effectiveness_ratings) / len(effectiveness_ratings) if effectiveness_ratings else 0
-            avg_focus_score = sum(focus_scores) / len(focus_scores) if focus_scores else 0
-            
-            study_days = len(set(s.start_time.date() for s in sessions))
-            
+                if not sessions:
+                    return {
+                        'total_sessions': 0,
+                        'total_minutes': 0,
+                        'avg_session_length': 0,
+                        'avg_effectiveness': 0,
+                        'avg_focus_score': 0,
+                        'study_days': 0
+                    }
+                    
+                total_minutes = sum(s.actual_duration_minutes for s in sessions)
+                avg_session_length = total_minutes / len(sessions)
+                
+                # Calculate averages for non-null values
+                effectiveness_ratings = [s.effectiveness_rating for s in sessions if s.effectiveness_rating]
+                focus_scores = [s.focus_score for s in sessions if s.focus_score]
+                
+                avg_effectiveness = sum(effectiveness_ratings) / len(effectiveness_ratings) if effectiveness_ratings else 0
+                avg_focus_score = sum(focus_scores) / len(focus_scores) if focus_scores else 0
+                
+                study_days = len(set(s.actual_start.date() for s in sessions if s.actual_start))
+                
+                return {
+                    'total_sessions': len(sessions),
+                    'total_minutes': total_minutes,
+                    'total_hours': round(total_minutes / 60, 1),
+                    'avg_session_length': round(avg_session_length, 1),
+                    'avg_effectiveness': round(avg_effectiveness, 1),
+                    'avg_focus_score': round(avg_focus_score, 1),
+                    'study_days': study_days
+                }
+        except Exception as e:
+            logger.error(f"Error getting session analytics for user {user_id}: {e}")
             return {
-                'total_sessions': len(sessions),
-                'total_minutes': total_minutes,
-                'total_hours': round(total_minutes / 60, 1),
-                'avg_session_length': round(avg_session_length, 1),
-                'avg_effectiveness': round(avg_effectiveness, 1),
-                'avg_focus_score': round(avg_focus_score, 1),
-                'study_days': study_days
+                'total_sessions': 0,
+                'total_minutes': 0,
+                'avg_session_length': 0,
+                'avg_effectiveness': 0,
+                'avg_focus_score': 0,
+                'study_days': 0
             }
 
 

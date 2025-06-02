@@ -28,7 +28,7 @@ class ScheduleRepository(BaseRepository[StudySession]):
     def get_user_sessions(self, user_id: UUID, start_date: Optional[date] = None, 
                          end_date: Optional[date] = None, status: Optional[str] = None,
                          course_id: Optional[UUID] = None, session_type: Optional[str] = None,
-                         limit: Optional[int] = None, offset: Optional[int] = None) -> List[StudySession]:
+                         limit: Optional[int] = None, offset: Optional[int] = None) -> List[Dict[str, Any]]:
         """Get user's sessions within date range with optional filters and pagination"""
         with self.get_session() as session:
             query = session.query(StudySession).options(
@@ -59,11 +59,14 @@ class ScheduleRepository(BaseRepository[StudySession]):
                 
             sessions = query.all()
             
+            # Convert to dictionaries for JSON serialization
+            session_dicts = []
             for session_obj in sessions:
                 session.expunge(session_obj)
-            return sessions
+                session_dicts.append(session_obj.to_dict())
+            return session_dicts
     
-    def get_daily_sessions(self, user_id: UUID, target_date: date) -> List[StudySession]:
+    def get_daily_sessions(self, user_id: UUID, target_date: date) -> List[Dict[str, Any]]:
         """Get all sessions for a specific date"""
         return self.get_user_sessions(
             user_id=user_id,
@@ -71,7 +74,7 @@ class ScheduleRepository(BaseRepository[StudySession]):
             end_date=target_date
         )
     
-    def get_weekly_sessions(self, user_id: UUID, week_start: date) -> List[StudySession]:
+    def get_weekly_sessions(self, user_id: UUID, week_start: date) -> List[Dict[str, Any]]:
         """Get sessions for a week starting from week_start"""
         week_end = week_start + timedelta(days=6)
         return self.get_user_sessions(
@@ -84,7 +87,7 @@ class ScheduleRepository(BaseRepository[StudySession]):
         """Get user's currently active session"""
         return self.find_by(user_id=user_id, status='active')
     
-    def create_session(self, session_data: Dict[str, Any]) -> StudySession:
+    def create_session(self, session_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new study session"""
         # Calculate duration if not provided
         if 'duration_minutes' not in session_data and 'scheduled_start' in session_data and 'scheduled_end' in session_data:
@@ -93,9 +96,10 @@ class ScheduleRepository(BaseRepository[StudySession]):
             duration = (end - start).total_seconds() / 60
             session_data['duration_minutes'] = int(duration)
         
-        return self.create(**session_data)
+        session_obj = self.create(**session_data)
+        return session_obj.to_dict()
     
-    def get_session_by_id(self, session_id: UUID, user_id: UUID) -> Optional[StudySession]:
+    def get_session_by_id(self, session_id: UUID, user_id: UUID) -> Optional[Dict[str, Any]]:
         """Get a specific session by ID for a user"""
         with self.get_session() as session:
             study_session = session.query(StudySession).options(
@@ -111,7 +115,8 @@ class ScheduleRepository(BaseRepository[StudySession]):
             
             if study_session:
                 session.expunge(study_session)
-            return study_session
+                return study_session.to_dict()
+            return None
     
     def check_session_conflicts(self, user_id: UUID, start_time: datetime, 
                                end_time: datetime, exclude_session_id: Optional[UUID] = None) -> List[Dict[str, Any]]:
@@ -128,7 +133,7 @@ class ScheduleRepository(BaseRepository[StudySession]):
             for conflict in conflicts
         ]
     
-    def update_session(self, session_id: UUID, update_data: Dict[str, Any]) -> Optional[StudySession]:
+    def update_session(self, session_id: UUID, update_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Update a session with new data"""
         with self.get_session() as session:
             study_session = session.query(StudySession).filter(StudySession.id == session_id).first()
@@ -139,7 +144,7 @@ class ScheduleRepository(BaseRepository[StudySession]):
                 study_session.updated_at = datetime.utcnow()
                 session.commit()
                 session.expunge(study_session)
-                return study_session
+                return study_session.to_dict()
             return None
     
     def delete_session(self, session_id: UUID) -> bool:
