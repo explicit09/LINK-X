@@ -2,7 +2,7 @@
  * Study Plans Hooks
  * Reusable hooks for study plan functionality
  */
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import { useApiQuery, useApiMutation } from './useApi';
 import {
   studyPlansAPI,
@@ -32,6 +32,10 @@ export function useStudyPlans(includeInactive = false) {
 export function useActivePlan() {
   return useApiQuery(() => studyPlansAPI.getActivePlan(), [], {
     showErrorToast: false, // Don't show error if no active plan
+    onError: (error) => {
+      // Log error but don't break the UI
+      console.log('No active study plan found (this is normal for new users)');
+    }
   });
 }
 
@@ -188,14 +192,18 @@ export function useStudyAnalytics(days = 30) {
 // ===== COMPOSITE HOOKS =====
 
 export function useStudyPlanDashboard() {
+  const [hasTimeout, setHasTimeout] = useState(false);
+  
   const {
     data: activePlan,
     isLoading: planLoading,
+    error: planError,
     refetch: refetchPlan,
   } = useActivePlan();
   const {
     data: goals,
     isLoading: goalsLoading,
+    error: goalsError,
     refetch: refetchGoals,
   } = useStudyGoals({
     status: 'in_progress',
@@ -204,16 +212,35 @@ export function useStudyPlanDashboard() {
   const {
     data: recommendations,
     isLoading: recsLoading,
+    error: recsError,
     refetch: refetchRecs,
   } = useStudyRecommendations(5);
   const {
     data: analytics,
     isLoading: analyticsLoading,
+    error: analyticsError,
     refetch: refetchAnalytics,
   } = useStudyAnalytics(7);
 
-  const isLoading =
-    planLoading || goalsLoading || recsLoading || analyticsLoading;
+  // Add timeout to prevent infinite loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setHasTimeout(true);
+    }, 5000); // 5 second timeout
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Consider loading complete if timeout reached or if some data has loaded
+  const isLoading = !hasTimeout && (
+    planLoading || goalsLoading || recsLoading || analyticsLoading
+  );
+  
+  // Log any errors for debugging
+  if (planError) console.log('Plan error:', planError);
+  if (goalsError) console.log('Goals error:', goalsError);
+  if (recsError) console.log('Recommendations error:', recsError);
+  if (analyticsError) console.log('Analytics error:', analyticsError);
 
   const refetchAll = useCallback(() => {
     refetchPlan();
