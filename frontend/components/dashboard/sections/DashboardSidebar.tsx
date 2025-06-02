@@ -9,6 +9,7 @@ import {
   usePerformancePulse,
   useCoursesOverview,
 } from '@/hooks/useDashboardData';
+import { useHasData } from '@/hooks/useHasData';
 import {
   Calendar,
   Clock,
@@ -18,6 +19,7 @@ import {
   BookOpen,
   ArrowRight,
   Loader2,
+  Plus,
 } from 'lucide-react';
 
 interface DashboardSidebarProps {
@@ -31,6 +33,9 @@ export function DashboardSidebar({
   onMaintainRank,
   onViewAllCourses,
 }: DashboardSidebarProps) {
+  // Check if user has data
+  const userDataStatus = useHasData();
+
   // Real data from API
   const { data: scheduleData, loading: scheduleLoading } = useTodaySchedule();
   const { data: performanceData, loading: performanceLoading } =
@@ -141,7 +146,15 @@ export function DashboardSidebar({
             <div className="p-4 text-center text-gray-500 bg-gray-50 rounded-lg">
               <Calendar className="h-6 w-6 mx-auto mb-2 text-gray-400" />
               <p className="text-xs">No scheduled items</p>
-              <p className="text-xs">Enjoy your free time! 🌟</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onViewSchedule}
+                className="mt-2 text-xs border-dashed animate-pulse"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add Study Block
+              </Button>
             </div>
           )}
 
@@ -162,7 +175,8 @@ export function DashboardSidebar({
         </CardContent>
       </Card>
 
-      {/* Performance Pulse */}
+      {/* Performance Pulse - Show for existing users or users with data */}
+      {(userDataStatus.hasHistoricalMetrics || userDataStatus.hasActivities) && (
       <Card className="border border-gray-200">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center space-x-2 text-base">
@@ -209,12 +223,18 @@ export function DashboardSidebar({
                 </div>
                 <div className="p-2 bg-blue-50 rounded border border-blue-200">
                   <div className="text-sm font-semibold text-blue-700">
-                    {performanceMetrics.average_score}% Avg
+                    {performanceMetrics.average_score > 0 
+                      ? `${performanceMetrics.average_score}% Avg`
+                      : 'Waiting for first session'}
                   </div>
                   <div className="text-xs text-blue-600">
-                    {performanceMetrics.improvement_percentage >= 0
-                      ? `+${Math.abs(performanceMetrics.improvement_percentage)}% up`
-                      : `${performanceMetrics.improvement_percentage}% down`}
+                    {performanceMetrics.average_score > 0 ? (
+                      performanceMetrics.improvement_percentage >= 0
+                        ? `+${Math.abs(performanceMetrics.improvement_percentage)}% up`
+                        : `${performanceMetrics.improvement_percentage}% down`
+                    ) : (
+                      'Complete a task to start'
+                    )}
                   </div>
                 </div>
               </div>
@@ -234,6 +254,7 @@ export function DashboardSidebar({
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Courses Card */}
       <Card className="border border-gray-200 lg:order-3 order-last">

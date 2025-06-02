@@ -215,21 +215,26 @@ def get_profile_v2():
         
         # Add role-specific profile data
         if fresh_user.student_profile:
+            logger.info(f"Student profile found for {fresh_user.email}: name={fresh_user.student_profile.name}")
             profile_data['profile'] = {
                 'name': fresh_user.student_profile.name,
                 'onboard_answers': fresh_user.student_profile.onboard_answers,
                 'want_quizzes': fresh_user.student_profile.want_quizzes
             }
         elif fresh_user.instructor_profile:
+            logger.info(f"Instructor profile found for {fresh_user.email}: name={fresh_user.instructor_profile.name}")
             profile_data['profile'] = {
                 'name': fresh_user.instructor_profile.name,
                 'university': fresh_user.instructor_profile.university,
                 'department': fresh_user.instructor_profile.department
             }
         elif fresh_user.admin_profile:
+            logger.info(f"Admin profile found for {fresh_user.email}: name={fresh_user.admin_profile.name}")
             profile_data['profile'] = {
                 'name': fresh_user.admin_profile.name
             }
+        else:
+            logger.warning(f"No profile found for {fresh_user.email}, role={fresh_user.role.role_type if fresh_user.role else 'None'}")
         
         # Add statistics
         stats = {}

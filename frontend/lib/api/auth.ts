@@ -89,7 +89,7 @@ class AuthAPI {
   // Firebase session management (for Firebase Auth integration)
   async sessionLogin(idToken: string): Promise<AuthResponse> {
     const response = await apiClient.post<AuthResponse>(
-      '/auth/firebase-login',
+      '/auth/login',
       {
         idToken,
       },
@@ -108,15 +108,15 @@ class AuthAPI {
 
   // User profile
   async getCurrentUser(): Promise<User> {
-    return apiClient.get<User>('/auth/me');
+    return apiClient.get<User>('/api/v2/auth/me');
   }
 
   async updateCurrentUser(data: Partial<UserProfile>): Promise<User> {
-    return apiClient.patch<User>('/auth/me', data);
+    return apiClient.patch<User>('/api/v2/auth/me', data);
   }
 
   async deleteCurrentUser(): Promise<void> {
-    await apiClient.delete('/auth/me');
+    await apiClient.delete('/api/v2/auth/me');
     // Clear tokens
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
@@ -141,11 +141,13 @@ class AuthAPI {
 
   // Password management
   async forgotPassword(email: string): Promise<void> {
-    await apiClient.post('/auth/forgot-password', { email });
+    // TODO: Password reset endpoints not implemented in backend
+    throw new Error('Password reset not implemented');
   }
 
   async resetPassword(token: string, password: string): Promise<void> {
-    await apiClient.post('/auth/reset-password', { token, password });
+    // TODO: Password reset endpoints not implemented in backend
+    throw new Error('Password reset not implemented');
   }
 
   // Token management helpers
@@ -167,4 +169,4 @@ class AuthAPI {
   }
 }
 
-export const authAPI = new AuthAPI();
+export const authAPIClass = new AuthAPI();
