@@ -141,10 +141,18 @@ export interface LogProgressData {
 // Study Plans API
 export const studyPlansAPI = {
   // Study Plan endpoints
-  listPlans: (includeInactive = false) =>
-    apiClient.get<StudyPlan[]>(
-      `/api/v2/study-plans?include_inactive=${includeInactive}`,
-    ),
+  listPlans: async (includeInactive = false) => {
+    try {
+      const response = await apiClient.get<any>(
+        `/api/v2/study-plans?include_inactive=${includeInactive}`,
+      );
+      console.log('Study Plans API - listPlans response:', response);
+      return response.data || response;
+    } catch (error) {
+      console.error('Study Plans API - listPlans error:', error);
+      throw error;
+    }
+  },
 
   createPlan: (data: CreateStudyPlanData) =>
     apiClient.post<StudyPlan>('/api/v2/study-plans', data),
@@ -156,8 +164,15 @@ export const studyPlansAPI = {
     apiClient.patch<StudyPlan>(`/api/v2/study-plans/${planId}`, data),
 
   getActivePlan: async () => {
-    const response = await apiClient.get<any>('/api/v2/study-plans/active');
-    return response.data || response;
+    try {
+      const response = await apiClient.get<any>('/api/v2/study-plans/active');
+      console.log('Study Plans API - getActivePlan response:', response);
+      return response.data || response;
+    } catch (error) {
+      console.error('Study Plans API - getActivePlan error:', error);
+      // Return null instead of throwing to avoid breaking the UI
+      return null;
+    }
   },
 
   // Goal endpoints
@@ -166,17 +181,24 @@ export const studyPlansAPI = {
     priority?: string;
     limit?: number;
   }) => {
-    const searchParams = new URLSearchParams();
-    if (params?.status) searchParams.set('status', params.status);
-    if (params?.priority) searchParams.set('priority', params.priority);
-    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    try {
+      const searchParams = new URLSearchParams();
+      if (params?.status) searchParams.set('status', params.status);
+      if (params?.priority) searchParams.set('priority', params.priority);
+      if (params?.limit) searchParams.set('limit', params.limit.toString());
 
-    const query = searchParams.toString();
-    const response = await apiClient.get<any>(
-      `/api/v2/study-plans/goals${query ? `?${query}` : ''}`,
-    );
-    // Handle wrapped response
-    return response.data || response;
+      const query = searchParams.toString();
+      const response = await apiClient.get<any>(
+        `/api/v2/study-plans/goals${query ? `?${query}` : ''}`,
+      );
+      console.log('Study Plans API - listGoals response:', response);
+      // Handle wrapped response
+      return response.data || response;
+    } catch (error) {
+      console.error('Study Plans API - listGoals error:', error);
+      // Return empty array instead of throwing to avoid breaking the UI
+      return [];
+    }
   },
 
   createGoal: (data: CreateGoalData) =>
@@ -189,20 +211,27 @@ export const studyPlansAPI = {
     apiClient.post(`/api/v2/study-plans/goals/${goalId}/progress`, data),
 
   // Session endpoints
-  listSessions: (params?: {
+  listSessions: async (params?: {
     limit?: number;
     start_date?: string;
     end_date?: string;
   }) => {
-    const searchParams = new URLSearchParams();
-    if (params?.limit) searchParams.set('limit', params.limit.toString());
-    if (params?.start_date) searchParams.set('start_date', params.start_date);
-    if (params?.end_date) searchParams.set('end_date', params.end_date);
+    try {
+      const searchParams = new URLSearchParams();
+      if (params?.limit) searchParams.set('limit', params.limit.toString());
+      if (params?.start_date) searchParams.set('start_date', params.start_date);
+      if (params?.end_date) searchParams.set('end_date', params.end_date);
 
-    const query = searchParams.toString();
-    return apiClient.get<StudySession[]>(
-      `/api/v2/study-plans/sessions${query ? `?${query}` : ''}`,
-    );
+      const query = searchParams.toString();
+      const response = await apiClient.get<StudySession[]>(
+        `/api/v2/study-plans/sessions${query ? `?${query}` : ''}`,
+      );
+      console.log('Study Plans API - listSessions response:', response);
+      return response.data || response;
+    } catch (error) {
+      console.error('Study Plans API - listSessions error:', error);
+      return [];
+    }
   },
 
   startSession: (data: StartSessionData) =>
@@ -216,11 +245,18 @@ export const studyPlansAPI = {
 
   // Recommendation endpoints
   listRecommendations: async (limit?: number) => {
-    const query = limit ? `?limit=${limit}` : '';
-    const response = await apiClient.get<any>(
-      `/api/v2/study-plans/recommendations${query}`,
-    );
-    return response.data || response;
+    try {
+      const query = limit ? `?limit=${limit}` : '';
+      const response = await apiClient.get<any>(
+        `/api/v2/study-plans/recommendations${query}`,
+      );
+      console.log('Study Plans API - listRecommendations response:', response);
+      return response.data || response;
+    } catch (error) {
+      console.error('Study Plans API - listRecommendations error:', error);
+      // Return empty array instead of throwing
+      return [];
+    }
   },
 
   applyRecommendation: (recId: string) =>
@@ -231,7 +267,14 @@ export const studyPlansAPI = {
 
   // Analytics
   getAnalytics: async (days = 30) => {
-    const response = await apiClient.get<any>(`/api/v2/study-plans/analytics?days=${days}`);
-    return response.data || response;
+    try {
+      const response = await apiClient.get<any>(`/api/v2/study-plans/analytics?days=${days}`);
+      console.log('Study Plans API - getAnalytics response:', response);
+      return response.data || response;
+    } catch (error) {
+      console.error('Study Plans API - getAnalytics error:', error);
+      // Return null instead of throwing
+      return null;
+    }
   },
 };

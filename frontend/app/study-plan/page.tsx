@@ -5,9 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { SkeletonRow, FadeInWhen } from '@/components/ui/skeleton-row';
+import { GhostGauge } from '@/components/ui/ghost-gauge';
+import { FirstTimeTooltip } from '@/components/ui/first-time-tooltip';
 import { useState, useEffect } from 'react';
 import { authAPI } from '@/lib/api';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 import {
   useStudyPlanDashboard,
   useGoalPriority,
@@ -18,6 +22,7 @@ import {
   useStartSession,
 } from '@/hooks/useStudyPlans';
 import { toast } from 'sonner';
+import { checkAPIHealth, checkStudyPlansEndpoint } from '@/lib/api/health-check';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -112,7 +117,21 @@ export default function StudyPlanPage() {
   const { execute: startSession } = useStartSession();
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const initializePage = async () => {
+      // Check API health first
+      const healthCheck = await checkAPIHealth();
+      console.log('API Health:', healthCheck);
+      
+      if (!healthCheck.isHealthy) {
+        console.error('API is not healthy:', healthCheck.message);
+        toast.error('Unable to connect to the server. Please check if the backend is running.');
+      }
+      
+      // Check study plans endpoint specifically
+      const studyPlansCheck = await checkStudyPlansEndpoint();
+      console.log('Study Plans Endpoint:', studyPlansCheck);
+
+      // Fetch user data
       try {
         const response = await authAPI.v2.getProfile();
         console.log('Study Plan - Auth API response:', response);
@@ -137,7 +156,7 @@ export default function StudyPlanPage() {
       }
     };
 
-    fetchUser();
+    initializePage();
   }, []);
 
   const toggleRecommendation = async (recId: string) => {
@@ -305,8 +324,18 @@ export default function StudyPlanPage() {
     }
   };
 
-  // Loading state
-  if (isLoading) {
+  // Loading state - add timeout to prevent infinite loading
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+  useEffect(() => {
+    if (isLoading) {
+      const timer = setTimeout(() => {
+        setLoadingTimeout(true);
+      }, 5000); // 5 second timeout
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading]);
+
+  if (isLoading && !loadingTimeout) {
     return (
       <SharedDashboardLayout
         pageTitle="Study Plan"
@@ -323,136 +352,8 @@ export default function StudyPlanPage() {
     );
   }
 
-  // No active plan state
-  if (!activePlan) {
-    return (
-      <SharedDashboardLayout
-        pageTitle="Study Plan"
-        showGamification={false}
-        currentUser={currentUser}
-      >
-        <div className="text-center py-12">
-          <Target className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            No Active Study Plan
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Create your first study plan to get started with personalized
-            learning.
-          </p>
-
-          <Dialog open={showCreatePlan} onOpenChange={setShowCreatePlan}>
-            <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Study Plan
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create Your Study Plan</DialogTitle>
-                <DialogDescription>
-                  Set up a personalized study plan to achieve your learning
-                  goals.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="plan_name">Plan Name</Label>
-                  <Input
-                    id="plan_name"
-                    value={planFormData.plan_name}
-                    onChange={(e) =>
-                      setPlanFormData({
-                        ...planFormData,
-                        plan_name: e.target.value,
-                      })
-                    }
-                    placeholder="e.g., Spring 2024 Study Plan"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="weekly_hours">Weekly Study Hours</Label>
-                  <Input
-                    id="weekly_hours"
-                    type="number"
-                    value={planFormData.weekly_study_hours}
-                    onChange={(e) =>
-                      setPlanFormData({
-                        ...planFormData,
-                        weekly_study_hours: parseInt(e.target.value),
-                      })
-                    }
-                    min="1"
-                    max="80"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="session_length">
-                    Preferred Session Length (minutes)
-                  </Label>
-                  <Input
-                    id="session_length"
-                    type="number"
-                    value={planFormData.preferred_session_length}
-                    onChange={(e) =>
-                      setPlanFormData({
-                        ...planFormData,
-                        preferred_session_length: parseInt(e.target.value),
-                      })
-                    }
-                    min="15"
-                    max="180"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="learning_style">Learning Style</Label>
-                  <Select
-                    value={planFormData.learning_style}
-                    onValueChange={(value) =>
-                      setPlanFormData({
-                        ...planFormData,
-                        learning_style: value,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select your learning style" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="visual">Visual</SelectItem>
-                      <SelectItem value="auditory">Auditory</SelectItem>
-                      <SelectItem value="kinesthetic">Kinesthetic</SelectItem>
-                      <SelectItem value="mixed">Mixed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowCreatePlan(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCreatePlan}
-                  disabled={!planFormData.plan_name}
-                >
-                  Create Plan
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </SharedDashboardLayout>
-    );
-  }
+  // Skip the "No Active Study Plan" page - just show the main UI
+  // The empty states will guide new users effectively
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -515,8 +416,23 @@ export default function StudyPlanPage() {
                   </div>
                 )}
 
-                {displayGoals.length > 0 ? (
-                  displayGoals.map((goal) => (
+                {/* Show skeleton row when no goals */}
+                {displayGoals.length === 0 && (
+                  <div className="space-y-3">
+                    <SkeletonRow height={127} className="border border-gray-200" />
+                    <div className="text-center py-4">
+                      <p className="text-sm text-gray-500 mb-3">Create your first goal to get started</p>
+                      <Button onClick={() => setShowCreateGoal(true)} size="sm">
+                        <Plus className="h-3 w-3 mr-1" />
+                        Create Goal
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Show actual goals with fade-in */}
+                <FadeInWhen dataReady={displayGoals.length > 0}>
+                  {displayGoals.map((goal) => (
                     <div
                       key={goal.id}
                       className="bg-white border border-gray-200 rounded-lg px-4 py-3"
@@ -589,20 +505,8 @@ export default function StudyPlanPage() {
                         </Button>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <Target className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                    <p className="text-sm">No goals for this week</p>
-                    <p className="text-xs mb-4">
-                      Create new goals to get started
-                    </p>
-                    <Button onClick={() => setShowCreateGoal(true)} size="sm">
-                      <Plus className="h-3 w-3 mr-1" />
-                      Create Goal
-                    </Button>
-                  </div>
-                )}
+                  ))}
+                </FadeInWhen>
               </div>
             </CardContent>
           </Card>
@@ -618,37 +522,84 @@ export default function StudyPlanPage() {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {analytics?.plan_analytics
-                      ? Math.round(
-                          (analytics.plan_analytics.completed_goals /
-                            Math.max(analytics.plan_analytics.total_goals, 1)) *
-                            100,
-                        )
-                      : 0}
-                    %
+                  <div className="text-2xl font-bold">
+                    {analytics?.plan_analytics && analytics.plan_analytics.total_goals > 0 ? (
+                      <>
+                        <span className="text-blue-600">
+                          {Math.round(
+                            (analytics.plan_analytics.completed_goals /
+                              Math.max(analytics.plan_analytics.total_goals, 1)) *
+                              100,
+                          )}%
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </div>
                   <div className="text-sm text-gray-500">Goals Completed</div>
+                  <div className="mt-2">
+                    <GhostGauge 
+                      value={analytics?.plan_analytics?.completed_goals || 0}
+                      maxValue={analytics?.plan_analytics?.total_goals || 100}
+                      color="blue"
+                      showPlaceholder={false}
+                    />
+                  </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {analytics?.plan_analytics?.total_study_hours || 0}h
+                  <div className="text-2xl font-bold">
+                    {analytics?.plan_analytics && analytics.plan_analytics.total_study_hours > 0 ? (
+                      <span className="text-green-600">{analytics.plan_analytics.total_study_hours}h</span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </div>
                   <div className="text-sm text-gray-500">Study Time</div>
+                  <div className="mt-2">
+                    <GhostGauge 
+                      value={analytics?.plan_analytics?.total_study_hours || 0}
+                      maxValue={40}
+                      color="green"
+                      showPlaceholder={false}
+                    />
+                  </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {Math.round(
-                      (analytics?.plan_analytics?.avg_effectiveness || 0) * 10,
-                    ) / 10}
+                  <div className="text-2xl font-bold">
+                    {analytics?.plan_analytics && analytics.plan_analytics.avg_effectiveness > 0 ? (
+                      <span className="text-purple-600">{Math.round((analytics.plan_analytics.avg_effectiveness || 0) * 10) / 10}</span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </div>
                   <div className="text-sm text-gray-500">Efficiency</div>
+                  <div className="mt-2">
+                    <GhostGauge 
+                      value={analytics?.plan_analytics?.avg_effectiveness || 0}
+                      maxValue={5}
+                      color="purple"
+                      showPlaceholder={false}
+                    />
+                  </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-orange-600">
-                    {analytics?.plan_analytics?.study_days || 0}
+                  <div className="text-2xl font-bold">
+                    {analytics?.plan_analytics && analytics.plan_analytics.study_days > 0 ? (
+                      <span className="text-orange-600">{analytics.plan_analytics.study_days}</span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </div>
                   <div className="text-sm text-gray-500">Study Days</div>
+                  <div className="mt-2">
+                    <GhostGauge 
+                      value={analytics?.plan_analytics?.study_days || 0}
+                      maxValue={7}
+                      color="orange"
+                      showPlaceholder={false}
+                    />
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -664,9 +615,23 @@ export default function StudyPlanPage() {
                 <span>AI Recommendations</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {recommendations && recommendations.length > 0 ? (
-                recommendations.map((rec) => {
+            <CardContent className="space-y-4" style={{ minHeight: '200px' }}>
+              {/* Show skeleton rows when no recommendations */}
+              {(!recommendations || recommendations.length === 0) && (
+                <div className="space-y-3">
+                  <SkeletonRow height={96} className="border border-gray-200" />
+                  <SkeletonRow height={96} className="border border-gray-200" />
+                  <div className="text-center py-4">
+                    <p className="text-xs text-gray-500">
+                      Complete study sessions to unlock AI recommendations
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              {/* Show actual recommendations with fade-in */}
+              <FadeInWhen dataReady={recommendations && recommendations.length > 0}>
+                {recommendations && recommendations.map((rec) => {
                   const isActive =
                     activeRecommendations.has(rec.id) ||
                     rec.status === 'applied';
@@ -722,16 +687,8 @@ export default function StudyPlanPage() {
                       </div>
                     </div>
                   );
-                })
-              ) : (
-                <div className="text-center py-6 text-gray-500">
-                  <Sparkles className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                  <p className="text-sm">No recommendations available</p>
-                  <p className="text-xs">
-                    Complete more study sessions to get AI suggestions
-                  </p>
-                </div>
-              )}
+                })}
+              </FadeInWhen>
             </CardContent>
           </Card>
 
@@ -740,9 +697,20 @@ export default function StudyPlanPage() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent>
+              <FirstTimeTooltip targetSelector="[data-quick-actions-button]">
+                👈 Start here to create your first goal!
+              </FirstTimeTooltip>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button className="w-full justify-between bg-blue-600 hover:bg-blue-700">
+                  <Button 
+                    data-quick-actions-button
+                    className={cn(
+                      "w-full justify-between",
+                      (!activePlan || !analytics || analytics.plan_analytics?.total_goals === 0)
+                        ? "bg-gray-400 hover:bg-gray-500 text-gray-200"
+                        : "bg-blue-600 hover:bg-blue-700"
+                    )}
+                  >
                     <div className="flex items-center">
                       <Plus className="h-4 w-4 mr-2" />
                       Create New
@@ -779,13 +747,6 @@ export default function StudyPlanPage() {
                   >
                     <TrendingUp className="h-4 w-4 mr-2" />
                     View Progress Report
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="cursor-pointer"
-                    onClick={() => handleQuickAction('study-group')}
-                  >
-                    <Video className="h-4 w-4 mr-2" />
-                    Join Study Group
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -920,6 +881,13 @@ export default function StudyPlanPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Empty state footer message */}
+      {(!activePlan || !analytics || analytics.plan_analytics?.total_goals === 0) && (
+        <div className="mt-8 text-center text-sm text-gray-500">
+          <p>Your personalized study journey starts with your first goal ✨</p>
+        </div>
+      )}
     </SharedDashboardLayout>
   );
 }
