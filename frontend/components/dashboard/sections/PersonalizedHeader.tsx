@@ -14,7 +14,7 @@ interface PersonalizedHeaderProps {
 }
 
 export function PersonalizedHeader({ currentUser }: PersonalizedHeaderProps) {
-  const firstName = currentUser?.name?.split(' ')[0] || 'Student';
+  const firstName = currentUser?.name?.split(' ')[0] || (currentUser?.name === null ? 'User' : 'Student');
   const currentHour = new Date().getHours();
 
   const getGreeting = () => {

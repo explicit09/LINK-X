@@ -34,6 +34,8 @@ interface SidebarItem {
   href: string;
   badge?: number;
   requiresData?: boolean;
+  locked?: boolean;
+  lockReason?: string;
 }
 
 interface StudentSidebarProps {
@@ -49,25 +51,42 @@ interface StudentSidebarProps {
 const primaryNavItems: SidebarItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: Home, href: '/dashboard' },
   { id: 'study-plan', label: 'Study Plan', icon: Target, href: '/study-plan' },
-  { id: 'schedule', label: 'Schedule', icon: Calendar, href: '/schedule' },
+  { 
+    id: 'schedule', 
+    label: 'Schedule', 
+    icon: Calendar, 
+    href: '/schedule',
+    locked: true,
+    lockReason: 'Available after beta launch'
+  },
 ];
 
 const secondaryNavItems: SidebarItem[] = [
   { id: 'courses', label: 'Courses', icon: BookOpen, href: '/my-courses' },
-  { id: 'progress', label: 'Progress', icon: BarChart3, href: '/progress', requiresData: true },
+  { 
+    id: 'progress', 
+    label: 'Progress', 
+    icon: BarChart3, 
+    href: '/progress', 
+    requiresData: true,
+    locked: true,
+    lockReason: 'Available after beta launch'
+  },
   {
     id: 'community',
     label: 'Community',
     icon: Users,
     href: '/community',
-    badge: 3,
+    locked: true,
+    lockReason: 'Available after beta launch'
   },
   {
     id: 'messages',
     label: 'Messages',
     icon: MessageSquare,
     href: '/messages',
-    badge: 2,
+    locked: true,
+    lockReason: 'Available after beta launch'
   },
 ];
 
@@ -142,41 +161,71 @@ export function StudentSidebar({
             const IconComponent = item.icon;
             const isActive =
               pathname === item.href || pathname.startsWith(item.href);
+            const isLocked = item.locked;
 
-            return (
+            const button = (
               <Button
                 key={item.id}
                 variant="ghost"
-                onClick={() => handleNavigation(item.href)}
+                onClick={() => !isLocked && handleNavigation(item.href)}
+                disabled={isLocked}
                 className={cn(
-                  'w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 transition-all duration-200',
-                  'hover:scale-105 hover:shadow-lg hover:bg-gradient-to-r hover:from-gray-800 hover:to-gray-700',
-                  isActive &&
+                  'w-full justify-start transition-all duration-200',
+                  isLocked
+                    ? 'text-gray-600 hover:text-gray-600 cursor-not-allowed opacity-50'
+                    : 'text-gray-300 hover:text-white hover:bg-gray-800 hover:scale-105 hover:shadow-lg hover:bg-gradient-to-r hover:from-gray-800 hover:to-gray-700',
+                  isActive && !isLocked &&
                     'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg scale-105',
                   isCollapsed ? 'px-2' : 'px-3',
                 )}
               >
-                <IconComponent
-                  className={cn(
-                    'h-4 w-4 transition-colors duration-200',
-                    !isCollapsed && 'mr-3',
-                    isActive && 'text-blue-100',
+                <div className="relative">
+                  <IconComponent
+                    className={cn(
+                      'h-4 w-4 transition-colors duration-200',
+                      !isCollapsed && 'mr-3',
+                      isActive && !isLocked && 'text-blue-100',
+                    )}
+                  />
+                  {isLocked && isCollapsed && (
+                    <Lock className="h-2.5 w-2.5 absolute -bottom-1 -right-1 text-gray-500" />
                   )}
-                />
+                </div>
                 {!isCollapsed && (
                   <>
                     <span className="flex-1 text-left font-medium">
                       {item.label}
                     </span>
-                    {item.badge && (
-                      <span className="bg-blue-600 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center animate-pulse">
-                        {item.badge}
-                      </span>
+                    {isLocked ? (
+                      <Lock className="h-3 w-3 text-gray-500" />
+                    ) : (
+                      item.badge && (
+                        <span className="bg-blue-600 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center animate-pulse">
+                          {item.badge}
+                        </span>
+                      )
                     )}
                   </>
                 )}
               </Button>
             );
+
+            // Add tooltip for locked items
+            if (isLocked && item.lockReason) {
+              return (
+                <TooltipProvider key={item.id}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>{button}</TooltipTrigger>
+                    <TooltipContent side="right">
+                      <p className="font-medium">{item.label}</p>
+                      <p className="text-xs opacity-75">{item.lockReason}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            }
+
+            return button;
           })}
         </div>
 
@@ -197,7 +246,7 @@ export function StudentSidebar({
             const IconComponent = item.icon;
             const isActive =
               pathname === item.href || pathname.startsWith(item.href);
-            const isLocked = item.requiresData && !userDataStatus.hasCourses && !userDataStatus.hasHistoricalMetrics;
+            const isLocked = item.locked || (item.requiresData && !userDataStatus.hasCourses && !userDataStatus.hasHistoricalMetrics);
 
             const button = (
               <Button
@@ -241,12 +290,16 @@ export function StudentSidebar({
             );
 
             if (isLocked) {
+              const tooltipMessage = item.lockReason || 
+                (item.requiresData ? 'Unlocked after first course' : 'Coming soon');
+              
               return (
                 <TooltipProvider key={item.id}>
                   <Tooltip>
                     <TooltipTrigger asChild>{button}</TooltipTrigger>
                     <TooltipContent side="right">
-                      <p>Unlocked after first course</p>
+                      <p className="font-medium">{item.label}</p>
+                      <p className="text-xs opacity-75">{tooltipMessage}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

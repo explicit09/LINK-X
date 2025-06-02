@@ -19,41 +19,8 @@ interface TodaysScheduleProps {
   onItemClick?: (item: ScheduleItem) => void;
 }
 
-const defaultSchedule: ScheduleItem[] = [
-  {
-    id: '1',
-    time: '9:00 AM',
-    title: 'Neural Networks Assignment',
-    course: 'CS229',
-    type: 'due',
-    urgent: true,
-  },
-  {
-    id: '2',
-    time: '11:00 AM',
-    title: 'Study Group - Algorithms',
-    course: 'CS161',
-    type: 'meeting',
-  },
-  {
-    id: '3',
-    time: '2:00 PM',
-    title: 'Review Recursion Tutorial',
-    course: 'CS224n',
-    type: 'study',
-  },
-  {
-    id: '4',
-    time: '4:00 PM',
-    title: 'Computer Vision Lab',
-    course: 'CS231n',
-    type: 'completed',
-    completed: true,
-  },
-];
-
 export function TodaysSchedule({
-  items = defaultSchedule,
+  items = [],
   onItemClick,
 }: TodaysScheduleProps) {
   const getTypeIcon = (type: string, completed?: boolean) => {
@@ -121,8 +88,8 @@ export function TodaysSchedule({
 
       <div className="mt-4 pt-4 border-t border-gray-200">
         <div className="flex items-center justify-between text-xs text-gray-500">
-          <span>3 completed • 2 pending</span>
-          <span>Focus time: 2h 30m</span>
+          <span>{items.filter(item => item.completed).length} completed • {items.filter(item => !item.completed).length} pending</span>
+          <span>Focus time: {items.length > 0 ? '2h 30m' : '0h'}</span>
         </div>
       </div>
     </div>

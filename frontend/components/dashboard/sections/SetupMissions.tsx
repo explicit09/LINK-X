@@ -38,11 +38,14 @@ export function SetupMissions({ onMissionComplete, completedMissions = [] }: Set
     {
       id: 'book-study',
       title: '🗓️ Book your first study block',
-      description: 'Schedule time to focus on learning',
+      description: 'Coming after beta launch - Schedule time to focus on learning',
       xp: 25,
-      completed: completedMissions.includes('book-study'),
-      action: () => router.push('/schedule'),
-      actionLabel: 'Schedule Study'
+      completed: false, // Locked during beta
+      action: () => {
+        // Show coming soon message instead of navigation
+        alert('🔒 Study scheduling will be available after beta launch!');
+      },
+      actionLabel: 'Coming Soon'
     },
     {
       id: 'complete-quiz',
