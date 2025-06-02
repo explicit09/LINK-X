@@ -12,7 +12,45 @@ import type {
 export const courseAPI = {
   // Common course operations
   getCourses: async (): Promise<Course[]> => {
-    return await apiClient.get('/api/v2/courses');
+    try {
+      console.log('🔍 getCourses: Making API call to /api/v2/courses');
+      const result = await apiClient.get('/api/v2/courses');
+      console.log('📋 getCourses: Raw API response:', result);
+      console.log('📊 getCourses: Response type:', typeof result);
+      console.log('📈 getCourses: Is array:', Array.isArray(result));
+      
+      // Ensure we always return an array for courses
+      if (!Array.isArray(result)) {
+        console.warn('⚠️ getCourses: API returned non-array result:', result);
+        return [];
+      }
+      
+      console.log('✅ getCourses: Returning', result.length, 'courses');
+      return result;
+    } catch (error) {
+      console.error('❌ getCourses: API call failed:', error);
+      console.error('❌ getCourses: Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        status: (error as any)?.status,
+        data: (error as any)?.data
+      });
+      
+      // For debugging: return mock data if API fails
+      console.log('🧪 getCourses: Returning mock data for debugging');
+      return [
+        {
+          id: 'mock-1',
+          title: 'Mock Course 1 (API Failed)',
+          description: 'This is mock data because the API call failed',
+          code: 'MOCK101',
+          term: 'Debug Term',
+          published: true,
+          creator_id: 'mock-creator',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      ];
+    }
   },
 
   createCourse: (data: CreateCourseRequest): Promise<Course> =>
