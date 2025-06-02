@@ -153,7 +153,8 @@ def auth_required(roles: Optional[List[str]] = None,
                             
                 # Check if authentication is required
                 if not optional and not authenticated:
-                    return jsonify({'error': 'Authentication required'}), 401
+                    logger.warning(f"Authentication failed for {request.path}. No valid auth found.")
+                    return jsonify({'error': 'Authentication required', 'debug': 'No authentication token found'}), 401
                     
                 # Check roles if specified
                 if authenticated and roles and g.current_user:
@@ -442,7 +443,7 @@ def _get_user_by_firebase_uid(firebase_uid: str) -> Optional[User]:
 def firebase_auth_required(f):
     """Firebase authentication required decorator"""
     print(f"firebase_auth_required called for function: {f.__name__}")
-    return auth_required(version_aware=False)(f)
+    return auth_required(version_aware=True)(f)
 
 def jwt_required_v1(f):
     """JWT v1 authentication required decorator"""

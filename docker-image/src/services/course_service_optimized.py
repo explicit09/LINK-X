@@ -225,8 +225,8 @@ class OptimizedCourseService:
                         else course.instructor.email),
                 'email': course.instructor.email
             }
-        elif hasattr(course, 'instructor_id') and course.instructor_id:
-            instructor_data['id'] = str(course.instructor_id)
+        elif hasattr(course, 'creator_id') and course.creator_id:
+            instructor_data['id'] = str(course.creator_id)
         
         # Safely access other course attributes
         return {
@@ -291,7 +291,7 @@ class OptimizedCourseService:
             raise AuthorizationError("User not found")
         
         user_role = user.role.role_type if user.role else 'student'
-        if user_role != 'admin' and str(course.instructor_id) != str(user_id):
+        if user_role != 'admin' and str(course.creator_id) != str(user_id):
             raise AuthorizationError("Access denied")
         
         return self.course_repo.update(course_id, **kwargs)
@@ -309,7 +309,7 @@ class OptimizedCourseService:
             return False
         
         user_role = user.role.role_type if user.role else 'student'
-        if user_role != 'admin' and str(course.instructor_id) != str(user_id):
+        if user_role != 'admin' and str(course.creator_id) != str(user_id):
             return False
         
         return self.course_repo.delete(course_id)

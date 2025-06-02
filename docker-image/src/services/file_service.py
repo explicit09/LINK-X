@@ -258,7 +258,7 @@ class FileService:
         user_repo = UserRepository()
         user = user_repo.get_by_id(user_id)
         
-        if user.role.role_type != 'admin' and str(course.instructor_id) != str(user_id):
+        if user.role.role_type != 'admin' and str(course.creator_id) != str(user_id):
             raise AuthorizationError("Not authorized to delete this file")
         
         # Delete from S3
@@ -334,7 +334,7 @@ class FileService:
         module = self.module_repo.get_by_id(file.module_id)
         course = self.course_repo.get_by_id(module.course_id)
         
-        if user.role.role_type != 'admin' and str(course.instructor_id) != str(user_id):
+        if user.role.role_type != 'admin' and str(course.creator_id) != str(user_id):
             raise AuthorizationError("Not authorized to reprocess this file")
         
         # Queue for reprocessing
@@ -353,7 +353,7 @@ class FileService:
             return True
         
         # Instructor has access to their courses
-        if user.role.role_type == 'instructor' and str(course.instructor_id) == str(user_id):
+        if user.role.role_type == 'instructor' and str(course.creator_id) == str(user_id):
             return True
         
         # Student needs to be enrolled
