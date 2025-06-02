@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createFileCard, getFileTypeStyle } from '@/lib/design-system';
@@ -35,6 +36,7 @@ interface FileCardProps {
   onPreview?: (fileId: string) => void;
   onDownload?: (fileId: string) => void;
   onDelete?: (fileId: string) => void;
+  onPersonalize?: (fileId: string) => void;
   className?: string;
   isEven?: boolean; // For zebra striping
 }
@@ -58,6 +60,7 @@ export function FileCard({
   onPreview,
   onDownload,
   onDelete,
+  onPersonalize,
   className,
   isEven = false,
 }: FileCardProps) {
@@ -102,6 +105,16 @@ export function FileCard({
 
   // P5: Hover actions - slide-in buttons
   const actions = [
+    ...(onPersonalize && file.processed
+      ? [
+          {
+            label: 'Personalize',
+            icon: Sparkles,
+            onClick: () => onPersonalize(file.id),
+            variant: 'personalize' as const,
+          },
+        ]
+      : []),
     ...(onPreview
       ? [
           {
@@ -232,6 +245,8 @@ export function FileCard({
                           ? onDelete
                             ? 'text-red-600 hover:text-red-700 hover:bg-red-50'
                             : 'text-gray-400 cursor-not-allowed'
+                          : action.variant === 'personalize'
+                          ? 'text-blue-600 hover:text-blue-700 hover:bg-blue-50'
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100',
                       )}
                       onClick={(e) => {

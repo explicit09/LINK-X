@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ChevronDown, ChevronRight, Play, BookOpen, Clock, AlertTriangle, TrendingUp, FileText, Video, Music, Eye, Download } from 'lucide-react';
+import { ChevronDown, ChevronRight, Play, BookOpen, Clock, AlertTriangle, TrendingUp, FileText, Video, Music, Eye, Download, Sparkles, Brain } from 'lucide-react';
 import { courseAPI, type ResumeTarget } from '@/lib/api/courses';
 import { useAlert } from '@/contexts/AlertContext';
 import { FileCard } from '@/components/course/FileCard';
@@ -407,6 +407,24 @@ export default function CoursePage() {
                           <div className="text-[12px] text-gray-500">
                             {module.materials} files
                           </div>
+                          {/* Module Personalize Button */}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Navigate to streaming page for the first file in the module
+                              const firstFile = module.materials_list[0];
+                              if (firstFile) {
+                                router.push(`/learn/streaming/${firstFile.id}?courseId=${courseId}&moduleId=${module.id}`);
+                              }
+                            }}
+                            disabled={module.materials_list.length === 0}
+                            title="Personalize learning for this module"
+                          >
+                            <Sparkles className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                       
@@ -471,6 +489,9 @@ export default function CoursePage() {
                                   onDownload={(fileId) => {
                                     // TODO: Add download functionality
                                     console.log('Download file:', fileId);
+                                  }}
+                                  onPersonalize={(fileId) => {
+                                    router.push(`/learn/streaming/${fileId}?courseId=${courseId}&moduleId=${module.id}`);
                                   }}
                                   isEven={materialIndex % 2 === 0}
                                   className="rounded-lg"
