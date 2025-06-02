@@ -143,22 +143,25 @@ export const studyPlansAPI = {
   // Study Plan endpoints
   listPlans: (includeInactive = false) =>
     apiClient.get<StudyPlan[]>(
-      `/study-plans?include_inactive=${includeInactive}`,
+      `/api/v2/study-plans?include_inactive=${includeInactive}`,
     ),
 
   createPlan: (data: CreateStudyPlanData) =>
-    apiClient.post<StudyPlan>('/study-plans', data),
+    apiClient.post<StudyPlan>('/api/v2/study-plans', data),
 
   getPlan: (planId: string) =>
-    apiClient.get<StudyPlan>(`/study-plans/${planId}`),
+    apiClient.get<StudyPlan>(`/api/v2/study-plans/${planId}`),
 
   updatePlan: (planId: string, data: Partial<CreateStudyPlanData>) =>
-    apiClient.patch<StudyPlan>(`/study-plans/${planId}`, data),
+    apiClient.patch<StudyPlan>(`/api/v2/study-plans/${planId}`, data),
 
-  getActivePlan: () => apiClient.get<StudyPlan>('/study-plans/active'),
+  getActivePlan: async () => {
+    const response = await apiClient.get<any>('/api/v2/study-plans/active');
+    return response.data || response;
+  },
 
   // Goal endpoints
-  listGoals: (params?: {
+  listGoals: async (params?: {
     status?: string;
     priority?: string;
     limit?: number;
@@ -169,19 +172,21 @@ export const studyPlansAPI = {
     if (params?.limit) searchParams.set('limit', params.limit.toString());
 
     const query = searchParams.toString();
-    return apiClient.get<StudyGoal[]>(
-      `/study-plans/goals${query ? `?${query}` : ''}`,
+    const response = await apiClient.get<any>(
+      `/api/v2/study-plans/goals${query ? `?${query}` : ''}`,
     );
+    // Handle wrapped response
+    return response.data || response;
   },
 
   createGoal: (data: CreateGoalData) =>
-    apiClient.post<StudyGoal>('/study-plans/goals', data),
+    apiClient.post<StudyGoal>('/api/v2/study-plans/goals', data),
 
   updateGoal: (goalId: string, data: Partial<StudyGoal>) =>
-    apiClient.patch<StudyGoal>(`/study-plans/goals/${goalId}`, data),
+    apiClient.patch<StudyGoal>(`/api/v2/study-plans/goals/${goalId}`, data),
 
   logGoalProgress: (goalId: string, data: LogProgressData) =>
-    apiClient.post(`/study-plans/goals/${goalId}/progress`, data),
+    apiClient.post(`/api/v2/study-plans/goals/${goalId}/progress`, data),
 
   // Session endpoints
   listSessions: (params?: {
@@ -196,39 +201,37 @@ export const studyPlansAPI = {
 
     const query = searchParams.toString();
     return apiClient.get<StudySession[]>(
-      `/study-plans/sessions${query ? `?${query}` : ''}`,
+      `/api/v2/study-plans/sessions${query ? `?${query}` : ''}`,
     );
   },
 
   startSession: (data: StartSessionData) =>
-    apiClient.post<StudySession>('/study-plans/sessions', data),
+    apiClient.post<StudySession>('/api/v2/study-plans/sessions', data),
 
   endSession: (sessionId: string, data: EndSessionData) =>
     apiClient.post<StudySession>(
-      `/study-plans/sessions/${sessionId}/end`,
+      `/api/v2/study-plans/sessions/${sessionId}/end`,
       data,
     ),
 
   // Recommendation endpoints
-  listRecommendations: (limit?: number) => {
+  listRecommendations: async (limit?: number) => {
     const query = limit ? `?limit=${limit}` : '';
-    return apiClient.get<StudyRecommendation[]>(
-      `/study-plans/recommendations${query}`,
+    const response = await apiClient.get<any>(
+      `/api/v2/study-plans/recommendations${query}`,
     );
+    return response.data || response;
   },
 
   applyRecommendation: (recId: string) =>
-    apiClient.post(`/study-plans/recommendations/${recId}/apply`),
+    apiClient.post(`/api/v2/study-plans/recommendations/${recId}/apply`),
 
   dismissRecommendation: (recId: string) =>
-    apiClient.post(`/study-plans/recommendations/${recId}/dismiss`),
+    apiClient.post(`/api/v2/study-plans/recommendations/${recId}/dismiss`),
 
   // Analytics
-  getAnalytics: (days = 30) =>
-    apiClient.get<{
-      session_analytics: any;
-      plan_analytics: StudyPlanAnalytics;
-      weekly_progress: number;
-      period_days: number;
-    }>(`/study-plans/analytics?days=${days}`),
+  getAnalytics: async (days = 30) => {
+    const response = await apiClient.get<any>(`/api/v2/study-plans/analytics?days=${days}`);
+    return response.data || response;
+  },
 };

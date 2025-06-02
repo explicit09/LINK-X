@@ -14,8 +14,8 @@ from .activities import activities_bp
 from .todos import todos_bp
 from .dashboard import dashboard_bp
 from .gamification import gamification_bp
-# from .study_plans import study_plans_bp
-# from .schedule import schedule_bp
+from .study_plans import study_plans_bp
+from .schedule import schedule_bp
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +30,8 @@ api_v2.register_blueprint(activities_bp, url_prefix='/activities')
 api_v2.register_blueprint(todos_bp, url_prefix='/todos')
 api_v2.register_blueprint(dashboard_bp, url_prefix='/dashboard')
 api_v2.register_blueprint(gamification_bp, url_prefix='/gamification')
-# api_v2.register_blueprint(study_plans_bp, url_prefix='/study-plans')
-# api_v2.register_blueprint(schedule_bp, url_prefix='/schedule')
+api_v2.register_blueprint(study_plans_bp, url_prefix='/study-plans')
+api_v2.register_blueprint(schedule_bp, url_prefix='/schedule')
 
 
 # ===== HEALTH CHECK =====

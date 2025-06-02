@@ -27,7 +27,16 @@ export const authAPI = {
 
   // Profile endpoints for different API versions
   v2: {
-    getProfile: (): Promise<UserProfile> => apiClient.get('/api/v2/auth/me'),
+    getProfile: async (): Promise<any> => {
+      const response = await apiClient.get<any>('/api/v2/auth/me');
+      console.log('Raw API response:', response);
+      // Check if response is already wrapped or not
+      if (response.data !== undefined) {
+        return response;
+      }
+      // If not wrapped, wrap it
+      return { data: response };
+    },
     createProfile: (data: Partial<UserProfile>) =>
       apiClient.post('/api/v2/auth/me', data),
     updateProfile: (data: Partial<UserProfile>) =>

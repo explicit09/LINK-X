@@ -6,8 +6,8 @@ from flask import Blueprint, request, jsonify, g
 from datetime import datetime, date, timedelta
 from typing import Dict, List, Any, Optional
 import uuid
-from core.decorators_unified import auth_required, validate_json
-from core.exceptions import ValidationError, ResourceNotFoundError
+from core.decorators_unified import firebase_auth_required
+from core.exceptions import ValidationError, NotFoundError
 from core.database import db_manager
 from repositories.schedule_repository import (
     ScheduleRepository, 
@@ -41,12 +41,12 @@ ai_service = AIService()
 # ===============================
 
 @schedule_bp.route('/sessions', methods=['GET'])
-@auth_required
+@firebase_auth_required
 def get_user_sessions():
     """Get user's study sessions with filtering and pagination"""
     try:
         repos = get_repositories()
-        user_id = g.user_id
+        user_id = g.current_user.id
         
         # Parse query parameters
         start_date = request.args.get('start_date')
@@ -86,13 +86,12 @@ def get_user_sessions():
         }), 500
 
 @schedule_bp.route('/sessions', methods=['POST'])
-@auth_required
-@validate_json(['title', 'scheduled_start', 'scheduled_end', 'duration_minutes'])
+@firebase_auth_required
 def create_session():
     """Create a new study session"""
     try:
         repos = get_repositories()
-        user_id = g.user_id
+        user_id = g.current_user.id
         data = request.json
         
         # Validate required fields
@@ -159,19 +158,19 @@ def create_session():
         }), 500
 
 @schedule_bp.route('/sessions/<session_id>', methods=['PUT'])
-@auth_required
+@firebase_auth_required
 def update_session(session_id):
     """Update an existing study session"""
     try:
         repos = get_repositories()
-        user_id = g.user_id
+        user_id = g.current_user.id
         data = request.json
         session_uuid = uuid.UUID(session_id)
         
         # Verify session ownership
         existing_session = repos['schedule'].get_session_by_id(session_uuid, user_id)
         if not existing_session:
-            raise ResourceNotFoundError("Session not found")
+            raise NotFoundError("Session not found")
         
         # Prepare update data
         update_data = {}
@@ -228,7 +227,7 @@ def update_session(session_id):
             'status': 'success'
         })
         
-    except ResourceNotFoundError as e:
+    except NotFoundError as e:
         return jsonify({
             'error': str(e),
             'status': 'error'
@@ -241,18 +240,18 @@ def update_session(session_id):
         }), 500
 
 @schedule_bp.route('/sessions/<session_id>', methods=['DELETE'])
-@auth_required
+@firebase_auth_required
 def delete_session(session_id):
     """Delete a study session"""
     try:
         repos = get_repositories()
-        user_id = g.user_id
+        user_id = g.current_user.id
         session_uuid = uuid.UUID(session_id)
         
         # Verify session ownership
         session = repos['schedule'].get_session_by_id(session_uuid, user_id)
         if not session:
-            raise ResourceNotFoundError("Session not found")
+            raise NotFoundError("Session not found")
         
         success = repos['schedule'].delete_session(session_uuid)
         
@@ -275,7 +274,7 @@ def delete_session(session_id):
                 'status': 'error'
             }), 500
             
-    except ResourceNotFoundError as e:
+    except NotFoundError as e:
         return jsonify({
             'error': str(e),
             'status': 'error'
@@ -288,13 +287,12 @@ def delete_session(session_id):
         }), 500
 
 @schedule_bp.route('/sessions/bulk', methods=['PUT'])
-@auth_required
-@validate_json(['sessions'])
+@firebase_auth_required
 def bulk_update_sessions():
     """Update multiple sessions (for drag-and-drop operations)"""
     try:
         repos = get_repositories()
-        user_id = g.user_id
+        user_id = g.current_user.id
         sessions_data = request.json['sessions']
         
         # Validate all sessions belong to user
@@ -352,17 +350,17 @@ def bulk_update_sessions():
         }), 500
 
 @schedule_bp.route('/sessions/<session_id>/start', methods=['POST'])
-@auth_required
+@firebase_auth_required
 def start_session(session_id):
     """Start a study session"""
     try:
         repos = get_repositories()
-        user_id = g.user_id
+        user_id = g.current_user.id
         session_uuid = uuid.UUID(session_id)
         
         session = repos['schedule'].get_session_by_id(session_uuid, user_id)
         if not session:
-            raise ResourceNotFoundError("Session not found")
+            raise NotFoundError("Session not found")
         
         # Update session status and start time
         update_data = {
@@ -389,7 +387,7 @@ def start_session(session_id):
             'status': 'success'
         })
         
-    except ResourceNotFoundError as e:
+    except NotFoundError as e:
         return jsonify({
             'error': str(e),
             'status': 'error'
@@ -402,18 +400,18 @@ def start_session(session_id):
         }), 500
 
 @schedule_bp.route('/sessions/<session_id>/complete', methods=['POST'])
-@auth_required
+@firebase_auth_required
 def complete_session(session_id):
     """Complete a study session"""
     try:
         repos = get_repositories()
-        user_id = g.user_id
+        user_id = g.current_user.id
         session_uuid = uuid.UUID(session_id)
         data = request.json or {}
         
         session = repos['schedule'].get_session_by_id(session_uuid, user_id)
         if not session:
-            raise ResourceNotFoundError("Session not found")
+            raise NotFoundError("Session not found")
         
         now = datetime.utcnow()
         
@@ -457,7 +455,7 @@ def complete_session(session_id):
             'status': 'success'
         })
         
-    except ResourceNotFoundError as e:
+    except NotFoundError as e:
         return jsonify({
             'error': str(e),
             'status': 'error'
@@ -474,12 +472,12 @@ def complete_session(session_id):
 # ===============================
 
 @schedule_bp.route('/preferences', methods=['GET'])
-@auth_required
+@firebase_auth_required
 def get_user_preferences():
     """Get user's schedule preferences"""
     try:
         repos = get_repositories()
-        user_id = g.user_id
+        user_id = g.current_user.id
         preferences = repos['preferences'].get_user_preferences(user_id)
         
         return jsonify({
@@ -496,12 +494,12 @@ def get_user_preferences():
         }), 500
 
 @schedule_bp.route('/preferences', methods=['PUT'])
-@auth_required
+@firebase_auth_required
 def update_user_preferences():
     """Update user's schedule preferences"""
     try:
         repos = get_repositories()
-        user_id = g.user_id
+        user_id = g.current_user.id
         data = request.json
         
         # Validate preference data
@@ -537,12 +535,12 @@ def update_user_preferences():
 # ===============================
 
 @schedule_bp.route('/ai/optimize', methods=['POST'])
-@auth_required
+@firebase_auth_required
 def optimize_schedule():
     """AI-powered schedule optimization"""
     try:
         repos = get_repositories()
-        user_id = g.user_id
+        user_id = g.current_user.id
         data = request.json or {}
         
         # Get current schedule and preferences
@@ -598,12 +596,12 @@ def optimize_schedule():
         }), 500
 
 @schedule_bp.route('/ai/suggestions', methods=['GET'])
-@auth_required
+@firebase_auth_required
 def get_ai_suggestions():
     """Get AI-generated schedule suggestions"""
     try:
         repos = get_repositories()
-        user_id = g.user_id
+        user_id = g.current_user.id
         suggestion_type = request.args.get('type')
         status = request.args.get('status', 'pending')
         limit = int(request.args.get('limit', 10))
@@ -629,17 +627,17 @@ def get_ai_suggestions():
         }), 500
 
 @schedule_bp.route('/ai/suggestions/<suggestion_id>/apply', methods=['POST'])
-@auth_required
+@firebase_auth_required
 def apply_ai_suggestion(suggestion_id):
     """Apply an AI suggestion to create/modify sessions"""
     try:
         repos = get_repositories()
-        user_id = g.user_id
+        user_id = g.current_user.id
         suggestion_uuid = uuid.UUID(suggestion_id)
         
         suggestion = repos['ai_suggestions'].get_suggestion_by_id(suggestion_uuid, user_id)
         if not suggestion:
-            raise ResourceNotFoundError("Suggestion not found")
+            raise NotFoundError("Suggestion not found")
         
         # Apply the suggestion based on type
         if suggestion['suggestion_type'] == 'schedule_optimization':
@@ -684,7 +682,7 @@ def apply_ai_suggestion(suggestion_id):
             'status': 'success'
         })
         
-    except ResourceNotFoundError as e:
+    except NotFoundError as e:
         return jsonify({
             'error': str(e),
             'status': 'error'
@@ -701,12 +699,12 @@ def apply_ai_suggestion(suggestion_id):
 # ===============================
 
 @schedule_bp.route('/analytics/dashboard', methods=['GET'])
-@auth_required
+@firebase_auth_required
 def get_schedule_analytics():
     """Get comprehensive schedule analytics for dashboard"""
     try:
         repos = get_repositories()
-        user_id = g.user_id
+        user_id = g.current_user.id
         days_back = int(request.args.get('days_back', 30))
         
         analytics_data = repos['analytics'].get_user_analytics_dashboard(user_id, days_back)
@@ -725,12 +723,12 @@ def get_schedule_analytics():
         }), 500
 
 @schedule_bp.route('/analytics/insights', methods=['GET'])
-@auth_required
+@firebase_auth_required
 def get_schedule_insights():
     """Get AI-powered schedule insights and recommendations"""
     try:
         repos = get_repositories()
-        user_id = g.user_id
+        user_id = g.current_user.id
         
         # Get recent analytics data
         analytics_data = repos['analytics'].get_user_analytics_dashboard(user_id, 30)
