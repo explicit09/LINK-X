@@ -21,9 +21,9 @@ export async function sessionLogin(forceEstablish = false): Promise<boolean> {
 
 export const authAPI = {
   // User profile management
-  getMe: (): Promise<UserProfile> => apiClient.get('/auth/me'),
-  updateMe: (data: Partial<UserProfile>) => apiClient.patch('/auth/me', data),
-  deleteMe: () => apiClient.delete('/auth/me'),
+  getMe: (): Promise<UserProfile> => apiClient.get('/api/v2/auth/me'),
+  updateMe: (data: Partial<UserProfile>) => apiClient.patch('/api/v2/auth/me', data),
+  deleteMe: () => apiClient.delete('/api/v2/auth/me'),
 
   // Profile endpoints for different API versions
   v2: {

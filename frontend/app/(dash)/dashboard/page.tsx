@@ -7,6 +7,7 @@ import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDash
 import { DashboardMainContent } from '@/components/dashboard/sections/DashboardMainContent';
 import { DashboardSidebar } from '@/components/dashboard/sections/DashboardSidebar';
 import { authAPI } from '@/lib/api';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 
 export default function Dashboard() {
   const [role, setRole] = useState<
@@ -14,25 +15,64 @@ export default function Dashboard() {
   >('unknown');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const router = useRouter();
+  
+  // Use auth guard to ensure user is authenticated and registered
+  const authState = useAuthGuard(true);
 
   useEffect(() => {
     const fetchUserRole = async () => {
       try {
-        const user = await authAPI.v2.getProfile();
-        // UserProfile doesn't have role, so default to student for now
-        // TODO: Update API to return User object with role or get role separately
-        setRole('student'); // Default to student until role API is fixed
-        setCurrentUser(user);
-      } catch (error) {
+        const response = await authAPI.v2.getProfile();
+        console.log('Raw API response:', response);
+        
+        // The backend returns { success: true, data: {...}, message: "Success", timestamp: "..." }
+        // So we need to extract the data field
+        const userData = response.data;
+        
+        if (!userData) {
+          throw new Error('No user data in response');
+        }
+        
+        console.log('User data from backend:', userData);
+        console.log('Profile data:', userData.profile);
+        
+        // Extract role from the response
+        const userRole = userData.role || 'student';
+        setRole(userRole as 'student' | 'instructor' | 'admin');
+        
+        // Extract user info and include name from profile
+        const userInfo = {
+          id: userData.id,
+          email: userData.email,
+          name: userData.profile?.name || userData.email?.split('@')[0] || 'User',
+          role: userRole,
+          avatar: userData.avatar,
+          ...userData
+        };
+        
+        console.log('Extracted user info:', userInfo);
+        
+        setCurrentUser(userInfo);
+      } catch (error: any) {
         console.error('Failed to fetch user:', error);
-        // For development, default to student instead of redirecting
+        
+        // If user is not registered (404), redirect to onboarding
+        if (error?.status === 404 || error?.response?.status === 404) {
+          router.push('/onboarding');
+          return;
+        }
+        
+        // For other errors in development, show a message
         setRole('student');
-        setCurrentUser({ name: 'Student User', email: 'student@example.com' });
+        setCurrentUser({ name: 'Loading...', email: 'Please wait...' });
       }
     };
 
-    fetchUserRole();
-  }, [router]);
+    // Only fetch if user is authenticated and registered
+    if (authState.isRegistered && !authState.isLoading) {
+      fetchUserRole();
+    }
+  }, [router, authState.isRegistered, authState.isLoading]);
 
   // Unified handler functions for narrative flow
   const handleActionClick = (action: any) => {
@@ -69,15 +109,22 @@ export default function Dashboard() {
     router.push('/schedule');
   };
 
-  if (role === 'unknown') {
+  if (authState.isLoading || (authState.isRegistered && role === 'unknown')) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading your dashboard...</p>
+          <p className="text-gray-600">
+            {authState.isLoading ? 'Verifying authentication...' : 'Loading your dashboard...'}
+          </p>
         </div>
       </div>
     );
+  }
+
+  // If not registered, auth guard will redirect to onboarding
+  if (!authState.isRegistered) {
+    return null;
   }
 
   // Use SharedDashboardLayout with professional structure

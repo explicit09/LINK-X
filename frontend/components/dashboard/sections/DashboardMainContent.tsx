@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,9 @@ import {
   useDashboardOverview,
   useAIRecommendations,
 } from '@/hooks/useDashboardData';
+import { useHasData } from '@/hooks/useHasData';
+import { SetupMissions } from './SetupMissions';
+import { BlankStateCTA } from './BlankStateCTA';
 import {
   Target,
   Zap,
@@ -38,6 +41,10 @@ export function DashboardMainContent({
   const [completedRecommendations, setCompletedRecommendations] = useState<
     string[]
   >([]);
+  const [completedMissions, setCompletedMissions] = useState<string[]>([]);
+
+  // Check if user has data
+  const userDataStatus = useHasData();
 
   // Real data from API
   const {
@@ -63,6 +70,20 @@ export function DashboardMainContent({
     onActionClick?.(rec);
   };
 
+  const handleMissionComplete = (missionId: string) => {
+    const updatedMissions = [...completedMissions, missionId];
+    setCompletedMissions(updatedMissions);
+    localStorage.setItem('completedSetupMissions', JSON.stringify(updatedMissions));
+  };
+
+  // Load completed missions from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('completedSetupMissions');
+    if (saved) {
+      setCompletedMissions(JSON.parse(saved));
+    }
+  }, []);
+
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case 'urgent':
@@ -86,7 +107,7 @@ export function DashboardMainContent({
   };
 
   // Loading state
-  if (dashboardLoading) {
+  if (dashboardLoading || userDataStatus.isLoading) {
     return (
       <div className="space-y-6">
         <Card className="border-2 border-blue-100">
@@ -118,9 +139,20 @@ export function DashboardMainContent({
     );
   }
 
+  // Show setup missions only for new users without historical data
+  const showSetupMissions = !userDataStatus.hasHistoricalMetrics && 
+                           !userDataStatus.hasCompletedMissions && 
+                           completedMissions.length < 3;
+
   return (
     <div className="space-y-6">
-      {/* Block 1: This Week's Mission */}
+      {/* Block 1: Setup Missions or This Week's Mission */}
+      {showSetupMissions ? (
+        <SetupMissions 
+          onMissionComplete={handleMissionComplete}
+          completedMissions={completedMissions}
+        />
+      ) : (
       <Card className="border-2 border-blue-100 bg-gradient-to-r from-blue-50/50 to-white">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
@@ -179,6 +211,7 @@ export function DashboardMainContent({
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Block 2: What To Do Right Now */}
       <Card className="border-2 border-green-100">
@@ -189,6 +222,10 @@ export function DashboardMainContent({
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {/* Show full-width BlankStateCTA only for new users without courses */}
+          {!userDataStatus.hasHistoricalMetrics && !userDataStatus.hasCourses && priorityActions.length === 0 ? (
+            <BlankStateCTA />
+          ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Your Priority Now */}
             <div>
@@ -244,7 +281,8 @@ export function DashboardMainContent({
               </div>
             </div>
 
-            {/* AI Recommendations */}
+            {/* AI Recommendations - Show for existing users or users with data */}
+            {(userDataStatus.hasHistoricalMetrics || userDataStatus.hasActivities) && (
             <div>
               <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
                 <Brain className="h-4 w-4 mr-1 text-purple-500" />
@@ -332,7 +370,9 @@ export function DashboardMainContent({
                 )}
               </div>
             </div>
+            )}
           </div>
+          )}
         </CardContent>
       </Card>
     </div>

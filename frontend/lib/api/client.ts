@@ -114,6 +114,9 @@ class APIClient {
 
     // Build URL with params
     const url = new URL(`${this.baseURL}${endpoint}`);
+    
+    // Log the request for debugging
+    console.log(`API Request: ${options.method || 'GET'} ${url.toString()}`);
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         url.searchParams.append(key, value);

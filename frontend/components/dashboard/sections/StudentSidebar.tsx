@@ -14,10 +14,18 @@ import {
   ChevronRight,
   Calendar,
   MessageSquare,
+  Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { useHasData } from '@/hooks/useHasData';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface SidebarItem {
   id: string;
@@ -25,6 +33,7 @@ interface SidebarItem {
   icon: React.ComponentType<{ className?: string }>;
   href: string;
   badge?: number;
+  requiresData?: boolean;
 }
 
 interface StudentSidebarProps {
@@ -45,7 +54,7 @@ const primaryNavItems: SidebarItem[] = [
 
 const secondaryNavItems: SidebarItem[] = [
   { id: 'courses', label: 'Courses', icon: BookOpen, href: '/my-courses' },
-  { id: 'progress', label: 'Progress', icon: BarChart3, href: '/progress' },
+  { id: 'progress', label: 'Progress', icon: BarChart3, href: '/progress', requiresData: true },
   {
     id: 'community',
     label: 'Community',
@@ -74,6 +83,7 @@ export function StudentSidebar({
 }: StudentSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const userDataStatus = useHasData();
   const firstName = currentUser?.name?.split(' ')[0] || 'Student';
 
   const handleNavigation = (href: string) => {
@@ -187,27 +197,40 @@ export function StudentSidebar({
             const IconComponent = item.icon;
             const isActive =
               pathname === item.href || pathname.startsWith(item.href);
+            const isLocked = item.requiresData && !userDataStatus.hasCourses && !userDataStatus.hasHistoricalMetrics;
 
-            return (
+            const button = (
               <Button
                 key={item.id}
                 variant="ghost"
-                onClick={() => handleNavigation(item.href)}
+                onClick={() => !isLocked && handleNavigation(item.href)}
+                disabled={isLocked}
                 className={cn(
-                  'w-full justify-start text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-all duration-200',
-                  isActive && 'bg-gray-800 text-white',
+                  'w-full justify-start transition-all duration-200',
+                  isLocked
+                    ? 'text-gray-600 hover:text-gray-600 cursor-not-allowed opacity-50'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800',
+                  isActive && !isLocked && 'bg-gray-800 text-white',
                   isCollapsed ? 'px-2' : 'px-3 ml-3',
                 )}
               >
-                <IconComponent
-                  className={cn('h-4 w-4', !isCollapsed && 'mr-3')}
-                />
+                <div className="relative">
+                  <IconComponent
+                    className={cn('h-4 w-4', !isCollapsed && 'mr-3')}
+                  />
+                  {isLocked && isCollapsed && (
+                    <Lock className="h-2.5 w-2.5 absolute -bottom-1 -right-1 text-gray-500" />
+                  )}
+                </div>
                 {!isCollapsed && (
                   <>
                     <span className="flex-1 text-left text-sm">
                       {item.label}
                     </span>
-                    {item.badge && (
+                    {isLocked && (
+                      <Lock className="h-3 w-3 text-gray-500" />
+                    )}
+                    {item.badge && !isLocked && (
                       <span className="bg-orange-600 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center animate-bounce">
                         {item.badge}
                       </span>
@@ -216,6 +239,21 @@ export function StudentSidebar({
                 )}
               </Button>
             );
+
+            if (isLocked) {
+              return (
+                <TooltipProvider key={item.id}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>{button}</TooltipTrigger>
+                    <TooltipContent side="right">
+                      <p>Unlocked after first course</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              );
+            }
+
+            return button;
           })}
         </div>
       </nav>
