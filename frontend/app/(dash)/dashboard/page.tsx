@@ -6,73 +6,27 @@ import { toast as sonnerToast } from 'sonner';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
 import { DashboardMainContent } from '@/components/dashboard/sections/DashboardMainContent';
 import { DashboardSidebar } from '@/components/dashboard/sections/DashboardSidebar';
-import { authAPI } from '@/lib/api';
+import { useAuthUser } from '@/hooks/useAuthUser';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 
 export default function Dashboard() {
-  const [role, setRole] = useState<
-    'student' | 'instructor' | 'admin' | 'unknown'
-  >('unknown');
-  const [currentUser, setCurrentUser] = useState<any>(null);
   const router = useRouter();
   
   // Use auth guard to ensure user is authenticated and registered
   const authState = useAuthGuard(true);
+  
+  // Use centralized auth user hook
+  const { user: currentUser, isLoading: userLoading, error: userError } = useAuthUser();
+  
+  // Extract role from user data
+  const role = (currentUser?.role as 'student' | 'instructor' | 'admin') || 'student';
 
+  // Handle user not registered case
   useEffect(() => {
-    const fetchUserRole = async () => {
-      try {
-        const response = await authAPI.v2.getProfile();
-        console.log('Raw API response:', response);
-        
-        // The backend returns { success: true, data: {...}, message: "Success", timestamp: "..." }
-        // So we need to extract the data field
-        const userData = response.data;
-        
-        if (!userData) {
-          throw new Error('No user data in response');
-        }
-        
-        console.log('User data from backend:', userData);
-        console.log('Profile data:', userData.profile);
-        
-        // Extract role from the response
-        const userRole = userData.role || 'student';
-        setRole(userRole as 'student' | 'instructor' | 'admin');
-        
-        // Extract user info and include name from profile
-        const userInfo = {
-          id: userData.id,
-          email: userData.email,
-          name: userData.profile?.name || userData.email?.split('@')[0] || 'User',
-          role: userRole,
-          avatar: userData.avatar,
-          ...userData
-        };
-        
-        console.log('Extracted user info:', userInfo);
-        
-        setCurrentUser(userInfo);
-      } catch (error: any) {
-        console.error('Failed to fetch user:', error);
-        
-        // If user is not registered (404), redirect to onboarding
-        if (error?.status === 404 || error?.response?.status === 404) {
-          router.push('/onboarding');
-          return;
-        }
-        
-        // For other errors in development, show a message
-        setRole('student');
-        setCurrentUser({ name: 'Loading...', email: 'Please wait...' });
-      }
-    };
-
-    // Only fetch if user is authenticated and registered
-    if (authState.isRegistered && !authState.isLoading) {
-      fetchUserRole();
+    if (userError && userError.includes('404')) {
+      router.push('/onboarding');
     }
-  }, [router, authState.isRegistered, authState.isLoading]);
+  }, [userError, router]);
 
   // Unified handler functions for narrative flow
   const handleActionClick = (action: any) => {

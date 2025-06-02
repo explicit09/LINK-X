@@ -9,7 +9,7 @@ import { SkeletonRow, FadeInWhen } from '@/components/ui/skeleton-row';
 import { GhostGauge } from '@/components/ui/ghost-gauge';
 import { FirstTimeTooltip } from '@/components/ui/first-time-tooltip';
 import { useState, useEffect } from 'react';
-import { authAPI } from '@/lib/api';
+import { useAuthUser } from '@/hooks/useAuthUser';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
@@ -76,7 +76,9 @@ export default function StudyPlanPage() {
   const [activeRecommendations, setActiveRecommendations] = useState<
     Set<string>
   >(new Set());
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  
+  // Use centralized auth user hook
+  const { user: currentUser } = useAuthUser();
   const [showCreatePlan, setShowCreatePlan] = useState(false);
   const [showCreateGoal, setShowCreateGoal] = useState(false);
   const [isCreatingFirstGoal, setIsCreatingFirstGoal] = useState(false);
@@ -132,29 +134,7 @@ export default function StudyPlanPage() {
       const studyPlansCheck = await checkStudyPlansEndpoint();
       console.log('Study Plans Endpoint:', studyPlansCheck);
 
-      // Fetch user data
-      try {
-        const response = await authAPI.v2.getProfile();
-        console.log('Study Plan - Auth API response:', response);
-        
-        // Handle wrapped response like dashboard does
-        const userData = response.data || response;
-        console.log('Study Plan - User data:', userData);
-        console.log('Study Plan - Profile data:', userData.profile);
-        
-        // Extract name from profile object
-        const name = userData.profile?.name || userData.email?.split('@')[0] || 'Student';
-        console.log('Study Plan - Extracted name:', name);
-        
-        setCurrentUser({
-          ...userData,
-          name: name
-        });
-      } catch (error) {
-        console.error('Failed to fetch user:', error);
-        // Fallback for development
-        setCurrentUser({ name: 'Student', email: 'student@example.com' });
-      }
+      // User data is now handled by centralized auth hook
     };
 
     initializePage();
