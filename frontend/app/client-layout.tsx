@@ -3,6 +3,7 @@
 import { Toaster } from 'sonner';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from './(auth)/AuthContext';
+import { AlertProvider } from '@/contexts/AlertContext';
 import { useEffect, Suspense } from 'react';
 import { Inter } from 'next/font/google';
 import dynamic from 'next/dynamic';
@@ -109,14 +110,16 @@ export default function ClientLayout({
         </Suspense>
 
         <AuthProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            {children}
-          </ThemeProvider>
+          <AlertProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+            </ThemeProvider>
+          </AlertProvider>
         </AuthProvider>
 
         <Toaster
