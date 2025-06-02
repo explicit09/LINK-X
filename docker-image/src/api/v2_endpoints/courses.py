@@ -54,7 +54,9 @@ def list_courses_v2():
         total = 0
         
         if user.role and user.role.role_type == 'student':
+            logger.info(f"🎓 Getting student courses for user {user.id} ({user.email})")
             courses = get_course_service().get_student_courses(user.id, page, per_page)
+            logger.info(f"📚 Student courses found: {len(courses)}")
             total = len(courses)  # For now, use actual count
         elif user.role and user.role.role_type == 'instructor':
             courses = get_course_service().get_instructor_courses(user.id, page, per_page)
@@ -97,7 +99,7 @@ def list_courses_v2():
                 'category': course_data.get('category', ''),
                 'tags': course_data.get('tags', []) or [],
                 'instructor': {
-                    'id': str(course_data.get('instructor_id', '')),
+                    'id': str(course_data.get('creator_id', '')),
                     'name': 'Instructor'  # Simplified for now
                 },
                 'stats': {
@@ -109,13 +111,14 @@ def list_courses_v2():
                 'updated_at': course_data.get('last_updated') or course_data.get('updated_at')
             })
         
-        return paginated_response(
-            items=formatted_courses,
-            page=page,
-            per_page=per_page,
-            total=total,
-            endpoint='api_v2_courses.list_courses_v2'
-        )
+        # Return courses in the exact format expected by frontend auto-unwrapping
+        logger.info(f"📤 Returning {len(formatted_courses)} formatted courses to frontend")
+        response_data = {
+            'data': formatted_courses,
+            'status': 'success',
+            'message': f"Found {len(formatted_courses)} courses"
+        }
+        return jsonify(response_data), 200
         
     except Exception as e:
         logger.error(f"List courses error: {str(e)}")

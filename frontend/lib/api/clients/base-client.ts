@@ -139,7 +139,22 @@ export class BaseAPIClient {
           'status' in jsonResponse && 
           jsonResponse.status === 'success'
         ) {
-          return jsonResponse.data as T;
+          console.log('🔧 BaseClient: Detected v2 API response wrapper');
+          console.log('📦 BaseClient: Raw response:', jsonResponse);
+          
+          // Ensure data is not null/undefined before returning
+          // If data is null/undefined, return empty array for array operations
+          const data = jsonResponse.data;
+          console.log('📊 BaseClient: Extracted data:', data);
+          console.log('📈 BaseClient: Data type:', typeof data, 'Is array:', Array.isArray(data));
+          
+          if (data === null || data === undefined) {
+            console.warn('⚠️ BaseClient: API returned success but data is null/undefined:', jsonResponse);
+            // Return empty array if this looks like a list endpoint, otherwise return null
+            return (url.includes('/courses') || url.includes('/list') ? [] : null) as T;
+          }
+          console.log('✅ BaseClient: Returning unwrapped data');
+          return data as T;
         }
         
         return jsonResponse;

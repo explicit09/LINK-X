@@ -50,7 +50,10 @@ export class AuthAPIClient extends BaseAPIClient {
 
     // Add authentication headers if not skipped
     if (!skipAuth) {
+      console.log('🔐 AuthClient: Getting auth token for request to:', endpoint);
       const authInfo = await this.getAuthToken();
+      console.log('🔑 AuthClient: Auth info received:', authInfo ? { isFirebase: authInfo.isFirebase, tokenLength: authInfo.token.length } : 'null');
+      
       if (authInfo) {
         const headers = {
           ...((restConfig.headers as Record<string, string>) || {}),
@@ -59,12 +62,19 @@ export class AuthAPIClient extends BaseAPIClient {
         // Set appropriate auth header based on token type
         if (authInfo.isFirebase) {
           headers['X-Firebase-Token'] = authInfo.token;
+          console.log('🔥 AuthClient: Using Firebase token');
         } else {
           headers['Authorization'] = `Bearer ${authInfo.token}`;
+          console.log('🎯 AuthClient: Using Bearer token');
         }
 
         restConfig.headers = headers;
+        console.log('📤 AuthClient: Request headers prepared');
+      } else {
+        console.warn('⚠️ AuthClient: No authentication token available');
       }
+    } else {
+      console.log('🚫 AuthClient: Skipping authentication for:', endpoint);
     }
 
     try {

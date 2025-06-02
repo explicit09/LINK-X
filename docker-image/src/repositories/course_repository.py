@@ -25,8 +25,9 @@ class CourseRepository(BaseRepository[Course]):
     
     def get_by_instructor(self, instructor_id: str, offset: int = 0, limit: int = 20, 
                          published_only: bool = False) -> List[Course]:
-        """Get courses by instructor with optional filtering"""
-        filters = {'instructor_id': instructor_id}
+        """Get courses by instructor/creator with optional filtering"""
+        # Use creator_id since that's what's actually populated in the database
+        filters = {'creator_id': instructor_id}
         if published_only:
             filters['published'] = True
         
@@ -40,22 +41,29 @@ class CourseRepository(BaseRepository[Course]):
     
     def get_student_courses(self, student_id: str, offset: int = 0, limit: int = 20) -> List[Course]:
         """Get all courses a student is enrolled in OR created"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         with self.get_session() as session:
+            logger.info(f"🔍 Looking for courses for student {student_id}")
+            
             # Get enrolled courses
             enrolled_courses = session.query(Course)\
                 .join(Enrollment)\
                 .filter(Enrollment.user_id == student_id)\
                 .all()
+            logger.info(f"📝 Found {len(enrolled_courses)} enrolled courses")
             
-            # Get courses created by the student (where instructor_id matches)
-            # Note: instructor_id in Course table refers to InstructorProfile.user_id
-            # But for students who create courses, we need to check against User.id
+            # Get courses created by the student (where creator_id matches)
+            # Use creator_id since that's what's actually populated in the database
             created_courses = session.query(Course)\
-                .filter(Course.instructor_id == student_id)\
+                .filter(Course.creator_id == student_id)\
                 .all()
+            logger.info(f"🎨 Found {len(created_courses)} created courses")
             
             # Combine and deduplicate
             all_courses = list({course.id: course for course in enrolled_courses + created_courses}.values())
+            logger.info(f"📚 Total courses after deduplication: {len(all_courses)}")
             
             # Detach all courses from session
             for course in all_courses:
