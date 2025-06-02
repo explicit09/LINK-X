@@ -44,14 +44,52 @@ export const authAPI = {
     deleteProfile: () => apiClient.delete('/api/v2/auth/me'),
     
     // Registration endpoints
-    checkRegistration: () => apiClient.get('/api/v2/auth/check-registration'),
-    register: (data: {
+    checkRegistration: async () => {
+      // This endpoint specifically requires Firebase token, not backend JWT
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('No Firebase user found');
+      }
+      
+      try {
+        const firebaseToken = await user.getIdToken();
+        return apiClient.get('/api/v2/auth/check-registration', {
+          headers: {
+            'X-Firebase-Token': firebaseToken
+          },
+          skipAuth: true // Skip the normal auth header logic
+        });
+      } catch (error) {
+        console.error('Failed to get Firebase token for registration check:', error);
+        throw error;
+      }
+    },
+    register: async (data: {
       role: 'student' | 'instructor';
       name?: string;
       onboard_answers?: any;
       want_quizzes?: boolean;
       university?: string;
       department?: string;
-    }) => apiClient.post('/api/v2/auth/register', data),
+    }) => {
+      // Registration endpoint requires Firebase token
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('No Firebase user found');
+      }
+      
+      try {
+        const firebaseToken = await user.getIdToken();
+        return apiClient.post('/api/v2/auth/register', data, {
+          headers: {
+            'X-Firebase-Token': firebaseToken
+          },
+          skipAuth: true // Skip the normal auth header logic
+        });
+      } catch (error) {
+        console.error('Failed to get Firebase token for registration:', error);
+        throw error;
+      }
+    },
   },
 };
