@@ -1058,9 +1058,9 @@ export default function SchedulePage() {
       });
 
       // Convert optimized sessions to frontend format
-      const optimizedSessions = result.data.optimized_sessions.map((session) =>
+      const optimizedSessions = result?.optimized_sessions?.map((session) =>
         transformSessionForFrontend(session),
-      );
+      ) || [];
 
       // Update state with real optimization results
       setOptimizedSessions(optimizedSessions);

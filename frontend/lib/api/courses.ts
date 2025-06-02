@@ -125,13 +125,17 @@ class CourseAPI {
     return apiClient.get(`/api/v2/courses/${courseId}/stats`);
   }
 
-  // Legacy endpoints for compatibility
+  // Role-based course retrieval
   async getStudentCourses(): Promise<Course[]> {
-    return apiClient.get<Course[]>('/student/courses');
+    // Use the main courses endpoint - it automatically filters by user role
+    // Students will only see courses they're enrolled in
+    return this.getCourses();
   }
 
   async getInstructorCourses(): Promise<Course[]> {
-    return apiClient.get<Course[]>('/instructor/courses');
+    // Use the main courses endpoint - it automatically filters by user role
+    // Instructors will only see courses they teach
+    return this.getCourses();
   }
 }
 

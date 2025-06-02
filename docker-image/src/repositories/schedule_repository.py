@@ -26,8 +26,10 @@ class ScheduleRepository(BaseRepository[StudySession]):
         super().__init__(StudySession, session_factory)
         
     def get_user_sessions(self, user_id: UUID, start_date: Optional[date] = None, 
-                         end_date: Optional[date] = None, status: Optional[str] = None) -> List[StudySession]:
-        """Get user's sessions within date range with optional status filter"""
+                         end_date: Optional[date] = None, status: Optional[str] = None,
+                         course_id: Optional[UUID] = None, session_type: Optional[str] = None,
+                         limit: Optional[int] = None, offset: Optional[int] = None) -> List[StudySession]:
+        """Get user's sessions within date range with optional filters and pagination"""
         with self.get_session() as session:
             query = session.query(StudySession).options(
                 joinedload(StudySession.course),
@@ -41,9 +43,21 @@ class ScheduleRepository(BaseRepository[StudySession]):
                 query = query.filter(func.date(StudySession.scheduled_start) <= end_date)
             if status:
                 query = query.filter(StudySession.status == status)
+            if course_id:
+                query = query.filter(StudySession.course_id == course_id)
+            if session_type:
+                query = query.filter(StudySession.session_type == session_type)
                 
             # Order by scheduled start time
-            sessions = query.order_by(StudySession.scheduled_start).all()
+            query = query.order_by(StudySession.scheduled_start)
+            
+            # Apply pagination
+            if offset:
+                query = query.offset(offset)
+            if limit:
+                query = query.limit(limit)
+                
+            sessions = query.all()
             
             for session_obj in sessions:
                 session.expunge(session_obj)
@@ -70,10 +84,8 @@ class ScheduleRepository(BaseRepository[StudySession]):
         """Get user's currently active session"""
         return self.find_by(user_id=user_id, status='active')
     
-    def create_session(self, user_id: UUID, session_data: Dict[str, Any]) -> StudySession:
+    def create_session(self, session_data: Dict[str, Any]) -> StudySession:
         """Create a new study session"""
-        session_data['user_id'] = user_id
-        
         # Calculate duration if not provided
         if 'duration_minutes' not in session_data and 'scheduled_start' in session_data and 'scheduled_end' in session_data:
             start = session_data['scheduled_start']
@@ -82,6 +94,86 @@ class ScheduleRepository(BaseRepository[StudySession]):
             session_data['duration_minutes'] = int(duration)
         
         return self.create(**session_data)
+    
+    def get_session_by_id(self, session_id: UUID, user_id: UUID) -> Optional[StudySession]:
+        """Get a specific session by ID for a user"""
+        with self.get_session() as session:
+            study_session = session.query(StudySession).options(
+                joinedload(StudySession.course),
+                joinedload(StudySession.study_goal),
+                joinedload(StudySession.notes)
+            ).filter(
+                and_(
+                    StudySession.id == session_id,
+                    StudySession.user_id == user_id
+                )
+            ).first()
+            
+            if study_session:
+                session.expunge(study_session)
+            return study_session
+    
+    def check_session_conflicts(self, user_id: UUID, start_time: datetime, 
+                               end_time: datetime, exclude_session_id: Optional[UUID] = None) -> List[Dict[str, Any]]:
+        """Check for session conflicts and return conflict information"""
+        conflicts = self.get_session_conflicts(user_id, start_time, end_time, exclude_session_id)
+        return [
+            {
+                'id': str(conflict.id),
+                'title': conflict.title,
+                'scheduled_start': conflict.scheduled_start.isoformat(),
+                'scheduled_end': conflict.scheduled_end.isoformat(),
+                'status': conflict.status
+            }
+            for conflict in conflicts
+        ]
+    
+    def update_session(self, session_id: UUID, update_data: Dict[str, Any]) -> Optional[StudySession]:
+        """Update a session with new data"""
+        with self.get_session() as session:
+            study_session = session.query(StudySession).filter(StudySession.id == session_id).first()
+            if study_session:
+                for key, value in update_data.items():
+                    if hasattr(study_session, key):
+                        setattr(study_session, key, value)
+                study_session.updated_at = datetime.utcnow()
+                session.commit()
+                session.expunge(study_session)
+                return study_session
+            return None
+    
+    def delete_session(self, session_id: UUID) -> bool:
+        """Delete a session by ID"""
+        with self.get_session() as session:
+            study_session = session.query(StudySession).filter(StudySession.id == session_id).first()
+            if study_session:
+                session.delete(study_session)
+                session.commit()
+                return True
+            return False
+    
+    def get_sessions_by_ids(self, session_ids: List[UUID], user_id: UUID) -> List[StudySession]:
+        """Get multiple sessions by their IDs for a user"""
+        with self.get_session() as session:
+            sessions = session.query(StudySession).filter(
+                and_(
+                    StudySession.id.in_(session_ids),
+                    StudySession.user_id == user_id
+                )
+            ).all()
+            
+            for session_obj in sessions:
+                session.expunge(session_obj)
+            return sessions
+    
+    def bulk_update_sessions(self, update_operations: List[Tuple[UUID, Dict[str, Any]]]) -> List[StudySession]:
+        """Bulk update multiple sessions"""
+        updated_sessions = []
+        for session_id, update_data in update_operations:
+            updated_session = self.update_session(session_id, update_data)
+            if updated_session:
+                updated_sessions.append(updated_session)
+        return updated_sessions
     
     def update_session_status(self, session_id: UUID, status: str, 
                              completion_percentage: Optional[int] = None) -> Optional[StudySession]:
@@ -284,6 +376,10 @@ class SchedulePreferencesRepository(BaseRepository[UserSchedulePreferences]):
     def update_course_colors(self, user_id: UUID, course_colors: Dict[str, str]) -> Optional[UserSchedulePreferences]:
         """Update user's course color preferences"""
         return self.update_preferences(user_id, {'course_colors': course_colors})
+    
+    def update_user_preferences(self, user_id: UUID, update_data: Dict[str, Any]) -> Optional[UserSchedulePreferences]:
+        """Update user preferences (alias for update_preferences)"""
+        return self.update_preferences(user_id, update_data)
 
 
 class SessionNotesRepository(BaseRepository[SessionNote]):
@@ -383,14 +479,9 @@ class SessionAnalyticsRepository(BaseRepository[SessionAnalytics]):
                 )
             ).group_by(SessionAnalytics.event_type).all()
             
-            # Get optimization effectiveness
+            # Get optimization effectiveness - simplified to avoid func.case issues
             optimization_stats = session.query(
                 func.avg(SessionAnalytics.suggestion_effectiveness).label('avg_effectiveness'),
-                func.count(
-                    func.case(
-                        (SessionAnalytics.optimization_followed == True, 1)
-                    )
-                ).label('optimizations_followed'),
                 func.count(SessionAnalytics.id).label('total_optimizations')
             ).filter(
                 and_(
@@ -399,6 +490,17 @@ class SessionAnalyticsRepository(BaseRepository[SessionAnalytics]):
                     SessionAnalytics.optimization_followed.isnot(None)
                 )
             ).first()
+            
+            # Get optimizations followed count separately
+            optimizations_followed = session.query(
+                func.count(SessionAnalytics.id)
+            ).filter(
+                and_(
+                    SessionAnalytics.user_id == user_id,
+                    SessionAnalytics.event_timestamp >= start_date,
+                    SessionAnalytics.optimization_followed == True
+                )
+            ).scalar() or 0
             
             return {
                 'period_days': days,
@@ -411,9 +513,9 @@ class SessionAnalyticsRepository(BaseRepository[SessionAnalytics]):
                 'event_breakdown': {event.event_type: event.count for event in event_breakdown},
                 'optimization_stats': {
                     'avg_effectiveness': float(optimization_stats.avg_effectiveness or 0),
-                    'optimizations_followed': optimization_stats.optimizations_followed or 0,
+                    'optimizations_followed': optimizations_followed,
                     'total_optimizations': optimization_stats.total_optimizations or 0,
-                    'follow_rate': (optimization_stats.optimizations_followed / max(optimization_stats.total_optimizations, 1)) if optimization_stats.total_optimizations else 0
+                    'follow_rate': (optimizations_followed / max(optimization_stats.total_optimizations or 1, 1)) if optimization_stats.total_optimizations else 0
                 }
             }
     
@@ -422,13 +524,10 @@ class SessionAnalyticsRepository(BaseRepository[SessionAnalytics]):
         start_date = datetime.utcnow() - timedelta(days=days)
         
         with self.get_session() as session:
+            # Simplified query without func.case to avoid SQLAlchemy issues
             trends = session.query(
                 func.date(SessionAnalytics.event_timestamp).label('date'),
-                func.count(
-                    func.case(
-                        (SessionAnalytics.event_type == 'session_complete', 1)
-                    )
-                ).label('completed_sessions'),
+                func.count(SessionAnalytics.id).label('total_events'),
                 func.avg(SessionAnalytics.session_satisfaction).label('avg_satisfaction'),
                 func.avg(SessionAnalytics.focus_interruptions).label('avg_interruptions')
             ).filter(
@@ -442,15 +541,95 @@ class SessionAnalyticsRepository(BaseRepository[SessionAnalytics]):
                 func.date(SessionAnalytics.event_timestamp)
             ).all()
             
+            # Get completed sessions separately for each date
+            completed_sessions_by_date = {}
+            for trend in trends:
+                date_completed = session.query(
+                    func.count(SessionAnalytics.id)
+                ).filter(
+                    and_(
+                        SessionAnalytics.user_id == user_id,
+                        func.date(SessionAnalytics.event_timestamp) == trend.date,
+                        SessionAnalytics.event_type == 'session_complete'
+                    )
+                ).scalar() or 0
+                completed_sessions_by_date[trend.date] = date_completed
+            
             return [
                 {
                     'date': trend.date.isoformat(),
-                    'completed_sessions': trend.completed_sessions,
+                    'completed_sessions': completed_sessions_by_date.get(trend.date, 0),
                     'avg_satisfaction': float(trend.avg_satisfaction or 0),
                     'avg_interruptions': float(trend.avg_interruptions or 0)
                 }
                 for trend in trends
             ]
+    
+    def get_user_analytics_dashboard(self, user_id: UUID, days_back: int = 30) -> Dict[str, Any]:
+        """Get comprehensive analytics data for the schedule dashboard"""
+        # Get basic analytics
+        analytics_data = self.get_user_analytics(user_id, days_back)
+        
+        # Get performance trends
+        trends = self.get_performance_trends(user_id, days_back)
+        
+        # Additional dashboard-specific metrics
+        start_date = datetime.utcnow() - timedelta(days=days_back)
+        
+        with self.get_session() as session:
+            # Get time distribution
+            time_distribution = session.query(
+                func.hour(SessionAnalytics.event_timestamp).label('hour'),
+                func.count(SessionAnalytics.id).label('count')
+            ).filter(
+                and_(
+                    SessionAnalytics.user_id == user_id,
+                    SessionAnalytics.event_timestamp >= start_date,
+                    SessionAnalytics.event_type == 'session_complete'
+                )
+            ).group_by(
+                func.hour(SessionAnalytics.event_timestamp)
+            ).all()
+            
+            # Get weekly patterns
+            weekly_patterns = session.query(
+                func.dayofweek(SessionAnalytics.event_timestamp).label('day_of_week'),
+                func.count(SessionAnalytics.id).label('session_count'),
+                func.avg(SessionAnalytics.session_satisfaction).label('avg_satisfaction')
+            ).filter(
+                and_(
+                    SessionAnalytics.user_id == user_id,
+                    SessionAnalytics.event_timestamp >= start_date,
+                    SessionAnalytics.event_type == 'session_complete'
+                )
+            ).group_by(
+                func.dayofweek(SessionAnalytics.event_timestamp)
+            ).all()
+            
+            return {
+                **analytics_data,
+                'trends': trends,
+                'time_distribution': [
+                    {'hour': td.hour, 'count': td.count} for td in time_distribution
+                ],
+                'weekly_patterns': [
+                    {
+                        'day_of_week': wp.day_of_week,
+                        'session_count': wp.session_count,
+                        'avg_satisfaction': float(wp.avg_satisfaction or 0)
+                    } for wp in weekly_patterns
+                ]
+            }
+    
+    def log_session_event(self, user_id: UUID, event_type: str, session_id: Optional[UUID] = None,
+                         metadata: Optional[Dict] = None) -> SessionAnalytics:
+        """Log a session-related analytics event"""
+        return self.log_event(
+            user_id=user_id,
+            event_type=event_type,
+            session_id=session_id,
+            metadata=metadata
+        )
 
 
 class AISessionSuggestionRepository(BaseRepository[AISessionSuggestion]):
@@ -548,3 +727,71 @@ class AISessionSuggestionRepository(BaseRepository[AISessionSuggestion]):
                 'acceptance_rate': accepted / total if total > 0 else 0,
                 'avg_confidence': sum(s.confidence_score for s in suggestions) / total
             }
+    
+    def get_user_suggestions(self, user_id: UUID, suggestion_type: Optional[str] = None,
+                           status: Optional[str] = None, limit: Optional[int] = None) -> List[AISessionSuggestion]:
+        """Get user suggestions with optional filters (alias for get_active_suggestions with more flexibility)"""
+        with self.get_session() as session:
+            query = session.query(AISessionSuggestion).options(
+                joinedload(AISessionSuggestion.suggested_course)
+            ).filter(AISessionSuggestion.user_id == user_id)
+            
+            if suggestion_type:
+                query = query.filter(AISessionSuggestion.suggestion_type == suggestion_type)
+            
+            if status:
+                query = query.filter(AISessionSuggestion.status == status)
+            else:
+                # Default to active suggestions if no status specified
+                query = query.filter(
+                    and_(
+                        AISessionSuggestion.status == 'pending',
+                        or_(
+                            AISessionSuggestion.expires_at.is_(None),
+                            AISessionSuggestion.expires_at > datetime.utcnow()
+                        )
+                    )
+                )
+                
+            query = query.order_by(
+                AISessionSuggestion.priority_score.desc(),
+                AISessionSuggestion.confidence_score.desc()
+            )
+            
+            if limit:
+                query = query.limit(limit)
+                
+            suggestions = query.all()
+            
+            for suggestion in suggestions:
+                session.expunge(suggestion)
+            return suggestions
+    
+    def get_suggestion_by_id(self, suggestion_id: UUID, user_id: UUID) -> Optional[AISessionSuggestion]:
+        """Get a specific suggestion by ID for a user"""
+        with self.get_session() as session:
+            suggestion = session.query(AISessionSuggestion).options(
+                joinedload(AISessionSuggestion.suggested_course)
+            ).filter(
+                and_(
+                    AISessionSuggestion.id == suggestion_id,
+                    AISessionSuggestion.user_id == user_id
+                )
+            ).first()
+            
+            if suggestion:
+                session.expunge(suggestion)
+            return suggestion
+    
+    def update_suggestion(self, suggestion_id: UUID, update_data: Dict[str, Any]) -> Optional[AISessionSuggestion]:
+        """Update a suggestion with new data"""
+        with self.get_session() as session:
+            suggestion = session.query(AISessionSuggestion).filter(AISessionSuggestion.id == suggestion_id).first()
+            if suggestion:
+                for key, value in update_data.items():
+                    if hasattr(suggestion, key):
+                        setattr(suggestion, key, value)
+                session.commit()
+                session.expunge(suggestion)
+                return suggestion
+            return None

@@ -324,8 +324,16 @@ export const scheduleAPI = {
    * Get user's study sessions with filtering
    */
   async getSessions(params: GetSessionsParams = {}) {
+    // Convert params to Record<string, string> for API client
+    const queryParams: Record<string, string> = {};
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        queryParams[key] = String(value);
+      }
+    });
+    
     const response = await apiClient.get('/api/v2/schedule/sessions', {
-      params,
+      params: queryParams,
     });
     return response;
   },
@@ -396,7 +404,7 @@ export const scheduleAPI = {
   /**
    * Get user's schedule preferences
    */
-  async getPreferences(): Promise<{ data: UserSchedulePreferences }> {
+  async getPreferences(): Promise<UserSchedulePreferences> {
     const response = await apiClient.get('/api/v2/schedule/preferences');
     return response;
   },
@@ -416,7 +424,7 @@ export const scheduleAPI = {
    */
   async optimizeSchedule(
     data: OptimizeScheduleRequest = {},
-  ): Promise<{ data: ScheduleOptimizationResult }> {
+  ): Promise<ScheduleOptimizationResult> {
     const response = await apiClient.post('/api/v2/schedule/ai/optimize', data);
     return response;
   },
@@ -454,7 +462,7 @@ export const scheduleAPI = {
    */
   async getDashboardAnalytics(
     daysBack: number = 30,
-  ): Promise<{ data: ScheduleDashboardAnalytics }> {
+  ): Promise<ScheduleDashboardAnalytics> {
     const response = await apiClient.get(
       '/api/v2/schedule/analytics/dashboard',
       {
