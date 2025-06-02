@@ -488,13 +488,13 @@ def list_sessions():
         for session in sessions:
             sessions_data.append({
                 'id': str(session.id),
-                'goal_id': str(session.goal_id) if session.goal_id else None,
+                'goal_id': str(session.study_goal_id) if session.study_goal_id else None,
                 'course_id': str(session.course_id) if session.course_id else None,
                 'session_type': session.session_type,
-                'start_time': session.start_time.isoformat(),
-                'end_time': session.end_time.isoformat() if session.end_time else None,
-                'planned_duration': session.planned_duration,
-                'actual_duration': session.actual_duration,
+                'start_time': session.actual_start.isoformat() if session.actual_start else session.scheduled_start.isoformat(),
+                'end_time': session.actual_end.isoformat() if session.actual_end else None,
+                'planned_duration': session.duration_minutes,
+                'actual_duration': session.actual_duration_minutes,
                 'effectiveness_rating': session.effectiveness_rating,
                 'focus_score': float(session.focus_score) if session.focus_score else None,
                 'xp_earned': session.xp_earned,
@@ -527,7 +527,7 @@ def start_session():
             return error_response("You already have an active study session", status_code=409)
             
         session_data = {
-            'goal_id': UUID(data['goal_id']) if data.get('goal_id') else None,
+            'study_goal_id': UUID(data['goal_id']) if data.get('goal_id') else None,
             'course_id': UUID(data['course_id']) if data.get('course_id') else None,
             'session_type': data.get('session_type', 'study'),
             'planned_duration': data.get('planned_duration'),
@@ -538,8 +538,8 @@ def start_session():
         
         response_data = {
             'id': str(session.id),
-            'start_time': session.start_time.isoformat(),
-            'planned_duration': session.planned_duration
+            'start_time': session.scheduled_start.isoformat(),
+            'planned_duration': session.duration_minutes
         }
         
         return success_response(response_data, "Study session started", 201)
@@ -565,13 +565,14 @@ def end_session(session_id):
         if not session or session.user_id != g.current_user.id:
             return error_response("Session not found", status_code=404)
             
-        if session.end_time:
+        if session.actual_end:
             return error_response("Session already ended", status_code=400)
             
         actual_duration = data.get('actual_duration')
         if not actual_duration:
             # Calculate from start time
-            actual_duration = int((datetime.utcnow() - session.start_time).total_seconds() / 60)
+            start_time = session.actual_start or session.scheduled_start
+            actual_duration = int((datetime.utcnow() - start_time).total_seconds() / 60)
             
         updated_session = repos['sessions'].end_session(
             session_id=UUID(session_id),
@@ -583,8 +584,8 @@ def end_session(session_id):
         
         response_data = {
             'id': str(updated_session.id),
-            'actual_duration': updated_session.actual_duration,
-            'end_time': updated_session.end_time.isoformat(),
+            'actual_duration': updated_session.actual_duration_minutes,
+            'end_time': updated_session.actual_end.isoformat() if updated_session.actual_end else None,
             'xp_earned': updated_session.xp_earned
         }
         
@@ -678,19 +679,54 @@ def get_study_analytics():
         session_analytics = repos['sessions'].get_session_analytics(g.current_user.id, days)
         
         # Get active plan analytics
-        active_plan = repos['study_plans'].get_active_plan_by_user(g.current_user.id)
-        plan_analytics = {}
-        if active_plan:
-            plan_analytics = repos['study_plans'].get_plan_analytics(active_plan.id)
+        try:
+            active_plan = repos['study_plans'].get_active_plan_by_user(g.current_user.id)
+            plan_analytics = {}
+            if active_plan:
+                plan_analytics = repos['study_plans'].get_plan_analytics(active_plan.id)
+            
+            # Ensure we always return a consistent structure
+            if not plan_analytics:
+                plan_analytics = {
+                    'total_goals': 0,
+                    'completed_goals': 0,
+                    'active_goals': 0,
+                    'pending_goals': 0,
+                    'avg_completion': 0,
+                    'total_study_minutes': 0,
+                    'total_study_hours': 0,
+                    'study_days': 0,
+                    'avg_effectiveness': 0,
+                    'avg_focus_score': 0
+                }
+        except Exception as e:
+            logger.warning(f"Error getting plan analytics: {e}")
+            plan_analytics = {
+                'total_goals': 0,
+                'completed_goals': 0,
+                'active_goals': 0,
+                'pending_goals': 0,
+                'avg_completion': 0,
+                'total_study_minutes': 0,
+                'total_study_hours': 0,
+                'study_days': 0,
+                'avg_effectiveness': 0,
+                'avg_focus_score': 0
+            }
         
         # Get weekly progress
-        week_start = date.today() - timedelta(days=date.today().weekday())
-        weekly_progress = repos['progress'].get_weekly_progress(g.current_user.id, week_start)
+        try:
+            week_start = date.today() - timedelta(days=date.today().weekday())
+            weekly_progress = repos['progress'].get_weekly_progress(g.current_user.id, week_start)
+            weekly_progress_count = len(weekly_progress) if weekly_progress else 0
+        except Exception as e:
+            logger.warning(f"Error getting weekly progress: {e}")
+            weekly_progress_count = 0
         
         analytics_data = {
-            'session_analytics': session_analytics,
-            'plan_analytics': plan_analytics,
-            'weekly_progress': len(weekly_progress),
+            'session_analytics': session_analytics or {},
+            'plan_analytics': plan_analytics or {},
+            'weekly_progress': weekly_progress_count,
             'period_days': days
         }
         
