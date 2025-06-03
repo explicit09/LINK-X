@@ -4,7 +4,7 @@ import time
 from queue import Queue
 import threading
 
-from core.decorators import firebase_auth_required
+from core.decorators_unified import firebase_auth_required
 from core.exceptions import NotFoundError
 from services.streaming_service import StreamingService
 from services.ai_service import AIService

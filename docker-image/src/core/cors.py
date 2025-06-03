@@ -42,13 +42,13 @@ def cors_after_request(response):
     # For development, be more permissive with CORS
     if current_app.config.get('DEBUG', False):
         # In debug mode, allow any localhost origin
-        if origin and 'localhost' in origin:
+        if origin and ('localhost' in origin or '127.0.0.1' in origin):
             response.headers['Access-Control-Allow-Origin'] = origin
             response.headers['Access-Control-Allow-Credentials'] = 'true'
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, X-Firebase-Token'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, X-Firebase-Token, Accept'
             response.headers['Access-Control-Max-Age'] = '3600'
-            logger.info(f"CORS: Debug mode - allowed localhost origin {origin}")
+            logger.info(f"CORS: Debug mode - allowed localhost/127.0.0.1 origin {origin}")
             return response
     
     # Production mode - use strict origin checking
@@ -95,13 +95,13 @@ def handle_preflight():
     # For development, be more permissive with CORS
     if current_app.config.get('DEBUG', False):
         # In debug mode, allow any localhost origin
-        if origin and 'localhost' in origin:
+        if origin and ('localhost' in origin or '127.0.0.1' in origin):
             response.headers['Access-Control-Allow-Origin'] = origin
             response.headers['Access-Control-Allow-Credentials'] = 'true'
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, X-Firebase-Token'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, X-Firebase-Token, Accept'
             response.headers['Access-Control-Max-Age'] = '3600'
-            logger.info(f"CORS: Preflight - allowed localhost origin {origin}")
+            logger.info(f"CORS: Preflight - allowed localhost/127.0.0.1 origin {origin}")
             return response
     
     # Apply regular CORS logic
@@ -140,10 +140,21 @@ def configure_cors(app):
     # Get CORS options from config
     cors_options = app.config.get('CORS_OPTIONS', {})
     
-    # Initialize CORS with the app
-    CORS(app, **cors_options)
-    
-    # Also add our custom after_request handler
-    app.after_request(cors_after_request)
-    
-    logger.info("CORS configured with options: %s", cors_options)
+    # For development, use permissive CORS settings
+    if app.config.get('DEBUG', False):
+        CORS(app, resources={
+            r"/*": {
+                "origins": ["http://localhost:*", "http://127.0.0.1:*", "https://localhost:*", "https://127.0.0.1:*"],
+                "allow_headers": ["Content-Type", "Authorization", "X-Requested-With", "Accept", "X-Firebase-Token", "X-CSRF-Token"],
+                "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+                "supports_credentials": True,
+                "expose_headers": ["Content-Type", "X-Total-Count"]
+            }
+        })
+        logger.info("CORS configured with development settings")
+    else:
+        # Initialize CORS with the app
+        CORS(app, **cors_options)
+        # Also add our custom after_request handler
+        app.after_request(cors_after_request)
+        logger.info("CORS configured with options: %s", cors_options)
