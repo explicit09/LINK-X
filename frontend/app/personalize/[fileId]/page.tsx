@@ -24,13 +24,11 @@ import {
 
 // Custom hooks for streaming functionality
 import { usePersonalizedStreaming } from './hooks/usePersonalizedStreaming';
-import { useTokenBudget } from './hooks/useTokenBudget';
 import { useStreamingSession } from './hooks/useStreamingSession';
 
 // Components
 import { StreamingContent } from './components/StreamingContent';
 import { OutlineProgress } from './components/OutlineProgress';
-import { TokenBudgetIndicator } from './components/TokenBudgetIndicator';
 import { StreamingControls } from './components/StreamingControls';
 
 export default function PersonalizedStreamingPage() {
@@ -67,15 +65,6 @@ export default function PersonalizedStreamingPage() {
   } = usePersonalizedStreaming(fileId as string);
 
   const {
-    tokenUsage,
-    tokenLimit,
-    estimatedCost,
-    percentageUsed,
-    isApproachingLimit,
-    canContinue
-  } = useTokenBudget(content, progress);
-
-  const {
     sessionId,
     saveSession,
     loadSession,
@@ -108,18 +97,6 @@ export default function PersonalizedStreamingPage() {
     }
   }, [streamingState, saveSession]);
 
-  // Handle token limit warnings
-  useEffect(() => {
-    if (isApproachingLimit && streamingState === 'streaming') {
-      toast.warning('Approaching token limit. Content will pause soon.', {
-        duration: 5000,
-        action: {
-          label: 'Pause Now',
-          onClick: pauseStreaming
-        }
-      });
-    }
-  }, [isApproachingLimit, streamingState]);
 
   // Calculate stats
   const stats = {
@@ -135,6 +112,7 @@ export default function PersonalizedStreamingPage() {
         pageTitle="Personalized Learning" 
         currentUser={null}
         showGamification={false}
+        defaultSidebarOpen={false}
       >
         <div className="flex items-center justify-center h-[60vh]">
           <Card className="p-6 text-center">
@@ -151,6 +129,7 @@ export default function PersonalizedStreamingPage() {
       pageTitle="Personalized Learning" 
       currentUser={currentUser}
       showGamification={true}
+      defaultSidebarOpen={false}
     >
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header with file info and controls */}
@@ -181,15 +160,6 @@ export default function PersonalizedStreamingPage() {
           </div>
         </div>
 
-        {/* Token Budget Bar */}
-        <TokenBudgetIndicator
-          usage={tokenUsage}
-          limit={tokenLimit}
-          estimatedCost={estimatedCost}
-          percentageUsed={percentageUsed}
-          isApproachingLimit={isApproachingLimit}
-        />
-
         {/* Main Content Area */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Sidebar with outline and progress */}
@@ -202,63 +172,64 @@ export default function PersonalizedStreamingPage() {
               onViewAll={showAllContent}
             />
             
-            {/* Session controls */}
-            <StreamingControls
-              streamingState={streamingState}
-              canContinue={canContinue}
-              onPause={pauseStreaming}
-              onResume={resumeStreaming}
-              onSkip={() => skipSection(currentSection + 1)}
-              onRegenerate={() => regenerateSection(currentSection)}
-              onDownload={() => {
-                // Download functionality
-                const blob = new Blob([content], { type: 'text/markdown' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${fileName}-personalized.md`;
-                a.click();
-              }}
-            />
           </div>
 
           {/* Main streaming content */}
           <div className="lg:col-span-3">
-            <Card className="p-6 min-h-[600px]">
-              {streamingState === 'initializing' ? (
-                <div className="space-y-4">
-                  <Skeleton className="h-8 w-3/4" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-5/6" />
-                  <div className="flex items-center gap-2 mt-8">
-                    <div className="animate-pulse">
-                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Preparing your personalized content...
-                    </p>
-                  </div>
-                </div>
-              ) : error ? (
-                <div className="flex flex-col items-center justify-center h-full space-y-4">
-                  <AlertCircle className="w-16 h-16 text-destructive" />
-                  <div className="text-center space-y-2">
-                    <h3 className="text-lg font-semibold">Connection Error</h3>
-                    <p className="text-muted-foreground">{error}</p>
-                  </div>
-                  <Button onClick={retryConnection} variant="outline">
-                    <RotateCw className="w-4 h-4 mr-2" />
-                    Retry Connection
-                  </Button>
-                </div>
-              ) : (
-                <StreamingContent
-                  content={content}
-                  isStreaming={streamingState === 'streaming'}
-                  currentSection={currentSection}
-                  outline={outline}
+            <Card className="relative p-6 min-h-[600px]">
+              {/* Controls positioned at top right */}
+              <div className="absolute top-4 right-4 z-10">
+                <StreamingControls
+                  streamingState={streamingState}
+                  onRegenerate={() => regenerateSection(currentSection)}
+                  onDownload={() => {
+                    // Download functionality
+                    const blob = new Blob([content], { type: 'text/markdown' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${fileName}-personalized.md`;
+                    a.click();
+                  }}
                 />
-              )}
+              </div>
+              {/* Content area with padding to avoid control overlap */}
+              <div className="pt-12">
+                {streamingState === 'initializing' ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-8 w-3/4" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-5/6" />
+                    <div className="flex items-center gap-2 mt-8">
+                      <div className="animate-pulse">
+                        <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Preparing your personalized content...
+                      </p>
+                    </div>
+                  </div>
+                ) : error ? (
+                  <div className="flex flex-col items-center justify-center h-full space-y-4">
+                    <AlertCircle className="w-16 h-16 text-destructive" />
+                    <div className="text-center space-y-2">
+                      <h3 className="text-lg font-semibold">Connection Error</h3>
+                      <p className="text-muted-foreground">{error}</p>
+                    </div>
+                    <Button onClick={retryConnection} variant="outline">
+                      <RotateCw className="w-4 h-4 mr-2" />
+                      Retry Connection
+                    </Button>
+                  </div>
+                ) : (
+                  <StreamingContent
+                    content={content}
+                    isStreaming={streamingState === 'streaming'}
+                    currentSection={currentSection}
+                    outline={outline}
+                  />
+                )}
+              </div>
             </Card>
           </div>
         </div>

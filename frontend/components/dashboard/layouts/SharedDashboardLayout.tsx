@@ -22,6 +22,7 @@ interface SharedDashboardLayoutProps {
   showGamification?: boolean;
   showFocusMode?: boolean;
   className?: string;
+  defaultSidebarOpen?: boolean;
 }
 
 export function SharedDashboardLayout({
@@ -31,9 +32,10 @@ export function SharedDashboardLayout({
   showGamification = true,
   showFocusMode = true,
   className,
+  defaultSidebarOpen = true,
 }: SharedDashboardLayoutProps) {
   const router = useRouter();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(!defaultSidebarOpen);
   const [focusModeActive, setFocusModeActive] = useState(false);
   const [taskCompletion, setTaskCompletion] = useState<any>(null);
 

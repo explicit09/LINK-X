@@ -155,7 +155,7 @@ export default function FilePreviewPage() {
 
   // Handle personalize
   const handlePersonalize = () => {
-    router.push(`/learn/streaming/${fileId}?courseId=${courseId}&moduleId=${moduleId}`);
+    router.push(`/personalize/${fileId}?courseId=${courseId}&moduleId=${moduleId}`);
   };
 
   if (loading) {
