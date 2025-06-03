@@ -22,14 +22,9 @@ export function useTokenBudget(content: string, progress: number) {
   // Check token budget status
   useEffect(() => {
     const checkBudget = async () => {
-      try {
-        const data = await apiClient.get('/api/personalization/token-usage');
-        if (data.usage) {
-          setTokenUsage(data.usage);
-        }
-      } catch (error) {
-        console.error('Failed to check token usage:', error);
-      }
+      // Token usage endpoint not implemented yet
+      // TODO: Implement token tracking in backend
+      // For now, just use local estimate
     };
 
     // Check every 30 seconds during streaming

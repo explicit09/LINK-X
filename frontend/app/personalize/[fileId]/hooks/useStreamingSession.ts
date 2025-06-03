@@ -34,23 +34,21 @@ export function useStreamingSession(fileId: string, content: string, progress: n
     
     setIsAutoSaving(true);
     
+    // Session save endpoint not implemented yet
+    // TODO: Implement session persistence in backend
     try {
-      await apiClient.post('/api/personalization/session/save', {
+      // For now, just save to local storage
+      const sessionData = {
         sessionId,
         fileId,
         content,
         progress,
         timestamp: new Date().toISOString()
-      });
-      
+      };
+      localStorage.setItem(`personalization-session-${fileId}`, JSON.stringify(sessionData));
       setLastSaved(new Date());
-      // Don't show toast for auto-saves to avoid spam
     } catch (error) {
-      console.error('Session save error:', error);
-      // Only show error toast occasionally
-      if (Math.random() < 0.1) {
-        toast.error('Failed to save progress. Will retry automatically.');
-      }
+      console.error('Failed to save to local storage:', error);
     } finally {
       setIsAutoSaving(false);
     }
@@ -58,17 +56,8 @@ export function useStreamingSession(fileId: string, content: string, progress: n
 
   // Load existing session
   const loadSession = useCallback(async (): Promise<SessionData | null> => {
-    try {
-      const data = await apiClient.get(`/api/personalization/session/${fileId}`);
-      if (data.session) {
-        setSessionId(data.session.sessionId);
-        setLastSaved(new Date(data.session.lastSaved));
-        return data.session;
-      }
-    } catch (error) {
-      console.error('Failed to load session:', error);
-    }
-    
+    // Session endpoints not implemented yet
+    // TODO: Implement session persistence in backend
     return null;
   }, [fileId]);
 
@@ -76,17 +65,15 @@ export function useStreamingSession(fileId: string, content: string, progress: n
   const completeSession = useCallback(async () => {
     if (!sessionId) return;
     
+    // Session complete endpoint not implemented yet
+    // TODO: Implement session persistence in backend
     try {
-      await apiClient.post('/api/personalization/session/complete', {
-        sessionId,
-        fileId,
-        finalProgress: progress
-      });
-      
+      // For now, just clear local storage
+      localStorage.removeItem(`personalization-session-${fileId}`);
       sessionStorage.removeItem(`session-${fileId}`);
       toast.success('Session completed successfully!');
     } catch (error) {
-      console.error('Failed to complete session:', error);
+      console.error('Failed to clear session:', error);
     }
   }, [sessionId, fileId, progress]);
 
