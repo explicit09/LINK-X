@@ -106,16 +106,35 @@ def get_personalization_outline(file_id):
         
     try:
         session = get_db_session()
-        file_repo = FileRepository(session)
+        file_repo = FileRepository()
         
         # Get file content
-        file = file_repo.get_file_by_id(file_id)
+        file = file_repo.get_by_id(file_id)
         if not file:
             return jsonify({'error': 'File not found'}), 404
             
+        # Get file content
+        content = ""
+        if file.transcription:
+            content = file.transcription
+        elif file.file_data:
+            # Try to decode file data as text
+            try:
+                content = file.file_data.decode('utf-8')[:5000]
+            except:
+                content = f"Binary file: {file.filename}"
+        else:
+            # Get content from FileChunks
+            from db.schema import FileChunk
+            chunks = session.query(FileChunk).filter_by(file_id=file_id).order_by(FileChunk.chunk_index).limit(5).all()
+            if chunks:
+                content = "\n".join([chunk.content for chunk in chunks])[:5000]
+            else:
+                content = f"No content available for {file.filename}"
+        
         # Generate outline using AI service
         ai_service = AIService()
-        outline_data = ai_service.generate_outline(file.content[:5000])  # Limit content for outline
+        outline_data = ai_service.generate_outline(content)
         
         # Format outline for frontend
         formatted_outline = {
@@ -160,8 +179,8 @@ def stream_personalized_content(file_id):
         try:
             # Initialize services
             session = get_db_session()
-            file_repo = FileRepository(session)
-            user_repo = UserRepository(session)
+            file_repo = FileRepository()
+            user_repo = UserRepository()
             ai_service = AIService()
             token_budget_service = TokenBudgetService()
             
@@ -174,17 +193,36 @@ def stream_personalized_content(file_id):
                 return
             
             # Get file
-            file = file_repo.get_file_by_id(file_id)
+            file = file_repo.get_by_id(file_id)
             if not file:
                 yield f"data: {json.dumps({'type': 'error', 'message': 'File not found'})}\n\n"
                 return
             
             # Get user preferences from profile
-            user = user_repo.get_user_by_id(user_id)
-            preferences = user.preferences or {}
+            user = user_repo.get_by_id(user_id)
+            # TODO: Implement user preferences storage
+            preferences = {}
+            
+            # Get file content
+            content = ""
+            if file.transcription:
+                content = file.transcription
+            elif file.file_data:
+                try:
+                    content = file.file_data.decode('utf-8')[:5000]
+                except:
+                    content = f"Binary file: {file.filename}"
+            else:
+                # Get content from FileChunks
+                from db.schema import FileChunk
+                chunks = session.query(FileChunk).filter_by(file_id=file_id).order_by(FileChunk.chunk_index).limit(5).all()
+                if chunks:
+                    content = "\n".join([chunk.content for chunk in chunks])[:5000]
+                else:
+                    content = f"No content available for {file.filename}"
             
             # Generate outline first
-            outline_data = ai_service.generate_outline(file.content[:5000])
+            outline_data = ai_service.generate_outline(content)
             
             # Stream content section by section
             total_sections = len(outline_data.get('chapters', []))
@@ -205,7 +243,7 @@ def stream_personalized_content(file_id):
                         'chapter_title': chapter.get('title'),
                         'learning_style': preferences.get('learning_style', 'balanced'),
                         'depth': preferences.get('depth', 'intermediate'),
-                        'previous_content': file.content[:1000]  # Include some original content
+                        'previous_content': content[:1000]  # Include some original content
                     }
                     
                     # Stream personalized content for this section
