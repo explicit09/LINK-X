@@ -415,10 +415,10 @@ export default function CoursePage() {
                             className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                             onClick={(e) => {
                               e.stopPropagation();
-                              // Navigate to streaming page for the first file in the module
+                              // Navigate to personalize page for the first file in the module
                               const firstFile = module.materials_list[0];
                               if (firstFile) {
-                                router.push(`/learn/streaming/${firstFile.id}?courseId=${courseId}&moduleId=${module.id}`);
+                                router.push(`/personalize/${firstFile.id}?courseId=${courseId}&moduleId=${module.id}&fileName=${encodeURIComponent(firstFile.title)}`);
                               }
                             }}
                             disabled={module.materials_list.length === 0}
@@ -512,7 +512,7 @@ export default function CoursePage() {
                                     console.log('Download file:', fileId);
                                   }}
                                   onPersonalize={(fileId) => {
-                                    router.push(`/learn/streaming/${fileId}?courseId=${courseId}&moduleId=${module.id}`);
+                                    router.push(`/personalize/${fileId}?courseId=${courseId}&moduleId=${module.id}&fileName=${encodeURIComponent(material.title)}`);
                                   }}
                                   isEven={materialIndex % 2 === 0}
                                   className="rounded-lg"
