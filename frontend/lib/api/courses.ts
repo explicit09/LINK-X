@@ -138,6 +138,13 @@ class CourseAPI {
     });
   }
 
+  // Join course by access code (without knowing courseId)
+  async joinCourseByCode(accessCode: string): Promise<Course> {
+    return apiClient.post<Course>('/api/v2/courses/join', {
+      access_code: accessCode,
+    });
+  }
+
   // Statistics
   async getCourseStats(courseId: string): Promise<any> {
     return apiClient.get(`/api/v2/courses/${courseId}/stats`);

@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Download, Sparkles, Eye, ExternalLink } from 'lucide-react';
 import { toast as sonnerToast } from 'sonner';
-import { S3FileViewer } from './components/S3FileViewer';
+import { UniversalFileViewer } from './components/UniversalFileViewer';
+import { apiClient } from '@/lib/api/client';
 
 interface FileData {
   id: string;
@@ -31,6 +32,9 @@ export default function FilePreviewPage() {
   const moduleId = params?.moduleId as string;
   const fileId = params?.fileId as string;
 
+  // Debug logging
+  console.log('FilePreviewPage params:', { courseId, moduleId, fileId });
+
   const [file, setFile] = useState<FileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,18 +46,35 @@ export default function FilePreviewPage() {
         setLoading(true);
         setError(null);
 
-        const response = await fetch(`/api/v2/files/${fileId}`, {
-          headers: {
-            'Authorization': `Bearer ${await currentUser?.getIdToken()}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch file: ${response.status}`);
+        // Use the API client instead of manual fetch with auth headers
+        console.log('Fetching file data for fileId:', fileId);
+        
+        // Raw API response logging (temporarily disabled)
+        
+        const response = await apiClient.get(`/api/v2/files/${fileId}`);
+        console.log('Raw API response:', response);
+        
+        // Extract the actual file data from the response wrapper
+        const fileData = response.data || response;
+        console.log('Extracted file data:', fileData);
+        
+        // Handle case where the API might return different ID field names
+        if (fileData && !fileData.id) {
+          // Check for alternative ID field names
+          if (fileData.file_id) {
+            fileData.id = fileData.file_id;
+          } else if (fileData._id) {
+            fileData.id = fileData._id;
+          } else if (fileData.material_id) {
+            fileData.id = fileData.material_id;
+          } else {
+            // If no ID field found, use the fileId from URL params
+            fileData.id = fileId;
+          }
+          console.log('Added missing ID field:', fileData.id);
         }
-
-        const data = await response.json();
-        setFile(data.data);
+        
+        setFile(fileData);
       } catch (err) {
         console.error('Error fetching file:', err);
         setError(err instanceof Error ? err.message : 'Failed to load file');
@@ -63,10 +84,10 @@ export default function FilePreviewPage() {
       }
     };
 
-    if (fileId && currentUser) {
+    if (fileId) {
       fetchFile();
     }
-  }, [fileId, currentUser]);
+  }, [fileId]);
 
   // Format file size
   const formatFileSize = (bytes: number) => {
@@ -90,25 +111,40 @@ export default function FilePreviewPage() {
   // Handle download
   const handleDownload = async () => {
     try {
-      const response = await fetch(`/api/v2/files/${fileId}/content?download=true`, {
-        headers: {
-          'Authorization': `Bearer ${await currentUser?.getIdToken()}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Download failed');
+      // Get the file download URL from the API
+      const data = await apiClient.get(`/api/v2/files/${fileId}/content?download=true`);
+      
+      let downloadUrl: string;
+      
+      if (data?.url) {
+        // If we get a presigned URL, use it directly
+        downloadUrl = data.url;
+      } else {
+        // Fallback: try to get the file directly
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v2/files/${fileId}/download`, {
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error('Download failed');
+        }
+        
+        const blob = await response.blob();
+        downloadUrl = window.URL.createObjectURL(blob);
       }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      
+      // Create download link
       const a = document.createElement('a');
-      a.href = url;
+      a.href = downloadUrl;
       a.download = file?.filename || 'download';
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      
+      // Clean up blob URL if we created one
+      if (downloadUrl.startsWith('blob:')) {
+        window.URL.revokeObjectURL(downloadUrl);
+      }
       
       sonnerToast.success('File downloaded successfully');
     } catch (err) {
@@ -235,17 +271,28 @@ export default function FilePreviewPage() {
           </div>
         </div>
 
-        {/* File Viewer */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <S3FileViewer 
-            file={file}
-            courseId={courseId}
-            moduleId={moduleId}
-            onError={(error) => {
-              setError(error);
-              sonnerToast.error('Failed to load file content');
-            }}
-          />
+        {/* File Viewer - Full Width & Height */}
+        <div className="rounded-xl border border-gray-200 shadow-sm overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
+          {file && file.id ? (
+            <UniversalFileViewer 
+              file={file}
+              courseId={courseId}
+              moduleId={moduleId}
+              onError={(error) => {
+                setError(error);
+                sonnerToast.error('Failed to load file content');
+              }}
+            />
+          ) : (
+            <div className="flex justify-center items-center min-h-[400px] p-8 bg-white">
+              <div className="text-center">
+                <div className="text-gray-600">File data is not available</div>
+                <div className="text-sm text-gray-500 mt-2">
+                  {!file ? 'No file data loaded' : 'File ID is missing'}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </SharedDashboardLayout>

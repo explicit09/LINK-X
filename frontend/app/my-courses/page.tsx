@@ -226,11 +226,17 @@ export default function MyCoursesPage() {
       // API call to join course with access code
       const response = await courseAPI.joinCourseByCode(accessCode.trim());
       
-      // Add the joined course to the list
-      const joinedCourse = {
-        ...response,
-        studentsCount: response.studentsCount || 1,
-        materialsCount: response.materialsCount || 0,
+      // Transform the joined course data to match our interface
+      const joinedCourse: Course = {
+        id: response.id,
+        title: response.title,
+        code: response.code || 'N/A',
+        term: response.term || 'Current',
+        description: response.description || '',
+        published: response.published ?? true,
+        studentsCount: response.students_count || response.studentsCount || 1,
+        materialsCount: response.modules?.length || response.materialsCount || 0,
+        accessCode: response.access_code || response.accessCode,
         lastActivity: 'Just joined',
         progress: 0,
         color: 'bg-green-500',
@@ -242,10 +248,16 @@ export default function MyCoursesPage() {
       sonnerToast.success('🎉 Successfully joined the course! +15 XP earned');
     } catch (error: any) {
       console.error('Failed to join course:', error);
-      if (error.message?.includes('Invalid access code')) {
+      
+      // Handle different error scenarios
+      const errorMessage = error?.response?.data?.error || error?.message || '';
+      
+      if (error?.response?.status === 404 || errorMessage.includes('Invalid access code')) {
         sonnerToast.error('❌ Invalid access code. Please check and try again.');
-      } else if (error.message?.includes('already enrolled')) {
+      } else if (error?.response?.status === 409 || errorMessage.includes('already enrolled')) {
         sonnerToast.error('📚 You are already enrolled in this course.');
+      } else if (error?.response?.status === 401) {
+        sonnerToast.error('🔒 Please sign in to join a course.');
       } else {
         sonnerToast.error('Failed to join course. Please try again.');
       }
@@ -671,14 +683,20 @@ export default function MyCoursesPage() {
               <div className="relative">
                 <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
-                  placeholder="Enter the course access code"
+                  placeholder="e.g., ABC12345"
                   value={accessCode}
-                  onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
-                  className="pl-10 text-center font-mono text-lg tracking-wider"
+                  onChange={(e) => {
+                    // Only allow alphanumeric characters
+                    const filtered = e.target.value.replace(/[^A-Za-z0-9]/g, '');
+                    setAccessCode(filtered.toUpperCase());
+                  }}
+                  className="pl-10 text-center font-mono text-lg tracking-wider uppercase"
                   maxLength={8}
                   disabled={joiningCourse}
+                  autoComplete="off"
+                  spellCheck={false}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === 'Enter' && accessCode.trim()) {
                       handleJoinCourse();
                     }
                   }}
@@ -687,6 +705,11 @@ export default function MyCoursesPage() {
               <p className="text-sm text-gray-500">
                 💡 Get the access code from your instructor to join their course
               </p>
+              {accessCode.length > 0 && accessCode.length < 8 && (
+                <p className="text-xs text-orange-600 mt-1">
+                  Access codes are typically 8 characters long ({accessCode.length}/8)
+                </p>
+              )}
             </div>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
