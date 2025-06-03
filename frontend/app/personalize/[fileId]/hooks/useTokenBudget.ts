@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiClient } from '@/lib/api/client';
 
 const TOKEN_COST_PER_1K = 0.02; // $0.02 per 1000 tokens
 const TOKEN_LIMIT = 1000; // 1000 tokens per session
@@ -22,16 +23,9 @@ export function useTokenBudget(content: string, progress: number) {
   useEffect(() => {
     const checkBudget = async () => {
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/personalization/token-usage`,
-          { credentials: 'include' }
-        );
-        
-        if (response.ok) {
-          const data = await response.json();
-          if (data.usage) {
-            setTokenUsage(data.usage);
-          }
+        const data = await apiClient.get('/api/personalization/token-usage');
+        if (data.usage) {
+          setTokenUsage(data.usage);
         }
       } catch (error) {
         console.error('Failed to check token usage:', error);

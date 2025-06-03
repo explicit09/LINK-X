@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
+import { apiClient } from '@/lib/api/client';
+import { auth } from '@/firebaseconfig';
 
 interface Section {
   id: string;
@@ -25,9 +27,25 @@ export function usePersonalizedStreaming(fileId: string) {
   const [error, setError] = useState<string | null>(null);
   
   const eventSourceRef = useRef<EventSource | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const accumulatedContentRef = useRef('');
   const retryCountRef = useRef(0);
   const maxRetries = 3;
+
+  // Helper to get auth headers
+  const getAuthHeaders = async () => {
+    const headers: Record<string, string> = {};
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        const token = await user.getIdToken();
+        headers['X-Firebase-Token'] = token;
+      } catch (error) {
+        console.error('Failed to get Firebase token:', error);
+      }
+    }
+    return headers;
+  };
 
   // Initialize streaming
   const startStreaming = useCallback(async () => {
@@ -37,73 +55,109 @@ export function usePersonalizedStreaming(fileId: string) {
     setError(null);
     
     try {
-      // First, get the outline
-      const outlineResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/personalization/outline/${fileId}`,
-        { credentials: 'include' }
+      // First, get the outline using the API client
+      const outlineData = await apiClient.get(
+        `/api/personalization/outline/${fileId}`
       );
       
-      if (!outlineResponse.ok) {
+      if (!outlineData.outline) {
         throw new Error('Failed to generate outline');
       }
       
-      const outlineData = await outlineResponse.json();
       setOutline(outlineData.outline);
       
-      // Start streaming content
-      const eventSource = new EventSource(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/personalization/stream/${fileId}`,
-        { withCredentials: true }
+      // Start streaming content using fetch with auth headers
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+      
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/personalization/stream/${fileId}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+          headers: await getAuthHeaders(),
+          signal: abortController.signal
+        }
       );
       
-      eventSourceRef.current = eventSource;
-      setStreamingState('streaming');
+      if (!response.ok) {
+        throw new Error(`Streaming failed: ${response.status} ${response.statusText}`);
+      }
       
-      eventSource.onmessage = (event) => {
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Response body is not readable');
+      }
+      
+      setStreamingState('streaming');
+      const decoder = new TextDecoder();
+      let buffer = '';
+      
+      while (true) {
         try {
-          const data = JSON.parse(event.data);
+          const { done, value } = await reader.read();
+          if (done) break;
           
-          switch (data.type) {
-            case 'content':
-              accumulatedContentRef.current += data.content;
-              setContent(accumulatedContentRef.current);
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          
+          for (const line of lines) {
+            if (line.trim() === '') continue;
+            if (!line.startsWith('data: ')) continue;
+            
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            
+            try {
+              const parsed = JSON.parse(data);
               
-              // Update progress
-              if (data.progress) {
-                setProgress(data.progress);
+              switch (parsed.type) {
+                case 'content':
+                  accumulatedContentRef.current += parsed.content;
+                  setContent(accumulatedContentRef.current);
+                  
+                  if (parsed.progress) {
+                    setProgress(parsed.progress);
+                  }
+                  
+                  if (parsed.section !== undefined) {
+                    setCurrentSection(parsed.section);
+                    updateOutlineSection(parsed.section, true);
+                  }
+                  break;
+                  
+                case 'complete':
+                  setStreamingState('complete');
+                  toast.success('Content generation complete!');
+                  return;
+                  
+                case 'error':
+                  throw new Error(parsed.message || 'Streaming error occurred');
+                  
+                case 'token_limit':
+                  setStreamingState('paused');
+                  toast.warning('Token limit reached. You can resume in your next session.');
+                  return;
+                  
+                case 'section_complete':
+                  if (parsed.section !== undefined) {
+                    updateOutlineSection(parsed.section, true);
+                  }
+                  break;
               }
-              
-              // Update current section
-              if (data.section !== undefined) {
-                setCurrentSection(data.section);
-                updateOutlineSection(data.section, true);
-              }
-              break;
-              
-            case 'complete':
-              setStreamingState('complete');
-              toast.success('Content generation complete!');
-              eventSource.close();
-              break;
-              
-            case 'error':
-              throw new Error(data.message || 'Streaming error occurred');
-              
-            case 'token_limit':
-              setStreamingState('paused');
-              toast.warning('Token limit reached. You can resume in your next session.');
-              eventSource.close();
-              break;
+            } catch (error) {
+              console.error('Error parsing streaming data:', error);
+            }
           }
         } catch (error) {
-          console.error('Error parsing streaming data:', error);
+          if (error.name === 'AbortError') {
+            console.log('Streaming aborted');
+            break;
+          }
+          throw error;
         }
-      };
-      
-      eventSource.onerror = (error) => {
-        console.error('EventSource error:', error);
-        handleStreamingError('Connection lost. Retrying...');
-      };
+      }
       
     } catch (error) {
       handleStreamingError(error instanceof Error ? error.message : 'Failed to start streaming');
@@ -153,9 +207,9 @@ export function usePersonalizedStreaming(fileId: string) {
 
   // Control functions
   const pauseStreaming = useCallback(() => {
-    if (streamingState === 'streaming' && eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
+    if (streamingState === 'streaming' && abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
       setStreamingState('paused');
       toast.info('Streaming paused');
     }
@@ -208,10 +262,13 @@ export function usePersonalizedStreaming(fileId: string) {
     
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/personalization/regenerate`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/personalization/regenerate`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(await getAuthHeaders())
+          },
           credentials: 'include',
           body: JSON.stringify({
             fileId,
@@ -241,8 +298,8 @@ export function usePersonalizedStreaming(fileId: string) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
     };
   }, []);
