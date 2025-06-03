@@ -11,7 +11,7 @@ export class AuthAPIClient extends BaseAPIClient {
    * Get authentication token - simplified logic to fix token type issues
    * Priority: Backend JWT tokens first, then Firebase tokens as fallback
    */
-  private async getAuthToken(): Promise<{ token: string; isFirebase: boolean } | null> {
+  async getAuthToken(): Promise<{ token: string; isFirebase: boolean } | null> {
     // Import authService dynamically to avoid circular dependency
     try {
       const { authService } = await import('../../auth-service');

@@ -34,6 +34,8 @@ from api.circuit_breaker_monitor import bp as circuit_breaker_bp
 # Import streaming and personalization blueprints
 from api.streaming import bp as streaming_bp
 from api.personalization import bp as personalization_bp
+from api.personalization_v2 import bp as personalization_v2_bp
+from api.test_sse import bp as test_sse_bp
 
 def create_app():
     """Application factory pattern"""
@@ -111,6 +113,12 @@ def create_app():
     
     # Personalization endpoints - under /api/personalization
     app.register_blueprint(personalization_bp, url_prefix='/api/personalization')
+    
+    # Enhanced Personalization v2 endpoints - under /api/personalization/v2
+    app.register_blueprint(personalization_v2_bp, url_prefix='/api/personalization/v2')
+    
+    # Test SSE endpoint - under /api/test
+    app.register_blueprint(test_sse_bp, url_prefix='/api/test')
     
     # API monitoring endpoints - all under /api/monitoring
     app.register_blueprint(monitoring_bp)
