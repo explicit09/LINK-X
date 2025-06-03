@@ -28,7 +28,7 @@ export const moduleAPI = {
 
   createModule: (
     courseId: string,
-    data: CreateModuleRequest,
+    data: CreateModuleRequest | { title: string; description?: string; order?: number },
   ): Promise<Module> =>
     apiClient.post(`/api/v2/courses/${courseId}/modules`, data),
 

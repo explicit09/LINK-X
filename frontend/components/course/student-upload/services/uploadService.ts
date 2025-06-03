@@ -22,6 +22,18 @@ export const uploadIndividualFile = async (
       throw new Error('Course ID is required for individual file uploads');
     }
 
+    if (!moduleId) {
+      throw new Error('Module ID is required for file uploads. Please select or create a module first.');
+    }
+
+    console.log('Starting file upload:', {
+      courseId,
+      moduleId,
+      fileName: uploadFile.file.name,
+      fileSize: uploadFile.file.size,
+      fileType: uploadFile.file.type
+    });
+
     // Update status to uploading
     onProgress(fileId, 0, 'uploading');
 
@@ -30,13 +42,18 @@ export const uploadIndividualFile = async (
     formData.append('file', uploadFile.file);
     formData.append('title', uploadFile.file.name);
     formData.append('description', `Student upload: ${uploadFile.file.name}`);
-    if (moduleId) {
-      formData.append('moduleId', moduleId);
-    }
+    formData.append('moduleId', moduleId);
+
+    console.log('Calling uploadFile API with moduleId:', moduleId);
 
     // Upload to student's course and parse JSON response
-    const response = await studentAPI.uploadFile(courseId, formData);
-    const result = await response.json();
+    const response = await studentAPI.uploadFile(moduleId, formData);
+    
+    console.log('Upload API response:', response);
+    
+    const result = typeof response === 'object' ? response : await response.json();
+    
+    console.log('Parsed upload result:', result);
 
     // Simulate progress during upload
     let progress = 0;

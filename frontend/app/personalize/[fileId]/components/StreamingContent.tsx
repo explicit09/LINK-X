@@ -64,8 +64,9 @@ export function StreamingContent({
     <div className="relative">
       {/* Current section indicator */}
       {isStreaming && getCurrentSectionName() && (
-        <div className="absolute top-0 right-0 z-10">
-          <div className="bg-primary/10 text-primary px-3 py-1 rounded-bl-lg text-sm font-medium">
+        <div className="mb-4">
+          <div className="inline-flex items-center bg-primary/10 text-primary px-3 py-1 rounded-lg text-sm font-medium">
+            <div className="w-2 h-2 bg-primary rounded-full animate-pulse mr-2" />
             Generating: {getCurrentSectionName()}
           </div>
         </div>

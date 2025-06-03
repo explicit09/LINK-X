@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Plus, Upload, BookOpen, Search, Loader2 } from 'lucide-react';
 import { EnhancedFileUpload } from '@/components/course/EnhancedFileUpload';
 import { StudentCourseUpload } from '@/components/course/StudentCourseUpload';
+import { StudentFileManager } from '@/components/course/StudentFileManager';
 import { SearchAndFilter } from '@/components/course/SearchAndFilter';
 import { EnterpriseModuleCard } from '@/components/course/EnterpriseModuleCard';
 import { useCourseContext, courseActions } from '../../context/CourseContext';
@@ -75,6 +76,7 @@ export const HomeTab = ({
   } | null>(null);
   const [editModuleTitle, setEditModuleTitle] = useState('');
   const [editModuleDescription, setEditModuleDescription] = useState('');
+  const [showFileManager, setShowFileManager] = useState(false);
 
   const colors = getCourseColor(course?.id);
 
@@ -178,6 +180,23 @@ export const HomeTab = ({
         )}
       >
         <div className="space-y-6">
+          {/* Toggle between traditional view and file manager */}
+          {currentUser?.role === 'student' && (
+            <div className="flex justify-end mb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFileManager(!showFileManager)}
+              >
+                {showFileManager ? 'Classic View' : 'File Manager'}
+              </Button>
+            </div>
+          )}
+
+          {/* Show StudentFileManager for students if toggled */}
+          {showFileManager && currentUser?.role === 'student' ? (
+            <StudentFileManager courseId={courseId} />
+          ) : (
           <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-3">
@@ -299,6 +318,7 @@ export const HomeTab = ({
               </div>
             </CardContent>
           </Card>
+          )}
         </div>
       </div>
 

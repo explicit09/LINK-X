@@ -234,8 +234,49 @@ def stream_personalized_content(file_id):
             
             # Get user preferences from profile
             user = user_repo.get_by_id(user_id)
-            # TODO: Implement user preferences storage
+            
+            # Get student profile with onboarding answers
+            from db.schema import StudentProfile
+            student_profile = session.query(StudentProfile).filter_by(user_id=user_id).first()
+            
+            # Log what we found
+            logger.info(f"Looking for student profile for user_id: {user_id}")
+            if student_profile:
+                logger.info(f"Found student profile. Onboard answers: {student_profile.onboard_answers}")
+            else:
+                logger.warning(f"No student profile found for user_id: {user_id}")
+            
+            # Extract preferences from onboarding answers
             preferences = {}
+            if student_profile and student_profile.onboard_answers:
+                onboarding = student_profile.onboard_answers
+                logger.info(f"Onboarding data keys: {list(onboarding.keys())}")
+                
+                preferences = {
+                    'learning_style': onboarding.get('learningStyle', 'visual'),
+                    'depth': onboarding.get('depth', 'intermediate'),
+                    'interests': onboarding.get('interests', []),
+                    'topics': onboarding.get('topics', []),
+                    'schedule': onboarding.get('schedule', 'flexible'),
+                    'tone': onboarding.get('tone', 'encouraging'),
+                    'student_name': student_profile.name if student_profile else 'there'
+                }
+                logger.info(f"Extracted preferences: {preferences}")
+            else:
+                # Default preferences if no profile
+                preferences = {
+                    'learning_style': 'balanced',
+                    'depth': 'intermediate',
+                    'interests': [],
+                    'topics': [],
+                    'schedule': 'flexible',
+                    'tone': 'encouraging',
+                    'student_name': 'there'
+                }
+                logger.info("Using default preferences - no profile data found")
+                
+                # Send a message to encourage onboarding
+                yield f"data: {json.dumps({'type': 'info', 'message': 'Complete your profile for a more personalized experience!'})}\n\n"
             
             # Get file content
             content = ""
@@ -294,35 +335,61 @@ def stream_personalized_content(file_id):
                 
                 # Build comprehensive prompt with source material
                 detailed_prompt = f"""
-Create personalized educational content based on the following source material:
+Create deeply personalized educational content for {preferences.get('student_name', 'this student')}.
 
 SECTION TOPIC: {section.get('title', 'Educational Content')}
 
 SOURCE CONTENT:
 {section_source_content[:2000]}
 
-PERSONALIZATION REQUIREMENTS:
-- Learning Style: {preferences.get('learning_style', 'balanced')}
-- Depth Level: {preferences.get('depth', 'intermediate')}
-- Make it engaging and interactive
-- Include practical examples when possible
-- Break down complex concepts into digestible parts
+STUDENT PROFILE:
+- Name: {preferences.get('student_name', 'Student')}
+- Interests: {', '.join(preferences.get('interests', [])) if preferences.get('interests') else 'Various topics'}
+- Favorite Topics: {', '.join(preferences.get('topics', [])) if preferences.get('topics') else 'General subjects'}
+- Learning Style: {preferences.get('learning_style', 'visual')}
+- Preferred Depth: {preferences.get('depth', 'intermediate')}
+- Learning Schedule: {preferences.get('schedule', 'flexible')}
+- Preferred Tone: {preferences.get('tone', 'encouraging')}
 
-Please generate comprehensive, well-structured educational content that builds upon the source material while adapting to the specified learning preferences.
+PERSONALIZATION INSTRUCTIONS:
+1. Address them by name occasionally (but not too often)
+2. Connect EVERY concept to their specific interests: {', '.join(preferences.get('interests', []))}
+3. Use analogies and examples from their favorite topics: {', '.join(preferences.get('topics', []))}
+4. Match their preferred tone - be {preferences.get('tone', 'encouraging')} throughout
+5. For {preferences.get('learning_style', 'visual')} learners:
+   - Visual: Use diagrams, charts, and visual descriptions
+   - Auditory: Explain as if speaking, use rhythm and patterns
+   - Kinesthetic: Include hands-on examples and activities
+6. Keep the depth {preferences.get('depth', 'intermediate')}:
+   - Beginner: Simple language, lots of basics
+   - Intermediate: Balance of concepts and applications
+   - Advanced: Deep dives and complex connections
+7. Make it feel like a 1-on-1 tutoring session
+8. Use casual, friendly language - not formal academic tone
+9. If they mentioned specific interests, weave those throughout
+
+Remember: This content should feel like it was written by someone who knows {preferences.get('student_name', 'them')} personally.
 """
                 
                 # Build personalization system message
-                system_message = f"""You are an expert educator creating personalized learning content. 
+                system_message = f"""You are {preferences.get('student_name', 'this student')}'s personal tutor. You've gotten to know them and understand what makes learning click for them.
 
-Your role is to:
-1. Transform the provided source material into engaging, personalized educational content
-2. Adapt the complexity and presentation style to match the learner's preferences
-3. Maintain accuracy while making content more accessible and engaging
-4. Include examples, analogies, and practical applications
-5. Structure content with clear headings and logical flow
+Your teaching approach:
+1. You know they're interested in: {', '.join(preferences.get('interests', [])) if preferences.get('interests') else 'various topics'}
+2. Their favorite subjects include: {', '.join(preferences.get('topics', [])) if preferences.get('topics') else 'different areas'}
+3. They prefer a {preferences.get('tone', 'encouraging')} tone - match their energy
+4. They're a {preferences.get('learning_style', 'visual')} learner - adapt your explanations
+5. They like {preferences.get('depth', 'intermediate')}-level content
 
-Learning Style: {preferences.get('learning_style', 'balanced')}
-Depth: {preferences.get('depth', 'intermediate')}
+Key instructions:
+- Make EVERYTHING relatable to their interests
+- Use examples from things they care about
+- Speak conversationally, like a friend who's really good at explaining things
+- Remember you're talking to {preferences.get('student_name', 'them')}, not giving a generic lecture
+- If they like gaming, use game analogies. If they like sports, use sports examples. Match THEIR world.
+- Keep it engaging and personal throughout
+
+This is a personalized tutoring session, not a textbook. Make them feel like you created this content just for them.
 """
                 
                 # Stream personalized content for this section
