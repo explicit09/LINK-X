@@ -51,7 +51,7 @@ def get_api_version():
     return version
 
 
-@bp.route('/login', methods=['POST'])
+@bp.route('/login', methods=['POST', 'OPTIONS'])
 @rate_limit_decorator(**RateLimitConfig.AUTH_LOGIN)
 def login():
     """
@@ -60,6 +60,9 @@ def login():
     v1: Returns JWT in response body
     v2: Returns access token + sets refresh token in HTTP-only cookie
     """
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     try:
         data = request.get_json()
         version = get_api_version()
@@ -163,7 +166,7 @@ def login():
         return jsonify({'error': 'Internal server error'}), 500
 
 
-@bp.route('/register', methods=['POST'])
+@bp.route('/register', methods=['POST', 'OPTIONS'])
 @rate_limit_decorator(max_requests=5, window_seconds=300)
 def register():
     """
@@ -172,6 +175,9 @@ def register():
     v1: Supports role in URL path
     v2: Role specified in request body
     """
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     try:
         data = request.get_json()
         version = get_api_version()
@@ -220,11 +226,14 @@ def register_with_role(role):
     return register()
 
 
-@bp.route('/refresh', methods=['POST'])
+@bp.route('/refresh', methods=['POST', 'OPTIONS'])
 def refresh_token():
     """
     Refresh access token (v2 only)
     """
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     version = get_api_version()
     if version != 'v2':
         return jsonify({'error': 'Endpoint not available in v1'}), 404
