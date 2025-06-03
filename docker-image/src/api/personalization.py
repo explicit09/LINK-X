@@ -139,21 +139,55 @@ def get_personalization_outline(file_id):
         # Format outline for frontend
         formatted_outline = {
             'sections': [],
-            'totalTokens': 0
+            'totalTokens': 0,
+            'sourceLength': len(content),
+            'estimatedSections': 0
         }
         
         if outline_data and 'sections' in outline_data:
             section_index = 0
             for section in outline_data['sections']:
-                formatted_outline['sections'].append({
+                # Provide more detailed section information
+                section_data = {
                     'id': f"section-{section_index}",
                     'title': section.get('title', f"Section {section_index + 1}"),
+                    'description': section.get('description', ''),
                     'content': '',
                     'isComplete': False,
-                    'tokens': section.get('estimatedTokens', 200)
-                })
+                    'tokens': section.get('estimatedTokens', 200),
+                    'difficulty': section.get('difficulty', 'medium'),
+                    'topics': section.get('topics', [])
+                }
+                formatted_outline['sections'].append(section_data)
                 formatted_outline['totalTokens'] += section.get('estimatedTokens', 200)
                 section_index += 1
+            
+            formatted_outline['estimatedSections'] = len(formatted_outline['sections'])
+        else:
+            # Fallback: create basic sections from content if outline generation fails
+            logger.warning("No sections found in outline_data, creating fallback sections")
+            content_chunks = content.split('\n\n') if content else []
+            chunk_size = max(1, len(content_chunks) // 3)  # Create 3 sections by default
+            
+            for i in range(min(3, len(content_chunks) // chunk_size + 1)):
+                start_idx = i * chunk_size
+                end_idx = min((i + 1) * chunk_size, len(content_chunks))
+                chunk_content = '\n\n'.join(content_chunks[start_idx:end_idx])
+                
+                if chunk_content.strip():
+                    formatted_outline['sections'].append({
+                        'id': f"section-{i}",
+                        'title': f"Section {i + 1}",
+                        'description': chunk_content[:100] + "..." if len(chunk_content) > 100 else chunk_content,
+                        'content': '',
+                        'isComplete': False,
+                        'tokens': len(chunk_content) // 4,  # Rough estimate
+                        'difficulty': 'medium',
+                        'topics': []
+                    })
+                    formatted_outline['totalTokens'] += len(chunk_content) // 4
+            
+            formatted_outline['estimatedSections'] = len(formatted_outline['sections'])
         
         return jsonify({
             'outline': formatted_outline,
@@ -223,11 +257,19 @@ def stream_personalized_content(file_id):
             
             # Generate outline first
             outline_data = ai_service.generate_outline(content)
+            logger.info(f"Generated outline with {len(outline_data.get('sections', []))} sections for file {file_id}")
+            
+            # Send outline information to frontend
+            yield f"data: {json.dumps({'type': 'outline', 'sections': len(outline_data.get('sections', [])), 'message': 'Outline generated, starting content creation'})}\n\n"
             
             # Stream content section by section
             total_sections = len(outline_data.get('sections', []))
             current_section = 0
             total_tokens_used = 0
+            
+            # Split content into chunks for better section mapping
+            content_chunks = content.split('\n\n') if content else []
+            chunk_size = max(1, len(content_chunks) // max(1, total_sections))
             
             for section in outline_data.get('sections', []):
                 # Check token budget before each section
@@ -236,19 +278,58 @@ def stream_personalized_content(file_id):
                     yield f"data: {json.dumps({'type': 'token_limit', 'message': 'Token budget reached'})}\n\n"
                     break
                 
-                # Prepare context
-                context = {
-                    'section_title': section.get('title'),
-                    'learning_style': preferences.get('learning_style', 'balanced'),
-                    'depth': preferences.get('depth', 'intermediate'),
-                    'previous_content': content[:1000]  # Include some original content
-                }
+                # Send section start notification
+                yield f"data: {json.dumps({'type': 'section_start', 'section': current_section, 'title': section.get('title'), 'progress': (current_section / total_sections) * 100})}\n\n"
+                
+                # Extract relevant content for this section
+                start_idx = current_section * chunk_size
+                end_idx = min((current_section + 1) * chunk_size, len(content_chunks))
+                section_source_content = '\n\n'.join(content_chunks[start_idx:end_idx])
+                
+                # If no specific content available, use the section from outline
+                if not section_source_content.strip():
+                    section_source_content = section.get('content', section.get('description', ''))
+                    
+                logger.info(f"Processing section {current_section}: '{section.get('title')}' with {len(section_source_content)} chars of source content")
+                
+                # Build comprehensive prompt with source material
+                detailed_prompt = f"""
+Create personalized educational content based on the following source material:
+
+SECTION TOPIC: {section.get('title', 'Educational Content')}
+
+SOURCE CONTENT:
+{section_source_content[:2000]}
+
+PERSONALIZATION REQUIREMENTS:
+- Learning Style: {preferences.get('learning_style', 'balanced')}
+- Depth Level: {preferences.get('depth', 'intermediate')}
+- Make it engaging and interactive
+- Include practical examples when possible
+- Break down complex concepts into digestible parts
+
+Please generate comprehensive, well-structured educational content that builds upon the source material while adapting to the specified learning preferences.
+"""
+                
+                # Build personalization system message
+                system_message = f"""You are an expert educator creating personalized learning content. 
+
+Your role is to:
+1. Transform the provided source material into engaging, personalized educational content
+2. Adapt the complexity and presentation style to match the learner's preferences
+3. Maintain accuracy while making content more accessible and engaging
+4. Include examples, analogies, and practical applications
+5. Structure content with clear headings and logical flow
+
+Learning Style: {preferences.get('learning_style', 'balanced')}
+Depth: {preferences.get('depth', 'intermediate')}
+"""
                 
                 # Stream personalized content for this section
                 section_content = ""
                 for chunk in ai_service.stream_personalized_content(
-                    prompt=f"Generate educational content for: {section.get('title')}",
-                    system_message="You are an expert educator creating personalized learning content.",
+                    prompt=detailed_prompt,
+                    system_message=system_message,
                     temperature=0.7
                 ):
                     if chunk.get('content'):
@@ -259,12 +340,12 @@ def stream_personalized_content(file_id):
                         token_budget_service.track_usage(user_id, tokens_used - total_tokens_used)
                         total_tokens_used = tokens_used
                         
-                        # Send content chunk
-                        yield f"data: {json.dumps({'type': 'content', 'content': chunk['content'], 'section': current_section, 'progress': ((current_section + 0.5) / total_sections) * 100, 'tokens_used': total_tokens_used})}\n\n"
+                        # Send content chunk with section info
+                        yield f"data: {json.dumps({'type': 'content', 'content': chunk['content'], 'section': current_section, 'section_title': section.get('title'), 'progress': ((current_section + 0.5) / total_sections) * 100, 'tokens_used': total_tokens_used})}\n\n"
                 
                 # Mark section complete
                 current_section += 1
-                yield f"data: {json.dumps({'type': 'section_complete', 'section': current_section - 1, 'progress': (current_section / total_sections) * 100})}\n\n"
+                yield f"data: {json.dumps({'type': 'section_complete', 'section': current_section - 1, 'section_title': section.get('title'), 'progress': (current_section / total_sections) * 100})}\n\n"
                 
                 # Small delay between sections
                 time.sleep(0.5)
