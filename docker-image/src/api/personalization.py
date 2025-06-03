@@ -1,12 +1,15 @@
 from flask import Blueprint, request, jsonify, Response, g
 import json
 import logging
+import time
 from datetime import datetime
+from typing import Generator
 
 from core.decorators_unified import firebase_auth_required
 from core.exceptions import NotFoundError
 from services.streaming_service import StreamingService
 from services.ai_service import AIService
+from services.token_budget_service import TokenBudgetService
 from repositories.file_repository import FileRepository
 from repositories.user_repository import UserRepository
 from db.connection import get_db_session
@@ -102,154 +105,150 @@ def get_personalization_outline(file_id):
         return '', 200
         
     try:
-        streaming_service = StreamingService()
-        outline = streaming_service.get_document_outline(
-            file_id=file_id,
-            user_id=g.current_user.id
-        )
+        session = get_db_session()
+        file_repo = FileRepository(session)
         
-        return jsonify(outline), 200
+        # Get file content
+        file = file_repo.get_file_by_id(file_id)
+        if not file:
+            return jsonify({'error': 'File not found'}), 404
+            
+        # Generate outline using AI service
+        ai_service = AIService()
+        outline_data = ai_service.generate_outline(file.content[:5000])  # Limit content for outline
         
-    except NotFoundError:
-        return jsonify({'error': 'File not found'}), 404
+        # Format outline for frontend
+        formatted_outline = {
+            'sections': [],
+            'totalTokens': 0
+        }
+        
+        if outline_data and 'chapters' in outline_data:
+            section_index = 0
+            for chapter in outline_data['chapters']:
+                for subsection in chapter.get('subsections', []):
+                    formatted_outline['sections'].append({
+                        'id': f"section-{section_index}",
+                        'title': subsection.get('title', f"Section {section_index + 1}"),
+                        'content': '',
+                        'isComplete': False,
+                        'tokens': subsection.get('estimatedTokens', 200)
+                    })
+                    formatted_outline['totalTokens'] += subsection.get('estimatedTokens', 200)
+                    section_index += 1
+        
+        return jsonify({
+            'outline': formatted_outline,
+            'fileName': file.filename
+        }), 200
+        
     except Exception as e:
-        logger.error(f"Error getting outline: {str(e)}", exc_info=True)
+        logger.error(f"Error generating outline: {str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500
+    finally:
+        session.close()
 
-@bp.route('/stream/<file_id>', methods=['POST', 'OPTIONS'])
+@bp.route('/stream/<file_id>', methods=['GET', 'OPTIONS'])
 @firebase_auth_required
 def stream_personalized_content(file_id):
-    """Stream personalized content generation in real-time"""
+    """Stream personalized content with token budget tracking"""
     if request.method == 'OPTIONS':
         return '', 200
-        
-    try:
-        data = request.get_json() or {}
-        chapter_id = data.get('chapterId')
-        subsection_id = data.get('subsectionId')
-        previous_sections = data.get('previousSections', [])
-        regenerate = data.get('regenerate', False)
-        
-        # Validate access and get file content within request context
-        session = get_db_session()
-        file_repo = FileRepository()
-        user_repo = UserRepository()
-        ai_service = AIService()
-        
-        # Verify file access
-        file = file_repo.get_by_id(file_id)
-        if not file:
-            session.close()
-            return jsonify({'error': 'File not found'}), 404
-        
-        # Get file content from chunks
-        from db.schema import FileChunk
-        chunks = session.query(FileChunk).filter(
-            FileChunk.file_id == file_id
-        ).order_by(FileChunk.chunk_index).limit(10).all()
-        
-        context = ""
-        if chunks:
-            context = "\n\n".join([chunk.content for chunk in chunks if chunk.content])
-        elif file.transcription:
-            context = file.transcription
-        else:
-            context = f"Content for {file.title}"
-        
-        # Get user profile and extract persona information while session is active
-        user = user_repo.get_with_profile(g.current_user.id)
-        persona = "General learner seeking comprehensive understanding"
-        
-        if user and user.student_profile:
-            # Access the student_profile data while session is still active
-            student_profile = user.student_profile
-            onboard_answers = student_profile.onboard_answers if student_profile else None
-            student_name = student_profile.name if student_profile else None
+    
+    def generate() -> Generator[str, None, None]:
+        session = None
+        try:
+            # Initialize services
+            session = get_db_session()
+            file_repo = FileRepository(session)
+            user_repo = UserRepository(session)
+            ai_service = AIService()
+            token_budget_service = TokenBudgetService()
             
-            if onboard_answers:
-                persona_parts = []
-                if student_name:
-                    persona_parts.append(f"Name: {student_name}")
-                if onboard_answers.get('learningStyle'):
-                    persona_parts.append(f"Learning style: {onboard_answers['learningStyle']}")
-                if onboard_answers.get('interests'):
-                    persona_parts.append(f"Interests: {onboard_answers['interests']}")
-                if onboard_answers.get('depth'):
-                    persona_parts.append(f"Expertise level: {onboard_answers['depth']}")
-                if persona_parts:
-                    persona = " | ".join(persona_parts)
-        
-        # Store file title for use in generator
-        file_title = file.title
-        
-        # Close session before starting the generator
-        session.close()
-        
-        def generate():
-            try:
-                # Send initial metadata
-                yield f"data: {json.dumps({'type': 'start', 'chapterId': chapter_id, 'subsectionId': subsection_id})}\n\n"
-                
-                # Build simple personalized prompt
-                topic = f"Section {subsection_id} of {file_title}"
-                
-                # Create personalized content prompt
-                prompt = f"""
-                You are creating section {subsection_id} of a personalized learning experience.
-                
-                SECTION DETAILS:
-                Topic: {topic}
-                Section Number: {subsection_id}
-                
-                STUDENT PROFILE:
-                {persona}
-                
-                DOCUMENT CONTEXT:
-                File: {file_title}
-                Content: {context[:1000]}
-                
-                INSTRUCTIONS:
-                1. Create content SPECIFICALLY for this section
-                2. Use information from the document context
-                3. Write 350-450 tokens (about 3-4 paragraphs)
-                4. Be conversational but informative
-                5. Include specific examples when possible
-                
-                Begin your response directly with the content:
-                """
-                
-                # Stream response from AI service
-                temperature = 1.0 if regenerate else 0.8
-                
-                for chunk in ai_service.stream_personalized_content(
-                    prompt=prompt,
-                    system_message="You are an expert educator creating personalized learning content.",
-                    temperature=temperature
-                ):
-                    if chunk.get('type') == 'token':
-                        # Convert token format to content format expected by frontend
-                        yield f"data: {json.dumps({'type': 'content', 'data': chunk.get('content', '')})}\n\n"
-                    elif chunk.get('type') == 'complete':
-                        yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+            user_id = g.current_user.id
+            
+            # Check token budget
+            can_continue, remaining_tokens = token_budget_service.check_budget(user_id)
+            if not can_continue:
+                yield f"data: {json.dumps({'type': 'token_limit', 'message': 'Token budget exceeded'})}\n\n"
+                return
+            
+            # Get file
+            file = file_repo.get_file_by_id(file_id)
+            if not file:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'File not found'})}\n\n"
+                return
+            
+            # Get user preferences from profile
+            user = user_repo.get_user_by_id(user_id)
+            preferences = user.preferences or {}
+            
+            # Generate outline first
+            outline_data = ai_service.generate_outline(file.content[:5000])
+            
+            # Stream content section by section
+            total_sections = len(outline_data.get('chapters', []))
+            current_section = 0
+            total_tokens_used = 0
+            
+            for chapter in outline_data.get('chapters', []):
+                for subsection in chapter.get('subsections', []):
+                    # Check token budget before each section
+                    can_continue, remaining = token_budget_service.check_budget(user_id)
+                    if not can_continue:
+                        yield f"data: {json.dumps({'type': 'token_limit', 'message': 'Token budget reached'})}\n\n"
                         break
-                    elif chunk.get('type') == 'error':
-                        yield f"data: {json.dumps(chunk)}\n\n"
-                        break
-                
-            except Exception as e:
-                logger.error(f"Error in streaming: {str(e)}", exc_info=True)
-                yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
-        
-        return Response(
-            generate(),
-            mimetype='text/event-stream',
-            headers={
-                'Cache-Control': 'no-cache',
-                'X-Accel-Buffering': 'no',
-                'Connection': 'keep-alive'
-            }
-        )
-        
-    except Exception as e:
-        logger.error(f"Error in stream endpoint: {str(e)}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+                    
+                    # Prepare context
+                    context = {
+                        'section_title': subsection.get('title'),
+                        'chapter_title': chapter.get('title'),
+                        'learning_style': preferences.get('learning_style', 'balanced'),
+                        'depth': preferences.get('depth', 'intermediate'),
+                        'previous_content': file.content[:1000]  # Include some original content
+                    }
+                    
+                    # Stream personalized content for this section
+                    section_content = ""
+                    for chunk in ai_service.stream_personalized_content(
+                        prompt=f"Generate educational content for: {subsection.get('title')}",
+                        system_message="You are an expert educator creating personalized learning content.",
+                        temperature=0.7
+                    ):
+                        if chunk.get('content'):
+                            section_content += chunk['content']
+                            
+                            # Update token usage
+                            tokens_used = len(section_content) // 4  # Rough estimate
+                            token_budget_service.track_usage(user_id, tokens_used - total_tokens_used)
+                            total_tokens_used = tokens_used
+                            
+                            # Send content chunk
+                            yield f"data: {json.dumps({'type': 'content', 'content': chunk['content'], 'section': current_section, 'progress': ((current_section + 0.5) / total_sections) * 100, 'tokens_used': total_tokens_used})}\n\n"
+                    
+                    # Mark section complete
+                    current_section += 1
+                    yield f"data: {json.dumps({'type': 'section_complete', 'section': current_section - 1, 'progress': (current_section / total_sections) * 100})}\n\n"
+                    
+                    # Small delay between sections
+                    time.sleep(0.5)
+            
+            # Send completion event
+            yield f"data: {json.dumps({'type': 'complete', 'message': 'Content generation complete', 'total_tokens': total_tokens_used})}\n\n"
+            
+        except Exception as e:
+            logger.error(f"Streaming error: {str(e)}", exc_info=True)
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+        finally:
+            if session:
+                session.close()
+    
+    return Response(
+        generate(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            'Connection': 'keep-alive'
+        }
+    )
