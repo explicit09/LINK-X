@@ -62,7 +62,8 @@ export default function PersonalizedStreamingPage() {
     resumeStreaming,
     skipSection,
     regenerateSection,
-    retryConnection
+    retryConnection,
+    showAllContent
   } = usePersonalizedStreaming(fileId as string);
 
   const {
@@ -198,6 +199,7 @@ export default function PersonalizedStreamingPage() {
               currentSection={currentSection}
               progress={progress}
               onSectionClick={skipSection}
+              onViewAll={showAllContent}
             />
             
             {/* Session controls */}
