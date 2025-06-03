@@ -9,6 +9,7 @@ interface Section {
   content: string;
   isComplete: boolean;
   tokens: number;
+  generatedContent?: string; // Track generated content per section
 }
 
 interface Outline {
@@ -29,6 +30,7 @@ export function usePersonalizedStreaming(fileId: string) {
   const eventSourceRef = useRef<EventSource | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const accumulatedContentRef = useRef('');
+  const sectionContentRef = useRef<Record<number, string>>({});
   const retryCountRef = useRef(0);
   const maxRetries = 3;
 
@@ -114,6 +116,14 @@ export function usePersonalizedStreaming(fileId: string) {
               
               switch (parsed.type) {
                 case 'content':
+                  // Track content per section
+                  const sectionIndex = parsed.section !== undefined ? parsed.section : currentSection;
+                  if (!sectionContentRef.current[sectionIndex]) {
+                    sectionContentRef.current[sectionIndex] = '';
+                  }
+                  sectionContentRef.current[sectionIndex] += parsed.content;
+                  
+                  // Update accumulated content
                   accumulatedContentRef.current += parsed.content;
                   setContent(accumulatedContentRef.current);
                   
@@ -123,7 +133,6 @@ export function usePersonalizedStreaming(fileId: string) {
                   
                   if (parsed.section !== undefined) {
                     setCurrentSection(parsed.section);
-                    updateOutlineSection(parsed.section, true);
                   }
                   break;
                   
@@ -142,7 +151,7 @@ export function usePersonalizedStreaming(fileId: string) {
                   
                 case 'section_complete':
                   if (parsed.section !== undefined) {
-                    updateOutlineSection(parsed.section, true);
+                    updateOutlineSection(parsed.section, true, sectionContentRef.current[parsed.section] || '');
                   }
                   break;
               }
@@ -190,7 +199,7 @@ export function usePersonalizedStreaming(fileId: string) {
   }, [startStreaming]);
 
   // Update outline section completion
-  const updateOutlineSection = useCallback((sectionIndex: number, isComplete: boolean) => {
+  const updateOutlineSection = useCallback((sectionIndex: number, isComplete: boolean, generatedContent?: string) => {
     setOutline(prev => {
       if (!prev) return null;
       
@@ -198,7 +207,8 @@ export function usePersonalizedStreaming(fileId: string) {
       newOutline.sections = [...prev.sections];
       newOutline.sections[sectionIndex] = {
         ...newOutline.sections[sectionIndex],
-        isComplete
+        isComplete,
+        ...(generatedContent && { generatedContent })
       };
       
       return newOutline;
@@ -245,17 +255,42 @@ export function usePersonalizedStreaming(fileId: string) {
   const skipSection = useCallback(async (targetSection: number) => {
     if (!outline || targetSection >= outline.sections.length) return;
     
-    // Pause current streaming
-    pauseStreaming();
+    const section = outline.sections[targetSection];
+    
+    // If clicking on a completed section, just show its content
+    if (section.isComplete && section.generatedContent) {
+      setCurrentSection(targetSection);
+      setContent(section.generatedContent);
+      toast.info(`Viewing section: ${section.title}`);
+      return;
+    }
+    
+    // If clicking on current or future section, navigate streaming
+    if (streamingState === 'streaming') {
+      // Pause current streaming
+      pauseStreaming();
+    }
     
     // Update state
     setCurrentSection(targetSection);
     
-    // Resume from new section
-    setTimeout(() => {
-      resumeStreaming();
-    }, 500);
-  }, [outline, pauseStreaming, resumeStreaming]);
+    // Build accumulated content up to this section
+    let accumulatedContent = '';
+    for (let i = 0; i <= targetSection; i++) {
+      if (sectionContentRef.current[i]) {
+        accumulatedContent += sectionContentRef.current[i];
+      }
+    }
+    accumulatedContentRef.current = accumulatedContent;
+    setContent(accumulatedContent);
+    
+    // Resume streaming if not complete
+    if (targetSection < outline.sections.length && !section.isComplete) {
+      setTimeout(() => {
+        resumeStreaming();
+      }, 500);
+    }
+  }, [outline, streamingState, pauseStreaming, resumeStreaming]);
 
   const regenerateSection = useCallback(async (sectionIndex: number) => {
     if (!outline || sectionIndex >= outline.sections.length) return;
@@ -295,6 +330,12 @@ export function usePersonalizedStreaming(fileId: string) {
     startStreaming();
   }, [startStreaming]);
 
+  // Show all accumulated content (for "View All" functionality)
+  const showAllContent = useCallback(() => {
+    setContent(accumulatedContentRef.current);
+    setCurrentSection(outline?.sections.findIndex(s => !s.isComplete) ?? outline?.sections.length ?? 0);
+  }, [outline]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -316,6 +357,7 @@ export function usePersonalizedStreaming(fileId: string) {
     resumeStreaming,
     skipSection,
     regenerateSection,
-    retryConnection
+    retryConnection,
+    showAllContent
   };
 }

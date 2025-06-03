@@ -24,13 +24,15 @@ interface OutlineProgressProps {
   currentSection: number;
   progress: number;
   onSectionClick?: (index: number) => void;
+  onViewAll?: () => void;
 }
 
 export function OutlineProgress({ 
   outline, 
   currentSection, 
   progress,
-  onSectionClick 
+  onSectionClick,
+  onViewAll 
 }: OutlineProgressProps) {
   if (!outline) {
     return (
@@ -77,7 +79,8 @@ export function OutlineProgress({
                 className={cn(
                   "w-full justify-start text-left p-3 h-auto",
                   isActive && "bg-primary/10 border-l-2 border-primary",
-                  isComplete && "text-muted-foreground"
+                  isComplete && !isActive && "text-muted-foreground hover:text-foreground",
+                  isComplete && "cursor-pointer"
                 )}
                 onClick={() => onSectionClick?.(index)}
                 disabled={isPending}
@@ -110,8 +113,18 @@ export function OutlineProgress({
         </div>
       </ScrollArea>
 
-      {/* Section navigation hint */}
-      <div className="pt-2 border-t">
+      {/* Section navigation hint and View All button */}
+      <div className="pt-2 border-t space-y-2">
+        {completedSections > 0 && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full"
+            onClick={onViewAll}
+          >
+            View All Content
+          </Button>
+        )}
         <p className="text-xs text-muted-foreground text-center">
           Click any completed section to review
         </p>
