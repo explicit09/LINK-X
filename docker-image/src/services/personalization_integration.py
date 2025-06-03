@@ -334,7 +334,8 @@ class PersonalizationIntegrationService:
                     return match.group(2).strip().title()
         
         # Final fallback with better context
-        if 'financial' in content_lower := cleaned[:500].lower():
+        content_lower = cleaned[:500].lower()
+        if 'financial' in content_lower:
             return "Financial Information"
         elif 'risk' in content_lower:
             return "Risk Considerations"
