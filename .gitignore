@@ -112,3 +112,4 @@ backups/
 *.sqlite
 *.sqlite3
 *.db
+frontend/node_modules.backup/

@@ -48,6 +48,12 @@ export class APIClient {
     return this.authClient.authenticatedDelete<T>(endpoint, config);
   }
 
+  // Get auth token for SSE connections
+  async getAuthToken(): Promise<string | null> {
+    const tokenInfo = await this.authClient.getAuthToken();
+    return tokenInfo ? tokenInfo.token : null;
+  }
+
   // ===== STREAMING METHODS =====
   
   async stream(

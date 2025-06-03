@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Personalization SSE Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .status.connected { background: #d4edda; color: #155724; }
+        .status.disconnected { background: #f8d7da; color: #721c24; }
+        .status.connecting { background: #fff3cd; color: #856404; }
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            flex: 1;
+            min-width: 200px;
+        }
+        button {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .messages {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            background: #f8f9fa;
+        }
+        .message {
+            padding: 8px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            font-size: 14px;
+            word-break: break-word;
+        }
+        .message.outline { background: #e3f2fd; }
+        .message.content { background: #e8f5e9; }
+        .message.error { background: #ffebee; color: #c62828; }
+        .message.info { background: #f3e5f5; }
+        .message-type {
+            font-weight: 600;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .stats {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        .stat {
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #007bff;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Enhanced Personalization SSE Test</h1>
+        
+        <div id="status" class="status disconnected">Disconnected</div>
+        
+        <div class="controls">
+            <input type="text" id="apiUrl" placeholder="API URL" value="http://localhost:8080">
+            <input type="text" id="fileId" placeholder="File ID" value="test-file-id">
+            <input type="text" id="token" placeholder="Auth Token">
+            <button id="connectBtn" onclick="connect()">Connect</button>
+            <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+            <button onclick="testSSE()" style="background: #28a745;">Test SSE</button>
+            <button onclick="clearMessages()">Clear Messages</button>
+        </div>
+        
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-value" id="messageCount">0</div>
+                <div class="stat-label">Messages</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="sectionCount">0</div>
+                <div class="stat-label">Sections</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="errorCount">0</div>
+                <div class="stat-label">Errors</div>
+            </div>
+            <div class="stat">
+                <div class="stat-value" id="duration">0s</div>
+                <div class="stat-label">Duration</div>
+            </div>
+        </div>
+        
+        <h3>Messages</h3>
+        <div id="messages" class="messages"></div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        let startTime = null;
+        let messageCount = 0;
+        let sectionCount = 0;
+        let errorCount = 0;
+        let durationInterval = null;
+
+        function updateStatus(status, message) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = `status ${status}`;
+            statusEl.textContent = message;
+        }
+
+        function addMessage(type, content) {
+            const messagesEl = document.getElementById('messages');
+            const messageEl = document.createElement('div');
+            messageEl.className = `message ${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            messageEl.innerHTML = `
+                <span class="message-type">[${timestamp}] ${type.toUpperCase()}:</span>
+                ${typeof content === 'object' ? JSON.stringify(content, null, 2) : content}
+            `;
+            
+            messagesEl.appendChild(messageEl);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function updateStats() {
+            document.getElementById('messageCount').textContent = messageCount;
+            document.getElementById('sectionCount').textContent = sectionCount;
+            document.getElementById('errorCount').textContent = errorCount;
+        }
+
+        function updateDuration() {
+            if (startTime) {
+                const seconds = Math.floor((Date.now() - startTime) / 1000);
+                document.getElementById('duration').textContent = `${seconds}s`;
+            }
+        }
+
+        function connect() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const fileId = document.getElementById('fileId').value;
+            const token = document.getElementById('token').value;
+
+            if (!apiUrl || !fileId || !token) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            // Reset stats
+            messageCount = 0;
+            sectionCount = 0;
+            errorCount = 0;
+            startTime = Date.now();
+            updateStats();
+
+            // Start duration timer
+            durationInterval = setInterval(updateDuration, 1000);
+
+            const url = `${apiUrl}/api/personalization/v2/stream/${fileId}?token=${encodeURIComponent(token)}`;
+            addMessage('info', `Connecting to: ${url}`);
+            updateStatus('connecting', 'Connecting...');
+
+            eventSource = new EventSource(url);
+
+            eventSource.onopen = () => {
+                updateStatus('connected', 'Connected');
+                addMessage('info', 'Connection established');
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+            };
+
+            eventSource.onmessage = (event) => {
+                messageCount++;
+                updateStats();
+
+                try {
+                    if (event.data === 'heartbeat') {
+                        addMessage('info', 'Heartbeat received');
+                        return;
+                    }
+
+                    const data = JSON.parse(event.data);
+                    
+                    switch (data.type) {
+                        case 'outline':
+                            addMessage('outline', `Received outline with ${data.data?.length || 0} sections`);
+                            break;
+                        case 'section_start':
+                            addMessage('info', `Starting section: ${data.section_id}`);
+                            break;
+                        case 'content':
+                            sectionCount++;
+                            updateStats();
+                            addMessage('content', {
+                                section_id: data.section_id,
+                                content_preview: data.data?.content?.substring(0, 100) + '...'
+                            });
+                            break;
+                        case 'section_complete':
+                            addMessage('info', `Completed section: ${data.section_id}`);
+                            break;
+                        case 'complete':
+                            addMessage('info', 'Streaming complete');
+                            disconnect();
+                            break;
+                        case 'error':
+                            errorCount++;
+                            updateStats();
+                            addMessage('error', data.data || 'Unknown error');
+                            break;
+                        default:
+                            addMessage('info', data);
+                    }
+                } catch (error) {
+                    addMessage('error', `Failed to parse message: ${error.message}`);
+                }
+            };
+
+            eventSource.onerror = (error) => {
+                errorCount++;
+                updateStats();
+                console.error('EventSource error:', error);
+                addMessage('error', `Connection error - ReadyState: ${eventSource.readyState}`);
+                
+                if (eventSource.readyState === EventSource.CLOSED) {
+                    updateStatus('disconnected', 'Connection closed');
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('disconnectBtn').disabled = true;
+                    clearInterval(durationInterval);
+                }
+            };
+        }
+
+        function disconnect() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+                updateStatus('disconnected', 'Disconnected');
+                addMessage('info', 'Connection closed by user');
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+                clearInterval(durationInterval);
+            }
+        }
+
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+        }
+
+        function testSSE() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const testUrl = `${apiUrl}/api/test/test-stream`;
+            
+            addMessage('info', `Testing SSE connection to: ${testUrl}`);
+            updateStatus('connecting', 'Testing SSE...');
+
+            const testSource = new EventSource(testUrl);
+
+            testSource.onopen = () => {
+                updateStatus('connected', 'Test SSE Connected');
+                addMessage('info', 'Test SSE connection established');
+            };
+
+            testSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    addMessage('info', `Test SSE: ${JSON.stringify(data)}`);
+                    
+                    if (data.type === 'complete') {
+                        testSource.close();
+                        updateStatus('disconnected', 'Test complete');
+                    }
+                } catch (error) {
+                    addMessage('error', `Test SSE parse error: ${error.message}`);
+                }
+            };
+
+            testSource.onerror = (error) => {
+                addMessage('error', `Test SSE error - ReadyState: ${testSource.readyState}`);
+                testSource.close();
+                updateStatus('disconnected', 'Test SSE failed');
+            };
+        }
+
+        // Auto-fill token if available in localStorage
+        window.onload = () => {
+            const savedToken = localStorage.getItem('authToken');
+            if (savedToken) {
+                document.getElementById('token').value = savedToken;
+            }
+        };
+    </script>
+</body>
+</html>
