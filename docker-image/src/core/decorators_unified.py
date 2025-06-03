@@ -53,6 +53,11 @@ def auth_required(roles: Optional[List[str]] = None,
         @functools.wraps(f)
         def decorated_function(*args, **kwargs):
             print(f"auth_decorator executing for: {f.__name__}")
+            
+            # Skip authentication for OPTIONS requests
+            if request.method == 'OPTIONS':
+                return f(*args, **kwargs)
+                
             # Determine API version
             version = 'v1'
             if version_aware:
@@ -464,6 +469,10 @@ def firebase_token_required(allow_unregistered: bool = False):
     def decorator(f):
         @functools.wraps(f)
         def decorated_function(*args, **kwargs):
+            # Skip authentication for OPTIONS requests
+            if request.method == 'OPTIONS':
+                return f(*args, **kwargs)
+                
             # Check for Firebase token
             firebase_token = request.headers.get('X-Firebase-Token')
             if not firebase_token:
