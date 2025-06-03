@@ -142,19 +142,18 @@ def get_personalization_outline(file_id):
             'totalTokens': 0
         }
         
-        if outline_data and 'chapters' in outline_data:
+        if outline_data and 'sections' in outline_data:
             section_index = 0
-            for chapter in outline_data['chapters']:
-                for subsection in chapter.get('subsections', []):
-                    formatted_outline['sections'].append({
-                        'id': f"section-{section_index}",
-                        'title': subsection.get('title', f"Section {section_index + 1}"),
-                        'content': '',
-                        'isComplete': False,
-                        'tokens': subsection.get('estimatedTokens', 200)
-                    })
-                    formatted_outline['totalTokens'] += subsection.get('estimatedTokens', 200)
-                    section_index += 1
+            for section in outline_data['sections']:
+                formatted_outline['sections'].append({
+                    'id': f"section-{section_index}",
+                    'title': section.get('title', f"Section {section_index + 1}"),
+                    'content': '',
+                    'isComplete': False,
+                    'tokens': section.get('estimatedTokens', 200)
+                })
+                formatted_outline['totalTokens'] += section.get('estimatedTokens', 200)
+                section_index += 1
         
         return jsonify({
             'outline': formatted_outline,
@@ -174,6 +173,9 @@ def stream_personalized_content(file_id):
     if request.method == 'OPTIONS':
         return '', 200
     
+    # Capture user_id before the generator (while request context is active)
+    user_id = g.current_user.id
+    
     def generate() -> Generator[str, None, None]:
         session = None
         try:
@@ -183,8 +185,6 @@ def stream_personalized_content(file_id):
             user_repo = UserRepository()
             ai_service = AIService()
             token_budget_service = TokenBudgetService()
-            
-            user_id = g.current_user.id
             
             # Check token budget
             can_continue, remaining_tokens = token_budget_service.check_budget(user_id)
@@ -225,51 +225,49 @@ def stream_personalized_content(file_id):
             outline_data = ai_service.generate_outline(content)
             
             # Stream content section by section
-            total_sections = len(outline_data.get('chapters', []))
+            total_sections = len(outline_data.get('sections', []))
             current_section = 0
             total_tokens_used = 0
             
-            for chapter in outline_data.get('chapters', []):
-                for subsection in chapter.get('subsections', []):
-                    # Check token budget before each section
-                    can_continue, remaining = token_budget_service.check_budget(user_id)
-                    if not can_continue:
-                        yield f"data: {json.dumps({'type': 'token_limit', 'message': 'Token budget reached'})}\n\n"
-                        break
-                    
-                    # Prepare context
-                    context = {
-                        'section_title': subsection.get('title'),
-                        'chapter_title': chapter.get('title'),
-                        'learning_style': preferences.get('learning_style', 'balanced'),
-                        'depth': preferences.get('depth', 'intermediate'),
-                        'previous_content': content[:1000]  # Include some original content
-                    }
-                    
-                    # Stream personalized content for this section
-                    section_content = ""
-                    for chunk in ai_service.stream_personalized_content(
-                        prompt=f"Generate educational content for: {subsection.get('title')}",
-                        system_message="You are an expert educator creating personalized learning content.",
-                        temperature=0.7
-                    ):
-                        if chunk.get('content'):
-                            section_content += chunk['content']
-                            
-                            # Update token usage
-                            tokens_used = len(section_content) // 4  # Rough estimate
-                            token_budget_service.track_usage(user_id, tokens_used - total_tokens_used)
-                            total_tokens_used = tokens_used
-                            
-                            # Send content chunk
-                            yield f"data: {json.dumps({'type': 'content', 'content': chunk['content'], 'section': current_section, 'progress': ((current_section + 0.5) / total_sections) * 100, 'tokens_used': total_tokens_used})}\n\n"
-                    
-                    # Mark section complete
-                    current_section += 1
-                    yield f"data: {json.dumps({'type': 'section_complete', 'section': current_section - 1, 'progress': (current_section / total_sections) * 100})}\n\n"
-                    
-                    # Small delay between sections
-                    time.sleep(0.5)
+            for section in outline_data.get('sections', []):
+                # Check token budget before each section
+                can_continue, remaining = token_budget_service.check_budget(user_id)
+                if not can_continue:
+                    yield f"data: {json.dumps({'type': 'token_limit', 'message': 'Token budget reached'})}\n\n"
+                    break
+                
+                # Prepare context
+                context = {
+                    'section_title': section.get('title'),
+                    'learning_style': preferences.get('learning_style', 'balanced'),
+                    'depth': preferences.get('depth', 'intermediate'),
+                    'previous_content': content[:1000]  # Include some original content
+                }
+                
+                # Stream personalized content for this section
+                section_content = ""
+                for chunk in ai_service.stream_personalized_content(
+                    prompt=f"Generate educational content for: {section.get('title')}",
+                    system_message="You are an expert educator creating personalized learning content.",
+                    temperature=0.7
+                ):
+                    if chunk.get('content'):
+                        section_content += chunk['content']
+                        
+                        # Update token usage
+                        tokens_used = len(section_content) // 4  # Rough estimate
+                        token_budget_service.track_usage(user_id, tokens_used - total_tokens_used)
+                        total_tokens_used = tokens_used
+                        
+                        # Send content chunk
+                        yield f"data: {json.dumps({'type': 'content', 'content': chunk['content'], 'section': current_section, 'progress': ((current_section + 0.5) / total_sections) * 100, 'tokens_used': total_tokens_used})}\n\n"
+                
+                # Mark section complete
+                current_section += 1
+                yield f"data: {json.dumps({'type': 'section_complete', 'section': current_section - 1, 'progress': (current_section / total_sections) * 100})}\n\n"
+                
+                # Small delay between sections
+                time.sleep(0.5)
             
             # Send completion event
             yield f"data: {json.dumps({'type': 'complete', 'message': 'Content generation complete', 'total_tokens': total_tokens_used})}\n\n"
