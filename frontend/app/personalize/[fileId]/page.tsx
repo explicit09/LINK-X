@@ -86,20 +86,21 @@ function PersonalizedStreamingPageContent() {
     getEngagementScore,
   } = usePersonalizationAnalytics(fileId as string);
 
-  // Auto-generate outline when page loads
+  // Auto-generate outline and start streaming when page loads
   useEffect(() => {
     if (!isInitialized && currentUser && fileId) {
       setIsInitialized(true);
       generateOutline().then((generatedOutline) => {
         if (generatedOutline && generatedOutline.length > 0) {
-          toast.success('Document outline generated successfully');
+          // Immediately start streaming after outline is generated
+          startStreaming();
         }
       }).catch((err) => {
         toast.error('Failed to generate outline');
         trackError('Failed to generate outline', { error: err.message });
       });
     }
-  }, [currentUser, fileId, isInitialized, generateOutline]);
+  }, [currentUser, fileId, isInitialized, generateOutline, startStreaming]);
 
   // Auto-save when streaming completes
   useEffect(() => {
@@ -222,26 +223,6 @@ function PersonalizedStreamingPageContent() {
           </Card>
         )}
 
-        {/* Start button if not started */}
-        {outline.length === 0 && !isStreaming && !error && (
-          <Card className="p-8 text-center">
-            <div className="max-w-md mx-auto space-y-4">
-              <Zap className="w-16 h-16 mx-auto text-primary" />
-              <h2 className="text-2xl font-semibold">Ready to Personalize</h2>
-              <p className="text-muted-foreground">
-                Click the button below to start generating personalized content based on your learning style
-              </p>
-              <Button 
-                size="lg"
-                onClick={handleStreamingControl}
-                className="gap-2"
-              >
-                <Play className="w-5 h-5" />
-                Start Personalization
-              </Button>
-            </div>
-          </Card>
-        )}
 
         {/* Main Content Area */}
         {(outline.length > 0 || isStreaming) && (
