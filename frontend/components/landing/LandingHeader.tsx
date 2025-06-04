@@ -3,12 +3,15 @@
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Settings } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/firebaseconfig';
 import { dashboardRoutes } from '@/lib/navigation';
+// Import icons separately to avoid bundling issues
+import { Menu } from 'lucide-react';
+import { X } from 'lucide-react';
+import { Settings } from 'lucide-react';
 
 const LandingHeader = () => {
   const [isScrolled, setIsScrolled] = useState(false);

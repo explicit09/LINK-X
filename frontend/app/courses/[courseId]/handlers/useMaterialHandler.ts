@@ -80,7 +80,7 @@ export function useMaterialHandler(courseId: string, currentUser: User | null) {
 
       setTimeout(() => {
         toast.dismiss(loadingToast);
-        router.push(`/learn/streaming/${material.id}?courseId=${courseId}`);
+        router.push(`/personalize/${material.id}?courseId=${courseId}`);
       }, 500);
     } catch (error) {
       toast.dismiss();
