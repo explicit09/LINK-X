@@ -1,9 +1,9 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { X, CheckCircle2, AlertCircle, Brain, Loader2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { X, CheckCircle2, AlertCircle, Brain, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { UploadFile } from '../types';
 import { getFileIcon, getFileColor, formatFileSize } from '../utils';
 
@@ -27,19 +27,26 @@ export function FileList({ uploadFiles, onRemove, onRetry }: FileListProps) {
           <Card key={uploadFile.id} className="canvas-card">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
-                <IconComponent className={cn("h-8 w-8 flex-shrink-0", getFileColor(uploadFile.file))} />
-                
+                <IconComponent
+                  className={cn(
+                    'h-8 w-8 flex-shrink-0',
+                    getFileColor(uploadFile.file),
+                  )}
+                />
+
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <h4 className="font-medium sidebar-text truncate">{uploadFile.file.name}</h4>
+                    <h4 className="font-medium sidebar-text truncate">
+                      {uploadFile.file.name}
+                    </h4>
                     <div className="flex items-center gap-2">
-                      {uploadFile.status === "completed" && (
+                      {uploadFile.status === 'completed' && (
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                       )}
-                      {uploadFile.status === "error" && (
+                      {uploadFile.status === 'error' && (
                         <AlertCircle className="h-4 w-4 text-red-600" />
                       )}
-                      {uploadFile.status === "processing" && (
+                      {uploadFile.status === 'processing' && (
                         <div className="flex items-center gap-1">
                           <Brain className="h-4 w-4 text-blue-600" />
                           <Loader2 className="h-3 w-3 animate-spin text-blue-600" />
@@ -55,30 +62,37 @@ export function FileList({ uploadFiles, onRemove, onRetry }: FileListProps) {
                       </Button>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
                     <span>{formatFileSize(uploadFile.file.size)}</span>
                   </div>
 
-                  {uploadFile.status === "uploading" && (
+                  {uploadFile.status === 'uploading' && (
                     <div className="space-y-1">
                       <Progress value={uploadFile.progress} className="h-2" />
-                      <p className="text-xs text-blue-600">Uploading... {uploadFile.progress}%</p>
+                      <p className="text-xs text-blue-600">
+                        Uploading... {uploadFile.progress}%
+                      </p>
                     </div>
                   )}
 
-                  {uploadFile.status === "processing" && (
+                  {uploadFile.status === 'processing' && (
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 bg-blue-100 rounded-full h-2">
-                          <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                          <div
+                            className="bg-blue-600 h-2 rounded-full animate-pulse"
+                            style={{ width: '60%' }}
+                          ></div>
                         </div>
                       </div>
-                      <p className="text-xs text-blue-600">{uploadFile.processingStage}</p>
+                      <p className="text-xs text-blue-600">
+                        {uploadFile.processingStage}
+                      </p>
                     </div>
                   )}
 
-                  {uploadFile.status === "completed" && (
+                  {uploadFile.status === 'completed' && (
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-xs">
                         <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -87,10 +101,16 @@ export function FileList({ uploadFiles, onRemove, onRetry }: FileListProps) {
                     </div>
                   )}
 
-                  {uploadFile.status === "error" && (
+                  {uploadFile.status === 'error' && (
                     <div className="space-y-2">
-                      <p className="text-xs text-red-600">{uploadFile.error || "Upload failed"}</p>
-                      <Button size="sm" variant="outline" onClick={() => onRetry(uploadFile.id)}>
+                      <p className="text-xs text-red-600">
+                        {uploadFile.error || 'Upload failed'}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onRetry(uploadFile.id)}
+                      >
                         Retry Upload
                       </Button>
                     </div>

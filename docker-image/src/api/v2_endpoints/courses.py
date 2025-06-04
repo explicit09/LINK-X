@@ -54,7 +54,9 @@ def list_courses_v2():
         total = 0
         
         if user.role and user.role.role_type == 'student':
+            logger.info(f"🎓 Getting student courses for user {user.id} ({user.email})")
             courses = get_course_service().get_student_courses(user.id, page, per_page)
+            logger.info(f"📚 Student courses found: {len(courses)}")
             total = len(courses)  # For now, use actual count
         elif user.role and user.role.role_type == 'instructor':
             courses = get_course_service().get_instructor_courses(user.id, page, per_page)
@@ -97,7 +99,7 @@ def list_courses_v2():
                 'category': course_data.get('category', ''),
                 'tags': course_data.get('tags', []) or [],
                 'instructor': {
-                    'id': str(course_data.get('instructor_id', '')),
+                    'id': str(course_data.get('creator_id', '')),
                     'name': 'Instructor'  # Simplified for now
                 },
                 'stats': {
@@ -109,13 +111,14 @@ def list_courses_v2():
                 'updated_at': course_data.get('last_updated') or course_data.get('updated_at')
             })
         
-        return paginated_response(
-            items=formatted_courses,
-            page=page,
-            per_page=per_page,
-            total=total,
-            endpoint='api_v2_courses.list_courses_v2'
-        )
+        # Return courses in the exact format expected by frontend auto-unwrapping
+        logger.info(f"📤 Returning {len(formatted_courses)} formatted courses to frontend")
+        response_data = {
+            'data': formatted_courses,
+            'status': 'success',
+            'message': f"Found {len(formatted_courses)} courses"
+        }
+        return jsonify(response_data), 200
         
     except Exception as e:
         logger.error(f"List courses error: {str(e)}")
@@ -547,3 +550,235 @@ def get_course_progress_v2(course_id):
     except Exception as e:
         logger.error(f"Get course progress error: {str(e)}")
         return error_response("An error occurred fetching course progress", status_code=500)
+
+
+@courses_bp.route('/join', methods=['POST'])
+@firebase_auth_required
+def join_course_by_access_code_v2():
+    """Join a course using an access code"""
+    try:
+        user = g.current_user
+        data = request.get_json()
+        
+        if not data or 'access_code' not in data:
+            return error_response("Access code is required")
+        
+        access_code = data['access_code'].strip().upper()
+        
+        if not access_code:
+            return error_response("Access code cannot be empty")
+        
+        # Join course using access code
+        try:
+            course = get_course_service().join_course_by_access_code(user.id, access_code)
+        except NotFoundError:
+            return error_response("Invalid access code. Please check and try again.", status_code=404)
+        except ValidationError as e:
+            if "already enrolled" in str(e).lower():
+                return error_response("You are already enrolled in this course.", status_code=409)
+            return error_response(str(e), status_code=400)
+        except Exception as join_error:
+            logger.error(f"Course join failed: {str(join_error)}")
+            return error_response("Failed to join course. Please try again.", status_code=500)
+        
+        # Format response
+        formatted_course = {
+            'id': str(course.id),
+            'title': course.title,
+            'description': course.description,
+            'code': getattr(course, 'code', ''),
+            'term': getattr(course, 'term', ''),
+            'category': getattr(course, 'category', ''),
+            'tags': getattr(course, 'tags', []) or [],
+            'instructor': {
+                'id': str(course.instructor_id) if course.instructor_id else '',
+                'name': course.instructor_profile.name if hasattr(course, 'instructor_profile') and course.instructor_profile else 'Instructor'
+            },
+            'published': course.published,
+            'created_at': course.created_at.isoformat() if hasattr(course, 'created_at') else None,
+            'updated_at': course.last_updated.isoformat() if hasattr(course, 'last_updated') else None,
+            'enrolled_at': datetime.utcnow().isoformat()
+        }
+        
+        return success_response(
+            formatted_course,
+            message="Successfully joined the course",
+            status_code=201
+        )
+        
+    except Exception as e:
+        logger.error(f"Join course error: {str(e)}")
+        return error_response("An error occurred while joining the course", status_code=500)
+
+
+@courses_bp.route('/<course_id>/resume', methods=['GET'])
+@firebase_auth_required
+def get_resume_target_v2(course_id):
+    """Get the specific material/location where user should resume studying"""
+    try:
+        user = g.current_user
+        
+        # Check course access
+        try:
+            if not get_course_service().check_course_access(course_id, user.id):
+                return error_response("Access denied", status_code=403)
+        except Exception as access_error:
+            logger.warning(f"Course access check failed, using fallback: {str(access_error)}")
+            course_repo = CourseRepository()
+            course = course_repo.get_by_id(course_id)
+            if not course:
+                return error_response("Course not found", status_code=404)
+        
+        # Get all modules with their files for this course
+        try:
+            modules = get_course_service().get_course_modules(course_id, user.id)
+        except Exception as modules_error:
+            logger.warning(f"Failed to get modules from service, using fallback: {str(modules_error)}")
+            course_repo = CourseRepository()
+            modules_raw = course_repo.get_modules(course_id)
+            modules = [{'id': str(m.id), 'title': m.title, 'description': m.description or '', 'ordering': getattr(m, 'ordering', 0)} for m in modules_raw]
+        
+        file_repo = FileRepository()
+        resume_target = None
+        
+        # Find the best resume target based on user progress
+        for module in sorted(modules, key=lambda x: x.get('ordering', 0)):
+            module_id = module['id']
+            
+            try:
+                module_files = file_repo.get_by_module(module_id)
+            except Exception:
+                continue
+            
+            if not module_files:
+                continue
+            
+            # Look for files with engagement but incomplete mastery
+            for file in module_files:
+                view_count = getattr(file, 'view_count_raw', 0) or 0
+                chat_count = getattr(file, 'chat_count', 0) or 0
+                
+                # Calculate engagement score (0-100)
+                engagement_score = min((view_count * 10) + (chat_count * 20), 100)
+                
+                # If file has some engagement but isn't fully mastered, this is our target
+                if 5 <= engagement_score < 80:
+                    resume_target = {
+                        'type': 'file',
+                        'module_id': module_id,
+                        'module_title': module['title'],
+                        'file_id': str(file.id),
+                        'file_title': file.title,
+                        'file_type': file.file_type,
+                        'progress_percent': engagement_score,
+                        'reason': 'partially_completed',
+                        'estimated_time_remaining': calculate_time_remaining(file, engagement_score),
+                        'last_accessed': getattr(file, 'last_accessed', None)
+                    }
+                    break
+            
+            if resume_target:
+                break
+        
+        # If no partially completed file found, find the next logical starting point
+        if not resume_target:
+            for module in sorted(modules, key=lambda x: x.get('ordering', 0)):
+                module_id = module['id']
+                
+                try:
+                    module_files = file_repo.get_by_module(module_id)
+                except Exception:
+                    continue
+                
+                if not module_files:
+                    continue
+                
+                # Find the first file with no or minimal engagement
+                for file in module_files:
+                    view_count = getattr(file, 'view_count_raw', 0) or 0
+                    chat_count = getattr(file, 'chat_count', 0) or 0
+                    
+                    if view_count == 0 and chat_count == 0:
+                        resume_target = {
+                            'type': 'file',
+                            'module_id': module_id,
+                            'module_title': module['title'],
+                            'file_id': str(file.id),
+                            'file_title': file.title,
+                            'file_type': file.file_type,
+                            'progress_percent': 0,
+                            'reason': 'not_started',
+                            'estimated_time_remaining': calculate_time_remaining(file, 0),
+                            'last_accessed': None
+                        }
+                        break
+                
+                if resume_target:
+                    break
+        
+        # If still no target found, default to first module
+        if not resume_target and modules:
+            first_module = sorted(modules, key=lambda x: x.get('ordering', 0))[0]
+            resume_target = {
+                'type': 'module',
+                'module_id': first_module['id'],
+                'module_title': first_module['title'],
+                'file_id': None,
+                'file_title': None,
+                'file_type': None,
+                'progress_percent': 0,
+                'reason': 'start_course',
+                'estimated_time_remaining': '30-45 minutes',
+                'last_accessed': None
+            }
+        
+        if not resume_target:
+            return error_response("No resume target found", status_code=404)
+        
+        return success_response(resume_target, message="Resume target found")
+        
+    except Exception as e:
+        logger.error(f"Get resume target error: {str(e)}")
+        return error_response("An error occurred finding resume target", status_code=500)
+
+
+def calculate_time_remaining(file, progress_percent):
+    """Calculate estimated time remaining for a file based on type and progress"""
+    base_times = {
+        'pdf': 20,      # 20 minutes for average PDF
+        'mp4': 30,      # 30 minutes for average video
+        'mp3': 25,      # 25 minutes for average audio
+        'txt': 10,      # 10 minutes for text
+        'docx': 15,     # 15 minutes for document
+        'pptx': 25      # 25 minutes for presentation
+    }
+    
+    file_type = getattr(file, 'file_type', 'pdf').lower()
+    base_time = base_times.get(file_type, 20)
+    
+    # Adjust based on file size if available
+    file_size = getattr(file, 'file_size', 0)
+    if file_size:
+        # Rough estimation: larger files take longer
+        if file_size > 5 * 1024 * 1024:  # > 5MB
+            base_time = int(base_time * 1.5)
+        elif file_size > 20 * 1024 * 1024:  # > 20MB  
+            base_time = int(base_time * 2)
+    
+    # Calculate remaining time based on progress
+    remaining_percent = max(0, 100 - progress_percent) / 100
+    remaining_time = int(base_time * remaining_percent)
+    
+    if remaining_time <= 5:
+        return "5 minutes"
+    elif remaining_time <= 15:
+        return f"{remaining_time} minutes"
+    elif remaining_time <= 60:
+        return f"{remaining_time}-{remaining_time + 10} minutes"
+    else:
+        hours = remaining_time // 60
+        minutes = remaining_time % 60
+        if minutes == 0:
+            return f"{hours} hour{'s' if hours > 1 else ''}"
+        else:
+            return f"{hours}h {minutes}m"

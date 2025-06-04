@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { X, Plus } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { X, Plus } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface TagInputProps {
   tags: string[];
@@ -20,18 +20,21 @@ export function TagInput({
   suggestions,
   onAddTag,
   onRemoveTag,
-  placeholder = "Type and press Enter",
+  placeholder = 'Type and press Enter',
   maxTags = 10,
-  className
+  className,
 }: TagInputProps) {
   const [inputValue, setInputValue] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const filteredSuggestions = suggestions.filter(suggestion =>
-    suggestion.toLowerCase().includes(inputValue.toLowerCase()) &&
-    !tags.includes(suggestion)
-  ).slice(0, 5);
+  const filteredSuggestions = suggestions
+    .filter(
+      (suggestion) =>
+        suggestion.toLowerCase().includes(inputValue.toLowerCase()) &&
+        !tags.includes(suggestion),
+    )
+    .slice(0, 5);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && inputValue.trim()) {
@@ -66,7 +69,10 @@ export function TagInput({
   // Close suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (inputRef.current && !inputRef.current.contains(event.target as Node)) {
+      if (
+        inputRef.current &&
+        !inputRef.current.contains(event.target as Node)
+      ) {
         setShowSuggestions(false);
       }
     };
@@ -76,7 +82,7 @@ export function TagInput({
   }, []);
 
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn('space-y-3', className)}>
       {/* Tags Display */}
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -106,7 +112,11 @@ export function TagInput({
             onKeyDown={handleKeyDown}
             onFocus={handleInputFocus}
             onBlur={handleInputBlur}
-            placeholder={tags.length >= maxTags ? `Maximum ${maxTags} tags reached` : placeholder}
+            placeholder={
+              tags.length >= maxTags
+                ? `Maximum ${maxTags} tags reached`
+                : placeholder
+            }
             disabled={tags.length >= maxTags}
             className="flex-1"
           />

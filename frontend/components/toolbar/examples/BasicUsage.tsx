@@ -13,7 +13,7 @@ export const BasicToolbarExample = () => {
 
   const append = async (message: Message) => {
     console.log('Appending message:', message);
-    setMessages(prev => [...prev, message]);
+    setMessages((prev) => [...prev, message]);
     return message.id;
   };
 
@@ -30,7 +30,7 @@ export const BasicToolbarExample = () => {
       >
         Toggle Loading
       </button>
-      
+
       <Toolbar
         isToolbarVisible={isToolbarVisible}
         setIsToolbarVisible={setIsToolbarVisible}

@@ -10,13 +10,13 @@ export const streamingAPI = {
     fileId: string,
     options: { style?: string } = {},
     onMessage: (message: unknown) => void,
-    onError: (error: Error) => void
+    onError: (error: Error) => void,
   ) => {
     return apiClient.stream(
       `/api/v2/files/${fileId}/stream-content`,
       options,
       onMessage,
-      onError
+      onError,
     );
   },
 };

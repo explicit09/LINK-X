@@ -1,18 +1,22 @@
-import type { Metadata } from "next";
-import ClientLayout from "./client-layout";
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import ClientLayout from './client-layout';
+import './globals.css';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://chat.vercel.ai"),
-  title: "Learn-X",
-  description: "Learn-X: The Personalized Learning Platform",
+  metadataBase: new URL('https://chat.vercel.ai'),
+  title: 'Learn-X',
+  description: 'Learn-X: The Personalized Learning Platform',
 };
 
 export const viewport = {
   maximumScale: 1, // Disable auto-zoom on mobile Safari
 };
 
-const LIGHT_THEME_COLOR = "hsl(0 0% 100%)";
-const DARK_THEME_COLOR = "hsl(240deg 10% 3.92%)";
+const LIGHT_THEME_COLOR = 'hsl(0 0% 100%)';
+const DARK_THEME_COLOR = 'hsl(240deg 10% 3.92%)';
 const THEME_COLOR_SCRIPT = `\
 (function() {
   var html = document.documentElement;
@@ -36,5 +40,18 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <ClientLayout>{children}</ClientLayout>;
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: THEME_COLOR_SCRIPT,
+          }}
+        />
+      </head>
+      <body className={inter.className}>
+        <ClientLayout>{children}</ClientLayout>
+      </body>
+    </html>
+  );
 }

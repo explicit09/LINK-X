@@ -6,7 +6,7 @@ export const validateEmail = (email: string): boolean => {
 export const validatePassword = (password: string): string | null => {
   if (!password) return null; // Empty password is okay (keeping current)
   if (password.length < 6) {
-    return "Password must be at least 6 characters long.";
+    return 'Password must be at least 6 characters long.';
   }
   return null;
 };

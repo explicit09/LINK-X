@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
-import { ChevronRight, FileText } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { ChevronRight, FileText } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface DocumentOutline {
   heading_id: string;
@@ -27,14 +27,20 @@ interface ChunkedDocumentViewerProps {
   onClose?: () => void;
 }
 
-export function ChunkedDocumentViewer({ documentId, title, onClose }: ChunkedDocumentViewerProps) {
+export function ChunkedDocumentViewer({
+  documentId,
+  title,
+  onClose,
+}: ChunkedDocumentViewerProps) {
   const [outline, setOutline] = useState<DocumentOutline[]>([]);
-  const [loadedChunks, setLoadedChunks] = useState<Map<string, string>>(new Map());
+  const [loadedChunks, setLoadedChunks] = useState<Map<string, string>>(
+    new Map(),
+  );
   const [loadingChunks, setLoadingChunks] = useState<Set<string>>(new Set());
   const [visibleChunkIds, setVisibleChunkIds] = useState<string[]>([]);
-  const [activeHeading, setActiveHeading] = useState<string>("");
+  const [activeHeading, setActiveHeading] = useState<string>('');
   const [isLoadingOutline, setIsLoadingOutline] = useState(true);
-  
+
   const observerRef = useRef<IntersectionObserver | null>(null);
   const chunkRefs = useRef<Map<string, HTMLElement>>(new Map());
 
@@ -47,13 +53,13 @@ export function ChunkedDocumentViewer({ documentId, title, onClose }: ChunkedDoc
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/documents/${documentId}/outline`,
-        { credentials: 'include' }
+        { credentials: 'include' },
       );
-      
+
       if (response.ok) {
         const data = await response.json();
         setOutline(data);
-        
+
         // Load first chunk immediately
         if (data.length > 0) {
           loadChunk(0);
@@ -69,17 +75,17 @@ export function ChunkedDocumentViewer({ documentId, title, onClose }: ChunkedDoc
 
   const loadChunk = async (chunkIndex: number) => {
     const chunkId = `chunk-${chunkIndex}`;
-    
+
     if (loadedChunks.has(chunkId) || loadingChunks.has(chunkId)) {
       return;
     }
 
-    setLoadingChunks(prev => new Set(prev).add(chunkId));
+    setLoadingChunks((prev) => new Set(prev).add(chunkId));
 
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/chunks?doc_id=${documentId}&from=${chunkIndex}&limit=1`,
-        { credentials: 'include' }
+        { credentials: 'include' },
       );
 
       if (!response.ok) throw new Error('Failed to fetch chunk');
@@ -94,17 +100,19 @@ export function ChunkedDocumentViewer({ documentId, title, onClose }: ChunkedDoc
           if (done) break;
 
           const text = decoder.decode(value);
-          const lines = text.split('\n').filter(line => line.trim());
-          
+          const lines = text.split('\n').filter((line) => line.trim());
+
           for (const line of lines) {
             try {
               const data: ChunkData = JSON.parse(line);
-              
+
               if (data.tokens) {
                 chunkContent += data.tokens.join(' ') + ' ';
-                
+
                 // Update loaded chunks in real-time for streaming effect
-                setLoadedChunks(prev => new Map(prev).set(chunkId, chunkContent));
+                setLoadedChunks((prev) =>
+                  new Map(prev).set(chunkId, chunkContent),
+                );
               }
             } catch (e) {
               console.error('Error parsing chunk data:', e);
@@ -120,11 +128,10 @@ export function ChunkedDocumentViewer({ documentId, title, onClose }: ChunkedDoc
       if (chunkIndex < outline.length - 2) {
         setTimeout(() => loadChunk(chunkIndex + 2), 200);
       }
-
     } catch (error) {
       console.error('Failed to load chunk:', error);
     } finally {
-      setLoadingChunks(prev => {
+      setLoadingChunks((prev) => {
         const next = new Set(prev);
         next.delete(chunkId);
         return next;
@@ -136,11 +143,13 @@ export function ChunkedDocumentViewer({ documentId, title, onClose }: ChunkedDoc
   useEffect(() => {
     observerRef.current = new IntersectionObserver(
       (entries) => {
-        entries.forEach(entry => {
+        entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            const chunkIndex = parseInt(entry.target.getAttribute('data-chunk-index') || '0');
+            const chunkIndex = parseInt(
+              entry.target.getAttribute('data-chunk-index') || '0',
+            );
             loadChunk(chunkIndex);
-            
+
             // Update active heading
             const headingId = entry.target.getAttribute('data-heading-id');
             if (headingId) {
@@ -149,7 +158,7 @@ export function ChunkedDocumentViewer({ documentId, title, onClose }: ChunkedDoc
           }
         });
       },
-      { rootMargin: '100px' }
+      { rootMargin: '100px' },
     );
 
     return () => {
@@ -158,12 +167,15 @@ export function ChunkedDocumentViewer({ documentId, title, onClose }: ChunkedDoc
   }, [outline]);
 
   // Register chunk elements for observation
-  const setChunkRef = useCallback((index: number, element: HTMLElement | null) => {
-    if (element && observerRef.current) {
-      observerRef.current.observe(element);
-      chunkRefs.current.set(`chunk-${index}`, element);
-    }
-  }, []);
+  const setChunkRef = useCallback(
+    (index: number, element: HTMLElement | null) => {
+      if (element && observerRef.current) {
+        observerRef.current.observe(element);
+        chunkRefs.current.set(`chunk-${index}`, element);
+      }
+    },
+    [],
+  );
 
   const scrollToHeading = (headingId: string, index: number) => {
     const element = chunkRefs.current.get(`chunk-${index}`);
@@ -183,7 +195,7 @@ export function ChunkedDocumentViewer({ documentId, title, onClose }: ChunkedDoc
             {title}
           </h3>
         </div>
-        
+
         <ScrollArea className="h-[calc(100%-4rem)]">
           <div className="p-4 space-y-1">
             {isLoadingOutline ? (
@@ -200,14 +212,17 @@ export function ChunkedDocumentViewer({ documentId, title, onClose }: ChunkedDoc
                   size="sm"
                   onClick={() => scrollToHeading(item.heading_id, index)}
                   className={cn(
-                    "w-full justify-start text-left font-normal",
-                    activeHeading === item.heading_id && "bg-blue-50 text-blue-700"
+                    'w-full justify-start text-left font-normal',
+                    activeHeading === item.heading_id &&
+                      'bg-blue-50 text-blue-700',
                   )}
                 >
-                  <ChevronRight className={cn(
-                    "h-3 w-3 mr-2 transition-transform",
-                    activeHeading === item.heading_id && "rotate-90"
-                  )} />
+                  <ChevronRight
+                    className={cn(
+                      'h-3 w-3 mr-2 transition-transform',
+                      activeHeading === item.heading_id && 'rotate-90',
+                    )}
+                  />
                   <span className="truncate">{item.title}</span>
                   <span className="ml-auto text-xs text-gray-500">
                     ~{Math.round(item.est_tokens / 200)}min
@@ -239,7 +254,7 @@ export function ChunkedDocumentViewer({ documentId, title, onClose }: ChunkedDoc
                   <h2 className="text-2xl font-bold text-gray-900 mb-4">
                     {heading.title}
                   </h2>
-                  
+
                   {content ? (
                     <div className="prose prose-gray max-w-none">
                       <p className="whitespace-pre-wrap">{content}</p>
@@ -257,11 +272,15 @@ export function ChunkedDocumentViewer({ documentId, title, onClose }: ChunkedDoc
                       Scroll to load content...
                     </div>
                   )}
-                  
+
                   {isLoading && content && (
                     <div className="mt-4">
-                      <Progress 
-                        value={(content.split(' ').length / (heading.est_tokens * 0.75)) * 100} 
+                      <Progress
+                        value={
+                          (content.split(' ').length /
+                            (heading.est_tokens * 0.75)) *
+                          100
+                        }
                         className="h-1"
                       />
                     </div>
@@ -277,7 +296,8 @@ export function ChunkedDocumentViewer({ documentId, title, onClose }: ChunkedDoc
           <div className="border-t border-gray-200 px-4 py-2 bg-gray-50">
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse" />
-              Loading {loadingChunks.size} section{loadingChunks.size > 1 ? 's' : ''}...
+              Loading {loadingChunks.size} section
+              {loadingChunks.size > 1 ? 's' : ''}...
             </div>
           </div>
         )}

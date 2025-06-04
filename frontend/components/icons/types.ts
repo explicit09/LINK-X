@@ -10,7 +10,7 @@ export interface IconProps {
   /** Inline styles */
   style?: React.CSSProperties;
   /** Accessibility label */
-  "aria-label"?: string;
+  'aria-label'?: string;
   /** Additional props for the SVG element */
   [key: string]: any;
 }
@@ -27,14 +27,14 @@ export const getSvgProps = (
   size: number = defaultIconProps.size,
   className?: string,
   style?: React.CSSProperties,
-  additionalProps?: Record<string, any>
+  additionalProps?: Record<string, any>,
 ) => ({
   height: size,
   width: size,
   className,
   style: { ...defaultIconProps.style, ...style },
-  strokeLinejoin: "round" as const,
-  viewBox: "0 0 16 16",
-  role: "img",
+  strokeLinejoin: 'round' as const,
+  viewBox: '0 0 16 16',
+  role: 'img',
   ...additionalProps,
 });

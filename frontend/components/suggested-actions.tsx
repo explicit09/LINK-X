@@ -33,7 +33,8 @@ function PureSuggestedActions({ chatId, append }: SuggestedActionsProps) {
     {
       title: 'What type of weather is most',
       label: 'correlated with coral bleaching events?',
-      action: 'What type of weather is most correlated with coral bleaching events?',
+      action:
+        'What type of weather is most correlated with coral bleaching events?',
     },
   ];
 

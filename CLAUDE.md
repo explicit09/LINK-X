@@ -265,3 +265,6 @@ docker-compose exec redis redis-cli
 - [Frontend Testing Guide](docs/frontend/TESTING_GUIDE.md)
 - [S3 Implementation Guide](docs/guides/S3_IMPLEMENTATION_GUIDE.md)
 - [Security Checklist](docs/security/SECURITY_CHECKLIST.md)
+
+## Memories
+- lets try to make sure we don't have more than 500 lines of code in a file

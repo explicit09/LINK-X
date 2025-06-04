@@ -65,7 +65,7 @@ export interface Course {
   published_at?: string;
   created_at: string;
   updated_at: string;
-  
+
   // Relations
   instructor?: InstructorProfile;
   modules?: Module[];
@@ -81,7 +81,7 @@ export interface Module {
   ordering: number;
   created_at: string;
   updated_at: string;
-  
+
   // Relations
   files?: FileInfo[];
 }
@@ -122,7 +122,7 @@ export interface Enrollment {
   enrolled_at: string;
   completed_at?: string;
   progress?: number;
-  
+
   // Relations
   user?: User;
   course?: Course;
@@ -247,7 +247,7 @@ export interface Activity {
   created_at: string;
 }
 
-export type ActivityType = 
+export type ActivityType =
   | 'course_enrolled'
   | 'course_completed'
   | 'module_started'

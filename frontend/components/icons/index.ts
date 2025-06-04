@@ -1,9 +1,9 @@
 /**
  * Icon components - auto-generated index
- * 
+ *
  * Import icons individually for better tree-shaking:
  * import { UserIcon } from '@/components/icons/user-icon';
- * 
+ *
  * Or use the index for convenience:
  * import { UserIcon, BotIcon } from '@/components/icons';
  */

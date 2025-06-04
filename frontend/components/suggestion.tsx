@@ -63,7 +63,9 @@ export const Suggestion = ({
               <CrossIcon size={12} />
             </button>
           </div>
-          <div className="text-sm text-muted-foreground">{suggestion.suggestedText}</div>
+          <div className="text-sm text-muted-foreground">
+            {suggestion.suggestedText}
+          </div>
           <Button
             variant="outline"
             className="w-fit py-1.5 px-3 rounded-full"

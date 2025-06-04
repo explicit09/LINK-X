@@ -18,7 +18,7 @@ export function DropZone({
   onDragOver,
   onDragLeave,
   onFileSelect,
-  className
+  className,
 }: DropZoneProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -29,11 +29,11 @@ export function DropZone({
   return (
     <div
       className={cn(
-        "border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer",
+        'border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer',
         isDragOver
-          ? "border-blue-500 bg-blue-50 text-blue-700"
-          : "border-gray-300 hover:border-gray-400",
-        className
+          ? 'border-blue-500 bg-blue-50 text-blue-700'
+          : 'border-gray-300 hover:border-gray-400',
+        className,
       )}
       onDrop={onDrop}
       onDragOver={onDragOver}
@@ -48,9 +48,10 @@ export function DropZone({
         Drag and drop files here, or click to browse
       </p>
       <p className="text-xs text-gray-500">
-        Supports PDF, Audio (MP3, WAV), Video (MP4, MOV), and Presentations (PPT, PPTX)
+        Supports PDF, Audio (MP3, WAV), Video (MP4, MOV), and Presentations
+        (PPT, PPTX)
       </p>
-      
+
       <input
         ref={fileInputRef}
         type="file"

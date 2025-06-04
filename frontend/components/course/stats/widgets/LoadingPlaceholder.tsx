@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { BookOpen } from "lucide-react";
+import { BookOpen } from 'lucide-react';
 
 export function LoadingPlaceholder() {
   return (

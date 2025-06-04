@@ -19,7 +19,14 @@ export interface OutlineSubsection {
 }
 
 export interface StreamingMessage {
-  type: 'content' | 'section' | 'example' | 'quiz' | 'status' | 'error' | 'complete';
+  type:
+    | 'content'
+    | 'section'
+    | 'example'
+    | 'quiz'
+    | 'status'
+    | 'error'
+    | 'complete';
   data?: unknown;
   message?: string;
 }
@@ -41,24 +48,26 @@ class StreamingAPI {
 
   // Document outline
   async getDocumentOutline(fileId: string): Promise<DocumentOutline> {
-    return apiClient.get<DocumentOutline>(`/api/v2/streaming/outline/${fileId}`);
+    return apiClient.get<DocumentOutline>(
+      `/api/v2/streaming/outline/${fileId}`,
+    );
   }
 
   // Streaming endpoints
   streamLearningContent(
-    fileId: string, 
+    fileId: string,
     options: { style?: string },
     onMessage: (message: StreamingMessage) => void,
-    onError?: (error: Error) => void
+    onError?: (error: Error) => void,
   ): () => void {
     const params = new URLSearchParams();
     if (options.style) params.append('style', options.style);
-    
+
     const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
     const url = `${baseURL}/api/v2/streaming/learn/${fileId}?${params}`;
-    
+
     const eventSource = new EventSource(url, { withCredentials: true });
-    
+
     eventSource.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data) as StreamingMessage;
@@ -67,16 +76,16 @@ class StreamingAPI {
         console.error('Failed to parse streaming message:', error);
       }
     };
-    
+
     eventSource.onerror = (error) => {
       console.error('Streaming error:', error);
       if (onError) onError(new Error('Streaming connection failed'));
       eventSource.close();
       this.eventSources.delete(fileId);
     };
-    
+
     this.eventSources.set(fileId, eventSource);
-    
+
     // Return cleanup function
     return () => {
       eventSource.close();
@@ -88,42 +97,45 @@ class StreamingAPI {
     fileId: string,
     sectionId: string,
     includeExamples: boolean = true,
-    onMessage: (message: StreamingMessage) => void
+    onMessage: (message: StreamingMessage) => void,
   ): () => void {
     const response = apiClient.post('/api/v2/streaming/section', {
       fileId,
       sectionId,
-      includeExamples
+      includeExamples,
     });
-    
+
     // This would be converted to SSE in production
     // For now, simulate streaming
-    response.then(data => {
-      onMessage({ type: 'content', data });
-      onMessage({ type: 'complete' });
-    }).catch(error => {
-      onMessage({ type: 'error', message: error.message });
-    });
-    
+    response
+      .then((data) => {
+        onMessage({ type: 'content', data });
+        onMessage({ type: 'complete' });
+      })
+      .catch((error) => {
+        onMessage({ type: 'error', message: error.message });
+      });
+
     return () => {}; // Cleanup function
   }
 
   streamChatResponse(
     message: string,
     context: Record<string, unknown>,
-    onMessage: (message: StreamingMessage) => void
+    onMessage: (message: StreamingMessage) => void,
   ): () => void {
     const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
     const eventSource = new EventSource(`${baseURL}/api/v2/streaming/chat`, {
-      withCredentials: true
+      withCredentials: true,
     });
-    
+
     // Send message via POST then listen to stream
-    apiClient.post('/api/v2/streaming/chat', { message, context })
-      .catch(error => {
+    apiClient
+      .post('/api/v2/streaming/chat', { message, context })
+      .catch((error) => {
         onMessage({ type: 'error', message: error.message });
       });
-    
+
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -132,25 +144,27 @@ class StreamingAPI {
         console.error('Failed to parse chat message:', error);
       }
     };
-    
+
     return () => eventSource.close();
   }
 
   async streamQuizQuestions(
     fileId: string,
-    options: { difficulty?: string; count?: number } = {}
+    options: { difficulty?: string; count?: number } = {},
   ): Promise<QuizQuestion[]> {
     const params = new URLSearchParams();
     if (options.difficulty) params.append('difficulty', options.difficulty);
     if (options.count) params.append('count', options.count.toString());
-    
+
     // This would be SSE in production
-    return apiClient.get<QuizQuestion[]>(`/api/v2/streaming/quiz/${fileId}`, { params });
+    return apiClient.get<QuizQuestion[]>(`/api/v2/streaming/quiz/${fileId}`, {
+      params,
+    });
   }
 
   async streamSummary(
     fileId: string,
-    type: 'brief' | 'detailed' | 'key-points' = 'brief'
+    type: 'brief' | 'detailed' | 'key-points' = 'brief',
   ): Promise<{
     summary: string;
     keyPoints?: string[];
@@ -163,18 +177,18 @@ class StreamingAPI {
   async updateProgress(
     fileId: string,
     sectionId: string,
-    progress: number
+    progress: number,
   ): Promise<LearningProgress> {
     return apiClient.post<LearningProgress>('/api/v2/streaming/progress', {
       fileId,
       sectionId,
-      progress
+      progress,
     });
   }
 
   // Cleanup all event sources
   cleanup(): void {
-    this.eventSources.forEach(source => source.close());
+    this.eventSources.forEach((source) => source.close());
     this.eventSources.clear();
   }
 }

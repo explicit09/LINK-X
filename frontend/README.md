@@ -236,6 +236,21 @@ NEXT_PUBLIC_ENABLE_STREAMING=true
 NEXT_PUBLIC_GA_MEASUREMENT_ID=your-ga-id
 ```
 
+### Authentication Headers
+
+The API client automatically detects the type of authentication token and uses the appropriate header:
+
+- **Backend JWT Token**: When authenticated with the backend (via `authService.isAuthenticated()`), the client uses the standard `Authorization: Bearer <token>` header
+- **Firebase ID Token**: When only Firebase authentication is available (user logged in but not yet registered with backend), the client uses the `X-Firebase-Token: <token>` header
+
+This allows the backend to distinguish between fully authenticated users and Firebase-only authenticated users who may need to complete registration.
+
+**Header Selection Logic:**
+1. First checks if user is authenticated with backend (`authService.isAuthenticated()`)
+2. If backend token exists and matches stored tokens, uses `Authorization` header
+3. Falls back to Firebase ID token with `X-Firebase-Token` header if no backend session
+4. Applies same logic for both regular requests and streaming endpoints
+
 ## 📱 Pages & Routes
 
 ### Public Routes

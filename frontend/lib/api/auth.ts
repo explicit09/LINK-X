@@ -77,21 +77,24 @@ class AuthAPI {
   async refreshToken(): Promise<AuthResponse> {
     // Refresh token is in httpOnly cookie, server will handle it
     const response = await apiClient.post<AuthResponse>('/auth/refresh');
-    
+
     // Update CSRF token if provided
     if (response.csrf_token) {
       sessionStorage.setItem('csrf_token', response.csrf_token);
     }
-    
+
     return response;
   }
 
   // Firebase session management (for Firebase Auth integration)
   async sessionLogin(idToken: string): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>('/auth/firebase-login', { 
-      idToken 
-    });
-    
+    const response = await apiClient.post<AuthResponse>(
+      '/auth/login',
+      {
+        idToken,
+      },
+    );
+
     // Store tokens
     if (response.access_token) {
       localStorage.setItem('access_token', response.access_token);
@@ -99,21 +102,21 @@ class AuthAPI {
         localStorage.setItem('refresh_token', response.refresh_token);
       }
     }
-    
+
     return response;
   }
 
   // User profile
   async getCurrentUser(): Promise<User> {
-    return apiClient.get<User>('/auth/me');
+    return apiClient.get<User>('/api/v2/auth/me');
   }
 
   async updateCurrentUser(data: Partial<UserProfile>): Promise<User> {
-    return apiClient.patch<User>('/auth/me', data);
+    return apiClient.patch<User>('/api/v2/auth/me', data);
   }
 
   async deleteCurrentUser(): Promise<void> {
-    await apiClient.delete('/auth/me');
+    await apiClient.delete('/api/v2/auth/me');
     // Clear tokens
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
@@ -123,7 +126,7 @@ class AuthAPI {
   async registerStudent(idToken: string, data: RegisterData): Promise<User> {
     const response = await this.register({
       ...data,
-      role: 'student'
+      role: 'student',
     });
     return response.user;
   }
@@ -131,18 +134,20 @@ class AuthAPI {
   async registerInstructor(idToken: string, data: RegisterData): Promise<User> {
     const response = await this.register({
       ...data,
-      role: 'instructor'
+      role: 'instructor',
     });
     return response.user;
   }
 
   // Password management
   async forgotPassword(email: string): Promise<void> {
-    await apiClient.post('/auth/forgot-password', { email });
+    // TODO: Password reset endpoints not implemented in backend
+    throw new Error('Password reset not implemented');
   }
 
   async resetPassword(token: string, password: string): Promise<void> {
-    await apiClient.post('/auth/reset-password', { token, password });
+    // TODO: Password reset endpoints not implemented in backend
+    throw new Error('Password reset not implemented');
   }
 
   // Token management helpers
@@ -164,4 +169,4 @@ class AuthAPI {
   }
 }
 
-export const authAPI = new AuthAPI();
+export const authAPIClass = new AuthAPI();

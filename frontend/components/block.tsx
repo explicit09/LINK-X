@@ -3,7 +3,7 @@
  */
 
 // Re-export everything from the modular implementation
-export * from './block';
+export * from './block/';
 
 // Maintain backward compatibility
-export { Block as default } from './block';
+export { Block as default } from './block/';

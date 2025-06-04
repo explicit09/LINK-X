@@ -332,6 +332,10 @@ def rate_limit_decorator(
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            # Skip rate limiting for OPTIONS requests
+            if request.method == 'OPTIONS':
+                return f(*args, **kwargs)
+                
             # Skip rate limiting in tests
             if hasattr(g, 'skip_rate_limit') and g.skip_rate_limit:
                 return f(*args, **kwargs)

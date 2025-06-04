@@ -223,13 +223,18 @@ export function supportsAI(fileType: string): boolean {
 }
 
 // Sort materials by different criteria
-export function sortMaterials(materials: Material[], sortBy: 'name' | 'date' | 'type' | 'size'): Material[] {
+export function sortMaterials(
+  materials: Material[],
+  sortBy: 'name' | 'date' | 'type' | 'size',
+): Material[] {
   return [...materials].sort((a, b) => {
     switch (sortBy) {
       case 'name':
         return a.title.localeCompare(b.title);
       case 'date':
-        return new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime();
+        return (
+          new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
+        );
       case 'type':
         return a.fileType.localeCompare(b.fileType);
       case 'size':
@@ -241,20 +246,28 @@ export function sortMaterials(materials: Material[], sortBy: 'name' | 'date' | '
 }
 
 // Filter materials by file type
-export function filterMaterialsByType(materials: Material[], fileType?: string): Material[] {
+export function filterMaterialsByType(
+  materials: Material[],
+  fileType?: string,
+): Material[] {
   if (!fileType) return materials;
-  
-  return materials.filter(material => material.fileType === fileType);
+
+  return materials.filter((material) => material.fileType === fileType);
 }
 
 // Group materials by file type
-export function groupMaterialsByType(materials: Material[]): Record<string, Material[]> {
-  return materials.reduce((groups, material) => {
-    const type = getFileTypeName(material.fileType);
-    if (!groups[type]) {
-      groups[type] = [];
-    }
-    groups[type].push(material);
-    return groups;
-  }, {} as Record<string, Material[]>);
+export function groupMaterialsByType(
+  materials: Material[],
+): Record<string, Material[]> {
+  return materials.reduce(
+    (groups, material) => {
+      const type = getFileTypeName(material.fileType);
+      if (!groups[type]) {
+        groups[type] = [];
+      }
+      groups[type].push(material);
+      return groups;
+    },
+    {} as Record<string, Material[]>,
+  );
 }

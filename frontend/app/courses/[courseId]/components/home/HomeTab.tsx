@@ -4,11 +4,18 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Plus, Upload, BookOpen, Search, Loader2 } from 'lucide-react';
 import { EnhancedFileUpload } from '@/components/course/EnhancedFileUpload';
 import { StudentCourseUpload } from '@/components/course/StudentCourseUpload';
+import { StudentFileManager } from '@/components/course/StudentFileManager';
 import { SearchAndFilter } from '@/components/course/SearchAndFilter';
 import { EnterpriseModuleCard } from '@/components/course/EnterpriseModuleCard';
 import { useCourseContext, courseActions } from '../../context/CourseContext';
@@ -21,81 +28,129 @@ import { Material } from '../../types/course.types';
 interface HomeTabProps {
   courseId: string;
   isFocusMode: boolean;
-  onViewMaterial: (material: { id: string; title: string; type: Material["type"] }) => void;
-  onAskAI: (material: { id: string; title: string; type: Material["type"] }) => void;
+  onViewMaterial: (material: {
+    id: string;
+    title: string;
+    type: Material['type'];
+  }) => void;
+  onAskAI: (material: {
+    id: string;
+    title: string;
+    type: Material['type'];
+  }) => void;
 }
 
-export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: HomeTabProps) => {
+export const HomeTab = ({
+  courseId,
+  isFocusMode,
+  onViewMaterial,
+  onAskAI,
+}: HomeTabProps) => {
   const { state, dispatch } = useCourseContext();
   const { course, modules, currentUser, searchQuery, filters } = state;
-  const { createModule, updateModule, deleteModule, toggleModule, isCreating } = useModuleManager(courseId);
-  const { handleUploadComplete, deleteFile, bulkDeleteFiles, toggleFileSelection, selectedFiles } = useMaterialUpload(courseId);
-  
+  const { createModule, updateModule, deleteModule, toggleModule, isCreating } =
+    useModuleManager(courseId);
+  const {
+    handleUploadComplete,
+    deleteFile,
+    bulkDeleteFiles,
+    toggleFileSelection,
+    selectedFiles,
+  } = useMaterialUpload(courseId);
+
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const [uploadModuleId, setUploadModuleId] = useState<string | undefined>(undefined);
+  const [uploadModuleId, setUploadModuleId] = useState<string | undefined>(
+    undefined,
+  );
   const [useAdvancedUpload, setUseAdvancedUpload] = useState(false);
   const [createModuleDialogOpen, setCreateModuleDialogOpen] = useState(false);
-  const [newModuleTitle, setNewModuleTitle] = useState("");
-  const [newModuleDescription, setNewModuleDescription] = useState("");
-  
+  const [newModuleTitle, setNewModuleTitle] = useState('');
+  const [newModuleDescription, setNewModuleDescription] = useState('');
+
   // Edit module state
   const [editModuleDialogOpen, setEditModuleDialogOpen] = useState(false);
-  const [moduleToEdit, setModuleToEdit] = useState<{ id: string; title: string; description?: string } | null>(null);
-  const [editModuleTitle, setEditModuleTitle] = useState("");
-  const [editModuleDescription, setEditModuleDescription] = useState("");
+  const [moduleToEdit, setModuleToEdit] = useState<{
+    id: string;
+    title: string;
+    description?: string;
+  } | null>(null);
+  const [editModuleTitle, setEditModuleTitle] = useState('');
+  const [editModuleDescription, setEditModuleDescription] = useState('');
+  const [showFileManager, setShowFileManager] = useState(false);
 
   const colors = getCourseColor(course?.id);
 
   // Filter modules and materials
-  const filteredModules = modules.map(module => ({
-    ...module,
-    materials: filterMaterials(module.materials || [], searchQuery, filters)
-  })).filter(module => 
-    module.materials.length > 0 || (!searchQuery && filters.fileTypes.length === 0 && filters.aiProcessed === 'all' && filters.dateRange === 'all')
-  );
+  const filteredModules = modules
+    .map((module) => ({
+      ...module,
+      materials: filterMaterials(module.materials || [], searchQuery, filters),
+    }))
+    .filter(
+      (module) =>
+        module.materials.length > 0 ||
+        (!searchQuery &&
+          filters.fileTypes.length === 0 &&
+          filters.aiProcessed === 'all' &&
+          filters.dateRange === 'all'),
+    );
 
-  const totalFiles = modules.reduce((total, module) => total + module.materials.length, 0);
-  const filteredFiles = filteredModules.reduce((total, module) => total + module.materials.length, 0);
+  const totalFiles = modules.reduce(
+    (total, module) => total + module.materials.length,
+    0,
+  );
+  const filteredFiles = filteredModules.reduce(
+    (total, module) => total + module.materials.length,
+    0,
+  );
 
   const handleCreateModule = () => {
     setCreateModuleDialogOpen(true);
-    setNewModuleTitle("");
-    setNewModuleDescription("");
+    setNewModuleTitle('');
+    setNewModuleDescription('');
   };
 
   const confirmCreateModule = async () => {
     const newModule = await createModule(newModuleTitle, newModuleDescription);
     if (newModule) {
       setCreateModuleDialogOpen(false);
-      setNewModuleTitle("");
-      setNewModuleDescription("");
+      setNewModuleTitle('');
+      setNewModuleDescription('');
     }
   };
 
-  const handleEditModule = (module: { id: string; title: string; description?: string }) => {
+  const handleEditModule = (module: {
+    id: string;
+    title: string;
+    description?: string;
+  }) => {
     setModuleToEdit(module);
     setEditModuleTitle(module.title);
-    setEditModuleDescription(module.description || "");
+    setEditModuleDescription(module.description || '');
     setEditModuleDialogOpen(true);
   };
 
   const confirmUpdateModule = async () => {
     if (moduleToEdit) {
-      const success = await updateModule(moduleToEdit.id, editModuleTitle, editModuleDescription);
+      const success = await updateModule(
+        moduleToEdit.id,
+        editModuleTitle,
+        editModuleDescription,
+      );
       if (success) {
         setEditModuleDialogOpen(false);
         setModuleToEdit(null);
-        setEditModuleTitle("");
-        setEditModuleDescription("");
+        setEditModuleTitle('');
+        setEditModuleDescription('');
       }
     }
   };
 
   const handleDeleteFile = async (fileId: string, moduleId: string) => {
     const file = modules
-      .find(module => module.id === moduleId)
-      ?.materials.find(material => material.id === fileId);
-    
+      .find((module) => module.id === moduleId)
+      ?.materials.find((material) => material.id === fileId);
+
     if (!file) return;
 
     if (window.confirm(`Are you sure you want to delete "${file.title}"?`)) {
@@ -118,14 +173,39 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
 
   return (
     <div className="min-h-screen">
-      <div className={cn("mx-auto px-6 py-8 transition-all duration-200", 
-        isFocusMode ? "max-w-4xl" : "max-w-6xl"
-      )}>
+      <div
+        className={cn(
+          'mx-auto px-6 py-8 transition-all duration-200',
+          isFocusMode ? 'max-w-4xl' : 'max-w-6xl',
+        )}
+      >
         <div className="space-y-6">
+          {/* Toggle between traditional view and file manager */}
+          {currentUser?.role === 'student' && (
+            <div className="flex justify-end mb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFileManager(!showFileManager)}
+              >
+                {showFileManager ? 'Classic View' : 'File Manager'}
+              </Button>
+            </div>
+          )}
+
+          {/* Show StudentFileManager for students if toggled */}
+          {showFileManager && currentUser?.role === 'student' ? (
+            <StudentFileManager courseId={courseId} />
+          ) : (
           <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-3">
-                <div className={cn("w-2 h-6 rounded-full bg-gradient-to-b", colors.gradient)} />
+                <div
+                  className={cn(
+                    'w-2 h-6 rounded-full bg-gradient-to-b',
+                    colors.gradient,
+                  )}
+                />
                 Course Materials
               </CardTitle>
               <div className="flex items-center gap-2">
@@ -152,14 +232,18 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
               {totalFiles > 0 && (
                 <div className="mb-6">
                   <SearchAndFilter
-                    onSearch={(query) => dispatch(courseActions.setSearchQuery(query))}
-                    onFilterChange={(newFilters) => dispatch(courseActions.setFilters(newFilters))}
+                    onSearch={(query) =>
+                      dispatch(courseActions.setSearchQuery(query))
+                    }
+                    onFilterChange={(newFilters) =>
+                      dispatch(courseActions.setFilters(newFilters))
+                    }
                     totalFiles={totalFiles}
                     filteredFiles={filteredFiles}
                   />
                 </div>
               )}
-              
+
               <div className="space-y-6">
                 {filteredModules.map((module) => (
                   <EnterpriseModuleCard
@@ -176,11 +260,13 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
                     onDeleteModule={handleDeleteModule}
                     onEditModule={handleEditModule}
                     selectedFiles={selectedFiles}
-                    onSelectFile={(fileId, selected) => toggleFileSelection(fileId)}
+                    onSelectFile={(fileId, selected) =>
+                      toggleFileSelection(fileId)
+                    }
                     onBulkAction={bulkDeleteFiles}
                   />
                 ))}
-                
+
                 {filteredModules.length === 0 && modules.length === 0 && (
                   <div className="text-center py-12">
                     <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -188,7 +274,8 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
                       No modules yet
                     </h3>
                     <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">
-                      Create your first module to start organizing course materials and unlock AI-powered learning features.
+                      Create your first module to start organizing course
+                      materials and unlock AI-powered learning features.
                     </p>
                     <Button
                       onClick={handleCreateModule}
@@ -199,7 +286,7 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
                     </Button>
                   </div>
                 )}
-                
+
                 {filteredModules.length === 0 && modules.length > 0 && (
                   <div className="text-center py-12">
                     <Search className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -207,17 +294,20 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
                       No files match your search
                     </h3>
                     <p className="text-sm text-gray-500 mb-6 max-w-md mx-auto">
-                      Try adjusting your search terms or filters to find what you're looking for.
+                      Try adjusting your search terms or filters to find what
+                      you're looking for.
                     </p>
                     <Button
                       variant="outline"
                       onClick={() => {
-                        dispatch(courseActions.setSearchQuery(""));
-                        dispatch(courseActions.setFilters({
-                          fileTypes: [],
-                          aiProcessed: 'all',
-                          dateRange: 'all',
-                        }));
+                        dispatch(courseActions.setSearchQuery(''));
+                        dispatch(
+                          courseActions.setFilters({
+                            fileTypes: [],
+                            aiProcessed: 'all',
+                            dateRange: 'all',
+                          }),
+                        );
                       }}
                       className="border-gray-300 text-gray-700 hover:bg-gray-50"
                     >
@@ -228,6 +318,7 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
               </div>
             </CardContent>
           </Card>
+          )}
         </div>
       </div>
 
@@ -240,7 +331,7 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
               {currentUser?.role === 'student' && (
                 <div className="flex items-center gap-2">
                   <Button
-                    variant={useAdvancedUpload ? "outline" : "default"}
+                    variant={useAdvancedUpload ? 'outline' : 'default'}
                     size="sm"
                     onClick={() => setUseAdvancedUpload(false)}
                   >
@@ -248,7 +339,7 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
                     Simple
                   </Button>
                   <Button
-                    variant={useAdvancedUpload ? "default" : "outline"}
+                    variant={useAdvancedUpload ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setUseAdvancedUpload(true)}
                   >
@@ -259,18 +350,22 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
               )}
             </div>
             <DialogDescription>
-              Upload PDF, audio, video, or presentation files to your course. Files will be automatically processed for AI interaction.
+              Upload PDF, audio, video, or presentation files to your course.
+              Files will be automatically processed for AI interaction.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="mb-4">
-            <label htmlFor="module-select" className="text-sm font-medium text-gray-700 block mb-2">
+            <label
+              htmlFor="module-select"
+              className="text-sm font-medium text-gray-700 block mb-2"
+            >
               Select Module *
             </label>
             <select
               id="module-select"
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#7B61FF]"
-              value={uploadModuleId || ""}
+              value={uploadModuleId || ''}
               onChange={(e) => setUploadModuleId(e.target.value || undefined)}
             >
               <option value="">Select a module</option>
@@ -281,7 +376,7 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
               ))}
             </select>
           </div>
-          
+
           {useAdvancedUpload && currentUser?.role === 'student' ? (
             <StudentCourseUpload
               courseId={courseId}
@@ -289,7 +384,7 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
               onUploadComplete={handleUploadCompleteWrapper}
             />
           ) : (
-            <EnhancedFileUpload 
+            <EnhancedFileUpload
               courseId={courseId}
               moduleId={uploadModuleId}
               userRole={currentUser?.role || 'student'}
@@ -300,7 +395,10 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
       </Dialog>
 
       {/* Create Module Dialog */}
-      <Dialog open={createModuleDialogOpen} onOpenChange={setCreateModuleDialogOpen}>
+      <Dialog
+        open={createModuleDialogOpen}
+        onOpenChange={setCreateModuleDialogOpen}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Create New Module</DialogTitle>
@@ -308,10 +406,13 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
               Add a new module to organize your course materials.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div>
-              <label htmlFor="module-title" className="text-sm font-medium text-gray-700 block mb-2">
+              <label
+                htmlFor="module-title"
+                className="text-sm font-medium text-gray-700 block mb-2"
+              >
                 Module Title *
               </label>
               <Input
@@ -322,9 +423,12 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
                 className="w-full"
               />
             </div>
-            
+
             <div>
-              <label htmlFor="module-description" className="text-sm font-medium text-gray-700 block mb-2">
+              <label
+                htmlFor="module-description"
+                className="text-sm font-medium text-gray-700 block mb-2"
+              >
                 Description (optional)
               </label>
               <Input
@@ -336,7 +440,7 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
               />
             </div>
           </div>
-          
+
           <div className="flex gap-2 justify-end">
             <Button
               variant="outline"
@@ -367,7 +471,10 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
       </Dialog>
 
       {/* Edit Module Dialog */}
-      <Dialog open={editModuleDialogOpen} onOpenChange={setEditModuleDialogOpen}>
+      <Dialog
+        open={editModuleDialogOpen}
+        onOpenChange={setEditModuleDialogOpen}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Module</DialogTitle>
@@ -375,10 +482,13 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
               Update the module title and description.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div>
-              <label htmlFor="edit-module-title" className="text-sm font-medium text-gray-700 block mb-2">
+              <label
+                htmlFor="edit-module-title"
+                className="text-sm font-medium text-gray-700 block mb-2"
+              >
                 Module Title *
               </label>
               <Input
@@ -389,9 +499,12 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
                 className="w-full"
               />
             </div>
-            
+
             <div>
-              <label htmlFor="edit-module-description" className="text-sm font-medium text-gray-700 block mb-2">
+              <label
+                htmlFor="edit-module-description"
+                className="text-sm font-medium text-gray-700 block mb-2"
+              >
                 Description (optional)
               </label>
               <Input
@@ -403,7 +516,7 @@ export const HomeTab = ({ courseId, isFocusMode, onViewMaterial, onAskAI }: Home
               />
             </div>
           </div>
-          
+
           <div className="flex gap-2 justify-end">
             <Button
               variant="outline"

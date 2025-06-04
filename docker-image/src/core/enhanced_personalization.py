@@ -511,28 +511,80 @@ class EnhancedPersonalizationEngine:
         interests: List[str],
         learning_style: str
     ) -> str:
-        """Create prompt for AI example generation"""
+        """Create prompt for natural AI example generation"""
         return f"""
-Generate 2-3 personalized examples for this educational content:
+Create natural examples for this concept that would resonate with this learner.
 
-Content: {content[:200]}...
+Concept: {content[:200]}...
 
-Student Profile:
-- Profession: {profession}
-- Interests: {interests}
+Learner Background:
+- Field/Profession: {profession}
+- Interests: {', '.join(interests) if interests else 'general topics'}
 - Learning Style: {learning_style}
 
-Create examples that:
-1. Connect to their profession/interests
-2. Match their learning style
-3. Make the concepts more relatable and memorable
+Generate 2-3 examples that:
+1. Flow naturally from the explanation
+2. Use familiar concepts from their experience
+3. Feel discovered, not forced
+4. Build understanding progressively
 
-Return just the examples, ready to integrate.
+Important: Present examples conversationally, woven into the explanation.
+Don't say "since you like X" - just use X naturally in the example.
 """
     
     def _integrate_examples(self, content: str, examples: str) -> str:
-        """Integrate generated examples into content"""
-        return f"{content}\n\n🎯 Personalized Examples:\n{examples}"
+        """Integrate generated examples into content naturally"""
+        # Remove any explicit personalization markers from the examples
+        examples = examples.replace("Since you", "You might find that")
+        examples = examples.replace("Because you're interested in", "Consider how")
+        examples = examples.replace("Given your background in", "In the context of")
+        
+        return f"{content}\n\n{examples}"
+    
+    def _create_natural_example_prompt(
+        self,
+        content: str,
+        profession: str,
+        interests: List[str],
+        learning_style: str
+    ) -> str:
+        """Create prompt for natural example generation using templates"""
+        try:
+            # Try to load from prompt templates
+            template = prompt_manager.render_prompt(
+                'natural_personalization.example_generation',
+                concept=content[:200],
+                profession=profession,
+                interests=interests,
+                expertise_level='intermediate',
+                learning_style=learning_style
+            )
+            return template
+        except:
+            # Fallback to inline prompt
+            return self._create_example_generation_prompt(
+                content, profession, interests, learning_style
+            )
+    
+    def _integrate_natural_examples(self, content: str, examples: str) -> str:
+        """Integrate examples naturally without explicit markers"""
+        # Clean up any forced personalization language
+        natural_examples = examples
+        forced_phrases = [
+            "Since you", "Because you're", "Given that you",
+            "As someone who likes", "Knowing you're interested in"
+        ]
+        
+        for phrase in forced_phrases:
+            natural_examples = natural_examples.replace(phrase, "")
+        
+        # Integrate smoothly
+        if "for example" in content.lower() or "for instance" in content.lower():
+            # Content already has example markers, just append
+            return f"{content}\n\n{natural_examples}"
+        else:
+            # Add a natural transition
+            return f"{content}\n\nHere's how this works in practice:\n\n{natural_examples}"
     
     def _load_personalization_templates(self) -> Dict[str, str]:
         """Load personalization templates"""

@@ -1,18 +1,18 @@
-"use client";
+'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
-  BookOpen, 
-  Clock, 
-  Target, 
-  CheckCircle2, 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  BookOpen,
+  Clock,
+  Target,
+  CheckCircle2,
   Circle,
   Edit,
-  Trash2
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+  Trash2,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { TodoItem } from '../types';
 
 interface TodosWidgetProps {
@@ -22,23 +22,37 @@ interface TodosWidgetProps {
   onDeleteTodo: (todoId: string) => void;
 }
 
-export function TodosWidget({ todos, loadingTodos, onToggleTodo, onDeleteTodo }: TodosWidgetProps) {
+export function TodosWidget({
+  todos,
+  loadingTodos,
+  onToggleTodo,
+  onDeleteTodo,
+}: TodosWidgetProps) {
   const getTodoPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'text-red-600';
-      case 'medium': return 'text-orange-600';
-      case 'low': return 'text-blue-600';
-      default: return 'text-gray-600';
+      case 'high':
+        return 'text-red-600';
+      case 'medium':
+        return 'text-orange-600';
+      case 'low':
+        return 'text-blue-600';
+      default:
+        return 'text-gray-600';
     }
   };
 
   const getTodoTypeIcon = (type: string) => {
     switch (type) {
-      case 'reading': return BookOpen;
-      case 'quiz': return Target;
-      case 'assignment': return Edit;
-      case 'review': return Clock;
-      default: return Circle;
+      case 'reading':
+        return BookOpen;
+      case 'quiz':
+        return Target;
+      case 'assignment':
+        return Edit;
+      case 'review':
+        return Clock;
+      default:
+        return Circle;
     }
   };
 
@@ -50,7 +64,7 @@ export function TodosWidget({ todos, loadingTodos, onToggleTodo, onDeleteTodo }:
       <CardContent className="pt-0">
         {loadingTodos ? (
           <div className="space-y-3">
-            {[1, 2].map(i => (
+            {[1, 2].map((i) => (
               <div key={i} className="animate-pulse">
                 <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
                 <div className="h-3 bg-gray-200 rounded w-1/2"></div>
@@ -68,18 +82,18 @@ export function TodosWidget({ todos, loadingTodos, onToggleTodo, onDeleteTodo }:
             {todos.map((todo) => {
               const IconComponent = getTodoTypeIcon(todo.type);
               const priorityColor = getTodoPriorityColor(todo.priority);
-              
+
               return (
                 <div
                   key={todo.id}
                   className={cn(
-                    "flex items-start gap-3 p-3 rounded-lg transition-all duration-150 group",
-                    todo.completed 
-                      ? "bg-gray-50 opacity-60" 
-                      : "bg-white border border-gray-200 hover:border-gray-300"
+                    'flex items-start gap-3 p-3 rounded-lg transition-all duration-150 group',
+                    todo.completed
+                      ? 'bg-gray-50 opacity-60'
+                      : 'bg-white border border-gray-200 hover:border-gray-300',
                   )}
                 >
-                  <button 
+                  <button
                     className="mt-0.5"
                     onClick={() => onToggleTodo(todo.id)}
                   >
@@ -89,21 +103,28 @@ export function TodosWidget({ todos, loadingTodos, onToggleTodo, onDeleteTodo }:
                       <Circle className="h-4 w-4 text-gray-400" />
                     )}
                   </button>
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <IconComponent className={cn("h-3 w-3", priorityColor)} />
-                      <h4 className={cn(
-                        "text-sm font-medium",
-                        todo.completed ? "line-through text-gray-500" : "text-gray-900"
-                      )}>
+                      <IconComponent className={cn('h-3 w-3', priorityColor)} />
+                      <h4
+                        className={cn(
+                          'text-sm font-medium',
+                          todo.completed
+                            ? 'line-through text-gray-500'
+                            : 'text-gray-900',
+                        )}
+                      >
                         {todo.title}
                       </h4>
-                      <Badge 
+                      <Badge
                         className={cn(
-                          "text-xs px-2 py-0.5 text-white font-medium",
-                          todo.priority === 'high' ? 'bg-red-500' :
-                          todo.priority === 'medium' ? 'bg-orange-500' : 'bg-blue-500'
+                          'text-xs px-2 py-0.5 text-white font-medium',
+                          todo.priority === 'high'
+                            ? 'bg-red-500'
+                            : todo.priority === 'medium'
+                              ? 'bg-orange-500'
+                              : 'bg-blue-500',
                         )}
                       >
                         {todo.priority}
@@ -120,9 +141,7 @@ export function TodosWidget({ todos, loadingTodos, onToggleTodo, onDeleteTodo }:
                         <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
-                    <p className="text-xs text-[#6B7280]">
-                      Due {todo.dueDate}
-                    </p>
+                    <p className="text-xs text-[#6B7280]">Due {todo.dueDate}</p>
                   </div>
                 </div>
               );

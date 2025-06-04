@@ -5,7 +5,7 @@ import { TOOL_MESSAGES } from '../constants';
 export const useToolSelection = (
   append: AppendMessage,
   isToolbarVisible?: boolean,
-  setIsToolbarVisible?: (visible: boolean) => void
+  setIsToolbarVisible?: (visible: boolean) => void,
 ) => {
   const [selectedTool, setSelectedTool] = useState<string | null>(null);
 
@@ -34,7 +34,7 @@ export const useToolSelection = (
         }
       }
     },
-    [isToolbarVisible, selectedTool, setIsToolbarVisible, append]
+    [isToolbarVisible, selectedTool, setIsToolbarVisible, append],
   );
 
   return { selectedTool, setSelectedTool, handleToolSelect };

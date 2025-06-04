@@ -26,7 +26,7 @@ export const ReadingLevelSelector = ({
     currentLevel,
     hasUserSelectedLevel,
     setHasUserSelectedLevel,
-    dragConstraints
+    dragConstraints,
   } = useReadingLevel();
 
   const handleDragEnd = () => {
@@ -69,8 +69,10 @@ export const ReadingLevelSelector = ({
               className={cx(
                 'absolute bg-background p-3 border rounded-full flex flex-row items-center',
                 {
-                  'bg-primary text-primary-foreground': currentLevel !== DEFAULT_READING_LEVEL,
-                  'bg-background text-foreground': currentLevel === DEFAULT_READING_LEVEL,
+                  'bg-primary text-primary-foreground':
+                    currentLevel !== DEFAULT_READING_LEVEL,
+                  'bg-background text-foreground':
+                    currentLevel === DEFAULT_READING_LEVEL,
                 },
               )}
               style={{ y }}
@@ -85,7 +87,11 @@ export const ReadingLevelSelector = ({
               onDragEnd={handleDragEnd}
               onClick={handleClick}
             >
-              {currentLevel === DEFAULT_READING_LEVEL ? <SummarizeIcon /> : <ArrowUpIcon />}
+              {currentLevel === DEFAULT_READING_LEVEL ? (
+                <SummarizeIcon />
+              ) : (
+                <ArrowUpIcon />
+              )}
             </motion.div>
           </TooltipTrigger>
           <TooltipContent

@@ -25,6 +25,7 @@ export interface Module {
   ordering: number;
   created_at: string;
   files?: FileInfo[];
+  materials?: FileInfo[];
 }
 
 export interface FileInfo {
@@ -34,8 +35,12 @@ export interface FileInfo {
   filename: string;
   file_type: string;
   file_size: number;
-  processed: boolean;
+  processed?: boolean;
   created_at: string;
+  view_count_raw?: number;
+  view_count_personalized?: number;
+  chat_count?: number;
+  s3_key?: string;
 }
 
 export interface CreateCourseData {
@@ -58,6 +63,19 @@ export interface Enrollment {
   enrolled_at: string;
 }
 
+export interface ResumeTarget {
+  type: 'file' | 'module';
+  module_id: string;
+  module_title: string;
+  file_id: string | null;
+  file_title: string | null;
+  file_type: string | null;
+  progress_percent: number;
+  reason: 'partially_completed' | 'not_started' | 'start_course';
+  estimated_time_remaining: string;
+  last_accessed: string | null;
+}
+
 class CourseAPI {
   // Course CRUD
   async getCourses(): Promise<Course[]> {
@@ -72,7 +90,10 @@ class CourseAPI {
     return apiClient.post<Course>('/api/v2/courses', data);
   }
 
-  async updateCourse(courseId: string, data: Partial<CreateCourseData>): Promise<Course> {
+  async updateCourse(
+    courseId: string,
+    data: Partial<CreateCourseData>,
+  ): Promise<Course> {
     return apiClient.patch<Course>(`/api/v2/courses/${courseId}`, data);
   }
 
@@ -89,11 +110,17 @@ class CourseAPI {
     return apiClient.get<Module[]>(`/api/v2/courses/${courseId}/modules`);
   }
 
-  async createModule(courseId: string, data: { title: string; description?: string }): Promise<Module> {
+  async createModule(
+    courseId: string,
+    data: { title: string; description?: string },
+  ): Promise<Module> {
     return apiClient.post<Module>(`/api/v2/courses/${courseId}/modules`, data);
   }
 
-  async updateModule(moduleId: string, data: { title?: string; description?: string }): Promise<Module> {
+  async updateModule(
+    moduleId: string,
+    data: { title?: string; description?: string },
+  ): Promise<Module> {
     return apiClient.patch<Module>(`/api/v2/modules/${moduleId}`, data);
   }
 
@@ -102,8 +129,20 @@ class CourseAPI {
   }
 
   // Enrollment
-  async enrollInCourse(courseId: string, accessCode: string): Promise<Enrollment> {
-    return apiClient.post<Enrollment>(`/api/v2/courses/${courseId}/enroll`, { accessCode });
+  async enrollInCourse(
+    courseId: string,
+    accessCode: string,
+  ): Promise<Enrollment> {
+    return apiClient.post<Enrollment>(`/api/v2/courses/${courseId}/enroll`, {
+      accessCode,
+    });
+  }
+
+  // Join course by access code (without knowing courseId)
+  async joinCourseByCode(accessCode: string): Promise<Course> {
+    return apiClient.post<Course>('/api/v2/courses/join', {
+      access_code: accessCode,
+    });
   }
 
   // Statistics
@@ -111,13 +150,34 @@ class CourseAPI {
     return apiClient.get(`/api/v2/courses/${courseId}/stats`);
   }
 
-  // Legacy endpoints for compatibility
+  // Progress
+  async getCourseProgress(courseId: string): Promise<{
+    course_id: string;
+    user_id: string;
+    completion_percentage: number;
+    modules_completed: number;
+    total_modules: number;
+    last_accessed: string | null;
+  }> {
+    return apiClient.get(`/api/v2/courses/${courseId}/progress`);
+  }
+
+  // Resume target
+  async getResumeTarget(courseId: string): Promise<ResumeTarget> {
+    return apiClient.get<ResumeTarget>(`/api/v2/courses/${courseId}/resume`);
+  }
+
+  // Role-based course retrieval
   async getStudentCourses(): Promise<Course[]> {
-    return apiClient.get<Course[]>('/student/courses');
+    // Use the main courses endpoint - it automatically filters by user role
+    // Students will only see courses they're enrolled in
+    return this.getCourses();
   }
 
   async getInstructorCourses(): Promise<Course[]> {
-    return apiClient.get<Course[]>('/instructor/courses');
+    // Use the main courses endpoint - it automatically filters by user role
+    // Instructors will only see courses they teach
+    return this.getCourses();
   }
 }
 

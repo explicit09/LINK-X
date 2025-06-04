@@ -3,11 +3,11 @@
 import { useState, useRef, useEffect, memo } from 'react';
 import { useOnClickOutside } from 'usehooks-ts';
 import type { ToolbarProps } from './types';
-import { 
-  Tools, 
-  ReadingLevelSelector, 
+import {
+  Tools,
+  ReadingLevelSelector,
   ToolbarContainer,
-  StopButton 
+  StopButton,
 } from './components';
 import { useToolbarTimer } from './hooks';
 
@@ -26,7 +26,7 @@ const PureToolbar = ({
 
   const { startCloseTimer, cancelCloseTimer } = useToolbarTimer(
     setSelectedTool,
-    setIsToolbarVisible
+    setIsToolbarVisible,
   );
 
   useOnClickOutside(toolbarRef, () => {

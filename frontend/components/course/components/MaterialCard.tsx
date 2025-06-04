@@ -1,32 +1,32 @@
 import React from 'react';
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
-  MoreVertical, 
-  Trash2, 
-  Download, 
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  MoreVertical,
+  Trash2,
+  Download,
   MessageSquare,
   Eye,
-  FileText
-} from "lucide-react";
+  FileText,
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 
 import { Material } from '../hooks/useModuleManager';
-import { 
-  formatFileSize, 
-  formatUploadTime, 
-  getFileIcon, 
-  getFileColor, 
+import {
+  formatFileSize,
+  formatUploadTime,
+  getFileIcon,
+  getFileColor,
   getFileTypeName,
   getThumbnailUrl,
   supportsPreview,
-  supportsAI
+  supportsAI,
 } from '../utils/fileUtils';
 
 interface MaterialCardProps {
@@ -46,7 +46,7 @@ export function MaterialCard({
   onAskAI,
   onDownload,
   onDelete,
-  className = ""
+  className = '',
 }: MaterialCardProps) {
   const thumbnailUrl = getThumbnailUrl(material);
   const fileIcon = getFileIcon(material.fileType);
@@ -85,7 +85,7 @@ export function MaterialCard({
   };
 
   return (
-    <Card 
+    <Card
       className={`group hover:shadow-md transition-all duration-200 ${canPreview ? 'cursor-pointer' : ''} ${className}`}
       onClick={handleCardClick}
     >
@@ -126,7 +126,7 @@ export function MaterialCard({
                 <p className="text-xs text-gray-500 mt-1">
                   Uploaded {formatUploadTime(material.uploadDate)}
                 </p>
-                
+
                 {/* AI Summary */}
                 {material.aiSummary && (
                   <p className="text-xs text-gray-600 mt-2 line-clamp-2">
@@ -205,7 +205,7 @@ export function MaterialCard({
                           Ask AI
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         onClick={handleDelete}
                         className="text-red-600 focus:text-red-600"
                       >

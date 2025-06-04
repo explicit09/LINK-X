@@ -18,73 +18,74 @@ interface UseApiState<T> {
 
 export function useApi<T = unknown>(
   apiFunction: (...args: unknown[]) => Promise<T>,
-  options: UseApiOptions = {}
+  options: UseApiOptions = {},
 ) {
   const [state, setState] = useState<UseApiState<T>>({
     data: null,
     error: null,
     isLoading: false,
   });
-  
+
   const isMountedRef = useRef(true);
-  
+
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
     };
   }, []);
-  
+
   const execute = useCallback(
     async (...args: unknown[]) => {
-      setState(prev => ({ ...prev, isLoading: true, error: null }));
-      
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
       try {
         const result = await apiFunction(...args);
-        
+
         if (!isMountedRef.current) return result;
-        
+
         setState({
           data: result,
           error: null,
           isLoading: false,
         });
-        
+
         if (options.showSuccessToast) {
           toast.success(options.successMessage || 'Success!');
         }
-        
+
         if (options.onSuccess) {
           options.onSuccess(result);
         }
-        
+
         return result;
       } catch (error) {
         if (!isMountedRef.current) return;
-        
-        const apiError = error instanceof APIError 
-          ? error 
-          : new APIError(500, 'An unexpected error occurred');
-        
+
+        const apiError =
+          error instanceof APIError
+            ? error
+            : new APIError(500, 'An unexpected error occurred');
+
         setState({
           data: null,
           error: apiError,
           isLoading: false,
         });
-        
+
         if (options.showErrorToast !== false) {
           toast.error(apiError.message);
         }
-        
+
         if (options.onError) {
           options.onError(apiError);
         }
-        
+
         throw apiError;
       }
     },
-    [apiFunction, options]
+    [apiFunction, options],
   );
-  
+
   const reset = useCallback(() => {
     setState({
       data: null,
@@ -92,7 +93,7 @@ export function useApi<T = unknown>(
       isLoading: false,
     });
   }, []);
-  
+
   return {
     ...state,
     execute,
@@ -103,7 +104,7 @@ export function useApi<T = unknown>(
 // Mutation hook for POST/PUT/DELETE operations
 export function useApiMutation<TData = unknown, TVariables = unknown>(
   apiFunction: (variables: TVariables) => Promise<TData>,
-  options: UseApiOptions = {}
+  options: UseApiOptions = {},
 ) {
   return useApi<TData>(apiFunction, options);
 }
@@ -112,16 +113,16 @@ export function useApiMutation<TData = unknown, TVariables = unknown>(
 export function useApiQuery<T = unknown>(
   apiFunction: () => Promise<T>,
   dependencies: unknown[] = [],
-  options: UseApiOptions & { enabled?: boolean } = {}
+  options: UseApiOptions & { enabled?: boolean } = {},
 ) {
   const { execute, ...state } = useApi<T>(apiFunction, options);
-  
+
   useEffect(() => {
     if (options.enabled !== false) {
       execute();
     }
   }, [...dependencies, options.enabled]);
-  
+
   return {
     ...state,
     refetch: execute,

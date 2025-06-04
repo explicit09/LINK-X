@@ -8,22 +8,44 @@ logger = logging.getLogger(__name__)
 def setup_middleware(app):
     """Setup all middleware for the application"""
     
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        """Catch all exceptions and add CORS headers"""
+        logger.error(f"Unhandled exception: {str(e)}", exc_info=True)
+        
+        response = make_response({'error': 'Internal server error', 'message': str(e)}, 500)
+        origin = request.headers.get('Origin', '')
+        
+        if 'localhost' in origin or '127.0.0.1' in origin:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept, X-Firebase-Token'
+        
+        return response
+    
     @app.before_request
     def before_request():
         """Middleware that runs before each request"""
+        # Log all requests for debugging
+        logger.info(f"Incoming request: {request.method} {request.path} from {request.headers.get('Origin', 'no-origin')}")
+        
         # Handle OPTIONS requests for CORS preflight
         if request.method == 'OPTIONS':
             # Simple, robust CORS preflight response
             response = make_response('', 200)
             origin = request.headers.get('Origin', '')
             
-            # Allow all localhost origins for development
-            if 'localhost' in origin or '127.0.0.1' in origin:
-                response.headers['Access-Control-Allow-Origin'] = origin
-                response.headers['Access-Control-Allow-Credentials'] = 'true'
-                response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-                response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept'
-                response.headers['Access-Control-Max-Age'] = '86400'
+            # Log the full request details
+            logger.info(f"OPTIONS request details - Path: {request.path}, Origin: {origin}, Headers: {dict(request.headers)}")
+            
+            # Always allow OPTIONS in development
+            response.headers['Access-Control-Allow-Origin'] = origin if origin else '*'
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept, X-Firebase-Token, X-API-Version'
+            response.headers['Access-Control-Max-Age'] = '86400'
+            logger.info(f"Handled OPTIONS request for {request.path} - returning 200 with origin {origin}")
                 
             return response
         
@@ -50,7 +72,7 @@ def setup_middleware(app):
             response.headers['Access-Control-Allow-Origin'] = origin
             response.headers['Access-Control-Allow-Credentials'] = 'true'
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept, X-Firebase-Token, X-API-Version'
             response.headers['Access-Control-Expose-Headers'] = 'Content-Length, Content-Type, X-Request-ID'
         
         # Calculate request duration

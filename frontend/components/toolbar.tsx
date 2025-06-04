@@ -1,7 +1,7 @@
 /**
  * @deprecated This file is maintained for backward compatibility.
  * Please import from '@/components/toolbar' instead.
- * 
+ *
  * The toolbar has been refactored into a modular system:
  * - Main component: /components/toolbar/Toolbar.tsx
  * - Types: /components/toolbar/types/

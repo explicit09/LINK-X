@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Target } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Target } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { CourseProgress, AchievementBadge } from '../types';
 
 interface ProgressWidgetProps {
@@ -10,7 +10,10 @@ interface ProgressWidgetProps {
   achievementBadges: AchievementBadge[];
 }
 
-export function ProgressWidget({ courseProgress, achievementBadges }: ProgressWidgetProps) {
+export function ProgressWidget({
+  courseProgress,
+  achievementBadges,
+}: ProgressWidgetProps) {
   return (
     <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-sm rounded-xl">
       <CardHeader className="pb-3">
@@ -20,7 +23,10 @@ export function ProgressWidget({ courseProgress, achievementBadges }: ProgressWi
         {/* Circular Progress Ring */}
         <div className="flex items-center gap-4">
           <div className="relative w-[90px] h-[90px]">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+            <svg
+              className="w-full h-full transform -rotate-90"
+              viewBox="0 0 36 36"
+            >
               <path
                 className="text-gray-200"
                 stroke="currentColor"
@@ -39,13 +45,18 @@ export function ProgressWidget({ courseProgress, achievementBadges }: ProgressWi
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-xl font-bold text-[#7B61FF]">{courseProgress.progressPercentage}%</span>
+              <span className="text-xl font-bold text-[#7B61FF]">
+                {courseProgress.progressPercentage}%
+              </span>
             </div>
           </div>
           <div>
-            <span className="text-sm font-medium text-gray-700">Course Completion</span>
+            <span className="text-sm font-medium text-gray-700">
+              Course Completion
+            </span>
             <p className="text-xs text-[#6B7280] mt-1">
-              {courseProgress.completedMaterials} of {courseProgress.totalMaterials} materials completed
+              {courseProgress.completedMaterials} of{' '}
+              {courseProgress.totalMaterials} materials completed
             </p>
           </div>
         </div>
@@ -60,7 +71,7 @@ export function ProgressWidget({ courseProgress, achievementBadges }: ProgressWi
           </div>
           <div className="text-center p-3 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg">
             <div className="text-xl font-bold text-green-600">
-              {Math.round(courseProgress.weeklyTimeMinutes / 60 * 10) / 10}h
+              {Math.round((courseProgress.weeklyTimeMinutes / 60) * 10) / 10}h
             </div>
             <div className="text-xs text-gray-600">This Week</div>
           </div>
@@ -69,12 +80,20 @@ export function ProgressWidget({ courseProgress, achievementBadges }: ProgressWi
         {/* Achievement Badges */}
         {achievementBadges.length > 0 && (
           <div>
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Achievements</h4>
+            <h4 className="text-sm font-medium text-gray-700 mb-2">
+              Achievements
+            </h4>
             <div className="space-y-2">
               {achievementBadges.map((badge, index) => {
                 const IconComponent = badge.icon;
                 return (
-                  <div key={index} className={cn("flex items-center gap-2 p-2 rounded-lg", badge.color)}>
+                  <div
+                    key={index}
+                    className={cn(
+                      'flex items-center gap-2 p-2 rounded-lg',
+                      badge.color,
+                    )}
+                  >
                     <IconComponent className="h-4 w-4" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">{badge.label}</p>
@@ -92,17 +111,18 @@ export function ProgressWidget({ courseProgress, achievementBadges }: ProgressWi
           <div className="p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
             <div className="flex items-center gap-2 mb-1">
               <Target className="h-4 w-4 text-purple-600" />
-              <span className="text-sm font-medium text-purple-700">Next Milestone</span>
+              <span className="text-sm font-medium text-purple-700">
+                Next Milestone
+              </span>
             </div>
             <p className="text-xs text-purple-600">
-              {courseProgress.progressPercentage < 25 
+              {courseProgress.progressPercentage < 25
                 ? "Complete 25% to unlock 'Getting Started' badge"
                 : courseProgress.progressPercentage < 50
-                ? "Complete 50% to unlock 'Half Way There' badge"
-                : courseProgress.progressPercentage < 75
-                ? "Complete 75% to unlock 'Almost Done' badge"
-                : "Complete 100% to finish the course!"
-              }
+                  ? "Complete 50% to unlock 'Half Way There' badge"
+                  : courseProgress.progressPercentage < 75
+                    ? "Complete 75% to unlock 'Almost Done' badge"
+                    : 'Complete 100% to finish the course!'}
             </p>
           </div>
         )}

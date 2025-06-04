@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import { 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -16,18 +16,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { 
-  Settings, 
-  Save, 
-  Trash2, 
-  Eye, 
-  EyeOff, 
-  Copy, 
+} from '@/components/ui/alert-dialog';
+import {
+  Settings,
+  Save,
+  Trash2,
+  Eye,
+  EyeOff,
+  Copy,
   Check,
-  AlertTriangle
-} from "lucide-react";
-import { toast } from "sonner";
+  AlertTriangle,
+} from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Course } from '../hooks/useCourses';
 
@@ -39,12 +39,12 @@ interface SettingsTabProps {
   onBackToDashboard: () => void;
 }
 
-export function SettingsTab({ 
-  course, 
-  onUpdateCourse, 
-  onDeleteCourse, 
+export function SettingsTab({
+  course,
+  onUpdateCourse,
+  onDeleteCourse,
   onTogglePublish,
-  onBackToDashboard 
+  onBackToDashboard,
 }: SettingsTabProps) {
   const [editedCourse, setEditedCourse] = useState<Course>(course);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -54,28 +54,28 @@ export function SettingsTab({
 
   const handleSave = async () => {
     setIsSaving(true);
-    
+
     const updateData = {
       title: editedCourse.title,
       description: editedCourse.description,
       code: editedCourse.code,
-      term: editedCourse.term
+      term: editedCourse.term,
     };
 
     const updated = await onUpdateCourse(course.id, updateData);
-    
+
     if (updated) {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
     }
-    
+
     setIsSaving(false);
   };
 
   const handleTogglePublish = async () => {
     const success = await onTogglePublish(course.id);
     if (success) {
-      setEditedCourse(prev => ({ ...prev, published: !prev.published }));
+      setEditedCourse((prev) => ({ ...prev, published: !prev.published }));
     }
   };
 
@@ -117,7 +117,12 @@ export function SettingsTab({
               <Input
                 id="title"
                 value={editedCourse.title}
-                onChange={(e) => setEditedCourse(prev => ({ ...prev, title: e.target.value }))}
+                onChange={(e) =>
+                  setEditedCourse((prev) => ({
+                    ...prev,
+                    title: e.target.value,
+                  }))
+                }
                 placeholder="Enter course title"
               />
             </div>
@@ -127,7 +132,9 @@ export function SettingsTab({
               <Input
                 id="code"
                 value={editedCourse.code}
-                onChange={(e) => setEditedCourse(prev => ({ ...prev, code: e.target.value }))}
+                onChange={(e) =>
+                  setEditedCourse((prev) => ({ ...prev, code: e.target.value }))
+                }
                 placeholder="e.g. CS101"
               />
             </div>
@@ -137,7 +144,9 @@ export function SettingsTab({
               <Input
                 id="term"
                 value={editedCourse.term}
-                onChange={(e) => setEditedCourse(prev => ({ ...prev, term: e.target.value }))}
+                onChange={(e) =>
+                  setEditedCourse((prev) => ({ ...prev, term: e.target.value }))
+                }
                 placeholder="e.g. Fall 2024"
               />
             </div>
@@ -175,7 +184,12 @@ export function SettingsTab({
             <Textarea
               id="description"
               value={editedCourse.description || ''}
-              onChange={(e) => setEditedCourse(prev => ({ ...prev, description: e.target.value }))}
+              onChange={(e) =>
+                setEditedCourse((prev) => ({
+                  ...prev,
+                  description: e.target.value,
+                }))
+              }
               placeholder="Enter course description"
               rows={3}
             />
@@ -213,15 +227,16 @@ export function SettingsTab({
             <div className="space-y-1">
               <div className="flex items-center space-x-2">
                 <h4 className="font-medium">Publish Course</h4>
-                <Badge variant={editedCourse.published ? "default" : "secondary"}>
-                  {editedCourse.published ? "Published" : "Draft"}
+                <Badge
+                  variant={editedCourse.published ? 'default' : 'secondary'}
+                >
+                  {editedCourse.published ? 'Published' : 'Draft'}
                 </Badge>
               </div>
               <p className="text-sm text-gray-600">
-                {editedCourse.published 
-                  ? "Students can access this course and its materials"
-                  : "Course is hidden from students until published"
-                }
+                {editedCourse.published
+                  ? 'Students can access this course and its materials'
+                  : 'Course is hidden from students until published'}
               </p>
             </div>
             <Switch
@@ -234,9 +249,11 @@ export function SettingsTab({
             <div className="flex items-start space-x-2 p-3 bg-green-50 border border-green-200 rounded-lg">
               <Eye className="h-5 w-5 text-green-600 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-green-800">Course is live</p>
+                <p className="text-sm font-medium text-green-800">
+                  Course is live
+                </p>
                 <p className="text-sm text-green-700">
-                  Students can now access this course using the access code: 
+                  Students can now access this course using the access code:
                   <span className="font-mono ml-1">{course.accessCode}</span>
                 </p>
               </div>
@@ -247,7 +264,9 @@ export function SettingsTab({
             <div className="flex items-start space-x-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <EyeOff className="h-5 w-5 text-yellow-600 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-yellow-800">Course is in draft mode</p>
+                <p className="text-sm font-medium text-yellow-800">
+                  Course is in draft mode
+                </p>
                 <p className="text-sm text-yellow-700">
                   Students cannot access this course until you publish it
                 </p>
@@ -271,17 +290,17 @@ export function SettingsTab({
               <div>
                 <h4 className="font-medium text-red-800">Delete Course</h4>
                 <p className="text-sm text-red-700 mt-1">
-                  Permanently delete this course and all its content. This action cannot be undone.
+                  Permanently delete this course and all its content. This
+                  action cannot be undone.
                 </p>
               </div>
 
-              <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
+              <AlertDialog
+                open={confirmingDelete}
+                onOpenChange={setConfirmingDelete}
+              >
                 <AlertDialogTrigger asChild>
-                  <Button 
-                    variant="destructive" 
-                    size="sm"
-                    className="ml-4"
-                  >
+                  <Button variant="destructive" size="sm" className="ml-4">
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete Course
                   </Button>
@@ -290,8 +309,9 @@ export function SettingsTab({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete Course</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Are you sure you want to delete "<strong>{course.title}</strong>"? 
-                      This will permanently delete:
+                      Are you sure you want to delete &quot;
+                      <strong>{course.title}</strong>&quot;? This will permanently
+                      delete:
                       <ul className="list-disc list-inside mt-2 space-y-1">
                         <li>All course materials and modules</li>
                         <li>All student enrollments</li>

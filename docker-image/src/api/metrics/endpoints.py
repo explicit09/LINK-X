@@ -7,9 +7,9 @@ from datetime import datetime
 from typing import Dict, Any
 from flask import Blueprint, jsonify, request
 
-from core.dependencies import get_db
-from core.decorators_unified import require_auth
-from core.monitoring import apm_collector, tracer
+from core.database import db_manager
+from core.decorators_unified import firebase_auth_required
+from core.monitoring import monitor_request
 from monitoring.task_monitor import TaskMonitor
 
 from .collectors.prometheus import PrometheusMetricsCollector

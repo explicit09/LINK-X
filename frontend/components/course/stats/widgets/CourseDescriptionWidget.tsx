@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Edit, Save, X } from "lucide-react";
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Edit, Save, X } from 'lucide-react';
 import { toast as sonnerToast } from 'sonner';
 import type { Course } from '../types';
 
@@ -13,20 +13,23 @@ interface CourseDescriptionWidgetProps {
   onUpdateDescription: (description: string) => void;
 }
 
-export function CourseDescriptionWidget({ course, onUpdateDescription }: CourseDescriptionWidgetProps) {
+export function CourseDescriptionWidget({
+  course,
+  onUpdateDescription,
+}: CourseDescriptionWidgetProps) {
   const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [editedDescription, setEditedDescription] = useState("");
+  const [editedDescription, setEditedDescription] = useState('');
 
   const handleSaveDescription = () => {
     if (editedDescription.trim() !== course?.description) {
       onUpdateDescription(editedDescription.trim());
-      sonnerToast.success("Course description updated");
+      sonnerToast.success('Course description updated');
     }
     setIsEditingDescription(false);
   };
 
   const handleCancelEdit = () => {
-    setEditedDescription(course?.description || "");
+    setEditedDescription(course?.description || '');
     setIsEditingDescription(false);
   };
 
@@ -34,12 +37,14 @@ export function CourseDescriptionWidget({ course, onUpdateDescription }: CourseD
     <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-sm rounded-xl">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-medium text-gray-600">About This Course</CardTitle>
+          <CardTitle className="text-base font-medium text-gray-600">
+            About This Course
+          </CardTitle>
           <Button
             size="sm"
             variant="ghost"
             onClick={() => {
-              setEditedDescription(course.description || "");
+              setEditedDescription(course.description || '');
               setIsEditingDescription(true);
             }}
             className="h-8 w-8 p-0 hover:bg-gray-100"
@@ -59,7 +64,11 @@ export function CourseDescriptionWidget({ course, onUpdateDescription }: CourseD
               autoFocus
             />
             <div className="flex gap-2">
-              <Button size="sm" onClick={handleSaveDescription} className="bg-[#7B61FF] hover:bg-[#6B51E5]">
+              <Button
+                size="sm"
+                onClick={handleSaveDescription}
+                className="bg-[#7B61FF] hover:bg-[#6B51E5]"
+              >
                 <Save className="h-3 w-3 mr-2" />
                 Save
               </Button>
@@ -70,14 +79,14 @@ export function CourseDescriptionWidget({ course, onUpdateDescription }: CourseD
             </div>
           </div>
         ) : (
-          <div 
+          <div
             className="text-sm text-gray-700 leading-relaxed cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors"
             onClick={() => {
-              setEditedDescription(course.description || "");
+              setEditedDescription(course.description || '');
               setIsEditingDescription(true);
             }}
           >
-            {course.description || "Click to add course description..."}
+            {course.description || 'Click to add course description...'}
           </div>
         )}
       </CardContent>

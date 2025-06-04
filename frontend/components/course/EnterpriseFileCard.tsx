@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { 
-  FileText, 
-  Video, 
-  Music, 
+import { useState } from 'react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  FileText,
+  Video,
+  Music,
   Image,
   File,
   Play,
@@ -17,15 +17,15 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  Sparkles
-} from "lucide-react";
+  Sparkles,
+} from 'lucide-react';
 
 interface FileCardProps {
   file: {
     id: string;
     title: string;
     filename?: string;
-    type: "pdf" | "audio" | "video" | "document";
+    type: 'pdf' | 'audio' | 'video' | 'document';
     size?: string | number;
     uploadedAt: string;
     processed?: boolean;
@@ -43,30 +43,40 @@ interface FileCardProps {
 
 const getFileIcon = (type: string) => {
   switch (type) {
-    case 'pdf': return FileText;
-    case 'video': return Video;
-    case 'audio': return Music;
-    case 'image': return Image;
-    default: return File;
+    case 'pdf':
+      return FileText;
+    case 'video':
+      return Video;
+    case 'audio':
+      return Music;
+    case 'image':
+      return Image;
+    default:
+      return File;
   }
 };
 
 const getFileColor = (type: string) => {
   switch (type) {
-    case 'pdf': return 'text-red-600';
-    case 'video': return 'text-blue-600';
-    case 'audio': return 'text-purple-600';
-    case 'image': return 'text-green-700';
-    default: return 'text-gray-600';
+    case 'pdf':
+      return 'text-red-600';
+    case 'video':
+      return 'text-blue-600';
+    case 'audio':
+      return 'text-purple-600';
+    case 'image':
+      return 'text-green-700';
+    default:
+      return 'text-gray-600';
   }
 };
 
 const formatFileSize = (bytes: number | string) => {
-  if (!bytes || bytes === 0) return "—";
-  
+  if (!bytes || bytes === 0) return '—';
+
   const numBytes = typeof bytes === 'string' ? parseInt(bytes) : bytes;
-  if (isNaN(numBytes) || numBytes === 0) return "—";
-  
+  if (isNaN(numBytes) || numBytes === 0) return '—';
+
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(numBytes) / Math.log(k));
@@ -75,18 +85,18 @@ const formatFileSize = (bytes: number | string) => {
 };
 
 const formatRelativeTime = (dateString: string) => {
-  if (!dateString) return "—";
-  
+  if (!dateString) return '—';
+
   const date = new Date(dateString);
-  if (isNaN(date.getTime())) return "—";
-  
+  if (isNaN(date.getTime())) return '—';
+
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  
-  if (diffMins < 1) return "Just now";
+
+  if (diffMins < 1) return 'Just now';
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHours < 24) return `${diffHours}h ago`;
   if (diffDays < 7) return `${diffDays}d ago`;
@@ -102,7 +112,7 @@ export function EnterpriseFileCard({
   className,
   isSelected = false,
   onSelect,
-  showActions = true
+  showActions = true,
 }: FileCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const IconComponent = getFileIcon(file.type);
@@ -122,11 +132,11 @@ export function EnterpriseFileCard({
   return (
     <div
       className={cn(
-        "group relative flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-b-0",
-        "hover:bg-gray-50 transition-colors duration-150",
-        "focus-within:bg-gray-50 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-inset",
-        isSelected && "bg-blue-50 border-blue-200",
-        className
+        'group relative flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-b-0',
+        'hover:bg-gray-50 transition-colors duration-150',
+        'focus-within:bg-gray-50 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-inset',
+        isSelected && 'bg-blue-50 border-blue-200',
+        className,
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -145,12 +155,12 @@ export function EnterpriseFileCard({
       )}
 
       {/* File Icon - 16px indent for hierarchy */}
-      <div className={cn("flex-shrink-0 ml-4", iconColor)}>
+      <div className={cn('flex-shrink-0 ml-4', iconColor)}>
         <IconComponent className="h-5 w-5" />
       </div>
 
       {/* File Content */}
-      <div 
+      <div
         className="flex-1 min-w-0 cursor-pointer"
         onClick={() => onPreview?.(file.id)}
         onKeyDown={handleKeyDown}
@@ -159,22 +169,22 @@ export function EnterpriseFileCard({
         aria-label={`Preview ${file.title}`}
       >
         <div className="flex items-center gap-3 mb-1">
-          <h3 
+          <h3
             className="text-sm font-medium text-gray-900 truncate leading-tight"
             title={file.title}
           >
             {file.title}
           </h3>
-          
+
           {/* Status Badge */}
-          <Badge 
+          <Badge
             className={cn(
-              "text-xs font-medium border shrink-0",
-              file.processed 
-                ? "bg-green-50 text-green-700 border-green-200" 
-                : file.error 
-                  ? "bg-red-50 text-red-700 border-red-200"
-                  : "bg-yellow-50 text-yellow-700 border-yellow-200"
+              'text-xs font-medium border shrink-0',
+              file.processed
+                ? 'bg-green-50 text-green-700 border-green-200'
+                : file.error
+                  ? 'bg-red-50 text-red-700 border-red-200'
+                  : 'bg-yellow-50 text-yellow-700 border-yellow-200',
             )}
           >
             {file.processed ? (
@@ -184,10 +194,10 @@ export function EnterpriseFileCard({
             ) : (
               <Clock className="h-3 w-3 mr-1" />
             )}
-            {file.processed ? "Ready" : file.error ? "Error" : "Processing"}
+            {file.processed ? 'Ready' : file.error ? 'Error' : 'Processing'}
           </Badge>
         </div>
-        
+
         {/* File Metadata */}
         <div className="flex items-center gap-4 text-xs text-gray-500">
           <span>{formatFileSize(file.size || 0)}</span>
@@ -221,7 +231,7 @@ export function EnterpriseFileCard({
               <Eye className="h-4 w-4" />
             </Button>
           )}
-          
+
           {onDownload && (
             <Button
               variant="ghost"
@@ -236,7 +246,7 @@ export function EnterpriseFileCard({
               <Download className="h-4 w-4" />
             </Button>
           )}
-          
+
           {onPersonalize && file.processed && (
             <Button
               variant="ghost"
@@ -251,7 +261,7 @@ export function EnterpriseFileCard({
               <Sparkles className="h-4 w-4" />
             </Button>
           )}
-          
+
           {onDelete && (
             <Button
               variant="ghost"
@@ -270,4 +280,4 @@ export function EnterpriseFileCard({
       )}
     </div>
   );
-} 
+}

@@ -1,36 +1,36 @@
-"use client";
+'use client';
 
-import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSmartToast } from '@/hooks/use-smart-toast';
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { EnterpriseFileCard } from "./EnterpriseFileCard";
-import { 
-  ChevronDown, 
-  ChevronRight, 
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { EnterpriseFileCard } from './EnterpriseFileCard';
+import {
+  ChevronDown,
+  ChevronRight,
   Upload,
   MoreHorizontal,
   Trash2,
   Edit,
   FolderOpen,
   FileText,
-  Sparkles
-} from "lucide-react";
+  Sparkles,
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 
 interface Material {
   id: string;
   title: string;
   filename?: string;
-  type: "pdf" | "audio" | "video" | "document";
+  type: 'pdf' | 'audio' | 'video' | 'document';
   size?: string | number;
   uploadedAt: string;
   processed?: boolean;
@@ -73,7 +73,7 @@ export function EnterpriseModuleCard({
   className,
   selectedFiles = new Set(),
   onSelectFile,
-  onBulkAction
+  onBulkAction,
 }: ModuleCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isPersonalizing, setIsPersonalizing] = useState(false);
@@ -82,7 +82,7 @@ export function EnterpriseModuleCard({
 
   // Calculate progress
   const { completedMaterials, progressPercentage } = useMemo(() => {
-    const completed = module.materials.filter(m => m.processed).length;
+    const completed = module.materials.filter((m) => m.processed).length;
     const total = module.materials.length;
     const percentage = total > 0 ? (completed / total) * 100 : 0;
     return { completedMaterials: completed, progressPercentage: percentage };
@@ -90,18 +90,18 @@ export function EnterpriseModuleCard({
 
   // Get selected files in this module
   const selectedFilesInModule = useMemo(() => {
-    return module.materials.filter(m => selectedFiles.has(m.id));
+    return module.materials.filter((m) => selectedFiles.has(m.id));
   }, [module.materials, selectedFiles]);
 
   const handleSelectAll = (selected: boolean) => {
-    module.materials.forEach(material => {
+    module.materials.forEach((material) => {
       onSelectFile?.(material.id, selected);
     });
   };
 
   const handlePersonalizeAll = async () => {
     if (module.materials.length === 0) {
-      toast.error("No files to personalize in this module");
+      toast.error('No files to personalize in this module');
       return;
     }
 
@@ -109,31 +109,35 @@ export function EnterpriseModuleCard({
     // The streaming page will handle fetching user profile and generating content in real-time
     if (module.materials.length > 0) {
       const firstFileId = module.materials[0].id;
-      
+
       setIsPersonalizing(true);
-      const loadingToast = toast.loading(`Opening personalized study guide...`, {
-        description: "Redirecting to your learning experience"
-      });
-      
+      const loadingToast = toast.loading(
+        `Opening personalized study guide...`,
+        {
+          description: 'Redirecting to your learning experience',
+        },
+      );
+
       // Small delay for better UX
       setTimeout(() => {
         toast.dismiss(loadingToast);
         setIsPersonalizing(false);
-        router.push(`/learn/streaming/${firstFileId}?moduleId=${module.id}`);
+        router.push(`/personalize/${firstFileId}?moduleId=${module.id}`);
       }, 500);
     }
   };
 
-  const allSelected = module.materials.length > 0 && 
-    module.materials.every(m => selectedFiles.has(m.id));
-  const someSelected = module.materials.some(m => selectedFiles.has(m.id));
+  const allSelected =
+    module.materials.length > 0 &&
+    module.materials.every((m) => selectedFiles.has(m.id));
+  const someSelected = module.materials.some((m) => selectedFiles.has(m.id));
 
   return (
-    <div 
+    <div
       className={cn(
-        "bg-white border border-gray-200 rounded-lg overflow-hidden",
-        "hover:border-gray-300 transition-colors duration-150",
-        className
+        'bg-white border border-gray-200 rounded-lg overflow-hidden',
+        'hover:border-gray-300 transition-colors duration-150',
+        className,
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -149,7 +153,9 @@ export function EnterpriseModuleCard({
               size="sm"
               onClick={() => onToggle(module.id)}
               className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-              aria-label={module.isExpanded ? "Collapse module" : "Expand module"}
+              aria-label={
+                module.isExpanded ? 'Collapse module' : 'Expand module'
+              }
             >
               {module.isExpanded ? (
                 <ChevronDown className="h-4 w-4" />
@@ -170,20 +176,20 @@ export function EnterpriseModuleCard({
                   </Badge>
                 )}
               </div>
-              
+
               {/* Module Description */}
               {module.description && (
                 <p className="text-sm text-gray-600 mb-2 line-clamp-2">
                   {module.description}
                 </p>
               )}
-              
+
               {/* Progress Bar and Stats */}
               {module.materials.length > 0 && (
                 <div className="flex items-center gap-4">
                   <div className="flex-1 max-w-48">
-                    <Progress 
-                      value={progressPercentage} 
+                    <Progress
+                      value={progressPercentage}
                       className="h-2"
                       aria-label={`${completedMaterials} of ${module.materials.length} files processed`}
                     />
@@ -200,9 +206,10 @@ export function EnterpriseModuleCard({
           <div className="flex items-center gap-3 flex-shrink-0">
             {/* File count */}
             <span className="text-sm text-gray-500 font-medium">
-              {module.materials.length} {module.materials.length === 1 ? 'file' : 'files'}
+              {module.materials.length}{' '}
+              {module.materials.length === 1 ? 'file' : 'files'}
             </span>
-            
+
             {/* Bulk Actions (show when files are selected) */}
             {selectedFilesInModule.length > 0 && onBulkAction && (
               <div className="flex items-center gap-2">
@@ -212,7 +219,12 @@ export function EnterpriseModuleCard({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => onBulkAction('delete', selectedFilesInModule.map(f => f.id))}
+                  onClick={() =>
+                    onBulkAction(
+                      'delete',
+                      selectedFilesInModule.map((f) => f.id),
+                    )
+                  }
                   className="h-7 px-2 text-xs text-red-600 border-red-200 hover:bg-red-50"
                 >
                   <Trash2 className="h-3 w-3 mr-1" />
@@ -220,7 +232,7 @@ export function EnterpriseModuleCard({
                 </Button>
               </div>
             )}
-            
+
             {/* Personalize button (show when module has files) */}
             {module.materials.length > 0 && (
               <Button
@@ -231,10 +243,10 @@ export function EnterpriseModuleCard({
                 className="border-blue-300 text-blue-700 hover:bg-blue-50 font-medium"
               >
                 <Sparkles className="h-4 w-4 mr-2" />
-                {isPersonalizing ? "Creating..." : "Personalize"}
+                {isPersonalizing ? 'Creating...' : 'Personalize'}
               </Button>
             )}
-            
+
             {/* Add Files button */}
             <Button
               size="sm"
@@ -245,7 +257,7 @@ export function EnterpriseModuleCard({
               <Upload className="h-4 w-4 mr-2" />
               Add Files
             </Button>
-            
+
             {/* Module Actions Menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -264,7 +276,7 @@ export function EnterpriseModuleCard({
                   Edit Module
                 </DropdownMenuItem>
                 {onDeleteModule && (
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     onClick={() => onDeleteModule(module.id)}
                     className="text-red-600 focus:text-red-600"
                   >
@@ -289,14 +301,19 @@ export function EnterpriseModuleCard({
                   type="checkbox"
                   checked={allSelected}
                   ref={(input) => {
-                    if (input) input.indeterminate = someSelected && !allSelected;
+                    if (input)
+                      input.indeterminate = someSelected && !allSelected;
                   }}
                   onChange={(e) => handleSelectAll(e.target.checked)}
                   className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                   aria-label="Select all files in module"
                 />
                 <span className="text-sm text-gray-600">
-                  {allSelected ? 'Deselect all' : someSelected ? 'Select all' : 'Select all files'}
+                  {allSelected
+                    ? 'Deselect all'
+                    : someSelected
+                      ? 'Select all'
+                      : 'Select all files'}
                 </span>
               </div>
             </div>
@@ -310,7 +327,11 @@ export function EnterpriseModuleCard({
                   key={material.id}
                   file={material}
                   onPreview={() => onViewMaterial(material)}
-                  onDelete={onDeleteFile ? () => onDeleteFile(material.id, module.id) : undefined}
+                  onDelete={
+                    onDeleteFile
+                      ? () => onDeleteFile(material.id, module.id)
+                      : undefined
+                  }
                   onPersonalize={() => onAskAI(material)}
                   isSelected={selectedFiles.has(material.id)}
                   onSelect={onSelectFile}
@@ -324,9 +345,12 @@ export function EnterpriseModuleCard({
               <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                 <FolderOpen className="h-8 w-8 text-gray-500" />
               </div>
-              <h4 className="text-sm font-medium text-gray-900 mb-2">No files yet</h4>
+              <h4 className="text-sm font-medium text-gray-900 mb-2">
+                No files yet
+              </h4>
               <p className="text-sm text-gray-500 mb-4 max-w-sm mx-auto">
-                Upload PDFs, videos, or documents to get started with AI-powered learning.
+                Upload PDFs, videos, or documents to get started with AI-powered
+                learning.
               </p>
               <Button
                 size="sm"
@@ -342,4 +366,4 @@ export function EnterpriseModuleCard({
       )}
     </div>
   );
-} 
+}

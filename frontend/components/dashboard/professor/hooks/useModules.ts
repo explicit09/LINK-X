@@ -42,12 +42,14 @@ export function useModules(courseId: string | null) {
   };
 
   // Create a new module
-  const createModule = async (moduleData: CreateModuleData): Promise<Module | null> => {
+  const createModule = async (
+    moduleData: CreateModuleData,
+  ): Promise<Module | null> => {
     if (!courseId) return null;
 
     try {
       const newModule = await instructorAPI.createModule(courseId, moduleData);
-      setModules(prev => [...prev, newModule]);
+      setModules((prev) => [...prev, newModule]);
       toast.success('Module created successfully');
       return newModule;
     } catch (err) {
@@ -58,13 +60,19 @@ export function useModules(courseId: string | null) {
   };
 
   // Update module
-  const updateModule = async (moduleId: string, updateData: Partial<CreateModuleData>): Promise<Module | null> => {
+  const updateModule = async (
+    moduleId: string,
+    updateData: Partial<CreateModuleData>,
+  ): Promise<Module | null> => {
     try {
-      const updatedModule = await instructorAPI.updateModule(moduleId, updateData);
-      setModules(prev => 
-        prev.map(module => 
-          module.id === moduleId ? { ...module, ...updatedModule } : module
-        )
+      const updatedModule = await instructorAPI.updateModule(
+        moduleId,
+        updateData,
+      );
+      setModules((prev) =>
+        prev.map((module) =>
+          module.id === moduleId ? { ...module, ...updatedModule } : module,
+        ),
       );
       toast.success('Module updated successfully');
       return updatedModule;
@@ -79,7 +87,7 @@ export function useModules(courseId: string | null) {
   const deleteModule = async (moduleId: string): Promise<boolean> => {
     try {
       await instructorAPI.deleteModule(moduleId);
-      setModules(prev => prev.filter(module => module.id !== moduleId));
+      setModules((prev) => prev.filter((module) => module.id !== moduleId));
       toast.success('Module deleted successfully');
       return true;
     } catch (err) {
@@ -91,29 +99,29 @@ export function useModules(courseId: string | null) {
 
   // Add file to module (update module's files list)
   const addFileToModule = (moduleId: string, file: File) => {
-    setModules(prev =>
-      prev.map(module =>
+    setModules((prev) =>
+      prev.map((module) =>
         module.id === moduleId
           ? { ...module, files: [...module.files, file] }
-          : module
-      )
+          : module,
+      ),
     );
   };
 
   // Remove file from module
   const removeFileFromModule = (moduleId: string, fileId: string) => {
-    setModules(prev =>
-      prev.map(module =>
+    setModules((prev) =>
+      prev.map((module) =>
         module.id === moduleId
-          ? { ...module, files: module.files.filter(f => f.id !== fileId) }
-          : module
-      )
+          ? { ...module, files: module.files.filter((f) => f.id !== fileId) }
+          : module,
+      ),
     );
   };
 
   // Get module by ID
   const getModuleById = (moduleId: string) => {
-    return modules.find(module => module.id === moduleId);
+    return modules.find((module) => module.id === moduleId);
   };
 
   // Load modules when courseId changes
@@ -135,6 +143,6 @@ export function useModules(courseId: string | null) {
     addFileToModule,
     removeFileFromModule,
     getModuleById,
-    refetch: fetchModules
+    refetch: fetchModules,
   };
 }

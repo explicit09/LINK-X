@@ -6,7 +6,7 @@ import logging
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 
-from core.monitoring import get_metrics, tracer
+from core.monitoring import get_metrics
 from ..queries.user_metrics import UserMetricsQueries
 from ..queries.course_metrics import CourseMetricsQueries
 from ..queries.performance_metrics import PerformanceMetricsQueries

@@ -1,11 +1,11 @@
 import React from 'react';
-import { Settings, Bell, LogOut, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Settings, Bell, LogOut, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from '@/components/ui/tooltip';
 import { Avatar } from './Avatar';
 
 interface SidebarFooterProps {
@@ -13,7 +13,10 @@ interface SidebarFooterProps {
   onSignOut: () => void;
 }
 
-export const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed, onSignOut }) => {
+export const SidebarFooter: React.FC<SidebarFooterProps> = ({
+  collapsed,
+  onSignOut,
+}) => {
   return (
     <div className="border-t border-gray-700/50 p-4 bg-black/20">
       {!collapsed ? (
@@ -29,7 +32,7 @@ export const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed, onSignO
               </div>
             </div>
           </div>
-          
+
           {/* Action Buttons */}
           <div className="flex gap-2">
             <Tooltip>
@@ -44,7 +47,7 @@ export const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed, onSignO
               </TooltipTrigger>
               <TooltipContent>Settings</TooltipContent>
             </Tooltip>
-            
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -57,7 +60,7 @@ export const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed, onSignO
               </TooltipTrigger>
               <TooltipContent>Notifications</TooltipContent>
             </Tooltip>
-            
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -87,7 +90,7 @@ export const SidebarFooter: React.FC<SidebarFooterProps> = ({ collapsed, onSignO
             </TooltipTrigger>
             <TooltipContent side="right">Settings</TooltipContent>
           </Tooltip>
-          
+
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

@@ -14,15 +14,15 @@ export const useModuleManager = (courseId: string) => {
 
   const createModule = async (title: string, description?: string) => {
     if (!title.trim()) {
-      toast.error("Module title is required");
+      toast.error('Module title is required');
       return;
     }
 
     setIsCreating(true);
-    
+
     try {
       const endpoint = `/api/v2/courses/${courseId}/modules`;
-      
+
       const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
         headers: {
@@ -58,49 +58,58 @@ export const useModuleManager = (courseId: string) => {
       };
 
       dispatch(courseActions.addModule(moduleToAdd));
-      toast.success("Module created successfully");
-      
+      toast.success('Module created successfully');
+
       return moduleToAdd;
     } catch (error) {
-      console.error("Error creating module:", error);
-      toast.error("Failed to create module. Please try again.");
+      console.error('Error creating module:', error);
+      toast.error('Failed to create module. Please try again.');
     } finally {
       setIsCreating(false);
     }
   };
 
-  const updateModule = async (moduleId: string, title: string, description?: string) => {
+  const updateModule = async (
+    moduleId: string,
+    title: string,
+    description?: string,
+  ) => {
     if (!title.trim()) {
-      toast.error("Module title is required");
+      toast.error('Module title is required');
       return;
     }
-    
+
     setIsUpdating(true);
-    
+
     try {
-      const api = state.currentUser?.role === 'instructor' ? instructorAPI : studentAPI;
-      
+      const api =
+        state.currentUser?.role === 'instructor' ? instructorAPI : studentAPI;
+
       const response = await api.updateModule(courseId, moduleId, {
         title: title.trim(),
-        description: description?.trim() || undefined
+        description: description?.trim() || undefined,
       });
-      
+
       if (response.ok) {
-        dispatch(courseActions.updateModule(moduleId, {
-          title: title.trim(),
-          description: description?.trim() || undefined
-        }));
-        
-        toast.success("Module updated successfully");
+        dispatch(
+          courseActions.updateModule(moduleId, {
+            title: title.trim(),
+            description: description?.trim() || undefined,
+          }),
+        );
+
+        toast.success('Module updated successfully');
         return true;
       } else {
         const errorData = await response.json();
-        toast.error(errorData.error || "Failed to update module. Please try again.");
+        toast.error(
+          errorData.error || 'Failed to update module. Please try again.',
+        );
         return false;
       }
     } catch (error) {
-      console.error("Error updating module:", error);
-      toast.error("Failed to update module. Please try again.");
+      console.error('Error updating module:', error);
+      toast.error('Failed to update module. Please try again.');
       return false;
     } finally {
       setIsUpdating(false);
@@ -108,27 +117,29 @@ export const useModuleManager = (courseId: string) => {
   };
 
   const deleteModule = async (moduleId: string) => {
-    const module = state.modules.find(m => m.id === moduleId);
-    
+    const module = state.modules.find((m) => m.id === moduleId);
+
     if (!module) {
-      toast.error("Module not found");
+      toast.error('Module not found');
       return;
     }
 
     if (module.materials.length > 0) {
-      toast.error("Cannot delete module with files", {
-        description: "Please delete all files in the module first, then try again."
+      toast.error('Cannot delete module with files', {
+        description:
+          'Please delete all files in the module first, then try again.',
       });
       return;
     }
 
     setIsDeleting(true);
-    
+
     try {
-      const endpoint = state.currentUser?.role === "student" 
-        ? `/student/modules/${moduleId}`
-        : `/instructor/modules/${moduleId}`;
-        
+      const endpoint =
+        state.currentUser?.role === 'student'
+          ? `/student/modules/${moduleId}`
+          : `/instructor/modules/${moduleId}`;
+
       const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'DELETE',
         credentials: 'include',
@@ -139,12 +150,12 @@ export const useModuleManager = (courseId: string) => {
       }
 
       dispatch(courseActions.deleteModule(moduleId));
-      toast.success("Module deleted successfully");
-      
+      toast.success('Module deleted successfully');
+
       return true;
     } catch (error) {
-      console.error("Error deleting module:", error);
-      toast.error("Failed to delete module. Please try again.");
+      console.error('Error deleting module:', error);
+      toast.error('Failed to delete module. Please try again.');
       return false;
     } finally {
       setIsDeleting(false);
@@ -153,21 +164,27 @@ export const useModuleManager = (courseId: string) => {
 
   const toggleModule = (moduleId: string) => {
     dispatch(courseActions.toggleModule(moduleId));
-    
+
     // Persist accordion state in localStorage
     try {
-      const updatedModules = state.modules.map(module => 
-        module.id === moduleId 
+      const updatedModules = state.modules.map((module) =>
+        module.id === moduleId
           ? { ...module, isExpanded: !module.isExpanded }
-          : module
+          : module,
       );
-      
-      const accordionState = updatedModules.reduce((acc, module) => {
-        acc[module.id] = module.isExpanded;
-        return acc;
-      }, {} as Record<string, boolean>);
-      
-      localStorage.setItem(`course-${courseId}-accordion`, JSON.stringify(accordionState));
+
+      const accordionState = updatedModules.reduce(
+        (acc, module) => {
+          acc[module.id] = module.isExpanded;
+          return acc;
+        },
+        {} as Record<string, boolean>,
+      );
+
+      localStorage.setItem(
+        `course-${courseId}-accordion`,
+        JSON.stringify(accordionState),
+      );
     } catch (error) {
       console.warn('Failed to persist accordion state:', error);
     }
@@ -180,6 +197,6 @@ export const useModuleManager = (courseId: string) => {
     toggleModule,
     isCreating,
     isUpdating,
-    isDeleting
+    isDeleting,
   };
 };

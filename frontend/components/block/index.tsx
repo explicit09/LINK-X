@@ -77,16 +77,18 @@ function PureBlock({
   // Computed state
   const isCurrentVersionComputed = isCurrentVersion(
     currentVersionIndex,
-    documents?.length ?? 0
+    documents?.length ?? 0,
   );
 
   // Version change handler with context
-  const handleVersionChangeWithContext = (type: 'next' | 'prev' | 'toggle' | 'latest') => {
+  const handleVersionChangeWithContext = (
+    type: 'next' | 'prev' | 'toggle' | 'latest',
+  ) => {
     handleVersionChange(
       type,
       currentVersionIndex,
       documents?.length ?? 0,
-      setCurrentVersionIndex
+      setCurrentVersionIndex,
     );
   };
 

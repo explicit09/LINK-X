@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import Image from "next/image";
-import { cn } from "@/lib/utils";
-import { signOut } from "firebase/auth";
-import { auth } from "@/firebaseconfig";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import Image from 'next/image';
+import { cn } from '@/lib/utils';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/firebaseconfig';
+import { useRouter } from 'next/navigation';
 import {
   BookOpen,
   BarChart3,
@@ -21,15 +21,15 @@ import {
   TrendingUp,
   History,
   LogOut,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { useIsMobile } from "@/hooks/use-mobile";
+} from '@/components/ui/tooltip';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Avatar placeholder - replace with actual avatar component as needed
 const Avatar = () => (
@@ -41,9 +41,8 @@ const Avatar = () => (
 interface SidebarProps {
   className?: string;
   onCollapseChange?: (value: boolean) => void;
-  userRole: "student" | "instructor" |"admin";
+  userRole: 'student' | 'instructor' | 'admin';
 }
-
 
 const Sidebar = ({ className, onCollapseChange, userRole }: SidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
@@ -51,7 +50,6 @@ const Sidebar = ({ className, onCollapseChange, userRole }: SidebarProps) => {
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const router = useRouter(); //router
-  
 
   useEffect(() => {
     setMounted(true);
@@ -75,41 +73,41 @@ const Sidebar = ({ className, onCollapseChange, userRole }: SidebarProps) => {
   };
 
   const navItems =
-  userRole === "instructor"
-    ? [
-        {
-          name: "Dashboard",
-          path: "/dashboard",
-          icon: BookOpen,
-          active: pathname === "/dashboard",
-        },
-        {
-          name: "Analytics",
-          path: "/analytics",
-          icon: BarChart3,
-          active: pathname === "/analytics",
-        },
-      ]
-    : [
-        {
-          name: "Dashboard",
-          path: "/dashboard",
-          icon: BookOpen,
-          active: pathname === "/dashboard",
-        },
-        {
-          name: "Courses",
-          path: "/courses",
-          icon: GraduationCap,
-          active: pathname === "/courses",
-        },
-      ];
-// {
-    //   name: "Home",
-    //   path: "/",
-    //   icon: Home,
-    //   active: pathname === "/",
-    // },
+    userRole === 'instructor'
+      ? [
+          {
+            name: 'Dashboard',
+            path: '/dashboard',
+            icon: BookOpen,
+            active: pathname === '/dashboard',
+          },
+          {
+            name: 'Analytics',
+            path: '/analytics',
+            icon: BarChart3,
+            active: pathname === '/analytics',
+          },
+        ]
+      : [
+          {
+            name: 'Dashboard',
+            path: '/dashboard',
+            icon: BookOpen,
+            active: pathname === '/dashboard',
+          },
+          {
+            name: 'Courses',
+            path: '/courses',
+            icon: GraduationCap,
+            active: pathname === '/courses',
+          },
+        ];
+  // {
+  //   name: "Home",
+  //   path: "/",
+  //   icon: Home,
+  //   active: pathname === "/",
+  // },
 
   // Don't render anything during first mount to avoid layout shifts
   if (!mounted) return null;
@@ -126,11 +124,11 @@ const Sidebar = ({ className, onCollapseChange, userRole }: SidebarProps) => {
 
       <aside
         className={cn(
-          "fixed top-0 left-0 h-screen z-50 flex flex-col sidebar-gradient border-r border-sidebar-border/30",
-          collapsed ? "w-14" : "w-44",
-          isMobile && collapsed ? "translate-x-[-100%]" : "translate-x-0",
-          "transition-all duration-300 ease-in-out",
-          className
+          'fixed top-0 left-0 h-screen z-50 flex flex-col sidebar-gradient border-r border-sidebar-border/30',
+          collapsed ? 'w-14' : 'w-44',
+          isMobile && collapsed ? 'translate-x-[-100%]' : 'translate-x-0',
+          'transition-all duration-300 ease-in-out',
+          className,
         )}
       >
         {/* Sidebar Header */}
@@ -138,7 +136,7 @@ const Sidebar = ({ className, onCollapseChange, userRole }: SidebarProps) => {
           {!collapsed && (
             <Link href="/" className="flex items-center h-full">
               <Image
-                src={"/images/LearnXLogo.png"}
+                src={'/images/LearnXLogo.png'}
                 alt="Learn-X Logo"
                 width={288}
                 height={197}
@@ -148,7 +146,7 @@ const Sidebar = ({ className, onCollapseChange, userRole }: SidebarProps) => {
             </Link>
           )}
 
-          <div className={cn("ml-auto", collapsed && "mx-auto")}>
+          <div className={cn('ml-auto', collapsed && 'mx-auto')}>
             <Button
               variant="outline"
               size="icon"
@@ -177,28 +175,28 @@ const Sidebar = ({ className, onCollapseChange, userRole }: SidebarProps) => {
                     <Link
                       href={item.path}
                       className={cn(
-                        "flex items-center py-2 px-2 rounded-md sidebar-item-hover group",
+                        'flex items-center py-2 px-2 rounded-md sidebar-item-hover group',
                         item.active
-                          ? "sidebar-active-item text-sidebar-primary"
-                          : "text-sidebar-foreground/70"
+                          ? 'sidebar-active-item text-sidebar-primary'
+                          : 'text-sidebar-foreground/70',
                       )}
                     >
                       <item.icon
                         className={cn(
-                          "h-5 w-5 flex-shrink-0",
+                          'h-5 w-5 flex-shrink-0',
                           item.active
-                            ? "text-sidebar-primary"
-                            : "text-sidebar-foreground/70 group-hover:text-sidebar-foreground/90"
+                            ? 'text-sidebar-primary'
+                            : 'text-sidebar-foreground/70 group-hover:text-sidebar-foreground/90',
                         )}
                       />
 
                       {!collapsed && (
                         <span
                           className={cn(
-                            "ml-2 text-sm font-medium truncate transition-all",
+                            'ml-2 text-sm font-medium truncate transition-all',
                             item.active
-                              ? ""
-                              : "group-hover:text-sidebar-foreground/90"
+                              ? ''
+                              : 'group-hover:text-sidebar-foreground/90',
                           )}
                         >
                           {item.name}
@@ -227,10 +225,10 @@ const Sidebar = ({ className, onCollapseChange, userRole }: SidebarProps) => {
             <Link href="/settings" passHref>
               <Button
                 variant="outline"
-                size={collapsed ? "icon" : "default"}
+                size={collapsed ? 'icon' : 'default'}
                 className={cn(
-                  "w-full bg-sidebar-accent hover:bg-sidebar-accent/70 border-sidebar-border/50 text-sidebar-foreground/70 hover:text-sidebar-foreground",
-                  collapsed ? "justify-center" : "justify-start"
+                  'w-full bg-sidebar-accent hover:bg-sidebar-accent/70 border-sidebar-border/50 text-sidebar-foreground/70 hover:text-sidebar-foreground',
+                  collapsed ? 'justify-center' : 'justify-start',
                 )}
               >
                 <Settings className="h-5 w-5 flex-shrink-0" />
@@ -241,25 +239,25 @@ const Sidebar = ({ className, onCollapseChange, userRole }: SidebarProps) => {
             {/* Sign Out */}
             <Button
               variant="outline"
-              size={collapsed ? "icon" : "default"}
+              size={collapsed ? 'icon' : 'default'}
               onClick={async () => {
                 try {
                   await signOut(auth);
                   const API =
                     process.env.NEXT_PUBLIC_API_BASE_URL ||
-                    "http://localhost:8080";
+                    'http://localhost:8080';
                   await fetch(`${API}/sessionLogout`, {
-                    method: "POST",
-                    credentials: "include",
+                    method: 'POST',
+                    credentials: 'include',
                   });
-                  router.push("/");
+                  router.push('/');
                 } catch (error) {
-                  console.error("Error signing out:", error);
+                  console.error('Error signing out:', error);
                 }
               }}
               className={cn(
-                "w-full bg-sidebar-accent hover:bg-sidebar-accent/70 border-sidebar-border/50 text-sidebar-foreground/70 hover:text-sidebar-foreground",
-                collapsed ? "justify-center" : "justify-start"
+                'w-full bg-sidebar-accent hover:bg-sidebar-accent/70 border-sidebar-border/50 text-sidebar-foreground/70 hover:text-sidebar-foreground',
+                collapsed ? 'justify-center' : 'justify-start',
               )}
             >
               <LogOut className="h-5 w-5 flex-shrink-0" />

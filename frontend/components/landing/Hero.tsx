@@ -1,11 +1,12 @@
-"use client";
+'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { ArrowRight, BookOpen, Award, Database } from "lucide-react";
-import Link from "next/link";
-import { auth } from "@/firebaseconfig";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { Button } from '@/components/ui/button';
+import { ArrowRight, BookOpen, Award, Database } from 'lucide-react';
+import Link from 'next/link';
+import { auth } from '@/firebaseconfig';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { dashboardRoutes } from '@/lib/navigation';
 
 const Hero = () => {
   const heroRef = useRef<HTMLDivElement>(null);
@@ -31,7 +32,7 @@ const Hero = () => {
           }
         });
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
 
     if (heroRef.current) {
@@ -46,7 +47,7 @@ const Hero = () => {
   }, []);
 
   return (
-    <div 
+    <div
       ref={heroRef}
       className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden bg-white"
     >
@@ -63,41 +64,41 @@ const Hero = () => {
           </div>
 
           <h1 className="reveal text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 text-gray-900 text-balance">
-            <span className="text-gradient">
-              Learn it your way.
-            </span>
+            <span className="text-gradient">Learn it your way.</span>
           </h1>
 
           <p className="reveal text-lg md:text-xl text-gray-600 max-w-3xl mx-auto mb-8">
-            Traditional learning doesn&apos;t work for everyone. Our AI-powered platform personalizes education to match your student&apos;s unique learning style.
+            Traditional learning doesn&apos;t work for everyone. Our AI-powered
+            platform personalizes education to match your student&apos;s unique
+            learning style.
           </p>
 
           <div className="reveal flex flex-col sm:flex-row gap-4 justify-center mt-10">
             {user ? (
               <>
-                <Button 
-                  size="lg" 
+                <Button
+                  size="lg"
                   className="bg-blue-600 hover:bg-blue-700 text-white text-base h-12 px-6"
                   asChild
                 >
-                  <Link href="/dashboard">
-                    Go to Dashboard
+                  <Link href={dashboardRoutes.main}>
+                    🚀 Go to Dashboard
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="lg"
                   className="text-base h-12 px-6 border-gray-300 text-gray-700 hover:bg-gray-100"
                   asChild
                 >
-                  <Link href="#how-it-works">How It Works</Link>
+                  <Link href={dashboardRoutes.courses}>📚 My Courses</Link>
                 </Button>
               </>
             ) : (
               <>
-                <Button 
-                  size="lg" 
+                <Button
+                  size="lg"
                   className="bg-blue-600 hover:bg-blue-700 text-white text-base h-12 px-6"
                   asChild
                 >
@@ -106,13 +107,13 @@ const Hero = () => {
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="lg"
                   className="text-base h-12 px-6 border-gray-300 text-gray-700 hover:bg-gray-100"
                   asChild
                 >
-                  <Link href="#how-it-works">How It Works</Link>
+                  <Link href={dashboardRoutes.courses}>📚 My Courses</Link>
                 </Button>
               </>
             )}
@@ -124,24 +125,39 @@ const Hero = () => {
             <div className="rounded-full w-12 h-12 flex items-center justify-center bg-blue-100 mb-4">
               <BookOpen className="h-6 w-6 text-blue-600" />
             </div>
-            <h3 className="text-xl font-semibold mb-2 text-gray-900">Personalized Learning</h3>
-            <p className="text-gray-700">AI adapts to your student&apos;s unique learning style for maximum engagement</p>
+            <h3 className="text-xl font-semibold mb-2 text-gray-900">
+              Personalized Learning
+            </h3>
+            <p className="text-gray-700">
+              AI adapts to your student&apos;s unique learning style for maximum
+              engagement
+            </p>
           </div>
 
           <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition">
             <div className="rounded-full w-12 h-12 flex items-center justify-center bg-blue-100 mb-4">
               <Award className="h-6 w-6 text-blue-600" />
             </div>
-            <h3 className="text-xl font-semibold mb-2 text-gray-900">Integration with Canvas</h3>
-            <p className="text-gray-700">Add your course info to Canvas and Learn-X can take it and use it to personalize learning for your students</p>
+            <h3 className="text-xl font-semibold mb-2 text-gray-900">
+              Integration with Canvas
+            </h3>
+            <p className="text-gray-700">
+              Add your course info to Canvas and Learn-X can take it and use it
+              to personalize learning for your students
+            </p>
           </div>
 
           <div className="bg-white border border-gray-200 p-6 rounded-xl shadow-sm hover:shadow-md transition">
             <div className="rounded-full w-12 h-12 flex items-center justify-center bg-blue-100 mb-4">
               <Database className="h-6 w-6 text-blue-600" />
             </div>
-            <h3 className="text-xl font-semibold mb-2 text-gray-900">Cloud Integration</h3>
-            <p className="text-gray-700">Access your learning materials anywhere, anytime with cloud storage</p>
+            <h3 className="text-xl font-semibold mb-2 text-gray-900">
+              Cloud Integration
+            </h3>
+            <p className="text-gray-700">
+              Access your learning materials anywhere, anytime with cloud
+              storage
+            </p>
           </div>
         </div>
       </div>

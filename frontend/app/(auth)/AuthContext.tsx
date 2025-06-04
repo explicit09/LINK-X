@@ -1,9 +1,9 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "@/firebaseconfig";
-import { authService } from "@/lib/auth-service";
+import { createContext, useContext, useEffect, useState } from 'react';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/firebaseconfig';
+import { authService } from '@/lib/auth-service';
 
 type AuthContextType = {
   user: User | null;
@@ -34,7 +34,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         auth,
         async (firebaseUser) => {
           setUser(firebaseUser);
-          
+
           if (firebaseUser) {
             // Only skip on landing page, not auth pages
             const currentPath = window.location.pathname;
@@ -43,16 +43,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               setLoading(false);
               return;
             }
-            
+
             try {
               // Try to establish backend session
               const loginSuccess = await authService.login(firebaseUser);
-              
+
               if (loginSuccess) {
                 // Check if user is fully registered
                 const registered = await authService.checkRegistrationStatus();
                 setIsRegistered(registered);
-                
+
                 if (registered) {
                   setBackendUser(authService.getUser());
                   // User fully authenticated and registered
@@ -71,26 +71,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setIsRegistered(false);
             setBackendUser(null);
           }
-          
+
           setLoading(false);
         },
         (error) => {
           console.error('Auth state change error:', error);
           setError(error);
           setLoading(false);
-        }
+        },
       );
 
       return () => unsubscribe();
     } catch (error) {
       console.error('Auth initialization error:', error);
-      setError(error instanceof Error ? error : new Error('Authentication failed'));
+      setError(
+        error instanceof Error ? error : new Error('Authentication failed'),
+      );
       setLoading(false);
     }
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, isRegistered, backendUser }}>
+    <AuthContext.Provider
+      value={{ user, loading, error, isRegistered, backendUser }}
+    >
       {children}
     </AuthContext.Provider>
   );
