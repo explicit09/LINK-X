@@ -20,6 +20,7 @@ import { SiteFooter } from '@/components/SiteFooter';
 
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/firebaseconfig';
+import { authService, type RegistrationData } from '@/lib/auth-service';
 
 // Import GoogleAuthButton with no SSR to prevent hydration mismatches
 const GoogleAuthButton = dynamic(
@@ -89,133 +90,33 @@ export default function Page() {
         formData.get('password') as string,
       );
 
-      const token = await userCredential.user.getIdToken();
-      localStorage.setItem('token', token);
-
-      // Step 2: Determine signup URL based on role
-      let signupUrl = '';
-      if (role === 'student') {
-        signupUrl = `${API_URL}/register/student`;
-      } else if (role === 'instructor') {
-        signupUrl = `${API_URL}/register/instructor`;
-      } else {
-        setState('invalid_data');
-        toast.error('Please select Student or Educator.');
-        return;
-      }
-
-      // Step 3: Prepare data for backend
-      const bodyData: any = {
-        email: String(formData.get('email')),
-        password: String(formData.get('password')),
-        idToken: token,
+      // Step 2: Prepare registration data for auth service
+      const registrationData: RegistrationData = {
+        role: role,
+        name: role === 'instructor' ? String(formData.get('name') || '') : '',
+        university: role === 'instructor' ? String(formData.get('university') || '') : '',
       };
 
-      // Add instructor-specific fields if needed
-      if (role === 'instructor') {
-        bodyData.name = String(formData.get('name') || '');
-        bodyData.university = String(formData.get('university') || '');
-      }
+      // Step 3: Use auth service to complete registration
+      const registrationSuccess = await authService.register(registrationData);
 
-      // Registration data prepared
-
-      // Step 4: Register user in backend database
-      try {
-        const postgresResponse = await fetch(signupUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(bodyData),
-          credentials: 'include',
-          mode: 'cors',
-        });
-
-        if (!postgresResponse.ok) {
-          if (postgresResponse.status === 409) {
-            // Duplicate email detected from backend
-            setState('user_exists');
-            toast.error('Email is already registered!');
-            return;
-          }
-
-          let errorMessage = 'Failed to create user record';
-          let errorPayload: any = {};
-          try {
-            errorPayload = await postgresResponse.clone().json();
-          } catch (_) {
-            errorPayload.error = await postgresResponse.text();
-          }
-
-          console.error(
-            'Postgres user creation error:',
-            errorPayload.error || errorPayload.message || errorPayload,
-          );
-
-          errorMessage =
-            errorPayload.error || errorPayload.message || 'Invalid data format';
-
-          // Handle specific backend validation errors
-          if (
-            errorMessage.includes('pattern') ||
-            errorMessage.includes('validation')
-          ) {
-            setState('invalid_data');
-            toast.error(`Validation error: ${errorMessage}`);
-          } else {
-            setState('failed');
-            toast.error(`Registration failed: ${errorMessage}`);
-          }
-
-          return;
-        }
-
-        // User created successfully in database
-
-        // Step 5: Create session login
-        try {
-          const loginResponse = await fetch(`${API_URL}/sessionLogin`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ idToken: token }),
-          });
-
-          if (!loginResponse.ok) {
-            let errorMessage = 'Failed to set session cookie';
-            let loginPayload: any = {};
-            try {
-              loginPayload = await loginResponse.clone().json();
-            } catch (_) {
-              loginPayload.error = await loginResponse.text();
-            }
-
-            console.error(
-              'Session login error:',
-              loginPayload.error || loginPayload.message || loginPayload,
-            );
-            errorMessage =
-              loginPayload.error ||
-              loginPayload.message ||
-              'Session login failed';
-            setState('failed');
-            toast.error(`Session error: ${errorMessage}`);
-            return;
-          }
-
-          // Success path
-          setState('success');
-          router.push('/onboarding');
-        } catch (sessionError) {
-          console.error('Session creation error:', sessionError);
-          setState('failed');
-          toast.error('Failed to create session');
-          return;
-        }
-      } catch (dbError) {
-        console.error('Database registration error:', dbError);
+      if (!registrationSuccess) {
         setState('failed');
-        toast.error('Failed to register in database');
+        toast.error('Failed to complete registration');
+        // If registration fails, we might want to delete the Firebase user
+        // to avoid orphaned Firebase accounts
+        try {
+          await userCredential.user.delete();
+          console.log('Cleaned up Firebase user after failed registration');
+        } catch (deleteError) {
+          console.error('Failed to cleanup Firebase user:', deleteError);
+        }
         return;
       }
+
+      // Registration successful
+      setState('success');
+
     } catch (error: any) {
       console.error('Firebase Registration Error:', error.message);
       if (error.code === 'auth/email-already-in-use') {
