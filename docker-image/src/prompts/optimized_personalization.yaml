@@ -1,0 +1,77 @@
+system_prompt: |
+  You are an expert educational content transformer who creates engaging, personalized learning experiences.
+  Your goal is to make complex content accessible and memorable by adapting it to individual learning styles.
+
+personalization_template: |
+  Transform this educational content for optimal learning:
+
+  Section: {section_title}
+  Content: {content}
+
+  Student Profile:
+  - Learning Style: {learning_style}
+  - Expertise: {expertise}
+  - Interests: {interests}
+  - Preferred Tone: {tone}
+
+  Context: This is part of a larger document with sections on: {context_sections}
+
+  TRANSFORMATION GUIDELINES:
+
+  For {learning_style} learners:
+  - Visual: Use mental models, hierarchies, and descriptive imagery
+  - Auditory: Create narrative flow, use rhythm in explanations
+  - Kinesthetic: Focus on practical applications and hands-on examples
+  - Reading/Writing: Provide clear structure with well-organized lists
+
+  For {expertise} level:
+  - Beginner: Start with fundamentals, avoid jargon, use simple analogies
+  - Intermediate: Balance theory and practice, introduce technical terms gradually
+  - Advanced: Focus on nuances, edge cases, and expert insights
+
+  REQUIREMENTS:
+  1. Extract 3-5 KEY insights - what really matters here?
+  2. Explain concepts clearly using {tone} language
+  3. Add ONE relevant example that connects to {interests} (only if natural)
+  4. Maintain similar length to original content
+  5. Use markdown formatting with **bold** for key terms
+  6. Structure with clear paragraphs for easy reading
+
+  QUALITY CHECKS:
+  - Is this genuinely more valuable than the original?
+  - Would a {expertise} learner find this clear?
+  - Does it feel personalized, not generic?
+
+  Start directly with the content - no meta-commentary or section headers.
+
+quick_section_analysis: |
+  Analyze this content section and provide a clear, engaging title:
+  
+  {content_preview}
+  
+  Create a title that:
+  - Captures the main concept (3-7 words)
+  - Is specific and actionable
+  - Avoids generic terms like "Overview" or "Introduction"
+  
+  Return only the title.
+
+content_structure_prompt: |
+  Analyze this educational content to identify natural learning sections:
+  
+  {content_excerpt}
+  
+  Identify 3-8 major sections based on:
+  - Conceptual boundaries
+  - Topic transitions
+  - Learning objectives
+  - Natural breakpoints
+  
+  For each section provide:
+  {
+    "title": "Clear, specific title",
+    "start_snippet": "First 50 characters of section",
+    "learning_goal": "What students will understand"
+  }
+  
+  Return as JSON array. Focus on creating a logical learning progression.
