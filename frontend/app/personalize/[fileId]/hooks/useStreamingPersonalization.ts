@@ -147,7 +147,7 @@ export function useStreamingPersonalization(
       const eventSource = new EventSource(url.toString());
       eventSourceRef.current = eventSource;
 
-      let currentContent = '';
+      let sectionContentMap = new Map();
       let currentSectionIndex = 0;
 
       eventSource.onopen = () => {
@@ -160,17 +160,22 @@ export function useStreamingPersonalization(
 
         try {
           const data = JSON.parse(event.data);
+          console.log('SSE Event received:', data);
 
           switch (data.type) {
             case 'section_start':
-              currentContent = '';
+              sectionContentMap.set(data.section_id, '');
               setCurrentSection(data.section_id);
               currentSectionIndex = outline.findIndex(s => s.anchor === data.section_id);
+              console.log(`Started section ${data.section_id}: ${data.title}`);
               break;
 
             case 'content':
-              currentContent += data.content;
-              setSections(prev => new Map(prev).set(data.section_id, currentContent));
+              const existingContent = sectionContentMap.get(data.section_id) || '';
+              const newContent = existingContent + data.content;
+              sectionContentMap.set(data.section_id, newContent);
+              setSections(prev => new Map(prev).set(data.section_id, newContent));
+              console.log(`Content chunk for ${data.section_id}: ${data.content.length} chars`);
               break;
 
             case 'section_complete':
@@ -188,6 +193,26 @@ export function useStreamingPersonalization(
               if (completedCount % 2 === 0) {
                 saveToCache();
               }
+              break;
+
+            case 'original_complete':
+              console.log(`Original content streamed for ${data.section_id}`);
+              break;
+
+            case 'personalization_start':
+              console.log(`Starting personalization for ${data.section_id}: ${data.message}`);
+              break;
+
+            case 'content_replace':
+              // Replace content instead of appending
+              sectionContentMap.set(data.section_id, data.content);
+              setSections(prev => new Map(prev).set(data.section_id, data.content));
+              console.log(`Content replaced for ${data.section_id}`);
+              break;
+
+            case 'section_error':
+              console.warn(`Section error for ${data.section_id}:`, data.error);
+              // Don't break the stream, just log the error
               break;
 
             case 'complete':
