@@ -59,7 +59,6 @@ export class RegistrationManager {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ idToken }),
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -158,7 +157,6 @@ export class RegistrationManager {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(registrationData),
-        credentials: 'include',
       });
 
       if (!response.ok) {

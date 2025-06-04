@@ -98,7 +98,6 @@ export class BaseAPIClient {
       const response = await fetch(url.toString(), {
         ...options,
         headers,
-        credentials: 'include',
         signal: controller.signal,
       });
 

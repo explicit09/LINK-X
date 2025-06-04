@@ -80,7 +80,6 @@ export class TokenManager {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ refresh_token: currentTokens.refreshToken }),
-          credentials: 'include',
         });
 
         if (response.ok) {
@@ -110,7 +109,6 @@ export class TokenManager {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ idToken }),
-          credentials: 'include',
         });
 
         if (response.ok) {

@@ -42,7 +42,6 @@ export class UserManager {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         mode: 'cors',
       });
 
@@ -84,7 +83,6 @@ export class UserManager {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         mode: 'cors',
       });
 
@@ -115,7 +113,6 @@ export class UserManager {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(updates),
-        credentials: 'include',
       });
 
       return response.ok;
@@ -147,7 +144,6 @@ export class UserManager {
     const response = await fetch(url, {
       ...options,
       headers,
-      credentials: 'include',
     });
 
     // If 401, the token manager should handle refresh, so just return the response
@@ -165,7 +161,6 @@ export class UserManager {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
-        credentials: 'include',
       });
     } catch (error) {
       console.error('Backend logout failed:', error);
