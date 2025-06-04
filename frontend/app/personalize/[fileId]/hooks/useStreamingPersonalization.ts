@@ -7,6 +7,7 @@ interface OutlineSection {
   anchor: string;
   title: string;
   isComplete: boolean;
+  isStreamingComplete: boolean;
 }
 
 interface StreamingOptions {
@@ -30,6 +31,8 @@ interface UseStreamingPersonalizationReturn {
   resumeStreaming: () => void;
   downloadContent: () => void;
   resetPersonalization: () => void;
+  markSectionComplete: (sectionId: string) => void;
+  markSectionIncomplete: (sectionId: string) => void;
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -114,7 +117,8 @@ export function useStreamingPersonalization(
       const generatedOutline = response.outline.map((section: any) => ({
         anchor: section.anchor,
         title: section.title,
-        isComplete: false
+        isComplete: false,
+        isStreamingComplete: false
       }));
 
       setOutline(generatedOutline);
@@ -179,20 +183,13 @@ export function useStreamingPersonalization(
               break;
 
             case 'section_complete':
+              // Only mark streaming as complete, not the section itself
               setOutline(prev => prev.map(section => 
                 section.anchor === data.section_id 
-                  ? { ...section, isComplete: true }
+                  ? { ...section, isStreamingComplete: true }
                   : section
               ));
-              
-              // Update progress
-              const completedCount = outline.filter((s, i) => i <= currentSectionIndex).length;
-              setProgress((completedCount / outline.length) * 100);
-              
-              // Save to cache periodically
-              if (completedCount % 2 === 0) {
-                saveToCache();
-              }
+              console.log(`Streaming complete for ${data.section_id}`);
               break;
 
             case 'original_complete':
@@ -322,6 +319,46 @@ export function useStreamingPersonalization(
     toast.success('Content downloaded');
   }, [sections, outline, fileId]);
 
+  // Manually mark section as complete
+  const markSectionComplete = useCallback((sectionId: string) => {
+    setOutline(prev => {
+      const updated = prev.map(section => 
+        section.anchor === sectionId 
+          ? { ...section, isComplete: true }
+          : section
+      );
+      
+      // Update progress based on user-completed sections
+      const completedCount = updated.filter(s => s.isComplete).length;
+      setProgress((completedCount / updated.length) * 100);
+      
+      return updated;
+    });
+    
+    toast.success('Section marked as complete!');
+    saveToCache();
+  }, [saveToCache]);
+
+  // Mark section as incomplete (allow users to revisit)
+  const markSectionIncomplete = useCallback((sectionId: string) => {
+    setOutline(prev => {
+      const updated = prev.map(section => 
+        section.anchor === sectionId 
+          ? { ...section, isComplete: false }
+          : section
+      );
+      
+      // Update progress based on user-completed sections
+      const completedCount = updated.filter(s => s.isComplete).length;
+      setProgress((completedCount / updated.length) * 100);
+      
+      return updated;
+    });
+    
+    toast.info('Section marked as incomplete');
+    saveToCache();
+  }, [saveToCache]);
+
   // Reset personalization
   const resetPersonalization = useCallback(() => {
     if (eventSourceRef.current) {
@@ -377,6 +414,8 @@ export function useStreamingPersonalization(
     pauseStreaming,
     resumeStreaming,
     downloadContent,
-    resetPersonalization
+    resetPersonalization,
+    markSectionComplete,
+    markSectionIncomplete
   };
 }

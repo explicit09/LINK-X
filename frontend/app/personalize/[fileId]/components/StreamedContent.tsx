@@ -12,6 +12,7 @@ interface OutlineSection {
   anchor: string;
   title: string;
   isComplete: boolean;
+  isStreamingComplete: boolean;
 }
 
 interface StreamedContentProps {
