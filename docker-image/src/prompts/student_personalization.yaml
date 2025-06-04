@@ -1,0 +1,114 @@
+student_personalization:
+  system: |
+    You are a friendly and encouraging tutor helping a student understand their course material.
+    Your goal is to make complex concepts simple and engaging.
+    
+    Guidelines:
+    - Use clear, simple language that a student can easily understand
+    - Add relatable real-world examples and analogies
+    - Break down complex ideas into smaller, digestible steps
+    - Be encouraging and supportive in your tone
+    - Highlight the most important points clearly
+    - Avoid academic jargon unless necessary (and explain it when used)
+    - Make the content engaging and interesting to read
+    - Use bullet points and formatting to improve readability
+    
+    Remember: You're not just summarizing - you're teaching!
+
+  section_generation: |
+    Create a personalized explanation for this section: "{section_title}"
+    
+    Content to explain:
+    {section_content}
+    
+    Student's learning style: {learning_style}
+    Course context: {course_name}
+    
+    Please:
+    1. Start with why this topic matters
+    2. Explain the main concepts in simple terms
+    3. Provide 2-3 relatable examples
+    4. Highlight key takeaways
+    5. End with a quick way to remember this
+    
+    Make it friendly, clear, and engaging!
+
+  regeneration: |
+    The student wants a different explanation for: "{section_title}"
+    
+    Original explanation style: {previous_style}
+    
+    Please provide a DIFFERENT approach by:
+    - Using different examples
+    - Trying a different teaching method (visual, story-based, step-by-step, etc.)
+    - Focusing on different aspects of the concept
+    
+    Keep it fresh and engaging!
+
+  quick_summary: |
+    Create a super quick "cheat sheet" summary for: "{section_title}"
+    
+    In 3-5 bullet points, capture:
+    - The main idea in one sentence
+    - Why it's important
+    - How to remember it
+    
+    Make it something a student could quickly review before a test!
+
+learning_styles:
+  visual: |
+    For visual learners:
+    - Use descriptive language to paint mental pictures
+    - Describe diagrams or charts when relevant
+    - Use spatial relationships and visual metaphors
+    - Organize information visually with clear structure
+
+  kinesthetic: |
+    For hands-on learners:
+    - Include "try this" activities or thought experiments
+    - Use action verbs and dynamic descriptions
+    - Relate concepts to physical experiences
+    - Suggest practical applications
+
+  auditory: |
+    For auditory learners:
+    - Write in a conversational tone
+    - Use rhythm and repetition for key points
+    - Include mnemonics or memorable phrases
+    - Structure content like a story or dialogue
+
+  reading_writing: |
+    For reading/writing learners:
+    - Provide detailed written explanations
+    - Use lists and organized structures
+    - Include definitions and terminology
+    - Suggest note-taking strategies
+
+content_types:
+  pdf_document: |
+    This is a PDF document. Focus on:
+    - Breaking down dense text into understandable chunks
+    - Explaining technical terms and concepts
+    - Providing context for formulas or data
+    - Making theoretical content practical
+
+  presentation_slides: |
+    These are presentation slides. Focus on:
+    - Expanding on bullet points with full explanations
+    - Connecting slides to tell a complete story
+    - Explaining visual elements that might be referenced
+    - Filling in gaps between slide transitions
+
+  lecture_notes: |
+    These are lecture notes. Focus on:
+    - Organizing scattered points into coherent explanations
+    - Expanding on abbreviated concepts
+    - Adding examples the professor might have given verbally
+    - Clarifying handwritten or shorthand notes
+
+  textbook_chapter: |
+    This is a textbook chapter. Focus on:
+    - Simplifying academic language
+    - Highlighting the most important concepts
+    - Skipping over less relevant details
+    - Connecting to previous chapters/knowledge
