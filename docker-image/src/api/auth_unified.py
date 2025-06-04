@@ -90,69 +90,25 @@ def login():
         
         # Handle response based on version
         if version == 'v2':
-            # Modern secure cookie-based response
-            response = make_response(jsonify({
+            # Return tokens in response body only (no cookies)
+            return jsonify({
                 'success': True,
                 'user': result['user'],
+                'access_token': result['access_token'],
+                'refresh_token': result.get('refresh_token'),
                 'token_type': 'Bearer',
                 'expires_in': 1800  # 30 minutes
-            }))
-            
-            # Generate CSRF token
-            csrf_token = cookie_auth.generate_csrf_token()
-            
-            # Set secure httpOnly cookies
-            cookie_auth.set_auth_cookies(
-                response=response,
-                access_token=result['access_token'],
-                refresh_token=result.get('refresh_token'),
-                csrf_token=csrf_token
-            )
-            
-            # Include CSRF token in response for client to use
-            response_data = response.get_json()
-            response_data['csrf_token'] = csrf_token
-            response.data = jsonify(response_data).data
-            
-            return response
+            })
         else:
-            # Legacy v1 response - set Firebase session cookie
-            try:
-                # Create Firebase session cookie
-                expires_in = timedelta(days=14)  # 14 days
-                session_cookie = firebase_auth.create_session_cookie(
-                    data.get('idToken') or data.get('id_token'),
-                    expires_in=expires_in
-                )
-                
-                # Create response
-                response = make_response(jsonify({
-                    'status': 'success',
-                    'message': 'Session cookie set successfully',
-                    'uid': result['firebase_uid'],
-                    'email': result['user']['email'],
-                    'user': result['user']
-                }))
-                
-                # Set session cookie
-                is_secure = current_app.config.get('FLASK_ENV') != 'development'
-                response.set_cookie(
-                    'session',
-                    session_cookie,
-                    max_age=int(expires_in.total_seconds()),
-                    httponly=True,
-                    secure=is_secure,
-                    samesite='Lax'
-                )
-                
-                return response
-            except Exception as cookie_error:
-                logger.error(f"Failed to create session cookie: {cookie_error}")
-                # Fall back to JWT response
-                return jsonify({
-                    'token': result.get('jwt_token', ''),
-                    'user': result['user']
-                })
+            # Legacy v1 response - return data without cookies
+            return jsonify({
+                'status': 'success',
+                'message': 'Login successful',
+                'uid': result.get('firebase_uid', ''),
+                'email': result['user']['email'],
+                'user': result['user'],
+                'token': result.get('jwt_token', '')  # Include token if available
+            })
             
     except ValidationError as e:
         logger.error(f"Validation error in login: {str(e)}")
@@ -239,11 +195,9 @@ def refresh_token():
         return jsonify({'error': 'Endpoint not available in v1'}), 404
         
     try:
-        # Get refresh token from cookie or body
-        refresh_token = request.cookies.get('refresh_token')
-        if not refresh_token:
-            data = request.get_json() or {}
-            refresh_token = data.get('refresh_token')
+        # Get refresh token from request body only (no cookie support)
+        data = request.get_json() or {}
+        refresh_token = data.get('refresh_token')
             
         if not refresh_token:
             raise AuthenticationError("Refresh token required")
@@ -283,37 +237,28 @@ def logout():
             jwt_blacklist.blacklist_token(jti, exp, user_id)
             logger.info(f"Blacklisted access token for user {user_id}")
         
-        # Also blacklist refresh token if present
-        refresh_token = request.cookies.get('refresh_token')
+        # Check for refresh token in request body (no cookie support)
+        data = request.get_json() or {}
+        refresh_token = data.get('refresh_token')
         if refresh_token:
             # Note: In production, you'd decode the refresh token to get its JTI
             # For now, we'll revoke all user tokens
             count = jwt_blacklist.blacklist_all_user_tokens(user_id)
             logger.info(f"Blacklisted {count} tokens for user {user_id}")
         
-        # Clear cookies
-        response = make_response(jsonify({
+        # Return success without cookie operations
+        return jsonify({
             'message': 'Logged out successfully',
             'success': True
-        }))
-        
-        # Clear both access and refresh tokens from cookies
-        response.set_cookie('access_token', '', expires=0, httponly=True, secure=True)
-        response.set_cookie('refresh_token', '', expires=0, httponly=True, secure=True)
-        response.set_cookie('session', '', expires=0, httponly=True, secure=True)
-        
-        return response
+        })
         
     except Exception as e:
         logger.error(f"Logout error: {str(e)}", exc_info=True)
-        # Still try to clear cookies even if blacklisting fails
-        response = make_response(jsonify({
+        # Return error without cookie operations
+        return jsonify({
             'error': 'Logout partially failed',
-            'message': 'Tokens cleared but blacklisting failed'
-        }), 500)
-        response.set_cookie('access_token', '', expires=0, httponly=True, secure=True)
-        response.set_cookie('refresh_token', '', expires=0, httponly=True, secure=True)
-        return response
+            'message': 'Token blacklisting failed'
+        }), 500
 
 
 @bp.route('/me', methods=['GET'])
