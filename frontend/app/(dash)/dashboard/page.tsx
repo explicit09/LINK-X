@@ -6,8 +6,12 @@ import { toast as sonnerToast } from 'sonner';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
 import { DashboardMainContent } from '@/components/dashboard/sections/DashboardMainContent';
 import { DashboardSidebar } from '@/components/dashboard/sections/DashboardSidebar';
+import { ProgressiveDashboard } from '@/components/dashboard/sections/ProgressiveDashboard';
+import { FirstTimeUserGuide } from '@/components/dashboard/FirstTimeUserGuide';
+import { useUserJourneyStage, UserJourneyStage } from '@/hooks/useUserJourneyStage';
 import { useAuthUser } from '@/hooks/useAuthUser';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
+import { useDashboardOverview, useAIRecommendations } from '@/hooks/useDashboardData';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -20,6 +24,14 @@ export default function Dashboard() {
   
   // Extract role from user data
   const role = (currentUser?.role as 'student' | 'instructor' | 'admin') || 'student';
+  
+  // New hooks for progressive dashboard
+  const { stage, isLoading: journeyLoading } = useUserJourneyStage();
+  const { data: dashboardData, loading: dashboardLoading } = useDashboardOverview();
+  const { data: aiData } = useAIRecommendations();
+  
+  // Feature flag to enable new dashboard (set to true to test)
+  const useProgressiveDashboard = true; // Make sure this is enabled
 
   // Handle user not registered case
   useEffect(() => {
@@ -63,7 +75,7 @@ export default function Dashboard() {
     router.push('/schedule');
   };
 
-  if (authState.isLoading || (authState.isRegistered && role === 'unknown')) {
+  if (authState.isLoading || journeyLoading || (authState.isRegistered && role === 'unknown')) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
@@ -81,17 +93,54 @@ export default function Dashboard() {
     return null;
   }
 
+  // Debug user data
+  console.log('🔍 User Data Debug:', {
+    currentUser,
+    displayName: currentUser?.displayName,
+    email: currentUser?.email,
+    firstName: currentUser?.firstName,
+    lastName: currentUser?.lastName,
+    name: currentUser?.name
+  });
+  
+  // Improved user name resolution
+  const userName = currentUser?.displayName || 
+                   currentUser?.name || 
+                   (currentUser?.firstName && currentUser?.lastName ? 
+                     `${currentUser.firstName} ${currentUser.lastName}` : 
+                     null) ||
+                   currentUser?.email?.split('@')[0] || 
+                   'there';
+
   // Use SharedDashboardLayout with professional structure
   return (
     <SharedDashboardLayout currentUser={currentUser}>
+      {/* Show first time guide only for truly new users with no courses */}
+      {false && ( // Temporarily disable FirstTimeUserGuide to prevent duplicate welcome
+        <FirstTimeUserGuide 
+          onGuideComplete={() => {
+            console.log('Guide completed');
+          }}
+        />
+      )}
+      
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Main Content - 3 columns */}
         <div className="lg:col-span-3">
-          <DashboardMainContent
-            onActionClick={handleActionClick}
-            onCourseClick={handleCourseClick}
-            onViewProgress={handleViewProgress}
-          />
+          {useProgressiveDashboard ? (
+            <ProgressiveDashboard
+              userName={userName}
+              dashboardData={dashboardData}
+              aiRecommendations={aiData?.recommendations}
+              onActionClick={handleActionClick}
+            />
+          ) : (
+            <DashboardMainContent
+              onActionClick={handleActionClick}
+              onCourseClick={handleCourseClick}
+              onViewProgress={handleViewProgress}
+            />
+          )}
         </div>
 
         {/* Right Sidebar - 1 column (Reference & Reflection) */}

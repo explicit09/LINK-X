@@ -84,8 +84,7 @@ export function SharedDashboardLayout({
           sidebarCollapsed ? 'left-16' : 'left-64',
         )}
       >
-        {/* Header */}
-        <PersonalizedHeader currentUser={currentUser} />
+        {/* Header - Removed PersonalizedHeader to avoid duplicate greetings with ProgressiveDashboard */}
 
         {/* Page Content */}
         <div className="h-full overflow-y-auto">
