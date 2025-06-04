@@ -2,14 +2,10 @@
  * Navigation utilities for routing users to appropriate dashboard sections
  */
 
-import { auth } from '@/firebaseconfig';
-
-export const navigateToDashboard = (fallbackUrl: string = '/login') => {
+export const navigateToDashboard = (isAuthenticated: boolean, fallbackUrl: string = '/login') => {
   if (typeof window === 'undefined') return fallbackUrl;
   
-  const user = auth.currentUser;
-  
-  if (!user) {
+  if (!isAuthenticated) {
     // Not authenticated, redirect to login
     return '/login?redirect=/dashboard';
   }
@@ -18,12 +14,10 @@ export const navigateToDashboard = (fallbackUrl: string = '/login') => {
   return '/dashboard';
 };
 
-export const getAuthenticatedRoute = (targetRoute: string) => {
+export const getAuthenticatedRoute = (targetRoute: string, isAuthenticated: boolean) => {
   if (typeof window === 'undefined') return targetRoute;
   
-  const user = auth.currentUser;
-  
-  if (!user) {
+  if (!isAuthenticated) {
     return `/login?redirect=${encodeURIComponent(targetRoute)}`;
   }
   

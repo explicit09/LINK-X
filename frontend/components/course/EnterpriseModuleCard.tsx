@@ -122,7 +122,7 @@ export function EnterpriseModuleCard({
       setTimeout(() => {
         toast.dismiss(loadingToast);
         setIsPersonalizing(false);
-        router.push(`/learn/streaming/${firstFileId}?moduleId=${module.id}`);
+        router.push(`/personalize/${firstFileId}?moduleId=${module.id}`);
       }, 500);
     }
   };
