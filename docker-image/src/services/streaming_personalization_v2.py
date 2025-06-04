@@ -131,45 +131,88 @@ class OptimizedStreamingPersonalizationService:
                 'file_id': file_id
             })
             
-            # Process sections in parallel batches for faster generation
-            batch_size = 2  # Process 2 sections at a time
-            for i in range(0, len(context.sections), batch_size):
-                batch = context.sections[i:i + batch_size]
-                
-                # Process batch
-                personalized_sections = []
-                for section in batch:
-                    try:
-                        result = self._personalize_section(section, context)
-                        personalized_sections.append(result)
-                    except Exception as e:
-                        personalized_sections.append(e)
-                
-                # Stream results
-                for j, (section, result) in enumerate(zip(batch, personalized_sections)):
-                    if isinstance(result, Exception):
-                        logger.error(f"Error personalizing section: {result}")
-                        # Fallback to original content
-                        result = section.content
-                    
-                    # Send section start event
+            # Process sections one by one for true progressive streaming
+            for section in context.sections:
+                try:
+                    # Send section start event immediately
                     yield self._create_event('section_start', {
                         'section_id': section.anchor,
                         'title': section.title,
                         'order': section.order
                     })
                     
-                    # Stream content in chunks for progressive display
-                    chunks = self._chunk_content(result, chunk_size=500)
-                    for chunk in chunks:
+                    # First, stream the original content immediately for instant feedback
+                    original_chunks = self._chunk_content(section.content, chunk_size=150)
+                    for chunk in original_chunks:
                         yield self._create_event('content', {
                             'section_id': section.anchor,
                             'content': chunk
                         })
                         import time
-                        time.sleep(0.05)  # Small delay for smooth streaming
+                        time.sleep(0.05)  # Fast streaming of original content
+                    
+                    # Mark as "original complete" so users see content immediately
+                    yield self._create_event('original_complete', {
+                        'section_id': section.anchor
+                    })
+                    
+                    # Now generate personalized content in the background
+                    try:
+                        personalized_content = self._personalize_section(section, context)
+                        
+                        # If personalization succeeded and is different, stream it as an update
+                        if personalized_content and personalized_content.strip() != section.content.strip():
+                            yield self._create_event('personalization_start', {
+                                'section_id': section.anchor,
+                                'message': 'Applying personalization...'
+                            })
+                            
+                            # Clear existing content and stream personalized version
+                            yield self._create_event('content_replace', {
+                                'section_id': section.anchor,
+                                'content': ''  # Clear existing
+                            })
+                            
+                            personalized_chunks = self._chunk_content(personalized_content, chunk_size=200)
+                            for chunk in personalized_chunks:
+                                yield self._create_event('content', {
+                                    'section_id': section.anchor,
+                                    'content': chunk
+                                })
+                                import time
+                                time.sleep(0.08)  # Slightly slower for personalized content
+                    
+                    except Exception as personalization_error:
+                        logger.warning(f"Personalization failed for {section.anchor}: {personalization_error}")
+                        # Original content is already streamed, so just continue
                     
                     # Section complete
+                    yield self._create_event('section_complete', {
+                        'section_id': section.anchor
+                    })
+                    
+                except Exception as e:
+                    logger.error(f"Error processing section {section.anchor}: {e}")
+                    # Send error event but continue with next section
+                    yield self._create_event('section_error', {
+                        'section_id': section.anchor,
+                        'error': str(e)
+                    })
+                    
+                    # Try to stream original content as fallback
+                    try:
+                        chunks = self._chunk_content(section.content, chunk_size=200)
+                        for chunk in chunks:
+                            yield self._create_event('content', {
+                                'section_id': section.anchor,
+                                'content': chunk
+                            })
+                            import time
+                            time.sleep(0.1)
+                    except:
+                        pass  # If even fallback fails, just continue
+                    
+                    # Mark section complete
                     yield self._create_event('section_complete', {
                         'section_id': section.anchor
                     })
