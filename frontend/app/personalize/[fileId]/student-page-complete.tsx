@@ -21,7 +21,7 @@ interface Section {
   isActive: boolean;
 }
 
-export default function StudentPersonalizationPage() {
+function StudentPersonalizationPageContent() {
   const params = useParams();
   const router = useRouter();
   const { user, loading: authLoading } = useAuthUser();
@@ -34,6 +34,16 @@ export default function StudentPersonalizationPage() {
   const [currentSection, setCurrentSection] = useState(0);
   const [eventSource, setEventSource] = useState<EventSource | null>(null);
   const [progress, setProgress] = useState(0);
+  
+  // Gamification state
+  const [points, setPoints] = useState(0);
+  const [level, setLevel] = useState(1);
+  const [streak, setStreak] = useState(0);
+  const [showGamification, setShowGamification] = useState(false);
+  
+  // Interactive controls state
+  const [streamSpeed, setStreamSpeed] = useState(1);
+  const [explanationStyle, setExplanationStyle] = useState('simple');
 
   // Fetch file info
   useEffect(() => {
@@ -72,6 +82,18 @@ export default function StudentPersonalizationPage() {
     }
   }, [fileId]);
 
+  // Load gamification data
+  useEffect(() => {
+    // In a real app, load from user profile
+    const savedData = localStorage.getItem('gamification_data');
+    if (savedData) {
+      const data = JSON.parse(savedData);
+      setPoints(data.points || 0);
+      setLevel(data.level || 1);
+      setStreak(data.streak || 0);
+    }
+  }, []);
+
   const startPersonalization = useCallback(() => {
     if (!user) {
       toast.error('Please log in to continue');
@@ -80,6 +102,7 @@ export default function StudentPersonalizationPage() {
 
     setIsStreaming(true);
     setCurrentSection(0);
+    setShowGamification(true);
     
     // Update first section as active
     setSections(prev => prev.map((section, index) => ({
@@ -88,7 +111,7 @@ export default function StudentPersonalizationPage() {
     })));
 
     const token = localStorage.getItem('access_token');
-    const eventSourceUrl = `/api/v2/personalization/stream/${fileId}?token=${encodeURIComponent(token || '')}`;
+    const eventSourceUrl = `/api/v2/personalization/stream/${fileId}?token=${encodeURIComponent(token || '')}&style=${explanationStyle}&speed=${streamSpeed}`;
     
     const es = new EventSource(eventSourceUrl);
     
@@ -120,6 +143,16 @@ export default function StudentPersonalizationPage() {
               return newSections;
             });
             
+            // Award points for completing section
+            setPoints(prev => {
+              const newPoints = prev + 10;
+              // Check for level up
+              if (newPoints >= (level * 100)) {
+                setLevel(l => l + 1);
+              }
+              return newPoints;
+            });
+            
             // Update progress
             const completedSections = sections.filter(s => s.isComplete).length + 1;
             setProgress((completedSections / sections.length) * 100);
@@ -129,6 +162,14 @@ export default function StudentPersonalizationPage() {
             setIsStreaming(false);
             setProgress(100);
             toast.success('Your personalized study guide is ready!');
+            
+            // Save gamification progress
+            localStorage.setItem('gamification_data', JSON.stringify({
+              points,
+              level,
+              streak: streak + 1
+            }));
+            
             es.close();
             break;
             
@@ -150,7 +191,7 @@ export default function StudentPersonalizationPage() {
     };
 
     setEventSource(es);
-  }, [fileId, user, sections.length]);
+  }, [fileId, user, sections.length, explanationStyle, streamSpeed, points, level, streak]);
 
   const pauseStreaming = () => {
     setIsPaused(true);
@@ -221,6 +262,18 @@ export default function StudentPersonalizationPage() {
     console.log('Bookmarking section:', sectionId);
   };
 
+  const handlePlayPause = () => {
+    if (isStreaming) {
+      if (isPaused) {
+        resumeStreaming();
+      } else {
+        pauseStreaming();
+      }
+    } else {
+      startPersonalization();
+    }
+  };
+
   if (authLoading || !fileInfo) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -257,34 +310,82 @@ export default function StudentPersonalizationPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Welcome/Progress View */}
-        <StudentPersonalizationView
-          fileId={fileId}
-          fileName={fileInfo?.file_name || 'Document'}
-          courseId={fileInfo?.course_id || ''}
-          courseName={fileInfo?.course?.name || 'Course'}
-          onStart={startPersonalization}
-          onPause={pauseStreaming}
-          onResume={resumeStreaming}
-          onSkipSection={skipSection}
-          isStreaming={isStreaming}
-          isPaused={isPaused}
-          currentSection={currentSection + 1}
-          totalSections={sections.length}
-          progress={progress}
-        />
-
-        {/* Content Display */}
-        {sections.length > 0 && (
-          <div className="mt-8">
-            <StudentContentDisplay
-              sections={sections}
-              onRegenerateSection={regenerateSection}
-              onBookmarkSection={bookmarkSection}
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Main Content Area */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Welcome/Progress View */}
+            <StudentPersonalizationView
+              fileId={fileId}
+              fileName={fileInfo?.file_name || 'Document'}
+              courseId={fileInfo?.course_id || ''}
+              courseName={fileInfo?.course?.name || 'Course'}
+              onStart={startPersonalization}
+              onPause={pauseStreaming}
+              onResume={resumeStreaming}
+              onSkipSection={skipSection}
+              isStreaming={isStreaming}
+              isPaused={isPaused}
+              currentSection={currentSection + 1}
+              totalSections={sections.length}
+              progress={progress}
             />
+
+            {/* Interactive Controls */}
+            {(isStreaming || sections.some(s => s.isComplete)) && (
+              <InteractiveControls
+                isStreaming={isStreaming}
+                isPaused={isPaused}
+                onPlayPause={handlePlayPause}
+                onSkip={skipSection}
+                onSpeedChange={setStreamSpeed}
+                onStyleChange={setExplanationStyle}
+                currentSpeed={streamSpeed}
+                currentStyle={explanationStyle}
+                progress={progress}
+                streakDays={streak}
+              />
+            )}
+
+            {/* Content Display */}
+            {sections.length > 0 && (
+              <StudentContentDisplay
+                sections={sections}
+                onRegenerateSection={regenerateSection}
+                onBookmarkSection={bookmarkSection}
+              />
+            )}
           </div>
-        )}
+
+          {/* Gamification Panel */}
+          {showGamification && (
+            <div className="lg:col-span-1">
+              <div className="sticky top-4">
+                <GamificationPanel
+                  points={points}
+                  level={level}
+                  streak={streak}
+                  sectionsCompleted={sections.filter(s => s.isComplete).length}
+                  totalSections={sections.length}
+                  onAchievementUnlock={(achievement) => {
+                    toast.success(`Achievement unlocked: ${achievement.title}!`);
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </main>
     </div>
+  );
+}
+
+export default function StudentPersonalizationPage() {
+  return (
+    <ErrorBoundary
+      FallbackComponent={StudentErrorFallback}
+      onReset={() => window.location.reload()}
+    >
+      <StudentPersonalizationPageContent />
+    </ErrorBoundary>
   );
 }

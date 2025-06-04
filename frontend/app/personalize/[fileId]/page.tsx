@@ -1,5 +1,5 @@
-// Import the student-friendly version
-import StudentPersonalizationPage from './student-page';
+// Import the complete student-friendly version with all features
+import StudentPersonalizationPage from './student-page-complete';
 
-// For now, just export the student page as the default
+// Export the enhanced student page as the default
 export default StudentPersonalizationPage;
