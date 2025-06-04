@@ -7,7 +7,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 export interface RegistrationData {
   role: 'student' | 'instructor';
-  name: string;
+  name?: string;
+  university?: string;
+  department?: string;
   onboard_answers?: Record<string, any>;
   want_quizzes?: boolean;
 }
@@ -151,16 +153,32 @@ export class RegistrationManager {
    */
   async register(registrationData: RegistrationData): Promise<boolean> {
     try {
+      // Import auth from firebaseconfig
+      const { auth } = await import('@/firebaseconfig');
+      
+      // Get current Firebase user
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        console.error('No Firebase user found. User must be created in Firebase first.');
+        return false;
+      }
+
+      // Get Firebase ID token
+      const idToken = await firebaseUser.getIdToken();
+      console.log('Got Firebase ID token for registration');
+
       const response = await fetch(`${API_URL}/api/v2/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Firebase-Token': idToken,
         },
         body: JSON.stringify(registrationData),
       });
 
       if (!response.ok) {
-        console.error(`Registration failed with status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error(`Registration failed with status: ${response.status}`, errorData);
         return false;
       }
 

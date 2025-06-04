@@ -12,7 +12,7 @@ from repositories.user_repository import UserRepository
 from repositories.course_repository import CourseRepository
 from repositories.enrollment_repository import EnrollmentRepository
 from core.database import db, db_manager
-from db.schema import Enrollment, Course, PersonalizedFile
+from db.schema import User, Enrollment, Course, PersonalizedFile
 
 from .utils import success_response, error_response
 
@@ -198,7 +198,7 @@ def get_profile_v2():
         user = g.current_user
         user_repo = UserRepository(db_manager.session_factory)
         
-        # Refresh user data from database
+        # Refresh user data from database (UserRepository already includes eager loading)
         fresh_user = user_repo.get_by_id(user.id)
         if not fresh_user:
             return error_response("User not found", status_code=404)
@@ -214,27 +214,30 @@ def get_profile_v2():
         }
         
         # Add role-specific profile data
-        if fresh_user.student_profile:
+        # Check role type first to avoid lazy loading issues
+        role_type = fresh_user.role.role_type if fresh_user.role else None
+        
+        if role_type == 'student' and hasattr(fresh_user, 'student_profile') and fresh_user.student_profile:
             logger.info(f"Student profile found for {fresh_user.email}: name={fresh_user.student_profile.name}")
             profile_data['profile'] = {
                 'name': fresh_user.student_profile.name,
                 'onboard_answers': fresh_user.student_profile.onboard_answers,
                 'want_quizzes': fresh_user.student_profile.want_quizzes
             }
-        elif fresh_user.instructor_profile:
+        elif role_type == 'instructor' and hasattr(fresh_user, 'instructor_profile') and fresh_user.instructor_profile:
             logger.info(f"Instructor profile found for {fresh_user.email}: name={fresh_user.instructor_profile.name}")
             profile_data['profile'] = {
                 'name': fresh_user.instructor_profile.name,
                 'university': fresh_user.instructor_profile.university,
-                'department': fresh_user.instructor_profile.department
+                'department': getattr(fresh_user.instructor_profile, 'department', None)
             }
-        elif fresh_user.admin_profile:
+        elif role_type == 'admin' and hasattr(fresh_user, 'admin_profile') and fresh_user.admin_profile:
             logger.info(f"Admin profile found for {fresh_user.email}: name={fresh_user.admin_profile.name}")
             profile_data['profile'] = {
                 'name': fresh_user.admin_profile.name
             }
         else:
-            logger.warning(f"No profile found for {fresh_user.email}, role={fresh_user.role.role_type if fresh_user.role else 'None'}")
+            logger.warning(f"No profile found for {fresh_user.email}, role={role_type}")
         
         # Add statistics
         stats = {}

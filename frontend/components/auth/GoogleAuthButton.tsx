@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { LogoGoogle } from '@/components/icons';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { userAPI } from '@/lib/api';
 import { authService } from '@/lib/auth-service';
 
 interface GoogleAuthButtonProps {
@@ -23,7 +22,6 @@ export function GoogleAuthButton({
 }: GoogleAuthButtonProps) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
   const handleGoogleAuth = async () => {
     if (disabled || loading) return;
@@ -37,10 +35,9 @@ export function GoogleAuthButton({
       const result = await signInWithPopup(auth, googleProvider);
       console.log('Google sign-in successful:', result.user.email);
       const user = result.user;
-      const token = await user.getIdToken();
 
       if (mode === 'login') {
-        // Try to establish session - if it works, user exists and is logged in
+        // Try to establish session using auth service
         const sessionSuccess = await authService.login(user);
 
         if (!sessionSuccess) {
@@ -50,35 +47,30 @@ export function GoogleAuthButton({
           return;
         }
 
-        // Login succeeded - user is registered
+        // Login succeeded
         toast.success('Successfully signed in with Google!');
         router.push('/dashboard');
       } else {
         // register mode
-        // For Google auth, establish session first
-        const sessionSuccess = await authService.login(user);
-        if (!sessionSuccess) {
-          throw new Error('Failed to establish session');
+        // Try to login first to see if user already exists
+        const loginSuccess = await authService.login(user);
+        
+        if (loginSuccess && authService.isRegistered()) {
+          // User already exists and is registered
+          toast.error('Account already exists. Please sign in instead.');
+          router.push('/login');
+          return;
         }
 
-        // Check if this is a new user by checking for student profile
-        try {
-          const profileResponse = await fetch(`${API_URL}/student/profile`, {
-            method: 'GET',
-            credentials: 'include',
-          });
-
-          if (profileResponse.ok) {
-            // Student profile exists, user already registered
-            toast.error('Account already exists. Please sign in instead.');
-            router.push('/login');
-            return;
-          }
-        } catch (error) {
-          // Profile doesn&apos;t exist, this is a new user
+        if (loginSuccess && !authService.isRegistered()) {
+          // User exists in Firebase but not fully registered - redirect to onboarding
+          toast.success('Account found! Complete your registration.');
+          router.push('/onboarding');
+          return;
         }
 
-        // New user - redirect to onboarding to create profile
+        // This shouldn't happen with Google auth since Firebase creates the account
+        // But if it does, redirect to onboarding
         toast.success('Account created successfully!');
         router.push('/onboarding');
       }

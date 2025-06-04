@@ -68,7 +68,8 @@ class UserRepository(BaseRepository[User]):
         load_options = [
             joinedload(User.role),
             joinedload(User.student_profile),
-            joinedload(User.instructor_profile)
+            joinedload(User.instructor_profile),
+            joinedload(User.admin_profile)
         ]
         return super().get_by_id(id, load_options=load_options)
     
@@ -83,7 +84,8 @@ class UserRepository(BaseRepository[User]):
             user = session.query(User).options(
                 joinedload(User.role),
                 joinedload(User.student_profile),
-                joinedload(User.instructor_profile)
+                joinedload(User.instructor_profile),
+                joinedload(User.admin_profile)
             ).filter_by(firebase_uid=firebase_uid).first()
             print(f"Query result: {user}")
             
