@@ -91,8 +91,15 @@ class StudentPersonalizationService(BaseAIService):
             # Get student profile for personalization
             student_profile = self._get_student_profile(user)
             
-            # Get or generate outline
-            outline = await self._get_or_generate_outline(file_obj)
+            # IMPORTANT: Use file chunks if available (preferred method)
+            chunks = self._get_file_chunks(file_id)
+            
+            if chunks:
+                # Use existing chunks - this is the CORRECT approach
+                outline = self._create_outline_from_chunks(chunks)
+            else:
+                # Fallback: Get or generate outline from file content
+                outline = await self._get_or_generate_outline(file_obj)
             
             # Send initial event
             yield self._create_event('start', {
@@ -230,14 +237,67 @@ class StudentPersonalizationService(BaseAIService):
         
         return profile
     
+    def _get_file_chunks(self, file_id: str) -> List[Any]:
+        """Get file chunks from database - CORRECT data source"""
+        try:
+            from db.schema import FileChunk
+            chunks = self.db.query(FileChunk).filter(
+                FileChunk.file_id == file_id
+            ).order_by(FileChunk.chunk_index).all()
+            
+            logger.info(f"Found {len(chunks)} chunks for file {file_id}")
+            return chunks
+        except Exception as e:
+            logger.error(f"Error fetching file chunks: {e}")
+            return []
+    
+    def _create_outline_from_chunks(self, chunks: List[Any]) -> Dict[str, Any]:
+        """Create outline from file chunks"""
+        sections = []
+        
+        # Group chunks into logical sections (e.g., every 3-5 chunks)
+        chunks_per_section = 3
+        for i in range(0, len(chunks), chunks_per_section):
+            section_chunks = chunks[i:i + chunks_per_section]
+            
+            # Use first chunk's content preview as section title
+            title = self._extract_section_title(section_chunks[0].content)
+            
+            # Combine chunk contents
+            content = "\n\n".join([chunk.content for chunk in section_chunks])
+            
+            sections.append({
+                'title': title,
+                'content': content[:1000],  # Limit content for outline
+                'chunk_ids': [chunk.id for chunk in section_chunks]
+            })
+        
+        return {
+            'sections': sections,
+            'total_chunks': len(chunks)
+        }
+    
+    def _extract_section_title(self, content: str) -> str:
+        """Extract a meaningful title from content"""
+        lines = content.strip().split('\n')
+        for line in lines:
+            line = line.strip()
+            if len(line) > 10 and len(line) < 100:
+                return line
+        return "Section"
+    
     async def _get_or_generate_outline(self, file_obj) -> Dict[str, Any]:
         """Get existing outline or generate new one"""
         # Check if outline exists
         if hasattr(file_obj, 'outline') and file_obj.outline:
             return file_obj.outline
         
-        # Download file content
-        content = await self._download_file_content(file_obj)
+        # Try to get content from S3 or file_data
+        content = await self._get_file_content(file_obj)
+        
+        if not content:
+            logger.error(f"No content available for file {file_obj.id}")
+            return {'sections': []}
         
         # Generate outline
         outline = await self.outline_generator.generate_outline(
@@ -251,26 +311,39 @@ class StudentPersonalizationService(BaseAIService):
         
         return outline
     
-    async def _download_file_content(self, file_obj) -> str:
-        """Download and extract text content from file"""
+    async def _get_file_content(self, file_obj) -> str:
+        """Get file content from correct source"""
         try:
-            if file_obj.storage_url:
-                # Download from S3
-                content = await self.s3_service.download_file_content(
-                    file_obj.storage_url
+            # Method 1: Check if content is in file_data (legacy)
+            if hasattr(file_obj, 'file_data') and file_obj.file_data:
+                logger.info(f"Using file_data for file {file_obj.id}")
+                return file_obj.file_data.decode('utf-8') if isinstance(file_obj.file_data, bytes) else str(file_obj.file_data)
+            
+            # Method 2: Download from S3 using correct attributes
+            if file_obj.storage_type == 's3' and file_obj.s3_key:
+                logger.info(f"Downloading from S3: bucket={file_obj.s3_bucket}, key={file_obj.s3_key}")
+                
+                # Use the correct S3 download method
+                file_bytes = self.s3_service.download_file(
+                    file_key=file_obj.s3_key,
+                    bucket_name=file_obj.s3_bucket
                 )
-                return self._extract_text_content(content, file_obj.file_type)
-            else:
-                # Fallback to local storage
-                file_path = Path(file_obj.file_path)
-                if file_path.exists():
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        return f.read()
-                else:
-                    raise FileNotFoundError(f"File not found: {file_path}")
+                
+                if file_bytes:
+                    return self._extract_text_content(file_bytes, file_obj.file_type)
+            
+            # Method 3: Check chunks as last resort
+            chunks = self._get_file_chunks(file_obj.id)
+            if chunks:
+                logger.info(f"Using chunks for file {file_obj.id}")
+                return "\n\n".join([chunk.content for chunk in chunks])
+            
+            logger.warning(f"No content source available for file {file_obj.id}")
+            return ""
+            
         except Exception as e:
-            logger.error(f"Error downloading file content: {e}")
-            raise
+            logger.error(f"Error getting file content: {e}")
+            return ""
     
     def _extract_text_content(self, raw_content: bytes, file_type: str) -> str:
         """Extract text from various file types"""

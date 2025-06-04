@@ -111,7 +111,9 @@ function StudentPersonalizationPageContent() {
     })));
 
     const token = localStorage.getItem('access_token');
-    const eventSourceUrl = `/api/v2/personalization/stream/${fileId}?token=${encodeURIComponent(token || '')}&style=${explanationStyle}&speed=${streamSpeed}`;
+    // Use the EXISTING WORKING endpoint at /api/v2/personalization/stream/{fileId}
+    // This endpoint correctly uses FileChunks from the database
+    const eventSourceUrl = `/api/v2/personalization/stream/${fileId}?token=${encodeURIComponent(token || '')}`;
     
     const es = new EventSource(eventSourceUrl);
     
@@ -120,15 +122,33 @@ function StudentPersonalizationPageContent() {
         const data = JSON.parse(event.data);
         
         switch (data.type) {
-          case 'section':
+          case 'outline':
+            // Initialize sections from the outline
+            const outlineSections = data.data || [];
+            setSections(outlineSections.map((section: any, index: number) => ({
+              id: `section-${index}`,
+              title: section.title || `Section ${index + 1}`,
+              content: '',
+              isComplete: false,
+              isActive: index === 0
+            })));
+            break;
+            
+          case 'progress':
+            // Update current section based on progress
+            setCurrentSection(data.current || 0);
+            break;
+            
+          case 'content':
+            // Update section content
             setSections(prev => {
               const newSections = [...prev];
-              const sectionIndex = data.sectionIndex;
+              const sectionIndex = prev.findIndex(s => s.id === `section-${data.current || currentSection}`);
               
-              if (newSections[sectionIndex]) {
+              if (sectionIndex >= 0) {
                 newSections[sectionIndex] = {
                   ...newSections[sectionIndex],
-                  content: data.content,
+                  content: data.data?.content || data.data || '',
                   isComplete: true,
                   isActive: false
                 };
@@ -136,7 +156,6 @@ function StudentPersonalizationPageContent() {
                 // Activate next section if exists
                 if (sectionIndex + 1 < newSections.length) {
                   newSections[sectionIndex + 1].isActive = true;
-                  setCurrentSection(sectionIndex + 1);
                 }
               }
               
@@ -154,8 +173,8 @@ function StudentPersonalizationPageContent() {
             });
             
             // Update progress
-            const completedSections = sections.filter(s => s.isComplete).length + 1;
-            setProgress((completedSections / sections.length) * 100);
+            const completedCount = sections.filter(s => s.isComplete).length + 1;
+            setProgress((completedCount / sections.length) * 100);
             break;
             
           case 'complete':
@@ -174,7 +193,7 @@ function StudentPersonalizationPageContent() {
             break;
             
           case 'error':
-            toast.error('Something went wrong. Please try again.');
+            toast.error(data.data || 'Something went wrong. Please try again.');
             setIsStreaming(false);
             es.close();
             break;
