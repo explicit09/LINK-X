@@ -32,7 +32,7 @@ export const instructorAPI = {
   // Modules
   getCourseModules: moduleAPI.getCourseModules,
   createModule: moduleAPI.createModule,
-  updateModule: (courseId: string, moduleId: string, data: any) => 
+  updateModule: (courseId: string, moduleId: string, data: any) =>
     moduleAPI.updateModule(moduleId, data),
   deleteModule: moduleAPI.deleteModule,
 

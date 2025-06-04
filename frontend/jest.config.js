@@ -1,10 +1,10 @@
-const nextJest = require('next/jest')
+const nextJest = require('next/jest');
 
 /** @type {import('jest').Config} */
 const createJestConfig = nextJest({
   // Provide the path to your Next.js app to load next.config.js and .env files
   dir: './',
-})
+});
 
 // Add any custom config to be passed to Jest
 const config = {
@@ -29,7 +29,7 @@ const config = {
     '^firebase/firestore$': '<rootDir>/__mocks__/firebase.ts',
     '^firebase/app$': '<rootDir>/__mocks__/firebase.ts',
   },
-}
+};
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
-module.exports = createJestConfig(config)
+module.exports = createJestConfig(config);

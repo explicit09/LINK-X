@@ -8,24 +8,35 @@ const Footer = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 mb-12">
           <div className="col-span-2">
             <Link href="/landing" className="inline-block mb-4">
-              <span className="text-2xl font-bold text-blue-600">
-                LEARN-X
-              </span>
+              <span className="text-2xl font-bold text-blue-600">LEARN-X</span>
             </Link>
             <p className="text-gray-700 mb-4 max-w-xs">
-              Transforming education with AI-powered personalized learning experiences.
+              Transforming education with AI-powered personalized learning
+              experiences.
             </p>
             <div className="flex space-x-4">
-              <Link href="#" className="text-gray-500 hover:text-blue-600 transition-colors">
+              <Link
+                href="#"
+                className="text-gray-500 hover:text-blue-600 transition-colors"
+              >
                 <Twitter size={20} />
               </Link>
-              <Link href="#" className="text-gray-500 hover:text-blue-600 transition-colors">
+              <Link
+                href="#"
+                className="text-gray-500 hover:text-blue-600 transition-colors"
+              >
                 <Linkedin size={20} />
               </Link>
-              <Link href="#" className="text-gray-500 hover:text-blue-600 transition-colors">
+              <Link
+                href="#"
+                className="text-gray-500 hover:text-blue-600 transition-colors"
+              >
                 <Github size={20} />
               </Link>
-              <Link href="#" className="text-gray-500 hover:text-blue-600 transition-colors">
+              <Link
+                href="#"
+                className="text-gray-500 hover:text-blue-600 transition-colors"
+              >
                 <Mail size={20} />
               </Link>
             </div>
@@ -36,9 +47,18 @@ const Footer = () => {
               Platform
             </h3>
             <ul className="space-y-3">
-              {['Features', 'How It Works', 'For Students', 'For Educators', 'Resources'].map((item) => (
+              {[
+                'Features',
+                'How It Works',
+                'For Students',
+                'For Educators',
+                'Resources',
+              ].map((item) => (
                 <li key={item}>
-                  <Link href="#" className="text-gray-600 hover:text-blue-600 transition-colors">
+                  <Link
+                    href="#"
+                    className="text-gray-600 hover:text-blue-600 transition-colors"
+                  >
                     {item}
                   </Link>
                 </li>
@@ -53,7 +73,10 @@ const Footer = () => {
             <ul className="space-y-3">
               {['About', 'Blog', 'Careers', 'Press', 'Contact'].map((item) => (
                 <li key={item}>
-                  <Link href="#" className="text-gray-600 hover:text-blue-600 transition-colors">
+                  <Link
+                    href="#"
+                    className="text-gray-600 hover:text-blue-600 transition-colors"
+                  >
                     {item}
                   </Link>
                 </li>
@@ -66,20 +89,26 @@ const Footer = () => {
               Legal
             </h3>
             <ul className="space-y-3">
-              {['Terms', 'Privacy', 'Cookies', 'Licenses', 'Settings'].map((item) => (
-                <li key={item}>
-                  <Link href="#" className="text-gray-600 hover:text-blue-600 transition-colors">
-                    {item}
-                  </Link>
-                </li>
-              ))}
+              {['Terms', 'Privacy', 'Cookies', 'Licenses', 'Settings'].map(
+                (item) => (
+                  <li key={item}>
+                    <Link
+                      href="#"
+                      className="text-gray-600 hover:text-blue-600 transition-colors"
+                    >
+                      {item}
+                    </Link>
+                  </li>
+                ),
+              )}
             </ul>
           </div>
         </div>
 
         <div className="pt-8 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center">
           <p className="text-gray-500 text-sm">
-            &copy; {new Date().getFullYear()} Learn-X Learning, Inc. All rights reserved.
+            &copy; {new Date().getFullYear()} Learn-X Learning, Inc. All rights
+            reserved.
           </p>
           <div className="mt-4 md:mt-0">
             <p className="text-gray-500 text-sm">

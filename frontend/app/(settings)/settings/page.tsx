@@ -1,50 +1,36 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { useState } from 'react';
+import { cn } from '@/lib/utils';
 //import Sidebar from "@/components/link-x/DashSidebar";
-import AudioUpload from "@/components/dashboard/AudioUpload";
-import Footer from "@/components/landing/Footer";
-import ProfessorDashboard from "@/components/dashboard/ProfessorDash"; // 🚨 make sure path is correct
-import { userAPI } from "@/lib/api"; // ✅ this will be a small API helper you create
-import StudentDashboard from "@/components/dashboard/StudentDash";
-import ProfessorSettings from "@/components/settings/ProfessorSettings";
-import StudentSettings from "@/components/settings/StudentSettings";
+import AudioUpload from '@/components/dashboard/AudioUpload';
+import Footer from '@/components/landing/Footer';
+import { useAuthUser } from '@/hooks/useAuthUser';
+import ProfessorSettings from '@/components/settings/ProfessorSettings';
+import StudentSettings from '@/components/settings/StudentSettings';
 
 export default function Settings() {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [role, setRole] = useState<"student" | "instructor" | "admin" | "unknown">("unknown");
-  const router = useRouter();
+  
+  // Use centralized auth user hook
+  const { user, isLoading } = useAuthUser();
+  
+  // Extract role from user data
+  const role = (user?.role as 'student' | 'instructor' | 'admin') || 'student';
 
-  useEffect(() => {
-    const fetchUserRole = async () => {
-      try {
-        const user = await userAPI.getMe();
-        setRole(user.role || "unknown");
-      } catch (error) {
-        console.error("Failed to fetch user:", error);
-        //router.push("/login"); // maybe redirect if not logged in
-      }
-    };
-
-    fetchUserRole();
-  }, [router]);
-
-  if (role === "unknown") {
-   
-    return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        Loading...
+      </div>
+    );
   }
 
-  if (role === "instructor") {
-   
+  if (role === 'instructor') {
     return <ProfessorSettings />;
   }
 
-  if (role === "student") {
-   
+  if (role === 'student') {
     return <StudentSettings />;
   }
-
-
 }

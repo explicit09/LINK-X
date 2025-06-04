@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -22,27 +22,27 @@ export function StreamingContent({ fileId, className }: StreamingContentProps) {
   const { state, startStreaming, handleStreamingMessage } = useStreaming();
   const { activeSectionId, sections } = state;
   const streamCleanupRef = useRef<(() => void) | null>(null);
-  
+
   const activeSection = activeSectionId ? sections.get(activeSectionId) : null;
-  
+
   // Stream content when active section changes
   useEffect(() => {
     if (!activeSectionId || !fileId) return;
-    
+
     // Clean up previous stream
     if (streamCleanupRef.current) {
       streamCleanupRef.current();
       streamCleanupRef.current = null;
     }
-    
+
     // Check if section already has content
     if (activeSection && activeSection.status === 'complete') {
       return;
     }
-    
+
     // Start streaming
     startStreaming(activeSectionId);
-    
+
     const cleanup = api.streaming.streamLearningContent(
       fileId,
       { style: 'default' },
@@ -52,21 +52,27 @@ export function StreamingContent({ fileId, className }: StreamingContentProps) {
       (error) => {
         handleStreamingMessage(activeSectionId, {
           type: 'error',
-          message: error.message
+          message: error.message,
         });
-      }
+      },
     );
-    
+
     streamCleanupRef.current = cleanup;
-    
+
     return () => {
       if (streamCleanupRef.current) {
         streamCleanupRef.current();
         streamCleanupRef.current = null;
       }
     };
-  }, [activeSectionId, fileId, startStreaming, handleStreamingMessage, activeSection]);
-  
+  }, [
+    activeSectionId,
+    fileId,
+    startStreaming,
+    handleStreamingMessage,
+    activeSection,
+  ]);
+
   // Clean up on unmount
   useEffect(() => {
     return () => {
@@ -75,10 +81,10 @@ export function StreamingContent({ fileId, className }: StreamingContentProps) {
       }
     };
   }, []);
-  
+
   if (!activeSectionId) {
     return (
-      <div className={cn("flex items-center justify-center h-full", className)}>
+      <div className={cn('flex items-center justify-center h-full', className)}>
         <Card className="max-w-md">
           <CardContent className="pt-6 text-center">
             <p className="text-muted-foreground">
@@ -89,10 +95,10 @@ export function StreamingContent({ fileId, className }: StreamingContentProps) {
       </div>
     );
   }
-  
+
   if (!activeSection) {
     return (
-      <div className={cn("p-6", className)}>
+      <div className={cn('p-6', className)}>
         <Skeleton className="h-8 w-3/4 mb-4" />
         <div className="space-y-3">
           <Skeleton className="h-4 w-full" />
@@ -102,10 +108,10 @@ export function StreamingContent({ fileId, className }: StreamingContentProps) {
       </div>
     );
   }
-  
+
   if (activeSection.status === 'error') {
     return (
-      <div className={cn("p-6", className)}>
+      <div className={cn('p-6', className)}>
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="ml-2">
@@ -127,9 +133,9 @@ export function StreamingContent({ fileId, className }: StreamingContentProps) {
       </div>
     );
   }
-  
+
   return (
-    <div className={cn("p-6 overflow-auto", className)}>
+    <div className={cn('p-6 overflow-auto', className)}>
       <div className="prose prose-sm dark:prose-invert max-w-none">
         <ReactMarkdown
           components={{
@@ -149,12 +155,12 @@ export function StreamingContent({ fileId, className }: StreamingContentProps) {
                   {children}
                 </code>
               );
-            }
+            },
           }}
         >
           {activeSection.content}
         </ReactMarkdown>
-        
+
         {activeSection.status === 'streaming' && (
           <span className="inline-block w-2 h-5 bg-primary animate-pulse" />
         )}

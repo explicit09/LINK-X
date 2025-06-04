@@ -24,7 +24,7 @@ export function OnboardingNavigation({
   isSubmitting,
   onPrev,
   onNext,
-  onSubmit
+  onSubmit,
 }: OnboardingNavigationProps) {
   return (
     <div className="flex justify-between mt-8 pt-6 border-t border-gray-100">
@@ -37,7 +37,7 @@ export function OnboardingNavigation({
         <ArrowLeft className="w-4 h-4 mr-2" />
         Back
       </Button>
-      
+
       {isLastStep ? (
         <Button
           onClick={onSubmit}

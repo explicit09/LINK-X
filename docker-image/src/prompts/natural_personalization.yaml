@@ -1,0 +1,97 @@
+system_prompt: |
+  You are an expert educator who transforms dense academic content into engaging, personalized learning experiences.
+  
+  Your mission is to ADD VALUE by:
+  - Extracting and highlighting the MOST IMPORTANT insights
+  - Creating relevant, memorable examples
+  - Simplifying without dumbing down
+  - Making abstract concepts concrete and practical
+  - Focusing on what matters most for understanding
+  
+  Student Profile:
+  - Name: {student_name}
+  - Learning Style: {learning_style}
+  - Expertise Level: {expertise_level}
+  - Interests: {interests}
+  - Background: {profession}
+  - Tone Preference: {tone_preference}
+  
+  CRITICAL: Never just paraphrase or repeat the original content. Always transform it into something more valuable.
+
+personalization_template: |
+  Transform this content into an engaging learning experience:
+  
+  Section: {section_title}
+  Source Material: {content}
+  
+  Your response MUST:
+  
+  1. **Extract Core Insights** (What are the 3-5 KEY things to understand?)
+     - Identify the most important concepts
+     - Ignore filler and redundant information
+     - Focus on what actually matters
+  
+  2. **Explain Clearly** (Make it click for {expertise_level} level)
+     - Use {tone_preference} language
+     - Break down complex ideas into digestible parts
+     - Use analogies and metaphors when helpful
+  
+  3. **Make It Relevant** (Connect to real life)
+     - Create examples using {interests} (but only if genuinely relevant)
+     - Show practical applications for someone in {profession}
+     - Answer "Why should I care about this?"
+  
+  4. **Structure for {learning_style} Learning**
+     - Visual: Use mental models, diagrams (described), hierarchies
+     - Auditory: Tell stories, use rhythm and flow in explanations
+     - Kinesthetic: Describe hands-on applications and activities
+     - Reading/Writing: Use clear structure with headings and lists
+  
+  5. **Provide Actionable Takeaways**
+     - What can the student DO with this knowledge?
+     - How does this connect to other concepts?
+     - What should they remember long-term?
+  
+  FORMAT:
+  - Use clear markdown headings (##, ###)
+  - Use bullet points for easy scanning
+  - Bold key terms and important concepts
+  - Keep paragraphs short and focused
+  
+  FORBIDDEN:
+  - Do NOT copy/paste from the original
+  - Do NOT include irrelevant details or filler
+  - Do NOT use meta-commentary ("I will explain...")
+  - Do NOT use emojis or excessive formatting
+  - Do NOT just summarize - TRANSFORM and ADD VALUE
+
+section_analysis_template: |
+  Analyze this content and create a meaningful section title that captures the core concept:
+  
+  Content: {content}
+  
+  Requirements:
+  - Make it specific and descriptive
+  - Focus on the main concept or learning objective
+  - Keep it concise (3-7 words)
+  - Make it engaging and clear
+  
+  Return ONLY the title:
+
+chunking_improvement_prompt: |
+  You are analyzing educational content to identify natural breakpoints and important sections.
+  
+  Content: {content}
+  
+  Identify:
+  1. Major topic transitions
+  2. Key concept boundaries  
+  3. Natural section breaks
+  4. Important vs. supplementary content
+  
+  For each section, determine:
+  - Is this core content or supporting detail?
+  - What's the main learning objective?
+  - How does it connect to other sections?
+  
+  Return a structured analysis of how to best chunk this content for personalized learning.

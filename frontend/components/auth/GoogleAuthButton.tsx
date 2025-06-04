@@ -16,7 +16,11 @@ interface GoogleAuthButtonProps {
   disabled?: boolean;
 }
 
-export function GoogleAuthButton({ mode, onLoading, disabled }: GoogleAuthButtonProps) {
+export function GoogleAuthButton({
+  mode,
+  onLoading,
+  disabled,
+}: GoogleAuthButtonProps) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -38,17 +42,19 @@ export function GoogleAuthButton({ mode, onLoading, disabled }: GoogleAuthButton
       if (mode === 'login') {
         // Try to establish session - if it works, user exists and is logged in
         const sessionSuccess = await authService.login(user);
-        
+
         if (!sessionSuccess) {
-          toast.error('Account not found or login failed. Please sign up first.');
+          toast.error(
+            'Account not found or login failed. Please sign up first.',
+          );
           return;
         }
 
         // Login succeeded - user is registered
         toast.success('Successfully signed in with Google!');
         router.push('/dashboard');
-
-      } else { // register mode
+      } else {
+        // register mode
         // For Google auth, establish session first
         const sessionSuccess = await authService.login(user);
         if (!sessionSuccess) {
@@ -76,10 +82,9 @@ export function GoogleAuthButton({ mode, onLoading, disabled }: GoogleAuthButton
         toast.success('Account created successfully!');
         router.push('/onboarding');
       }
-
     } catch (error) {
       console.error('Google Auth Error:', error);
-      
+
       // Handle specific Firebase errors
       const firebaseError = error as { code?: string; message?: string };
       if (firebaseError.code === 'auth/popup-closed-by-user') {
@@ -111,11 +116,10 @@ export function GoogleAuthButton({ mode, onLoading, disabled }: GoogleAuthButton
         <LogoGoogle size={20} aria-label="Google logo" />
       )}
       <span className="text-base">
-        {loading 
-          ? 'Signing in...' 
-          : `Sign ${mode === 'login' ? 'in' : 'up'} with Google`
-        }
+        {loading
+          ? 'Signing in...'
+          : `Sign ${mode === 'login' ? 'in' : 'up'} with Google`}
       </span>
     </Button>
   );
-} 
+}

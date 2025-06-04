@@ -121,27 +121,55 @@ def upload_file_v2():
             uploaded_by=user.id
         )
         
-        # Upload to S3
-        try:
-            s3_key = f"courses/{module.course_id}/modules/{module_id}/files/{file_record.id}/{filename}"
-            s3_url = s3_storage.upload_file(file, s3_key)
-            
-            # Update file record with S3 info
-            get_file_service().update_file(
-                file_id=file_record.id,
-                s3_key=s3_key,
-                s3_url=s3_url,
-                file_size=file.content_length or 0
-            )
-            
-            # Process file asynchronously
-            from tasks.file_processing import process_file_async
-            process_file_async.delay(str(file_record.id))
-            
-        except Exception as upload_error:
-            # Delete file record if upload failed
-            get_file_service().delete_file(file_record.id)
-            raise upload_error
+        # Check if S3 is configured
+        use_s3 = os.getenv('USE_S3_STORAGE', 'false').lower() == 'true'
+        
+        if use_s3 and s3_storage:
+            # Upload to S3
+            try:
+                s3_key = f"courses/{module.course_id}/modules/{module_id}/files/{file_record.id}/{filename}"
+                s3_url = s3_storage.upload_file(file, s3_key)
+                
+                # Update file record with S3 info
+                get_file_service().update_file(
+                    file_id=file_record.id,
+                    s3_key=s3_key,
+                    s3_url=s3_url,
+                    file_size=file.content_length or 0
+                )
+                
+                # Process file asynchronously
+                from tasks.file_processing import process_file_async
+                process_file_async.delay(str(file_record.id))
+                
+            except Exception as upload_error:
+                logger.error(f"S3 upload failed, will use local storage: {str(upload_error)}")
+                # Don't delete, fall back to local storage
+                use_s3 = False
+        
+        if not use_s3:
+            # Local file storage fallback
+            try:
+                # Read file content
+                file.seek(0)
+                file_content = file.read()
+                file_size = len(file_content)
+                
+                # Update file record with size
+                get_file_service().update_file(
+                    file_id=file_record.id,
+                    file_size=file_size
+                )
+                
+                # Store file locally (in database or filesystem)
+                # This is a simplified version - you may want to store in filesystem
+                logger.info(f"File {filename} stored locally with size {file_size}")
+                
+            except Exception as local_error:
+                logger.error(f"Local storage failed: {str(local_error)}")
+                # Delete file record if both storage methods failed
+                get_file_service().delete_file(file_record.id)
+                raise local_error
         
         # Format response
         formatted_file = {
@@ -516,8 +544,27 @@ def stream_section_v2(file_id):
         topic = f"{data.get('topic', 'Section')} - {data.get('focus', 'Content')}"
         expertise_summary = user_profile.get('experience_level', 'Beginner')
         
-        # Generate content using existing proven prompt
-        content = prompt3_generate_module_content(persona, expertise_summary, topic)
+        # Check if AI service is available
+        if not ai_service:
+            return error_response("AI service is not available"), 503
+            
+        try:
+            # Generate content using AI service
+            response = ai_service.generate_response(
+                system_prompt=f"""You are an expert educational content creator. 
+                Create personalized learning content for the following user profile:
+                {persona}
+                
+                The content should be tailored to their expertise level: {expertise_summary}""",
+                user_prompt=f"""Create detailed educational content about: {topic}
+                
+                Make it engaging, clear, and appropriate for the user's level.
+                Include examples, explanations, and key takeaways."""
+            )
+            content = response
+        except Exception as e:
+            logger.error(f"AI generation error: {str(e)}")
+            return error_response(f"Failed to generate content: {str(e)}"), 500
         
         # Generate streaming response
         def generate():

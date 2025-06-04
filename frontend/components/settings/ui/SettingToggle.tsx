@@ -1,7 +1,7 @@
 import React from 'react';
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 interface SettingToggleProps {
   id: string;
@@ -22,18 +22,19 @@ export function SettingToggle({
   onCheckedChange,
   disabled = false,
   icon,
-  className
+  className,
 }: SettingToggleProps) {
   return (
-    <div className={cn("flex items-start justify-between space-x-4", className)}>
+    <div
+      className={cn('flex items-start justify-between space-x-4', className)}
+    >
       <div className="flex items-start space-x-3 flex-1">
-        {icon && (
-          <div className="mt-1 flex-shrink-0">
-            {icon}
-          </div>
-        )}
+        {icon && <div className="mt-1 flex-shrink-0">{icon}</div>}
         <div className="space-y-1 flex-1">
-          <Label htmlFor={id} className="text-sm font-medium leading-none cursor-pointer">
+          <Label
+            htmlFor={id}
+            className="text-sm font-medium leading-none cursor-pointer"
+          >
             {label}
           </Label>
           {description && (

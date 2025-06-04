@@ -5,7 +5,7 @@
 
 // Import all components
 import { apiClient } from './api/client';
-import { getAuthToken, sessionLogin } from './api/endpoints/auth';
+import { getAuthToken, sessionLogin, authAPI } from './api/endpoints/auth';
 import { studentAPI } from './api/studentAPI';
 import { instructorAPI } from './api/instructorAPI';
 import { userAPI } from './api/userAPI';
@@ -14,7 +14,8 @@ import { adminAPI } from './api/endpoints/admin';
 import { utilityAPI, publicAPI } from './api/endpoints/utilities';
 
 // Re-export auth helpers for backward compatibility
-export { getAuthToken, sessionLogin };
+export { getAuthToken, sessionLogin, authAPI };
+export { authService } from './auth-service';
 
 // Legacy fetchWithAuth - now uses the modern client
 export async function fetchWithAuth(
@@ -22,7 +23,7 @@ export async function fetchWithAuth(
   options: RequestInit = {},
   retryWithSessionLogin = true,
   timeoutMs = 10000,
-  maxRetries = 2
+  maxRetries = 2,
 ) {
   const method = options.method || 'GET';
   const config = {
@@ -55,27 +56,35 @@ export const api = {
   put: apiClient.put.bind(apiClient),
   patch: apiClient.patch.bind(apiClient),
   delete: apiClient.delete.bind(apiClient),
-  
+
   // Streaming API
   streaming: {
     streamLearningContent: (
       fileId: string,
       options: { style?: string } = {},
       onMessage: (message: unknown) => void,
-      onError: (error: Error) => void
+      onError: (error: Error) => void,
     ) => {
       return apiClient.stream(
         `/api/v2/files/${fileId}/stream-content`,
         options,
         onMessage,
-        onError
+        onError,
       );
-    }
-  }
+    },
+  },
 };
 
 // Export all role-specific APIs
-export { userAPI, studentAPI, instructorAPI, courseAPI, adminAPI, utilityAPI, publicAPI };
+export {
+  userAPI,
+  studentAPI,
+  instructorAPI,
+  courseAPI,
+  adminAPI,
+  utilityAPI,
+  publicAPI,
+};
 
 // Default export maintains backward compatibility
 export default api;

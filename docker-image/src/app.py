@@ -3,7 +3,7 @@ Refactored Flask Application
 Uses blueprints and proper architecture
 """
 import os
-from flask import Flask
+from flask import Flask, request
 from core.firebase_config import initialize_firebase
 import logging
 
@@ -31,6 +31,12 @@ from monitoring.api_version_monitor import monitoring_bp, create_api_usage_table
 from api.circuit_breaker_monitor import bp as circuit_breaker_bp
 # from api.docs import bp as docs_bp  # Temporarily disabled until flask-restx is installed
 
+# Import streaming and personalization blueprints
+from api.streaming import bp as streaming_bp
+from api.personalization import bp as personalization_bp
+from api.personalization_v2 import bp as personalization_v2_bp
+from api.test_sse import bp as test_sse_bp
+
 def create_app():
     """Application factory pattern"""
     app = Flask(__name__)
@@ -49,6 +55,10 @@ def create_app():
     
     # Setup middleware
     setup_middleware(app)
+    
+    # Register error handlers
+    from core.exceptions import register_error_handlers
+    register_error_handlers(app)
     
     # Setup API versioning middleware
     from core.api_versioning import VersioningMiddleware
@@ -76,6 +86,13 @@ def create_app():
     from core.jwt_config import configure_jwt
     configure_jwt(app)
     
+    # Add favicon route to prevent browser 404 errors
+    @app.route('/favicon.ico')
+    def favicon():
+        from flask import Response
+        return Response(status=204)  # No Content - prevents browser errors
+    
+    
     # Register blueprints in order of priority
     # Health check (no prefix for load balancer compatibility)
     app.register_blueprint(health_bp)
@@ -90,6 +107,18 @@ def create_app():
     
     # API v2 endpoints (current version) - all under /api/v2
     app.register_blueprint(api_v2)
+    
+    # Streaming endpoints - under /api/streaming
+    app.register_blueprint(streaming_bp, url_prefix='/api/streaming')
+    
+    # Personalization endpoints - under /api/personalization
+    app.register_blueprint(personalization_bp, url_prefix='/api/personalization')
+    
+    # Enhanced Personalization v2 endpoints - under /api/personalization/v2
+    app.register_blueprint(personalization_v2_bp, url_prefix='/api/personalization/v2')
+    
+    # Test SSE endpoint - under /api/test
+    app.register_blueprint(test_sse_bp, url_prefix='/api/test')
     
     # API monitoring endpoints - all under /api/monitoring
     app.register_blueprint(monitoring_bp)
@@ -106,14 +135,45 @@ def create_app():
     with app.app_context():
         create_api_usage_table()
     
+    # Add OPTIONS handler for problematic endpoint AFTER all blueprints
+    @app.route('/api/v2/auth/login', methods=['OPTIONS'])
+    def handle_login_options():
+        from flask import make_response
+        logger.info("Direct OPTIONS handler for /api/v2/auth/login triggered")
+        response = make_response('', 200)
+        response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        return response
+    
     logger.info("Application created with API v1 and v2 support + monitoring")
     return app
 
 
 if __name__ == '__main__':
-    app = create_app()
-    app.run(
-        host='0.0.0.0',
-        port=int(os.getenv('PORT', 8080)),
-        debug=os.getenv('FLASK_ENV') == 'development'
-    )
+    try:
+        app = create_app()
+        
+        # Add a global error handler for all exceptions during request handling
+        @app.errorhandler(Exception)
+        def handle_all_errors(e):
+            from flask import make_response, jsonify
+            logger.error(f"Global error handler caught: {str(e)}", exc_info=True)
+            
+            response = make_response(jsonify({'error': str(e)}), 500)
+            origin = request.headers.get('Origin', '')
+            if origin:
+                response.headers['Access-Control-Allow-Origin'] = origin
+                response.headers['Access-Control-Allow-Credentials'] = 'true'
+            
+            return response
+        
+        app.run(
+            host='0.0.0.0',
+            port=int(os.getenv('PORT', 8080)),
+            debug=os.getenv('FLASK_ENV') == 'development'
+        )
+    except Exception as e:
+        logger.error(f"Failed to start app: {str(e)}", exc_info=True)
+        raise

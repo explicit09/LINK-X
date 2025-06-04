@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { Plus, LayoutDashboard } from "lucide-react";
+import { useState } from 'react';
+import { Plus, LayoutDashboard } from 'lucide-react';
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -11,11 +11,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 
-import { CourseCard } from "@/components/dashboard/CourseCard";
-import CourseForm from "@/components/dashboard/CourseForm";
-import { Course } from "./hooks/useCourses";
+import { CourseCard } from '@/components/dashboard/CourseCard';
+import CourseForm from '@/components/dashboard/CourseForm';
+import { Course } from './hooks/useCourses';
 
 interface CourseDashboardProps {
   courseHooks: {
@@ -34,8 +34,11 @@ interface CourseDashboardProps {
   onSelectCourse: (course: Course) => void;
 }
 
-export function CourseDashboard({ courseHooks, onSelectCourse }: CourseDashboardProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+export function CourseDashboard({
+  courseHooks,
+  onSelectCourse,
+}: CourseDashboardProps) {
+  const [searchQuery, setSearchQuery] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
 
@@ -48,11 +51,11 @@ export function CourseDashboard({ courseHooks, onSelectCourse }: CourseDashboard
     togglePublish,
     getPublishedCourses,
     getUnpublishedCourses,
-    searchCourses
+    searchCourses,
   } = courseHooks;
 
   // Filter courses based on search
-  const filteredCourses = searchQuery.trim() 
+  const filteredCourses = searchQuery.trim()
     ? searchCourses(searchQuery)
     : courses;
 
@@ -168,8 +171,10 @@ export function CourseDashboard({ courseHooks, onSelectCourse }: CourseDashboard
 
         <TabsContent value="published">
           <CourseGrid
-            courses={publishedCourses.filter(course =>
-              searchQuery.trim() ? searchCourses(searchQuery).includes(course) : true
+            courses={publishedCourses.filter((course) =>
+              searchQuery.trim()
+                ? searchCourses(searchQuery).includes(course)
+                : true,
             )}
             onSelectCourse={onSelectCourse}
             onEditCourse={setEditingCourse}
@@ -180,8 +185,10 @@ export function CourseDashboard({ courseHooks, onSelectCourse }: CourseDashboard
 
         <TabsContent value="unpublished">
           <CourseGrid
-            courses={unpublishedCourses.filter(course =>
-              searchQuery.trim() ? searchCourses(searchQuery).includes(course) : true
+            courses={unpublishedCourses.filter((course) =>
+              searchQuery.trim()
+                ? searchCourses(searchQuery).includes(course)
+                : true,
             )}
             onSelectCourse={onSelectCourse}
             onEditCourse={setEditingCourse}
@@ -193,13 +200,14 @@ export function CourseDashboard({ courseHooks, onSelectCourse }: CourseDashboard
 
       {/* Edit Course Dialog */}
       {editingCourse && (
-        <Dialog open={!!editingCourse} onOpenChange={() => setEditingCourse(null)}>
+        <Dialog
+          open={!!editingCourse}
+          onOpenChange={() => setEditingCourse(null)}
+        >
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
               <DialogTitle>Edit Course</DialogTitle>
-              <DialogDescription>
-                Update course information
-              </DialogDescription>
+              <DialogDescription>Update course information</DialogDescription>
             </DialogHeader>
             <CourseForm
               initialData={editingCourse}
@@ -222,18 +230,20 @@ interface CourseGridProps {
   onTogglePublish: (courseId: string) => Promise<void>;
 }
 
-function CourseGrid({ 
-  courses, 
-  onSelectCourse, 
-  onEditCourse, 
-  onDeleteCourse, 
-  onTogglePublish 
+function CourseGrid({
+  courses,
+  onSelectCourse,
+  onEditCourse,
+  onDeleteCourse,
+  onTogglePublish,
 }: CourseGridProps) {
   if (courses.length === 0) {
     return (
       <div className="text-center py-12">
         <LayoutDashboard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No courses found</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          No courses found
+        </h3>
         <p className="text-gray-600">
           Create your first course to get started with teaching
         </p>

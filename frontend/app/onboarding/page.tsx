@@ -1,20 +1,20 @@
-"use client";
+'use client';
 
 /**
  * Refactored Onboarding Page - Modular and maintainable
  */
 
-import { Card, CardContent } from "@/components/ui/card";
-import { useOnboardingForm } from "./hooks/use-onboarding-form";
-import { useStepNavigation } from "./hooks/use-step-navigation";
+import { Card, CardContent } from '@/components/ui/card';
+import { useOnboardingForm } from './hooks/use-onboarding-form';
+import { useStepNavigation } from './hooks/use-step-navigation';
 import {
   StepIndicator,
   PersonalInfoStep,
   LearningStyleStep,
   PreferencesStep,
   InterestsStep,
-  OnboardingNavigation
-} from "./components";
+  OnboardingNavigation,
+} from './components';
 
 const TOTAL_STEPS = 4;
 
@@ -27,27 +27,22 @@ export default function OnboardingPage() {
     nextStep,
     prevStep,
     updateField,
-    handleSubmit
+    handleSubmit,
   } = useOnboardingForm();
 
-  const {
-    isFirstStep,
-    isLastStep,
-    canGoNext,
-    canGoBack
-  } = useStepNavigation({
+  const { isFirstStep, isLastStep, canGoNext, canGoBack } = useStepNavigation({
     currentStep,
     totalSteps: TOTAL_STEPS,
     canProceed,
     onNext: nextStep,
-    onPrev: prevStep
+    onPrev: prevStep,
   });
 
   const renderStep = () => {
     const stepProps = {
       formData,
       updateField,
-      onNext: nextStep
+      onNext: nextStep,
     };
 
     switch (currentStep) {
@@ -82,9 +77,9 @@ export default function OnboardingPage() {
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Let's personalize your learning experience in just a few steps
           </p>
-          
-          <StepIndicator 
-            currentStep={currentStep} 
+
+          <StepIndicator
+            currentStep={currentStep}
             totalSteps={TOTAL_STEPS}
             canProceed={canProceed}
           />
@@ -96,7 +91,7 @@ export default function OnboardingPage() {
         <Card className="border-0 shadow-xl bg-white/70 backdrop-blur-sm">
           <CardContent className="p-8">
             {renderStep()}
-            
+
             <OnboardingNavigation
               currentStep={currentStep}
               isFirstStep={isFirstStep}

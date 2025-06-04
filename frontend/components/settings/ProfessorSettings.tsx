@@ -1,20 +1,20 @@
-"use client";
+'use client';
 
-import { 
+import {
   SettingsLayout,
   SettingsTabs,
   AccountPanel,
   NotificationPanel,
   PrivacyPanel,
-  useSettings
+  useSettings,
 } from './index';
 
 /**
  * ProfessorSettings Component
- * 
+ *
  * This is a refactored version that maintains backward compatibility
  * while using a modular architecture with separated concerns.
- * 
+ *
  * The component has been broken down into:
  * - Individual setting panels (Account, Notifications, Privacy)
  * - Reusable form components and validation hooks
@@ -47,10 +47,7 @@ const ProfessorSettings = () => {
     <SettingsLayout>
       <SettingsTabs
         accountContent={
-          <AccountPanel 
-            accountData={account}
-            onAccountUpdate={updateAccount}
-          />
+          <AccountPanel accountData={account} onAccountUpdate={updateAccount} />
         }
         notificationsContent={
           <NotificationPanel
@@ -59,10 +56,7 @@ const ProfessorSettings = () => {
           />
         }
         privacyContent={
-          <PrivacyPanel
-            settings={privacy}
-            onSettingsUpdate={updatePrivacy}
-          />
+          <PrivacyPanel settings={privacy} onSettingsUpdate={updatePrivacy} />
         }
       />
     </SettingsLayout>

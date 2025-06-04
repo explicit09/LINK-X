@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -14,8 +14,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Search, UserX, Users, Calendar } from "lucide-react";
+} from '@/components/ui/alert-dialog';
+import { Search, UserX, Users, Calendar } from 'lucide-react';
 import { Student } from '../hooks/useStudentManagement';
 
 interface PeopleTabProps {
@@ -24,13 +24,20 @@ interface PeopleTabProps {
   onRemoveStudent: (enrollmentId: string) => Promise<boolean>;
 }
 
-export function PeopleTab({ students, loading, onRemoveStudent }: PeopleTabProps) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [confirmingDeleteStudentId, setConfirmingDeleteStudentId] = useState<string | null>(null);
+export function PeopleTab({
+  students,
+  loading,
+  onRemoveStudent,
+}: PeopleTabProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [confirmingDeleteStudentId, setConfirmingDeleteStudentId] = useState<
+    string | null
+  >(null);
 
-  const filteredStudents = students.filter(student =>
-    student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    student.email.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredStudents = students.filter(
+    (student) =>
+      student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      student.email.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const handleRemoveStudent = async (enrollmentId: string) => {
@@ -43,7 +50,7 @@ export function PeopleTab({ students, loading, onRemoveStudent }: PeopleTabProps
   const getInitials = (name: string) => {
     return name
       .split(' ')
-      .map(word => word.charAt(0))
+      .map((word) => word.charAt(0))
       .join('')
       .toUpperCase()
       .slice(0, 2);
@@ -102,10 +109,9 @@ export function PeopleTab({ students, loading, onRemoveStudent }: PeopleTabProps
               {searchQuery ? 'No students found' : 'No students enrolled'}
             </h3>
             <p className="text-gray-600">
-              {searchQuery 
+              {searchQuery
                 ? 'Try adjusting your search criteria'
-                : 'Students will appear here once they join your course'
-              }
+                : 'Students will appear here once they join your course'}
             </p>
           </CardContent>
         </Card>
@@ -117,29 +123,34 @@ export function PeopleTab({ students, loading, onRemoveStudent }: PeopleTabProps
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage 
-                        src={`https://api.dicebear.com/7.x/initials/svg?seed=${student.name}`} 
-                        alt={student.name} 
+                      <AvatarImage
+                        src={`https://api.dicebear.com/7.x/initials/svg?seed=${student.name}`}
+                        alt={student.name}
                       />
                       <AvatarFallback>
                         {getInitials(student.name)}
                       </AvatarFallback>
                     </Avatar>
-                    
+
                     <div>
-                      <h4 className="font-medium text-gray-900">{student.name}</h4>
+                      <h4 className="font-medium text-gray-900">
+                        {student.name}
+                      </h4>
                       <p className="text-sm text-gray-600">{student.email}</p>
                       <div className="flex items-center text-xs text-gray-500 mt-1">
                         <Calendar className="h-3 w-3 mr-1" />
-                        Enrolled {new Date(student.enrolledAt).toLocaleDateString()}
+                        Enrolled{' '}
+                        {new Date(student.enrolledAt).toLocaleDateString()}
                       </div>
                     </div>
                   </div>
 
                   <AlertDialog
                     open={confirmingDeleteStudentId === student.enrollmentId}
-                    onOpenChange={(open) => 
-                      setConfirmingDeleteStudentId(open ? student.enrollmentId : null)
+                    onOpenChange={(open) =>
+                      setConfirmingDeleteStudentId(
+                        open ? student.enrollmentId : null,
+                      )
                     }
                   >
                     <AlertDialogTrigger asChild>
@@ -156,14 +167,18 @@ export function PeopleTab({ students, loading, onRemoveStudent }: PeopleTabProps
                       <AlertDialogHeader>
                         <AlertDialogTitle>Remove Student</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Are you sure you want to remove <strong>{student.name}</strong> from this course? 
-                          This action cannot be undone and they will lose access to all course materials.
+                          Are you sure you want to remove{' '}
+                          <strong>{student.name}</strong> from this course? This
+                          action cannot be undone and they will lose access to
+                          all course materials.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                          onClick={() => handleRemoveStudent(student.enrollmentId)}
+                          onClick={() =>
+                            handleRemoveStudent(student.enrollmentId)
+                          }
                           className="bg-red-600 hover:bg-red-700"
                         >
                           Remove Student
@@ -181,7 +196,9 @@ export function PeopleTab({ students, loading, onRemoveStudent }: PeopleTabProps
       {/* Instructions for adding students */}
       <Card className="border-dashed">
         <CardContent className="text-center py-6">
-          <h4 className="font-medium text-gray-900 mb-2">Add Students to Your Course</h4>
+          <h4 className="font-medium text-gray-900 mb-2">
+            Add Students to Your Course
+          </h4>
           <p className="text-sm text-gray-600 mb-4">
             Share your course access code with students so they can enroll
           </p>

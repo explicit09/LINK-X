@@ -24,7 +24,7 @@ export const CourseHeader = ({
   isFocusMode,
   onToggleFocusMode,
   onDeleteCourse,
-  isInstructor = false
+  isInstructor = false,
 }: CourseHeaderProps) => {
   const router = useRouter();
   const colors = getCourseColor(course.id);
@@ -37,39 +37,52 @@ export const CourseHeader = ({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.push("/dashboard")}
+              onClick={() => router.push('/dashboard')}
               className="text-gray-600 hover:text-gray-900 hover:bg-gray-100/80 rounded-lg px-3 py-2 transition-all duration-200"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Dashboard
             </Button>
             <div className="flex items-center gap-3">
-              <div className={cn("w-3 h-8 rounded-full bg-gradient-to-b", colors.gradient)} />
+              <div
+                className={cn(
+                  'w-3 h-8 rounded-full bg-gradient-to-b',
+                  colors.gradient,
+                )}
+              />
               <div>
                 <h1 className="text-xl font-semibold text-gray-900 tracking-tight">
                   {course.title}
                 </h1>
                 <div className="flex items-center gap-4 text-sm text-gray-500 font-medium">
-                  <span>{course.code} • {course.term}</span>
+                  <span>
+                    {course.code} • {course.term}
+                  </span>
                   <span>•</span>
-                  <span>{totalMaterials} material{totalMaterials !== 1 ? 's' : ''}</span>
+                  <span>
+                    {totalMaterials} material{totalMaterials !== 1 ? 's' : ''}
+                  </span>
                   <span>•</span>
                   <div className="flex items-center gap-2">
                     <span>{courseProgress.progressPercentage}% complete</span>
                     <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className="h-full bg-indigo-600 transition-all duration-300"
-                        style={{ width: `${courseProgress.progressPercentage}%` }}
+                        style={{
+                          width: `${courseProgress.progressPercentage}%`,
+                        }}
                       />
                     </div>
                   </div>
                   <span>•</span>
-                  <span>{Math.round(courseProgress.todayTimeMinutes)}m today</span>
+                  <span>
+                    {Math.round(courseProgress.todayTimeMinutes)}m today
+                  </span>
                 </div>
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"

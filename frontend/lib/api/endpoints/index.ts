@@ -13,3 +13,5 @@ export * from './enrollments';
 export * from './quizzes';
 export * from './admin';
 export * from './utilities';
+export * from './study-plans';
+export { scheduleAPI, transformSessionForFrontend, transformSessionForBackend, getDefaultSchedulePreferences } from './schedule';

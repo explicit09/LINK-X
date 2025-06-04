@@ -1,11 +1,14 @@
 import { IconProps, getSvgProps } from './types';
 
-export const ArrowUpIcon = ({ size = 16, className, style, "aria-label": ariaLabel, ...props }: IconProps) => {
+export const ArrowUpIcon = ({
+  size = 16,
+  className,
+  style,
+  'aria-label': ariaLabel,
+  ...props
+}: IconProps) => {
   return (
-    <svg
-      {...getSvgProps(size, className, style)}
-      aria-label={ariaLabel}
-    >
+    <svg {...getSvgProps(size, className, style)} aria-label={ariaLabel}>
       <path
         fillRule="evenodd"
         clipRule="evenodd"

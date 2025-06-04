@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 
 export const useDashboardState = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [aiPulse, setAiPulse] = useState(false);
   const [showCourseForm, setShowCourseForm] = useState(false);
   const [showAccessCodeDialog, setShowAccessCodeDialog] = useState(false);
@@ -27,6 +27,6 @@ export const useDashboardState = () => {
     setSearchQuery,
     setAiPulse,
     setShowCourseForm,
-    setShowAccessCodeDialog
+    setShowAccessCodeDialog,
   };
 };

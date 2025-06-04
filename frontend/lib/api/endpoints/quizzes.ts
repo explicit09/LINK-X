@@ -10,25 +10,26 @@ import type {
 
 export const quizAPI = {
   // Course quizzes
-  getCourseQuizzes: (courseId: string) => 
+  getCourseQuizzes: (courseId: string) =>
     apiClient.get(`/api/v2/courses/${courseId}/quizzes`),
 
-  generateCourseQuiz: (courseId: string, options?: GenerateQuizRequest) => 
+  generateCourseQuiz: (courseId: string, options?: GenerateQuizRequest) =>
     apiClient.post(`/api/v2/courses/${courseId}/quizzes/generate`, options),
 
   // Quiz operations
-  getQuiz: (quizId: string) => 
-    apiClient.get(`/api/v2/quizzes/${quizId}`),
+  getQuiz: (quizId: string) => apiClient.get(`/api/v2/quizzes/${quizId}`),
 
-  startQuizSession: (quizId: string) => 
+  startQuizSession: (quizId: string) =>
     apiClient.post(`/api/v2/quizzes/${quizId}/start`),
 
-  submitQuizAnswer: (quizId: string, questionId: string, answer: string) => 
-    apiClient.post(`/api/v2/quizzes/${quizId}/questions/${questionId}/answer`, { answer }),
+  submitQuizAnswer: (quizId: string, questionId: string, answer: string) =>
+    apiClient.post(`/api/v2/quizzes/${quizId}/questions/${questionId}/answer`, {
+      answer,
+    }),
 
-  submitQuiz: (quizId: string) => 
+  submitQuiz: (quizId: string) =>
     apiClient.post(`/api/v2/quizzes/${quizId}/submit`),
 
-  getQuizResults: (quizId: string) => 
+  getQuizResults: (quizId: string) =>
     apiClient.get(`/api/v2/quizzes/${quizId}/results`),
 };

@@ -1,6 +1,12 @@
-"use client";
+'use client';
 
-import React, { createContext, useContext, useReducer, useCallback, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useReducer,
+  useCallback,
+  ReactNode,
+} from 'react';
 import { DocumentOutline, StreamingMessage } from '@/lib/api/streaming';
 
 // Types
@@ -40,7 +46,10 @@ const initialState: StreamingState = {
 };
 
 // Reducer
-function streamingReducer(state: StreamingState, action: StreamingAction): StreamingState {
+function streamingReducer(
+  state: StreamingState,
+  action: StreamingAction,
+): StreamingState {
   switch (action.type) {
     case 'SET_OUTLINE':
       return {
@@ -48,13 +57,13 @@ function streamingReducer(state: StreamingState, action: StreamingAction): Strea
         outline: action.payload,
         error: null,
       };
-      
+
     case 'SET_ACTIVE_SECTION':
       return {
         ...state,
         activeSectionId: action.payload,
       };
-      
+
     case 'START_STREAMING': {
       const newSections = new Map(state.sections);
       newSections.set(action.payload, {
@@ -67,7 +76,7 @@ function streamingReducer(state: StreamingState, action: StreamingAction): Strea
         sections: newSections,
       };
     }
-    
+
     case 'UPDATE_SECTION_CONTENT': {
       const newSections = new Map(state.sections);
       const section = newSections.get(action.payload.id);
@@ -82,7 +91,7 @@ function streamingReducer(state: StreamingState, action: StreamingAction): Strea
         sections: newSections,
       };
     }
-    
+
     case 'COMPLETE_SECTION': {
       const newSections = new Map(state.sections);
       const section = newSections.get(action.payload);
@@ -97,7 +106,7 @@ function streamingReducer(state: StreamingState, action: StreamingAction): Strea
         sections: newSections,
       };
     }
-    
+
     case 'ERROR_SECTION': {
       const newSections = new Map(state.sections);
       const section = newSections.get(action.payload.id);
@@ -113,23 +122,23 @@ function streamingReducer(state: StreamingState, action: StreamingAction): Strea
         sections: newSections,
       };
     }
-    
+
     case 'SET_LOADING':
       return {
         ...state,
         isLoading: action.payload,
       };
-      
+
     case 'SET_ERROR':
       return {
         ...state,
         error: action.payload,
         isLoading: false,
       };
-      
+
     case 'RESET':
       return initialState;
-      
+
     default:
       return state;
   }
@@ -139,14 +148,17 @@ function streamingReducer(state: StreamingState, action: StreamingAction): Strea
 interface StreamingContextValue {
   state: StreamingState;
   dispatch: React.Dispatch<StreamingAction>;
-  
+
   // Helper functions
   setOutline: (outline: DocumentOutline) => void;
   setActiveSection: (sectionId: string | null) => void;
   startStreaming: (sectionId: string) => void;
   updateSectionContent: (sectionId: string, content: string) => void;
   completeSection: (sectionId: string) => void;
-  handleStreamingMessage: (sectionId: string, message: StreamingMessage) => void;
+  handleStreamingMessage: (
+    sectionId: string,
+    message: StreamingMessage,
+  ) => void;
   reset: () => void;
 }
 
@@ -159,50 +171,62 @@ interface StreamingProviderProps {
 
 export function StreamingProvider({ children }: StreamingProviderProps) {
   const [state, dispatch] = useReducer(streamingReducer, initialState);
-  
+
   // Helper functions
   const setOutline = useCallback((outline: DocumentOutline) => {
     dispatch({ type: 'SET_OUTLINE', payload: outline });
   }, []);
-  
+
   const setActiveSection = useCallback((sectionId: string | null) => {
     dispatch({ type: 'SET_ACTIVE_SECTION', payload: sectionId });
   }, []);
-  
+
   const startStreaming = useCallback((sectionId: string) => {
     dispatch({ type: 'START_STREAMING', payload: sectionId });
   }, []);
-  
-  const updateSectionContent = useCallback((sectionId: string, content: string) => {
-    dispatch({ type: 'UPDATE_SECTION_CONTENT', payload: { id: sectionId, content } });
-  }, []);
-  
+
+  const updateSectionContent = useCallback(
+    (sectionId: string, content: string) => {
+      dispatch({
+        type: 'UPDATE_SECTION_CONTENT',
+        payload: { id: sectionId, content },
+      });
+    },
+    [],
+  );
+
   const completeSection = useCallback((sectionId: string) => {
     dispatch({ type: 'COMPLETE_SECTION', payload: sectionId });
   }, []);
-  
-  const handleStreamingMessage = useCallback((sectionId: string, message: StreamingMessage) => {
-    switch (message.type) {
-      case 'content':
-      case 'section':
-        updateSectionContent(sectionId, message.data || '');
-        break;
-      case 'complete':
-        completeSection(sectionId);
-        break;
-      case 'error':
-        dispatch({ 
-          type: 'ERROR_SECTION', 
-          payload: { id: sectionId, error: message.message || 'Unknown error' } 
-        });
-        break;
-    }
-  }, [updateSectionContent, completeSection]);
-  
+
+  const handleStreamingMessage = useCallback(
+    (sectionId: string, message: StreamingMessage) => {
+      switch (message.type) {
+        case 'content':
+        case 'section':
+          updateSectionContent(sectionId, message.data || '');
+          break;
+        case 'complete':
+          completeSection(sectionId);
+          break;
+        case 'error':
+          dispatch({
+            type: 'ERROR_SECTION',
+            payload: {
+              id: sectionId,
+              error: message.message || 'Unknown error',
+            },
+          });
+          break;
+      }
+    },
+    [updateSectionContent, completeSection],
+  );
+
   const reset = useCallback(() => {
     dispatch({ type: 'RESET' });
   }, []);
-  
+
   const value: StreamingContextValue = {
     state,
     dispatch,
@@ -214,7 +238,7 @@ export function StreamingProvider({ children }: StreamingProviderProps) {
     handleStreamingMessage,
     reset,
   };
-  
+
   return (
     <StreamingContext.Provider value={value}>
       {children}

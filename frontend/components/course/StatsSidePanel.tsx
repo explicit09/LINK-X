@@ -4,7 +4,7 @@
  * This file remains as a compatibility wrapper.
  */
 
-"use client";
+'use client';
 
 import { StatsSidePanel as ModularStatsSidePanel } from './stats';
 
@@ -13,7 +13,7 @@ export type {
   Course,
   CourseProgress,
   TodoItem,
-  StatsSidePanelProps
+  StatsSidePanelProps,
 } from './stats';
 
 // Export the modular component as the default

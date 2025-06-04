@@ -22,11 +22,14 @@ htmlcov/
 .ruff_cache/
 *.log
 
-# Virtual environments
+# Virtual environments (CRITICAL - exclude from Docker)
 venv/
 env/
 ENV/
 .venv/
+*/venv/
+*/env/
+*/.venv/
 
 # IDE
 .vscode/

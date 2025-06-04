@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { useState, useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Brain,
   MessageSquare,
@@ -10,8 +10,8 @@ import {
   Lightbulb,
   Copy,
   X,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { toast as sonnerToast } from 'sonner';
 
 interface SmartSelectionProps {
@@ -27,10 +27,19 @@ interface SelectionPosition {
   height: number;
 }
 
-export function SmartSelection({ onAskAI, courseId, materialId }: SmartSelectionProps) {
-  const [selectedText, setSelectedText] = useState("");
+export function SmartSelection({
+  onAskAI,
+  courseId,
+  materialId,
+}: SmartSelectionProps) {
+  const [selectedText, setSelectedText] = useState('');
   const [showTooltip, setShowTooltip] = useState(false);
-  const [position, setPosition] = useState<SelectionPosition>({ x: 0, y: 0, width: 0, height: 0 });
+  const [position, setPosition] = useState<SelectionPosition>({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  });
   const [isProcessing, setIsProcessing] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
@@ -39,7 +48,7 @@ export function SmartSelection({ onAskAI, courseId, materialId }: SmartSelection
       const selection = window.getSelection();
       if (!selection || selection.isCollapsed) {
         setShowTooltip(false);
-        setSelectedText("");
+        setSelectedText('');
         return;
       }
 
@@ -52,7 +61,7 @@ export function SmartSelection({ onAskAI, courseId, materialId }: SmartSelection
       // Get selection bounds
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-      
+
       // Only show tooltip for meaningful text selections
       if (text.length >= 3 && text.split(' ').length >= 2) {
         setSelectedText(text);
@@ -60,14 +69,17 @@ export function SmartSelection({ onAskAI, courseId, materialId }: SmartSelection
           x: rect.left + rect.width / 2,
           y: rect.top - 10,
           width: rect.width,
-          height: rect.height
+          height: rect.height,
         });
         setShowTooltip(true);
       }
     };
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (tooltipRef.current && !tooltipRef.current.contains(event.target as Node)) {
+      if (
+        tooltipRef.current &&
+        !tooltipRef.current.contains(event.target as Node)
+      ) {
         setShowTooltip(false);
       }
     };
@@ -85,20 +97,22 @@ export function SmartSelection({ onAskAI, courseId, materialId }: SmartSelection
     if (!selectedText) return;
 
     setIsProcessing(true);
-    
+
     try {
       // Call the parent component's AI handler
       onAskAI?.(selectedText, action);
-      
+
       // Show success feedback
-      sonnerToast.success(`AI is ${action === 'explain' ? 'explaining' : action === 'define' ? 'defining' : 'helping with'} the selected text`);
-      
+      sonnerToast.success(
+        `AI is ${action === 'explain' ? 'explaining' : action === 'define' ? 'defining' : 'helping with'} the selected text`,
+      );
+
       // Clear selection and hide tooltip
       window.getSelection()?.removeAllRanges();
       setShowTooltip(false);
-      setSelectedText("");
+      setSelectedText('');
     } catch (error) {
-      sonnerToast.error("Failed to process AI request");
+      sonnerToast.error('Failed to process AI request');
     } finally {
       setIsProcessing(false);
     }
@@ -106,13 +120,13 @@ export function SmartSelection({ onAskAI, courseId, materialId }: SmartSelection
 
   const handleCopy = () => {
     navigator.clipboard.writeText(selectedText);
-    sonnerToast.success("Text copied to clipboard");
+    sonnerToast.success('Text copied to clipboard');
   };
 
   const handleClose = () => {
     window.getSelection()?.removeAllRanges();
     setShowTooltip(false);
-    setSelectedText("");
+    setSelectedText('');
   };
 
   if (!showTooltip || !selectedText) {
@@ -120,8 +134,12 @@ export function SmartSelection({ onAskAI, courseId, materialId }: SmartSelection
   }
 
   // Calculate tooltip position to ensure it stays within viewport
-  const tooltipX = Math.min(Math.max(position.x - 150, 10), window.innerWidth - 310);
-  const tooltipY = position.y > 200 ? position.y - 80 : position.y + position.height + 10;
+  const tooltipX = Math.min(
+    Math.max(position.x - 150, 10),
+    window.innerWidth - 310,
+  );
+  const tooltipY =
+    position.y > 200 ? position.y - 80 : position.y + position.height + 10;
 
   return (
     <div
@@ -137,7 +155,9 @@ export function SmartSelection({ onAskAI, courseId, materialId }: SmartSelection
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Brain className="h-4 w-4 text-purple-600" />
-              <span className="text-sm font-medium text-gray-700">Ask AI about this text</span>
+              <span className="text-sm font-medium text-gray-700">
+                Ask AI about this text
+              </span>
             </div>
             <Button
               variant="ghost"
@@ -212,12 +232,15 @@ export function SmartSelection({ onAskAI, courseId, materialId }: SmartSelection
       <div
         className="absolute w-3 h-3 bg-white border-l border-t border-purple-200 transform rotate-45"
         style={{
-          left: "50%",
-          top: position.y > 200 ? "100%" : "-6px",
-          transform: position.y > 200 ? "translateX(-50%) rotate(225deg)" : "translateX(-50%) rotate(45deg)",
-          marginLeft: position.y > 200 ? "0px" : "0px",
+          left: '50%',
+          top: position.y > 200 ? '100%' : '-6px',
+          transform:
+            position.y > 200
+              ? 'translateX(-50%) rotate(225deg)'
+              : 'translateX(-50%) rotate(45deg)',
+          marginLeft: position.y > 200 ? '0px' : '0px',
         }}
       />
     </div>
   );
-} 
+}

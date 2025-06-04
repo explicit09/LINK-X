@@ -22,7 +22,7 @@ export type {
   UpdateNewsRequest,
   CreateMarketDataRequest,
   UpdateMarketDataRequest,
-  GenerateTitleRequest
+  GenerateTitleRequest,
 } from '../../../types/api';
 
 // Additional types for API client

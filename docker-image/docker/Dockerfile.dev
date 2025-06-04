@@ -25,16 +25,15 @@ ENV PYTHONUNBUFFERED=1 \
 # Create app directory
 WORKDIR /app
 
-# Install Python dependencies
+# Install Python dependencies (optimized for caching)
 COPY config/base.txt config/dev.txt ./config/
 RUN pip install --upgrade pip wheel setuptools && \
+    pip install --no-cache-dir -r config/base.txt && \
     pip install --no-cache-dir -r config/dev.txt && \
-    # Install additional dev tools
-    pip install --no-cache-dir \
-        ipdb \
-        flask-shell-ipython \
-        watchdog[watchmedo] \
-        pytest-watch
+    # Remove unnecessary packages and clean up
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Copy application source (will be overridden by volume mount)
 COPY src/ ./src/

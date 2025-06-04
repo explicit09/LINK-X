@@ -24,39 +24,37 @@ export function AppSidebar({ user }: { user: User | undefined }) {
   return (
     <Sidebar className="group-data-[side=left]:border-r-0 sidebar">
       <SidebarHeader>
-      <SidebarMenu>
-      <div className="flex flex-col gap-4">
-        <Link
-          href="/"
-          onClick={() => {
-            setOpenMobile(false);
-          }}
-          className="flex flex-row gap-3 items-center"
-        >
-          <span className="text-lg font-bold px-2 hover:bg-muted rounded-md cursor-pointer">
-            Learn-X
-          </span>
-        </Link>
-        <Button
-          variant="ghost"
-          type="button"
-          className="flex items-center gap-4 p-2 rounded-lg gradient-button w-full"
-          onClick={() => {
-            setOpenMobile(false);
-            router.push('/');
-            router.refresh();
-          }}
-        >
-          <PlusIcon size={16} />
-          <span>New Chat</span>
-        </Button>
-      </div>
-      <div className="flex flex-col gap-2 p-2">
-        <span className="text-medium font-semibold">
-          RECENT CHATS:
-        </span>
-      </div>
-    </SidebarMenu>
+        <SidebarMenu>
+          <div className="flex flex-col gap-4">
+            <Link
+              href="/"
+              onClick={() => {
+                setOpenMobile(false);
+              }}
+              className="flex flex-row gap-3 items-center"
+            >
+              <span className="text-lg font-bold px-2 hover:bg-muted rounded-md cursor-pointer">
+                Learn-X
+              </span>
+            </Link>
+            <Button
+              variant="ghost"
+              type="button"
+              className="flex items-center gap-4 p-2 rounded-lg gradient-button w-full"
+              onClick={() => {
+                setOpenMobile(false);
+                router.push('/');
+                router.refresh();
+              }}
+            >
+              <PlusIcon size={16} />
+              <span>New Chat</span>
+            </Button>
+          </div>
+          <div className="flex flex-col gap-2 p-2">
+            <span className="text-medium font-semibold">RECENT CHATS:</span>
+          </div>
+        </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
         <SidebarHistory user={user} />

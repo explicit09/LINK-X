@@ -1,7 +1,7 @@
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Search, Bell, Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Search, Bell, Plus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface DashboardHeaderProps {
   currentUser?: {
@@ -13,7 +13,11 @@ interface DashboardHeaderProps {
   setSearchQuery: (query: string) => void;
 }
 
-export const DashboardHeader = ({ currentUser, searchQuery, setSearchQuery }: DashboardHeaderProps) => {
+export const DashboardHeader = ({
+  currentUser,
+  searchQuery,
+  setSearchQuery,
+}: DashboardHeaderProps) => {
   const router = useRouter();
 
   return (
@@ -23,10 +27,11 @@ export const DashboardHeader = ({ currentUser, searchQuery, setSearchQuery }: Da
           <div>
             <h1 className="canvas-heading-1">Dashboard</h1>
             <p className="canvas-body mt-1">
-              Welcome back, {currentUser?.name || "Student"}! Here's your learning overview.
+              Welcome back, {currentUser?.name || 'Student'}! Here's your
+              learning overview.
             </p>
           </div>
-          
+
           <div className="flex items-center gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -40,8 +45,8 @@ export const DashboardHeader = ({ currentUser, searchQuery, setSearchQuery }: Da
             <Button variant="outline" size="icon" className="modern-hover">
               <Bell className="h-4 w-4" />
             </Button>
-            <Button 
-              onClick={() => router.push("/courses?action=join")}
+            <Button
+              onClick={() => router.push('/courses?action=join')}
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 button-pulse shadow-md"
             >
               <Plus className="h-4 w-4 mr-2" />

@@ -2,7 +2,12 @@
  * Block messages panel component
  */
 
-import type { Attachment, ChatRequestOptions, CreateMessage, Message } from 'ai';
+import type {
+  Attachment,
+  ChatRequestOptions,
+  CreateMessage,
+  Message,
+} from 'ai';
 import { BlockMessages } from '@/components/block-messages';
 import { MultimodalInput } from '@/components/multimodal-input';
 import type { Vote } from '@/lib/db/schema';

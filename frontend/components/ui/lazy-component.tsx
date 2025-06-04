@@ -36,7 +36,7 @@ export function LazyComponent({
       {
         rootMargin,
         threshold,
-      }
+      },
     );
 
     if (ref.current) {
@@ -47,7 +47,7 @@ export function LazyComponent({
   }, [rootMargin, threshold, hasLoaded]);
 
   const defaultFallback = (
-    <div 
+    <div
       className="flex items-center justify-center bg-gray-50 rounded-lg animate-pulse"
       style={{ minHeight }}
     >
@@ -59,8 +59,8 @@ export function LazyComponent({
   );
 
   return (
-    <div ref={ref} className={cn("w-full", className)}>
-      {isVisible ? children : (fallback || defaultFallback)}
+    <div ref={ref} className={cn('w-full', className)}>
+      {isVisible ? children : fallback || defaultFallback}
     </div>
   );
 }
@@ -73,7 +73,7 @@ export function withLazyLoading<P extends object>(
     rootMargin?: string;
     threshold?: number;
     minHeight?: number;
-  }
+  },
 ) {
   return function LazyWrappedComponent(props: P) {
     return (
@@ -84,4 +84,4 @@ export function withLazyLoading<P extends object>(
   };
 }
 
-export default LazyComponent; 
+export default LazyComponent;

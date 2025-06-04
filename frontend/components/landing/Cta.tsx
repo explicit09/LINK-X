@@ -1,11 +1,12 @@
-"use client";
+'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { Button } from '@/components/ui/button';
+import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-import { auth } from "@/firebaseconfig";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { auth } from '@/firebaseconfig';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { dashboardRoutes } from '@/lib/navigation';
 
 const Cta = () => {
   const ctaRef = useRef<HTMLDivElement>(null);
@@ -31,7 +32,7 @@ const Cta = () => {
           }
         });
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
 
     if (ctaRef.current) {
@@ -57,7 +58,8 @@ const Cta = () => {
               Ready to transform your student&apos;s education?
             </h2>
             <p className="reveal text-lg text-blue-800 mb-8 max-w-2xl mx-auto">
-              Join hundreds of institutions who are already teaching their students with personalized AI learning.
+              Join hundreds of institutions who are already teaching their
+              students with personalized AI learning.
             </p>
 
             <div className="reveal flex flex-col sm:flex-row gap-4 justify-center">
@@ -68,8 +70,8 @@ const Cta = () => {
                     className="bg-blue-600 text-white hover:bg-blue-700 text-base h-12 px-6"
                     asChild
                   >
-                    <Link href="/dashboard">
-                      Go to Dashboard
+                    <Link href={dashboardRoutes.main}>
+                      🚀 Go to Dashboard
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                   </Button>

@@ -37,7 +37,9 @@ export function useStudentManagement(courseId: string | null) {
   const removeStudent = async (enrollmentId: string): Promise<boolean> => {
     try {
       await instructorAPI.removeStudentFromCourse(enrollmentId);
-      setStudents(prev => prev.filter(student => student.enrollmentId !== enrollmentId));
+      setStudents((prev) =>
+        prev.filter((student) => student.enrollmentId !== enrollmentId),
+      );
       toast.success('Student removed from course');
       return true;
     } catch (err) {
@@ -53,17 +55,18 @@ export function useStudentManagement(courseId: string | null) {
   // Search students
   const searchStudents = (query: string) => {
     if (!query.trim()) return students;
-    
+
     const lowercaseQuery = query.toLowerCase();
-    return students.filter(student =>
-      student.name.toLowerCase().includes(lowercaseQuery) ||
-      student.email.toLowerCase().includes(lowercaseQuery)
+    return students.filter(
+      (student) =>
+        student.name.toLowerCase().includes(lowercaseQuery) ||
+        student.email.toLowerCase().includes(lowercaseQuery),
     );
   };
 
   // Get student by ID
   const getStudentById = (studentId: string) => {
-    return students.find(student => student.id === studentId);
+    return students.find((student) => student.id === studentId);
   };
 
   // Load students when courseId changes
@@ -83,6 +86,6 @@ export function useStudentManagement(courseId: string | null) {
     getStudentCount,
     searchStudents,
     getStudentById,
-    refetch: fetchStudents
+    refetch: fetchStudents,
   };
 }

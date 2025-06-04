@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { authAPI } from '@/lib/api';
 
 export interface AccountData {
   email: string;
@@ -17,9 +18,9 @@ export function useAccountSettings() {
   const [loadingAccount, setLoadingAccount] = useState(false);
 
   const updateAccountField = (field: keyof AccountData, value: string) => {
-    setAccountData(prev => ({
+    setAccountData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
@@ -29,7 +30,10 @@ export function useAccountSettings() {
       return false;
     }
 
-    if (accountData.password && accountData.password !== accountData.confirmPassword) {
+    if (
+      accountData.password &&
+      accountData.password !== accountData.confirmPassword
+    ) {
       toast.error('Passwords do not match');
       return false;
     }
@@ -51,20 +55,11 @@ export function useAccountSettings() {
     try {
       setSaving(true);
 
-      const response = await fetch('/api/auth/update-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ email: accountData.email }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update email');
-      }
-
-      toast.success('Email updated successfully');
+      // TODO: Email update endpoint not implemented in backend
+      // For now, just simulate the update
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast.info('Email update feature coming soon!');
       return true;
     } catch (error) {
       console.error('Error updating email:', error);
@@ -81,27 +76,18 @@ export function useAccountSettings() {
     try {
       setSaving(true);
 
-      const response = await fetch('/api/auth/update-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ password: accountData.password }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update password');
-      }
+      // TODO: Password update endpoint not implemented in backend
+      // For now, just simulate the update
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Clear password fields after successful update
-      setAccountData(prev => ({
+      setAccountData((prev) => ({
         ...prev,
         password: '',
         confirmPassword: '',
       }));
 
-      toast.success('Password updated successfully');
+      toast.info('Password update feature coming soon!');
       return true;
     } catch (error) {
       console.error('Error updating password:', error);
@@ -116,17 +102,15 @@ export function useAccountSettings() {
     try {
       setLoadingAccount(true);
 
-      const response = await fetch('/api/auth/me', {
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setAccountData(prev => ({
-          ...prev,
-          email: data.email || ''
-        }));
-      }
+      // Use the API client which handles authentication properly
+      const response = await authAPI.v2.getProfile();
+      // The backend returns { success: true, data: {...}, message: "Success", timestamp: "..." }
+      const userData = response.data;
+      
+      setAccountData((prev) => ({
+        ...prev,
+        email: userData?.email || '',
+      }));
     } catch (error) {
       console.error('Error loading current email:', error);
     } finally {
@@ -143,6 +127,6 @@ export function useAccountSettings() {
     updatePassword,
     loadCurrentEmail,
     validatePassword,
-    validateEmail
+    validateEmail,
   };
 }

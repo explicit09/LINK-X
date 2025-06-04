@@ -25,7 +25,7 @@ from repositories.module_repository import ModuleRepository
 from repositories.todo_repository import TodoRepository
 
 from services.auth_service_unified import UnifiedAuthService
-from services.course_service_optimized import CourseService
+from services.course_service_optimized import OptimizedCourseService as CourseService
 from services.file_service import FileService
 from services.module_service import ModuleService
 from services.admin_service import AdminService
@@ -75,18 +75,9 @@ class Container(containers.DeclarativeContainer):
     )
     
     # Database Session Provider
-    @providers.provider
-    def db_session() -> Iterator[Session]:
-        """Provide database session with proper cleanup"""
-        session = session_factory()
-        try:
-            yield session
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+    db_session = providers.Resource(
+        providers.Factory(session_factory)
+    )
     
     # Redis Client
     redis_client = providers.Singleton(

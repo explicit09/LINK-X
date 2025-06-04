@@ -14,33 +14,39 @@ export function useFileUpload() {
     const uploadFile: UploadFile = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       file,
-      status: "uploading",
+      status: 'uploading',
       progress: 0,
     };
 
-    setUploadFiles(prev => [...prev, uploadFile]);
+    setUploadFiles((prev) => [...prev, uploadFile]);
     return uploadFile;
   }, []);
 
-  const updateFile = useCallback((fileId: string, updates: Partial<UploadFile>) => {
-    setUploadFiles(prev => 
-      prev.map(f => f.id === fileId ? { ...f, ...updates } : f)
-    );
-  }, []);
+  const updateFile = useCallback(
+    (fileId: string, updates: Partial<UploadFile>) => {
+      setUploadFiles((prev) =>
+        prev.map((f) => (f.id === fileId ? { ...f, ...updates } : f)),
+      );
+    },
+    [],
+  );
 
   const removeFile = useCallback((fileId: string) => {
-    setUploadFiles(prev => prev.filter(f => f.id !== fileId));
+    setUploadFiles((prev) => prev.filter((f) => f.id !== fileId));
   }, []);
 
-  const getFile = useCallback((fileId: string): UploadFile | undefined => {
-    return uploadFiles.find(f => f.id === fileId);
-  }, [uploadFiles]);
+  const getFile = useCallback(
+    (fileId: string): UploadFile | undefined => {
+      return uploadFiles.find((f) => f.id === fileId);
+    },
+    [uploadFiles],
+  );
 
   return {
     uploadFiles,
     addFile,
     updateFile,
     removeFile,
-    getFile
+    getFile,
   };
 }

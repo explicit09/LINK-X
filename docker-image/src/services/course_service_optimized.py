@@ -225,8 +225,8 @@ class OptimizedCourseService:
                         else course.instructor.email),
                 'email': course.instructor.email
             }
-        elif hasattr(course, 'instructor_id') and course.instructor_id:
-            instructor_data['id'] = str(course.instructor_id)
+        elif hasattr(course, 'creator_id') and course.creator_id:
+            instructor_data['id'] = str(course.creator_id)
         
         # Safely access other course attributes
         return {
@@ -291,7 +291,7 @@ class OptimizedCourseService:
             raise AuthorizationError("User not found")
         
         user_role = user.role.role_type if user.role else 'student'
-        if user_role != 'admin' and str(course.instructor_id) != str(user_id):
+        if user_role != 'admin' and str(course.creator_id) != str(user_id):
             raise AuthorizationError("Access denied")
         
         return self.course_repo.update(course_id, **kwargs)
@@ -309,7 +309,7 @@ class OptimizedCourseService:
             return False
         
         user_role = user.role.role_type if user.role else 'student'
-        if user_role != 'admin' and str(course.instructor_id) != str(user_id):
+        if user_role != 'admin' and str(course.creator_id) != str(user_id):
             return False
         
         return self.course_repo.delete(course_id)
@@ -330,6 +330,28 @@ class OptimizedCourseService:
         
         modules = self.course_repo.get_modules(course_id)
         return [{'id': str(m.id), 'title': m.title, 'description': m.description, 'ordering': m.ordering} for m in modules]
+    
+    def join_course_by_access_code(self, user_id: str, access_code: str):
+        """Join a course using an access code"""
+        # Find course by access code
+        course = self.course_repo.find_by_access_code(access_code)
+        
+        if not course:
+            raise NotFoundError("Invalid access code")
+        
+        # Check if user is already enrolled
+        existing_enrollment = self.enrollment_repo.get_by_student_course(user_id, str(course.id))
+        if existing_enrollment:
+            raise ValidationError("You are already enrolled in this course")
+        
+        # Create enrollment
+        enrollment = self.enrollment_repo.create_enrollment(user_id, str(course.id))
+        
+        # Invalidate relevant caches
+        invalidate_cache(f"user_courses_{user_id}")
+        invalidate_cache(f"course_students_{course.id}")
+        
+        return course
 
 
 # Export optimized service

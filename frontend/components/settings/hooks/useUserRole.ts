@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { authAPI } from '@/lib/api';
 
 export type UserRole = 'instructor' | 'student' | null;
 
@@ -13,19 +14,18 @@ export function useUserRole() {
         setLoading(true);
         setError(null);
 
-        const response = await fetch('/api/auth/me', {
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch user role');
-        }
-
-        const data = await response.json();
-        setRole(data.role as UserRole);
-      } catch (err) {
+        // Use the API client which handles authentication properly
+        const response = await authAPI.v2.getProfile();
+        // The backend returns { success: true, data: {...}, message: "Success", timestamp: "..." }
+        const userData = response.data;
+        
+        setRole(userData?.role as UserRole);
+      } catch (err: any) {
         console.error('Error fetching user role:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        // Don't log error for 404 as user might not be registered yet
+        if (err?.status !== 404) {
+          setError(err instanceof Error ? err.message : 'Unknown error');
+        }
         setRole(null);
       } finally {
         setLoading(false);
@@ -35,5 +35,11 @@ export function useUserRole() {
     fetchUserRole();
   }, []);
 
-  return { role, loading, error, isInstructor: role === 'instructor', isStudent: role === 'student' };
+  return {
+    role,
+    loading,
+    error,
+    isInstructor: role === 'instructor',
+    isStudent: role === 'student',
+  };
 }

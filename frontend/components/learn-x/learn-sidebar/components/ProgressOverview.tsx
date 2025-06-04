@@ -1,7 +1,7 @@
 import React from 'react';
-import { BarChart3 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { BarChart3 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 
 interface ProgressOverviewProps {
   progressPercentage: number;
@@ -12,7 +12,7 @@ interface ProgressOverviewProps {
 export const ProgressOverview: React.FC<ProgressOverviewProps> = ({
   progressPercentage,
   completedLessons,
-  totalLessons
+  totalLessons,
 }) => {
   return (
     <div className="p-4 border-b border-gray-700/50">
@@ -27,19 +27,22 @@ export const ProgressOverview: React.FC<ProgressOverviewProps> = ({
           <div className="space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-gray-300">Overall Progress</span>
-              <span className="text-white font-medium">{Math.round(progressPercentage)}%</span>
+              <span className="text-white font-medium">
+                {Math.round(progressPercentage)}%
+              </span>
             </div>
-            <Progress 
-              value={progressPercentage} 
-              className="h-2 bg-gray-700"
-            />
+            <Progress value={progressPercentage} className="h-2 bg-gray-700" />
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="bg-white/10 rounded p-2 text-center">
-                <div className="text-green-400 font-semibold">{completedLessons}</div>
+                <div className="text-green-400 font-semibold">
+                  {completedLessons}
+                </div>
                 <div className="text-gray-300">Completed</div>
               </div>
               <div className="bg-white/10 rounded p-2 text-center">
-                <div className="text-blue-400 font-semibold">{totalLessons - completedLessons}</div>
+                <div className="text-blue-400 font-semibold">
+                  {totalLessons - completedLessons}
+                </div>
                 <div className="text-gray-300">Remaining</div>
               </div>
             </div>

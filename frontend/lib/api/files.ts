@@ -25,13 +25,18 @@ export interface FilePreview {
 
 class FileAPI {
   // File upload
-  async uploadFile(moduleId: string, file: File, title?: string, description?: string): Promise<FileUploadResponse> {
+  async uploadFile(
+    moduleId: string,
+    file: File,
+    title?: string,
+    description?: string,
+  ): Promise<FileUploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('moduleId', moduleId);
     if (title) formData.append('title', title);
     if (description) formData.append('description', description);
-    
+
     return apiClient.post<FileUploadResponse>('/api/v2/files/upload', formData);
   }
 
@@ -54,16 +59,24 @@ class FileAPI {
 
   // Module files
   async getModuleFiles(moduleId: string): Promise<FileUploadResponse[]> {
-    return apiClient.get<FileUploadResponse[]>(`/api/v2/files/module/${moduleId}`);
+    return apiClient.get<FileUploadResponse[]>(
+      `/api/v2/files/module/${moduleId}`,
+    );
   }
 
   // Search
-  async searchFiles(query: string, courseId?: string, fileType?: string): Promise<FileUploadResponse[]> {
+  async searchFiles(
+    query: string,
+    courseId?: string,
+    fileType?: string,
+  ): Promise<FileUploadResponse[]> {
     const params: Record<string, string> = { q: query };
     if (courseId) params.courseId = courseId;
     if (fileType) params.type = fileType;
-    
-    return apiClient.get<FileUploadResponse[]>('/api/v2/files/search', { params });
+
+    return apiClient.get<FileUploadResponse[]>('/api/v2/files/search', {
+      params,
+    });
   }
 
   // Reprocessing
@@ -75,7 +88,7 @@ class FileAPI {
   createFileStream(fileId: string): EventSource {
     const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
     return new EventSource(`${baseURL}/api/v2/files/${fileId}/stream`, {
-      withCredentials: true
+      withCredentials: true,
     });
   }
 

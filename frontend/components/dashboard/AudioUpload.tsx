@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 
 interface UploadAudioProps {
   onUpload: (file: File) => Promise<void>;
@@ -25,7 +25,6 @@ export default function UploadAudio({
       setAudioToUpload(null);
     }
   }, [uploading]);
-  
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -39,19 +38,17 @@ export default function UploadAudio({
     setPreviewAudioUrl(null);
     setAudioToUpload(null);
     if (inputRef.current) {
-      inputRef.current.value = "";
+      inputRef.current.value = '';
     }
   };
-  
 
   const handleConfirmUpload = async () => {
     if (audioToUpload) {
       await onUpload(audioToUpload);
       setPreviewAudioUrl(null);
-      setAudioToUpload(null);  
+      setAudioToUpload(null);
     }
   };
-  
 
   return (
     <div className="border p-4 rounded shadow space-y-4">
@@ -73,18 +70,14 @@ export default function UploadAudio({
               Uploading…
             </>
           ) : (
-            "Choose Audio"
+            'Choose Audio'
           )}
         </Button>
       )}
 
       {previewAudioUrl && (
         <div className="space-y-4">
-          <audio
-            controls
-            src={previewAudioUrl}
-            className="w-full rounded"
-          >
+          <audio controls src={previewAudioUrl} className="w-full rounded">
             Your browser does not support the audio element.
           </audio>
           <div className="flex justify-end gap-2">
@@ -97,7 +90,7 @@ export default function UploadAudio({
               className="bg-blue-600 text-white hover:bg-blue-500 flex items-center gap-2"
             >
               {uploading && <Loader2 className="animate-spin h-4 w-4" />}
-              {uploading ? "Uploading…" : "Confirm Upload"}
+              {uploading ? 'Uploading…' : 'Confirm Upload'}
             </Button>
           </div>
         </div>

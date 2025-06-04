@@ -5,13 +5,13 @@ from flask import Blueprint, request, g
 from datetime import datetime
 import logging
 
-from core.decorators_unified import firebase_auth_required
-from core.exceptions import ValidationError, NotFoundError, UnauthorizedError
+from core.decorators_unified import firebase_auth_required, firebase_token_required
+from core.exceptions import ValidationError, NotFoundError, UnauthorizedError, AuthenticationError
 from services.auth_service_unified import UnifiedAuthService as AuthService
 from repositories.user_repository import UserRepository
 from repositories.course_repository import CourseRepository
 from repositories.enrollment_repository import EnrollmentRepository
-from core.database import db
+from core.database import db, db_manager
 from db.schema import Enrollment, Course, PersonalizedFile
 
 from .utils import success_response, error_response
@@ -21,8 +21,11 @@ logger = logging.getLogger(__name__)
 # Create auth blueprint
 auth_bp = Blueprint('api_v2_auth', __name__)
 
-# Initialize services
-auth_service = AuthService()
+# Initialize services with proper session factory
+def get_auth_service():
+    """Get auth service instance with proper session factory"""
+    user_repo = UserRepository(db_manager.session_factory)
+    return AuthService(user_repo=user_repo)
 
 
 @auth_bp.route('/login', methods=['POST'])
@@ -38,33 +41,23 @@ def login_v2():
             return error_response("ID token is required", errors={'idToken': 'This field is required'}, status_code=400)
         
         # Use auth service for login
-        result = auth_service.login_with_firebase(id_token)
+        auth_service = get_auth_service()
+        result = auth_service.authenticate_with_firebase(id_token, version='v2')
         
         # Enhanced response with user details
-        user = result['user']
+        user_data = result['user']  # This is already a dict from auth service
         
-        # Get display name from the appropriate profile
-        display_name = None
-        if user.role:
-            if user.role.role_type == 'student' and user.student_profile:
-                display_name = user.student_profile.name
-            elif user.role.role_type == 'instructor' and user.instructor_profile:
-                display_name = user.instructor_profile.name
-            elif user.role.role_type == 'admin' and user.admin_profile:
-                display_name = user.admin_profile.name
-        
-        # Fallback to email if no profile name is available
-        if not display_name:
-            display_name = user.email.split('@')[0]
+        # Get display name - use name if available, otherwise fallback to email
+        display_name = user_data.get('name') or user_data['email'].split('@')[0]
         
         response_data = {
             'user': {
-                'id': str(user.id),
-                'email': user.email,
+                'id': str(user_data['user_id']),
+                'email': user_data['email'],
                 'display_name': display_name,
-                'role': user.role.role_type if user.role else None,
-                'firebase_uid': user.firebase_uid,
-                'created_at': None  # Not available in current User model
+                'role': user_data.get('role'),
+                'firebase_uid': user_data.get('firebase_uid'),
+                'created_at': None  # Not available in current response
             },
             'tokens': {
                 'access_token': result['access_token'],
@@ -77,6 +70,8 @@ def login_v2():
         
     except ValidationError as e:
         return error_response(str(e), status_code=400)
+    except AuthenticationError as e:
+        return error_response(str(e), status_code=401)
     except UnauthorizedError as e:
         return error_response(str(e), status_code=401)
     except Exception as e:
@@ -107,13 +102,101 @@ def logout_v2():
         return error_response("An error occurred during logout", status_code=500)
 
 
+@auth_bp.route('/check-registration', methods=['GET'])
+@firebase_token_required(allow_unregistered=True)
+def check_registration_v2():
+    """Check if a Firebase-authenticated user is registered in the system"""
+    try:
+        # Check if user exists in database
+        if hasattr(g, 'current_user') and g.current_user:
+            # User is registered
+            user = g.current_user
+            return success_response({
+                'registered': True,
+                'user': {
+                    'id': str(user.id),
+                    'email': user.email,
+                    'role': user.role.role_type if user.role else None,
+                    'firebase_uid': user.firebase_uid
+                }
+            })
+        else:
+            # User is not registered but has valid Firebase auth
+            firebase_user = g.get('firebase_user', {})
+            return success_response({
+                'registered': False,
+                'firebase_user': {
+                    'uid': firebase_user.get('uid'),
+                    'email': firebase_user.get('email'),
+                    'name': firebase_user.get('name')
+                }
+            })
+            
+    except Exception as e:
+        logger.error(f"Check registration error: {str(e)}")
+        return error_response("An error occurred checking registration status", status_code=500)
+
+
+@auth_bp.route('/register', methods=['POST'])
+@firebase_token_required(allow_unregistered=True)
+def register_v2():
+    """Register a new user with Firebase authentication"""
+    try:
+        data = request.get_json()
+        if not data:
+            return error_response("Request body is required", status_code=400)
+        
+        # Get Firebase user info
+        firebase_user = g.get('firebase_user', {})
+        if not firebase_user:
+            return error_response("Firebase authentication required", status_code=401)
+        
+        # Extract required fields
+        role = data.get('role', 'student')
+        if role not in ['student', 'instructor']:
+            return error_response("Invalid role. Must be 'student' or 'instructor'", status_code=400)
+        
+        # Prepare registration data
+        registration_data = {
+            'email': firebase_user.get('email'),
+            'firebase_uid': firebase_user.get('uid'),
+            'role': role,
+            'name': data.get('name') or firebase_user.get('name'),
+            'version': 'v2'
+        }
+        
+        # Add role-specific data
+        if role == 'student':
+            registration_data.update({
+                'onboard_answers': data.get('onboard_answers', {}),
+                'want_quizzes': data.get('want_quizzes', False)
+            })
+        elif role == 'instructor':
+            registration_data.update({
+                'university': data.get('university'),
+                'department': data.get('department')
+            })
+        
+        # Use auth service to register
+        auth_service = get_auth_service()
+        result = auth_service.register_user(**registration_data)
+        
+        return success_response(result, "Registration successful", status_code=201)
+        
+    except ValidationError as e:
+        return error_response(str(e), status_code=400)
+    except Exception as e:
+        logger.error(f"Registration error: {str(e)}")
+        return error_response("An error occurred during registration", status_code=500)
+
+
 @auth_bp.route('/me', methods=['GET'])
 @firebase_auth_required
 def get_profile_v2():
     """Get current user profile with enhanced data"""
     try:
         user = g.current_user
-        user_repo = UserRepository()
+        user_repo = UserRepository(db_manager.session_factory)
         
         # Refresh user data from database
         fresh_user = user_repo.get_by_id(user.id)
@@ -132,21 +215,26 @@ def get_profile_v2():
         
         # Add role-specific profile data
         if fresh_user.student_profile:
+            logger.info(f"Student profile found for {fresh_user.email}: name={fresh_user.student_profile.name}")
             profile_data['profile'] = {
                 'name': fresh_user.student_profile.name,
                 'onboard_answers': fresh_user.student_profile.onboard_answers,
                 'want_quizzes': fresh_user.student_profile.want_quizzes
             }
         elif fresh_user.instructor_profile:
+            logger.info(f"Instructor profile found for {fresh_user.email}: name={fresh_user.instructor_profile.name}")
             profile_data['profile'] = {
                 'name': fresh_user.instructor_profile.name,
                 'university': fresh_user.instructor_profile.university,
                 'department': fresh_user.instructor_profile.department
             }
         elif fresh_user.admin_profile:
+            logger.info(f"Admin profile found for {fresh_user.email}: name={fresh_user.admin_profile.name}")
             profile_data['profile'] = {
                 'name': fresh_user.admin_profile.name
             }
+        else:
+            logger.warning(f"No profile found for {fresh_user.email}, role={fresh_user.role.role_type if fresh_user.role else 'None'}")
         
         # Add statistics
         stats = {}
@@ -183,7 +271,7 @@ def update_profile_v2():
         if not data:
             return error_response("No data provided")
         
-        user_repo = UserRepository()
+        user_repo = UserRepository(db_manager.session_factory)
         
         # Update user email if provided (requires Firebase update too)
         if 'email' in data and data['email'] != user.email:

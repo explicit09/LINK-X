@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 
 interface UploadPdfProps {
   onUpload: (file: File) => Promise<void>;
@@ -67,7 +67,7 @@ export default function UploadPdf({
               Uploading…
             </>
           ) : (
-            "Choose PDF"
+            'Choose PDF'
           )}
         </Button>
       )}
@@ -89,7 +89,7 @@ export default function UploadPdf({
               className="bg-blue-600 text-white hover:bg-blue-500 flex items-center gap-2"
             >
               {uploading && <Loader2 className="animate-spin h-4 w-4" />}
-              {uploading ? "Uploading…" : "Confirm Upload"}
+              {uploading ? 'Uploading…' : 'Confirm Upload'}
             </Button>
           </div>
         </div>

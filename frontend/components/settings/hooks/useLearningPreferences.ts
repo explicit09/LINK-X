@@ -27,66 +27,90 @@ export function useLearningPreferences() {
     quizFrequency: 'after_section',
     enableQuizzes: true,
   });
-  
+
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [topicSuggestions] = useState([
-    'JavaScript', 'Python', 'React', 'Machine Learning', 'Data Science',
-    'Web Development', 'Mobile Development', 'DevOps', 'Cybersecurity',
-    'Artificial Intelligence', 'Database Design', 'Cloud Computing'
+    'JavaScript',
+    'Python',
+    'React',
+    'Machine Learning',
+    'Data Science',
+    'Web Development',
+    'Mobile Development',
+    'DevOps',
+    'Cybersecurity',
+    'Artificial Intelligence',
+    'Database Design',
+    'Cloud Computing',
   ]);
-  
+
   const [interestSuggestions] = useState([
-    'Technology', 'Business', 'Science', 'Arts', 'Health', 'Education',
-    'Finance', 'Marketing', 'Design', 'Music', 'Sports', 'Travel'
+    'Technology',
+    'Business',
+    'Science',
+    'Arts',
+    'Health',
+    'Education',
+    'Finance',
+    'Marketing',
+    'Design',
+    'Music',
+    'Sports',
+    'Travel',
   ]);
 
   const updateFormField = (field: keyof OnboardingFormData, value: any) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
   const addTag = (field: 'topics' | 'interests', tag: string) => {
     if (!tag.trim()) return false;
-    
+
     const currentTags = formData[field];
     const maxTags = field === 'topics' ? 10 : 8;
-    
+
     if (currentTags.length >= maxTags) {
       toast.error(`Maximum ${maxTags} ${field} allowed`);
       return false;
     }
-    
+
     if (currentTags.includes(tag.trim())) {
       toast.error(`${tag} is already added`);
       return false;
     }
-    
-    setFormData(prev => ({
+
+    setFormData((prev) => ({
       ...prev,
-      [field]: [...prev[field], tag.trim()]
+      [field]: [...prev[field], tag.trim()],
     }));
-    
+
     return true;
   };
 
   const removeTag = (field: 'topics' | 'interests', tagToRemove: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [field]: prev[field].filter(tag => tag !== tagToRemove)
+      [field]: prev[field].filter((tag) => tag !== tagToRemove),
     }));
   };
 
-  const getSuggestions = (field: 'topics' | 'interests', query: string = '') => {
-    const suggestions = field === 'topics' ? topicSuggestions : interestSuggestions;
+  const getSuggestions = (
+    field: 'topics' | 'interests',
+    query: string = '',
+  ) => {
+    const suggestions =
+      field === 'topics' ? topicSuggestions : interestSuggestions;
     const currentTags = formData[field];
-    
+
     return suggestions
-      .filter(suggestion => 
-        !currentTags.includes(suggestion) &&
-        suggestion.toLowerCase().includes(query.toLowerCase())
+      .filter(
+        (suggestion) =>
+          !currentTags.includes(suggestion) &&
+          suggestion.toLowerCase().includes(query.toLowerCase()),
       )
       .slice(0, 5);
   };
@@ -101,7 +125,7 @@ export function useLearningPreferences() {
 
       if (response.ok) {
         const data = await response.json();
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           firstName: data.firstName || '',
           lastName: data.lastName || '',
@@ -189,6 +213,6 @@ export function useLearningPreferences() {
     getSuggestions,
     savePreferences,
     resetToDefaults,
-    loadUserPreferences
+    loadUserPreferences,
   };
 }

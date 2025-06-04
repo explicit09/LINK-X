@@ -19,42 +19,44 @@ export default function AITab({ courseId, courseName }: AITabProps) {
   const { state } = useCourseContext();
   const { conversations } = state;
   const [aiChatOpen, setAiChatOpen] = useState(false);
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
-  
+  const [selectedConversation, setSelectedConversation] = useState<
+    string | null
+  >(null);
+
   const colors = getCourseColor(courseId);
 
   const handleStartAIChat = () => {
     try {
       if (!state.currentUser) {
-        toast.error("Please log in to use AI tutor");
+        toast.error('Please log in to use AI tutor');
         return;
       }
-      
+
       setSelectedConversation(null);
       setAiChatOpen(true);
     } catch (error) {
-      console.error("Error starting AI chat:", error);
-      toast.error("Failed to start AI chat");
+      console.error('Error starting AI chat:', error);
+      toast.error('Failed to start AI chat');
     }
   };
 
   const handleOpenConversation = (conversationId: string) => {
     try {
       if (!conversationId) {
-        toast.error("Invalid conversation selected");
+        toast.error('Invalid conversation selected');
         return;
       }
-      
+
       if (!state.currentUser) {
-        toast.error("Please log in to view conversations");
+        toast.error('Please log in to view conversations');
         return;
       }
-      
+
       setSelectedConversation(conversationId);
       setAiChatOpen(true);
     } catch (error) {
-      console.error("Error opening conversation:", error);
-      toast.error("Failed to open conversation");
+      console.error('Error opening conversation:', error);
+      toast.error('Failed to open conversation');
     }
   };
 
@@ -62,10 +64,15 @@ export default function AITab({ courseId, courseName }: AITabProps) {
     <div className="max-w-6xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className={cn("w-2 h-8 rounded-full bg-gradient-to-b", colors.gradient)} />
+          <div
+            className={cn(
+              'w-2 h-8 rounded-full bg-gradient-to-b',
+              colors.gradient,
+            )}
+          />
           <h2 className="text-2xl font-semibold text-gray-900">AI Tutor</h2>
         </div>
-        <Button 
+        <Button
           onClick={handleStartAIChat}
           className="bg-[#7B61FF] hover:bg-[#6B51E5] text-white shadow-sm hover:shadow-md transition-all duration-200"
         >
@@ -82,12 +89,16 @@ export default function AITab({ courseId, courseName }: AITabProps) {
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <Brain className="h-5 w-5 text-purple-600" />
-                    {selectedConversation ? 
-                      conversations.find(c => c.id === selectedConversation)?.title || "AI Tutor Chat" :
-                      "New AI Conversation"
-                    }
+                    {selectedConversation
+                      ? conversations.find((c) => c.id === selectedConversation)
+                          ?.title || 'AI Tutor Chat'
+                      : 'New AI Conversation'}
                   </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => setAiChatOpen(false)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAiChatOpen(false)}
+                  >
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
@@ -96,29 +107,38 @@ export default function AITab({ courseId, courseName }: AITabProps) {
                 <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50">
                   <div className="flex justify-start">
                     <div className="bg-white rounded-lg p-3 max-w-[80%] shadow-sm">
-                      <p className="text-sm">Hello! I'm your AI tutor for {courseName}. How can I help you today?</p>
+                      <p className="text-sm">
+                        Hello! I'm your AI tutor for {courseName}. How can I
+                        help you today?
+                      </p>
                     </div>
                   </div>
-                  
+
                   {selectedConversation && (
                     <>
                       <div className="flex justify-end">
                         <div className="bg-blue-600 text-white rounded-lg p-3 max-w-[80%]">
-                          <p className="text-sm">Can you explain the key concepts from today's reading?</p>
+                          <p className="text-sm">
+                            Can you explain the key concepts from today's
+                            reading?
+                          </p>
                         </div>
                       </div>
                       <div className="flex justify-start">
                         <div className="bg-white rounded-lg p-3 max-w-[80%] shadow-sm">
-                          <p className="text-sm">Of course! The main concepts covered in today's reading include...</p>
+                          <p className="text-sm">
+                            Of course! The main concepts covered in today's
+                            reading include...
+                          </p>
                         </div>
                       </div>
                     </>
                   )}
                 </div>
-                
+
                 <div className="p-4 border-t bg-white">
                   <div className="flex gap-2">
-                    <Input 
+                    <Input
                       placeholder="Ask me anything about the course materials..."
                       className="flex-1"
                       onKeyPress={(e) => {
@@ -130,7 +150,8 @@ export default function AITab({ courseId, courseName }: AITabProps) {
                     <Button>Send</Button>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    💡 Tip: Ask about specific materials, request explanations, or get practice problems
+                    💡 Tip: Ask about specific materials, request explanations,
+                    or get practice problems
                   </p>
                 </div>
               </CardContent>
@@ -140,14 +161,22 @@ export default function AITab({ courseId, courseName }: AITabProps) {
               <CardContent className="p-6 h-full flex items-center justify-center">
                 <div className="text-center">
                   <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Start a conversation with your AI tutor</h3>
-                  <p className="text-gray-500 mb-4">Ask questions about course materials, get explanations, or request practice problems.</p>
+                  <h3 className="text-lg font-semibold mb-2">
+                    Start a conversation with your AI tutor
+                  </h3>
+                  <p className="text-gray-500 mb-4">
+                    Ask questions about course materials, get explanations, or
+                    request practice problems.
+                  </p>
                   <div className="space-y-2">
                     <Button onClick={handleStartAIChat}>
                       <MessageSquare className="h-4 w-4 mr-2" />
                       Start Chatting
                     </Button>
-                    <p className="text-xs text-gray-400">💡 Tip: Highlight any text on this page and ask AI about it!</p>
+                    <p className="text-xs text-gray-400">
+                      💡 Tip: Highlight any text on this page and ask AI about
+                      it!
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -163,21 +192,30 @@ export default function AITab({ courseId, courseName }: AITabProps) {
             <CardContent>
               <div className="space-y-3">
                 {conversations.map((conversation) => (
-                  <div 
-                    key={conversation.id} 
+                  <div
+                    key={conversation.id}
                     className="p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer border"
                     onClick={() => handleOpenConversation(conversation.id)}
                   >
-                    <p className="text-sm font-medium line-clamp-1">{conversation.title}</p>
-                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{conversation.lastMessage}</p>
-                    <p className="text-xs text-gray-400 mt-2">{conversation.messageCount} messages • {conversation.timestamp}</p>
+                    <p className="text-sm font-medium line-clamp-1">
+                      {conversation.title}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                      {conversation.lastMessage}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      {conversation.messageCount} messages •{' '}
+                      {conversation.timestamp}
+                    </p>
                   </div>
                 ))}
-                
+
                 {conversations.length === 0 && (
                   <div className="text-center py-8">
                     <Brain className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-sm text-gray-500 mb-4">No conversations yet</p>
+                    <p className="text-sm text-gray-500 mb-4">
+                      No conversations yet
+                    </p>
                     <Button size="sm" onClick={handleStartAIChat}>
                       Start Your First Chat
                     </Button>

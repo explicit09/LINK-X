@@ -7,7 +7,7 @@ import { useUserMessageId } from '@/hooks/use-user-message-id';
 
 export type MessageEditorProps = {
   message: Message;
-  setMode: Dispatch<SetStateAction<'view' | 'edit'>>; 
+  setMode: Dispatch<SetStateAction<'view' | 'edit'>>;
   setMessages: (
     messages: Message[] | ((messages: Message[]) => Message[]),
   ) => void;
@@ -51,9 +51,11 @@ export function MessageEditor({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ messageId: userMessageIdFromServer ?? message.id }),
+        body: JSON.stringify({
+          messageId: userMessageIdFromServer ?? message.id,
+        }),
       });
 
       if (!response.ok) {
@@ -85,7 +87,7 @@ export function MessageEditor({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({
           messageId,
@@ -104,7 +106,11 @@ export function MessageEditor({
         const index = messages.findIndex((m) => m.id === message.id);
 
         if (index !== -1) {
-          return [...messages.slice(0, index), updatedMessage, ...messages.slice(index + 1)];
+          return [
+            ...messages.slice(0, index),
+            updatedMessage,
+            ...messages.slice(index + 1),
+          ];
         }
 
         return messages;

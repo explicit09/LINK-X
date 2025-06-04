@@ -12,7 +12,8 @@ export const models: Array<Model> = [
     id: 'coral-ai-rag-openai',
     label: 'Coral AI (Base Model)',
     apiIdentifier: 'coral-ai-rag-openai',
-    description: 'An LLM utilizing RAG and vector embeddings to improve results from coral research queries sent to the OpenAI API.',
+    description:
+      'An LLM utilizing RAG and vector embeddings to improve results from coral research queries sent to the OpenAI API.',
   },
   {
     id: 'gpt-4o-mini',

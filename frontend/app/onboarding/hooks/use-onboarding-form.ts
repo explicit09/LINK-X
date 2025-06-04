@@ -5,7 +5,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { userAPI } from '@/lib/api';
+import { userAPI, authAPI, authService } from '@/lib/api';
+import { auth } from '@/firebaseconfig';
 import type { FormData, OnboardingHookReturn } from '../types/onboarding';
 
 const INITIAL_FORM_DATA: FormData = {
@@ -16,7 +17,7 @@ const INITIAL_FORM_DATA: FormData = {
   schedule: '',
   tone: '',
   topics: [],
-  interests: []
+  interests: [],
 };
 
 export function useOnboardingForm(): OnboardingHookReturn {
@@ -26,13 +27,15 @@ export function useOnboardingForm(): OnboardingHookReturn {
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
 
   const updateField = (field: keyof FormData, value: string | string[]) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const canProceed = (step: number): boolean => {
     switch (step) {
       case 1:
-        return formData.firstName.trim() !== '' && formData.lastName.trim() !== '';
+        return (
+          formData.firstName.trim() !== '' && formData.lastName.trim() !== ''
+        );
       case 2:
         return formData.learningStyle !== '' && formData.depth !== '';
       case 3:
@@ -46,12 +49,12 @@ export function useOnboardingForm(): OnboardingHookReturn {
 
   const nextStep = () => {
     if (canProceed(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 4));
+      setCurrentStep((prev) => Math.min(prev + 1, 4));
     }
   };
 
   const prevStep = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1));
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
   const handleSubmit = async () => {
@@ -59,26 +62,37 @@ export function useOnboardingForm(): OnboardingHookReturn {
 
     setIsSubmitting(true);
     try {
-      // Transform form data to API format
-      const profileData = {
+      // First, register the user with the backend
+      const registrationData = {
+        role: 'student' as const,
         name: `${formData.firstName} ${formData.lastName}`,
-        learningStyle: formData.learningStyle,
-        preferences: {
+        onboard_answers: {
+          learningStyle: formData.learningStyle,
           depth: formData.depth,
           schedule: formData.schedule,
           tone: formData.tone,
           topics: formData.topics,
-          interests: formData.interests
-        }
+          interests: formData.interests,
+        },
+        want_quizzes: true, // Default to true, can be made configurable
       };
 
-      await userAPI.updateMe(profileData);
+      // Register with backend
+      const registrationResult = await authAPI.v2.register(registrationData);
       
-      toast.success("Profile created successfully! Welcome to Learn-X!");
+      // After successful registration, establish session
+      if (auth.currentUser) {
+        const sessionSuccess = await authService.login(auth.currentUser);
+        if (!sessionSuccess) {
+          console.warn('Failed to establish session after registration');
+        }
+      }
+
+      toast.success('Profile created successfully! Welcome to Learn-X!');
       router.push('/dashboard');
     } catch (error) {
       console.error('Error creating profile:', error);
-      toast.error("An error occurred. Please try again.");
+      toast.error('An error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -92,6 +106,6 @@ export function useOnboardingForm(): OnboardingHookReturn {
     nextStep,
     prevStep,
     updateField,
-    handleSubmit
+    handleSubmit,
   };
 }

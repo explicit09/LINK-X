@@ -31,14 +31,17 @@ export function useChatVisibility({
     // Update the visibility both locally and on the backend
     setVisibilityType(newVisibility);
 
-    const response = await fetch('http://localhost:8080/update-chat-visibility', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chatId,
-        visibility: newVisibility,
-      }),
-    });
+    const response = await fetch(
+      'http://localhost:8080/update-chat-visibility',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatId,
+          visibility: newVisibility,
+        }),
+      },
+    );
 
     if (!response.ok) {
       console.error('Failed to update visibility');

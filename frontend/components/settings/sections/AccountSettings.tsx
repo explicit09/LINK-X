@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Mail, Lock, Save } from "lucide-react";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Mail, Lock, Save } from 'lucide-react';
 import { SettingCard } from '../ui/SettingCard';
 import { useAccountSettings } from '../hooks/useAccountSettings';
 
@@ -16,7 +16,7 @@ export function AccountSettings() {
     updatePassword,
     loadCurrentEmail,
     validatePassword,
-    validateEmail
+    validateEmail,
   } = useAccountSettings();
 
   // Load current email on mount
@@ -98,7 +98,10 @@ export function AccountSettings() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword" className="flex items-center space-x-2">
+            <Label
+              htmlFor="confirmPassword"
+              className="flex items-center space-x-2"
+            >
               <Lock className="h-4 w-4" />
               <span>Confirm Password</span>
             </Label>
@@ -106,7 +109,9 @@ export function AccountSettings() {
               id="confirmPassword"
               type="password"
               value={accountData.confirmPassword}
-              onChange={(e) => updateAccountField('confirmPassword', e.target.value)}
+              onChange={(e) =>
+                updateAccountField('confirmPassword', e.target.value)
+              }
               placeholder="Confirm new password"
             />
           </div>
@@ -114,9 +119,9 @@ export function AccountSettings() {
           <Button
             onClick={handlePasswordUpdate}
             disabled={
-              saving || 
-              !accountData.password || 
-              !accountData.confirmPassword || 
+              saving ||
+              !accountData.password ||
+              !accountData.confirmPassword ||
               !validatePassword()
             }
             className="w-full sm:w-auto"

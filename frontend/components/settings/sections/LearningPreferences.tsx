@@ -1,10 +1,25 @@
 import React from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { User, BookOpen, Clock, MessageCircle, Hash, Heart, Save, RotateCcw } from "lucide-react";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import {
+  User,
+  BookOpen,
+  Clock,
+  MessageCircle,
+  Hash,
+  Heart,
+  Save,
+  RotateCcw,
+} from 'lucide-react';
 import { SettingCard } from '../ui/SettingCard';
 import { TagInput } from '../ui/TagInput';
 import { SettingToggle } from '../ui/SettingToggle';
@@ -20,7 +35,7 @@ export function LearningPreferences() {
     removeTag,
     getSuggestions,
     savePreferences,
-    resetToDefaults
+    resetToDefaults,
   } = useLearningPreferences();
 
   const handleSave = async () => {
@@ -227,7 +242,9 @@ export function LearningPreferences() {
             label="Enable Quizzes"
             description="Allow the system to generate quizzes to test your understanding"
             checked={formData.enableQuizzes}
-            onCheckedChange={(checked) => updateFormField('enableQuizzes', checked)}
+            onCheckedChange={(checked) =>
+              updateFormField('enableQuizzes', checked)
+            }
           />
 
           {formData.enableQuizzes && (
@@ -235,14 +252,20 @@ export function LearningPreferences() {
               <Label>Quiz Frequency</Label>
               <Select
                 value={formData.quizFrequency}
-                onValueChange={(value) => updateFormField('quizFrequency', value)}
+                onValueChange={(value) =>
+                  updateFormField('quizFrequency', value)
+                }
               >
                 <SelectTrigger className="w-full md:w-48">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="after_section">After Each Section</SelectItem>
-                  <SelectItem value="after_module">After Each Module</SelectItem>
+                  <SelectItem value="after_section">
+                    After Each Section
+                  </SelectItem>
+                  <SelectItem value="after_module">
+                    After Each Module
+                  </SelectItem>
                   <SelectItem value="weekly">Weekly</SelectItem>
                   <SelectItem value="manual">Manual Only</SelectItem>
                 </SelectContent>
@@ -254,7 +277,11 @@ export function LearningPreferences() {
 
       {/* Actions */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <Button onClick={handleSave} disabled={saving} className="flex-1 sm:flex-none">
+        <Button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex-1 sm:flex-none"
+        >
           {saving ? (
             <>
               <Save className="h-4 w-4 mr-2 animate-spin" />

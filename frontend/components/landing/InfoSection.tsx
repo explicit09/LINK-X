@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useEffect, useRef } from "react";
-import { ArrowRight, CheckCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { useEffect, useRef } from 'react';
+import { ArrowRight, CheckCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 const InfoSection = () => {
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -12,13 +12,13 @@ const InfoSection = () => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          const elements = entry.target.querySelectorAll(".reveal");
+          const elements = entry.target.querySelectorAll('.reveal');
           if (entry.isIntersecting) {
-            elements.forEach((el) => el.classList.add("active"));
+            elements.forEach((el) => el.classList.add('active'));
           }
         });
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
 
     if (sectionRef.current) {
@@ -33,10 +33,10 @@ const InfoSection = () => {
   }, []);
 
   const benefits = [
-    "Instant syllabus generation from any Canvas materials",
-    "Smart quizzes that adapt to your student&apos;s learning pace",
-    "Detailed progress tracking and performance insights",
-    "Ethical AI that supports learning, not shortcuts",
+    'Instant syllabus generation from any Canvas materials',
+    'Smart quizzes that adapt to your student&apos;s learning pace',
+    'Detailed progress tracking and performance insights',
+    'Ethical AI that supports learning, not shortcuts',
   ];
 
   return (
@@ -52,7 +52,9 @@ const InfoSection = () => {
               Your Student&apos;s Personalized Learning Journey
             </h2>
             <p className="reveal text-lg text-gray-600 mb-6">
-              Learn-X uses advanced AI to transform existing Canvas materials into engaging, personalized learning pathways tailored to each student&apos;s style, pace, and goals.
+              Learn-X uses advanced AI to transform existing Canvas materials
+              into engaging, personalized learning pathways tailored to each
+              student&apos;s style, pace, and goals.
             </p>
 
             <div className="reveal space-y-4 mb-8">
@@ -65,7 +67,10 @@ const InfoSection = () => {
             </div>
 
             <div className="reveal">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white" asChild>
+              <Button
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                asChild
+              >
                 <Link href="#features">
                   Learn More
                   <ArrowRight className="ml-2 h-4 w-4" />
