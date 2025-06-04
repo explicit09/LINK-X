@@ -20,20 +20,34 @@ interface Mission {
 interface SetupMissionsProps {
   onMissionComplete?: (missionId: string) => void;
   completedMissions?: string[];
+  coursesCount?: number; // Add courses count to determine if add-course mission is complete
 }
 
-export function SetupMissions({ onMissionComplete, completedMissions = [] }: SetupMissionsProps) {
+export function SetupMissions({ onMissionComplete, completedMissions = [], coursesCount = 0 }: SetupMissionsProps) {
   const router = useRouter();
+  
+  // Debug logging (commented out for production)
+  // console.log('🎯 SetupMissions Debug:', {
+  //   coursesCount,
+  //   completedMissions,
+  //   hasCoursesCondition: coursesCount > 0,
+  //   hasAddCourseCompleted: completedMissions.includes('add-course'),
+  //   hasQuizCompleted: completedMissions.includes('complete-quiz')
+  // });
+  
+  // Auto-complete missions if user already has courses (indicates completed setup)
+  const hasAddedCourse = completedMissions.includes('add-course') || coursesCount > 0;
+  const hasCompletedOnboarding = coursesCount > 0 || completedMissions.includes('complete-quiz');
   
   const missions: Mission[] = [
     {
       id: 'add-course',
       title: '🎯 Add your first course',
-      description: 'Import from your LMS or add manually',
+      description: coursesCount > 0 ? `Great! You have ${coursesCount} courses` : 'Import from your LMS or add manually',
       xp: 25,
-      completed: completedMissions.includes('add-course'),
+      completed: hasAddedCourse,
       action: () => router.push('/courses'),
-      actionLabel: 'Add Course'
+      actionLabel: coursesCount > 0 ? 'View Courses' : 'Add Course'
     },
     {
       id: 'book-study',
@@ -50,11 +64,11 @@ export function SetupMissions({ onMissionComplete, completedMissions = [] }: Set
     {
       id: 'complete-quiz',
       title: '✅ Complete the 3-min onboarding quiz',
-      description: 'Help us personalize your experience',
+      description: hasCompletedOnboarding ? 'Profile setup complete!' : 'Help us personalize your experience',
       xp: 50,
-      completed: completedMissions.includes('complete-quiz'),
+      completed: hasCompletedOnboarding,
       action: () => router.push('/onboarding?step=quiz'),
-      actionLabel: 'Take Quiz'
+      actionLabel: hasCompletedOnboarding ? 'Completed' : 'Take Quiz'
     }
   ];
 

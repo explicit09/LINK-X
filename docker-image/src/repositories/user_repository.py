@@ -52,18 +52,16 @@ class UserRepository(BaseRepository[User]):
                 joinedload(User.instructor_profile)
             ).filter_by(id=user.id).first()
             
-            # Copy user data before detaching
-            user_dict = {c.name: getattr(user, c.name) for c in user.__table__.columns}
-            # Also preserve the role relationship
+            # Preserve the role relationship before expunging
             user_role = user.role
             
+            # Expunge the user from session (this detaches it safely)
             session.expunge(user)
             
-            # Recreate user with data
-            new_user = User(**user_dict)
-            new_user.role = user_role
+            # Preserve the role relationship on the detached user
+            user.role = user_role
             
-            return new_user
+            return user
     
     def get_by_id(self, id: str) -> Optional[User]:
         """Get user by ID with eager loading of relationships"""
@@ -107,11 +105,10 @@ class UserRepository(BaseRepository[User]):
             session.flush()
             session.refresh(profile)
             
-            # Copy profile data before detaching
-            profile_dict = {c.name: getattr(profile, c.name) for c in profile.__table__.columns}
+            # Expunge profile to detach it from session
             session.expunge(profile)
             
-            return StudentProfile(**profile_dict)
+            return profile
     
     def create_instructor_profile(self, user_id: str, name: str, department: str = None, 
                                 bio: str = None) -> InstructorProfile:
@@ -127,11 +124,10 @@ class UserRepository(BaseRepository[User]):
             session.flush()
             session.refresh(profile)
             
-            # Copy profile data before detaching
-            profile_dict = {c.name: getattr(profile, c.name) for c in profile.__table__.columns}
+            # Expunge profile to detach it from session
             session.expunge(profile)
             
-            return InstructorProfile(**profile_dict)
+            return profile
     
     def get_with_profile(self, user_id: str) -> Optional[User]:
         """Get user with their profile"""
