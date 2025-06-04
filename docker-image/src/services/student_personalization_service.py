@@ -14,12 +14,12 @@ from datetime import datetime
 from openai import AsyncOpenAI
 from sqlalchemy.orm import Session
 
-from core.config import settings
+from core.settings import get_settings
 from repositories.file_repository import FileRepository
 from repositories.user_repository import UserRepository
 from services.ai.base import BaseAIService
 from services.document_outline_generator import DocumentOutlineGenerator
-from services.s3_storage import S3StorageService
+from services.s3_storage import S3Storage
 from core.exceptions import ValidationError, NotFoundError
 
 logger = logging.getLogger(__name__)
@@ -33,8 +33,9 @@ class StudentPersonalizationService(BaseAIService):
         self.db = db
         self.file_repo = FileRepository(db)
         self.user_repo = UserRepository(db)
-        self.outline_generator = DocumentOutlineGenerator()
-        self.s3_service = S3StorageService()
+        self.outline_generator = DocumentOutlineGenerator(db)
+        self.s3_service = S3Storage()
+        self.settings = get_settings()
         
         # Load student-friendly prompts
         self._load_prompts()
@@ -148,7 +149,7 @@ class StudentPersonalizationService(BaseAIService):
             logger.error(f"Personalization error: {e}")
             yield self._create_event('error', {
                 'message': 'Something went wrong. Please try again!',
-                'details': str(e) if settings.DEBUG else None
+                'details': str(e) if self.settings.debug else None
             })
     
     async def regenerate_section(
@@ -410,7 +411,7 @@ class StudentPersonalizationService(BaseAIService):
         """Generate content using AI"""
         try:
             response = await self.client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
+                model=self.settings.openai_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt}
