@@ -11,62 +11,109 @@ logger = logging.getLogger(__name__)
 def process_file_async(self, file_id: str, force: bool = False):
     """Process uploaded file - extract text, generate embeddings"""
     try:
-        from repositories.file_repository import FileRepository
         from services.ai_service import AIService
-        from ..s3_storage import download_file_from_s3
+        from services.s3_storage_resilient import s3_storage
+        from core.database import db
+        from db.schema import File
         
-        file_repo = FileRepository()
         ai_service = AIService()
         
-        # Get file record
-        file = file_repo.get_by_id(file_id)
+        # Get file record using direct db query
+        file = db.session.query(File).filter_by(id=file_id).first()
         if not file:
             logger.error(f"File {file_id} not found")
             return
         
-        # Skip if already processed unless forced
-        if file.processed and not force:
+        # Skip if already processed unless forced (check transcription field)
+        if not force and file.transcription and not file.transcription.startswith("PROCESSING"):
             logger.info(f"File {file_id} already processed")
             return
         
-        # Download file from S3
-        logger.info(f"Processing file {file_id}: {file.filename}")
+        # Process file based on storage type
+        logger.info(f"Processing file {file_id}: {file.filename}, storage_type: {getattr(file, 'storage_type', 'unknown')}")
         
         try:
-            # Download and extract text based on file type
-            if file.file_type == 'pdf':
-                from ..textUtils import extract_text_from_pdf
-                file_content = download_file_from_s3(file.s3_bucket, file.s3_key)
-                extracted_text = extract_text_from_pdf(file_content)
-            elif file.file_type in ['txt', 'md']:
-                file_content = download_file_from_s3(file.s3_bucket, file.s3_key)
-                extracted_text = file_content.decode('utf-8')
-            elif file.file_type in ['mp3', 'wav', 'm4a']:
-                from ..transcriber import transcribe_audio
-                file_content = download_file_from_s3(file.s3_bucket, file.s3_key)
-                extracted_text = transcribe_audio(file_content, file.file_type)
+            # Check storage type and handle accordingly
+            if hasattr(file, 'storage_type') and file.storage_type == 's3' and hasattr(file, 's3_key') and file.s3_key:
+                # Download and extract text from S3
+                logger.info(f"Processing S3 file: bucket={getattr(file, 's3_bucket', 'unknown')}, key={file.s3_key}")
+                if file.file_type == 'pdf':
+                    from utils.textUtils import extract_text, clean_extracted_text
+                    file_content = s3_storage.download_file(file.s3_key)
+                    raw_text = extract_text(file_content, file.filename)
+                    extracted_text = clean_extracted_text(raw_text)
+                elif file.file_type in ['txt', 'md']:
+                    file_content = s3_storage.download_file(file.s3_key)
+                    extracted_text = file_content.decode('utf-8')
+                elif file.file_type in ['mp3', 'wav', 'm4a']:
+                    from utils.transcriber import transcribe_audio
+                    file_content = s3_storage.download_file(file.s3_key)
+                    extracted_text = transcribe_audio(file_content, file.file_type)
+                else:
+                    raise ValueError(f"Unsupported file type: {file.file_type}")
+                    
+            elif hasattr(file, 'storage_type') and file.storage_type == 'database':
+                # Handle local/database storage
+                logger.info(f"Processing local file: {file.filename}")
+                if file.file_type in ['txt', 'md']:
+                    # For text files, content might be in transcription field
+                    if hasattr(file, 'transcription') and file.transcription and file.transcription != "PROCESSING_FAILED":
+                        extracted_text = file.transcription
+                    else:
+                        # Could implement reading from local filesystem here
+                        raise ValueError("Text content not available for local file")
+                else:
+                    # For PDFs and audio files stored locally, we'd need a different approach
+                    # This would require storing the file content or path somewhere accessible
+                    raise ValueError(f"Local processing not implemented for file type: {file.file_type}")
+                    
             else:
-                raise ValueError(f"Unsupported file type: {file.file_type}")
+                # Fallback: try S3 first, then check for transcription
+                logger.warning(f"Unknown storage type for file {file_id}, attempting fallback processing")
+                try:
+                    # Try S3 if we have the keys
+                    if hasattr(file, 's3_key') and file.s3_key and hasattr(file, 's3_bucket') and file.s3_bucket:
+                        logger.info("Attempting S3 fallback")
+                        file_content = s3_storage.download_file(file.s3_key)
+                        if file.file_type == 'pdf':
+                            from utils.textUtils import extract_text, clean_extracted_text
+                            raw_text = extract_text(file_content, file.filename)
+                            extracted_text = clean_extracted_text(raw_text)
+                        elif file.file_type in ['txt', 'md']:
+                            extracted_text = file_content.decode('utf-8')
+                        elif file.file_type in ['mp3', 'wav', 'm4a']:
+                            from utils.transcriber import transcribe_audio
+                            extracted_text = transcribe_audio(file_content, file.file_type)
+                        else:
+                            raise ValueError(f"Unsupported file type: {file.file_type}")
+                    else:
+                        # Try transcription field for text files
+                        if file.file_type in ['txt', 'md'] and hasattr(file, 'transcription') and file.transcription:
+                            extracted_text = file.transcription
+                        else:
+                            raise ValueError("No accessible file content found")
+                except Exception as fallback_error:
+                    logger.error(f"Fallback processing failed: {str(fallback_error)}")
+                    raise ValueError(f"Could not process file: {str(fallback_error)}")
             
             # Update file with extracted text
-            file_repo.update_processing_status(
-                file_id,
-                processed=True,
-                extracted_text=extracted_text
-            )
+            file.transcription = extracted_text
+            db.session.commit()
             
-            # Queue embedding generation
-            generate_embeddings_async.delay(file_id)
+            # Queue embedding generation with content
+            from .embedding import generate_embeddings_async
+            generate_embeddings_async.delay(file_id, extracted_text)
             
             logger.info(f"Successfully processed file {file_id}")
             
         except Exception as e:
             logger.error(f"Error processing file {file_id}: {str(e)}")
-            file_repo.update_processing_status(
-                file_id,
-                processed=False,
-                error=str(e)
-            )
+            # Mark file as failed
+            try:
+                file.transcription = f"PROCESSING_FAILED: {str(e)}"
+                db.session.commit()
+            except Exception as db_error:
+                logger.error(f"Failed to update file status: {str(db_error)}")
             raise
             
     except Exception as e:

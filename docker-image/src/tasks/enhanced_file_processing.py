@@ -57,6 +57,7 @@ def process_file_with_semantic_chunking(self, file_id: str, force: bool = False)
                     file_data = s3_service.download_file(file_obj.s3_bucket, file_obj.s3_key)
                     
                     if file_obj.file_type == 'pdf':
+                        from utils.textUtils import extract_text_from_pdf
                         content = extract_text_from_pdf(file_data)
                     elif file_obj.file_type in ['txt', 'md']:
                         content = file_data.decode('utf-8')

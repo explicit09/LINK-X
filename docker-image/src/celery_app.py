@@ -13,6 +13,9 @@ REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
 # Create Celery app
 app = Celery('learnx')
 
+# Configure task autodiscovery
+app.autodiscover_tasks(['src.tasks'], force=True)
+
 # Celery configuration
 app.conf.update(
     broker_url=REDIS_URL,
