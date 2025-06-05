@@ -44,6 +44,27 @@ class ModuleService:
         
         return module
     
+    def create_module(self, course_id: str, title: str, description: str = None, ordering: int = None) -> Dict:
+        """Create a new module in a course"""
+        # Validate input
+        if not title or len(title) < 3:
+            raise ValidationError("Module title must be at least 3 characters")
+        
+        # Check if course exists
+        course = self.course_repo.get_by_id(course_id)
+        if not course:
+            raise NotFoundError("Course not found")
+        
+        # Create module
+        module = self.module_repo.create(
+            course_id=course_id,
+            title=title,
+            description=description,
+            ordering=ordering
+        )
+        
+        return module
+    
     def update_module(self, module_id: str, user_id: str, **kwargs) -> Dict:
         """Update module details"""
         module = self.module_repo.get_by_id(module_id)
@@ -55,8 +76,12 @@ class ModuleService:
         course = self.course_repo.get_by_id(module.course_id)
         user = self.user_repo.get_by_id(user_id)
         
-        # Allow all authenticated users to update modules
-        # You can add more specific logic here if needed
+        # Check if user owns the course or is admin
+        is_owner = str(course.creator_id) == str(user_id)
+        is_admin = user.role and user.role.role_type == 'admin'
+        
+        if not is_owner and not is_admin:
+            raise AuthorizationError("Only course owner or admin can update modules")
         
         # Validate updates
         if 'title' in kwargs and len(kwargs['title']) < 3:
@@ -78,8 +103,12 @@ class ModuleService:
         course = self.course_repo.get_by_id(module.course_id)
         user = self.user_repo.get_by_id(user_id)
         
-        # Allow all authenticated users to delete modules
-        # You can add more specific logic here if needed
+        # Check if user owns the course or is admin
+        is_owner = str(course.creator_id) == str(user_id)
+        is_admin = user.role and user.role.role_type == 'admin'
+        
+        if not is_owner and not is_admin:
+            raise AuthorizationError("Only course owner or admin can delete modules")
         
         # Check if module has files
         from repositories.file_repository import FileRepository

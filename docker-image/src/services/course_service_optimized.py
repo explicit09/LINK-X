@@ -233,8 +233,13 @@ class OptimizedCourseService:
             'id': str(course.id),
             'title': getattr(course, 'title', 'Untitled Course'),
             'description': getattr(course, 'description', ''),
+            'code': getattr(course, 'code', ''),
+            'term': getattr(course, 'term', ''),
             'access_code': getattr(course, 'access_code', ''),
+            'published': getattr(course, 'published', True),
             'is_published': getattr(course, 'is_published', True),
+            'creator_id': str(course.creator_id) if hasattr(course, 'creator_id') and course.creator_id else None,
+            'instructor_id': str(course.instructor_id) if hasattr(course, 'instructor_id') and course.instructor_id else None,
             'instructor': instructor_data,
             'module_count': len(getattr(course, 'modules', [])),
             'enrollment_count': len([e for e in getattr(course, 'enrollments', []) if not getattr(e, 'dropped_at', None)]),
@@ -265,49 +270,6 @@ class OptimizedCourseService:
         stats = self.course_repo.get_course_statistics(course_id)
         return stats.get('enrollments', 0)
 
-    def create_course(self, instructor_id: str, title: str, description: str, 
-                     code: Optional[str] = None, term: Optional[str] = None, 
-                     published: bool = False) -> Dict:
-        """Create a new course"""
-        # Check if the user is actually an instructor
-        user = self.user_repo.get_by_id(instructor_id)
-        if not user:
-            raise ValidationError("User not found")
-        
-        # Determine if user has instructor profile
-        is_instructor = user.role and user.role.role_type == 'instructor'
-        
-        course_data = {
-            'title': title,
-            'description': description,
-            'creator_id': instructor_id,  # Always set creator_id to the current user
-            'code': code,
-            'term': term,
-            'published': published
-        }
-        
-        # Only set instructor_id if user is actually an instructor
-        if is_instructor:
-            course_data['instructor_id'] = instructor_id
-            
-        course = self.course_repo.create(**course_data)
-        
-        # Generate access code
-        access_code = self._generate_access_code(course.id)
-        
-        return course
-
-    def _generate_access_code(self, course_id: str) -> str:
-        """Generate unique access code for course"""
-        code = secrets.token_urlsafe(6).upper()
-        
-        # Store in database
-        self.course_repo.create_access_code(
-            course_id=course_id,
-            code=code
-        )
-        
-        return code
 
     def update_course(self, course_id: str, user_id: str, **kwargs) -> Dict:
         """Update a course"""
@@ -381,6 +343,52 @@ class OptimizedCourseService:
         # Invalidate relevant caches
         invalidate_cache(f"user_courses_{user_id}")
         invalidate_cache(f"course_students_{course.id}")
+        
+        return course
+    
+    def create_course(self, instructor_id: str, title: str, description: str, 
+                     code: str = None, term: str = None, published: bool = False):
+        """Create a new course - allows any authenticated user"""
+        # Validate user exists
+        user = self.user_repo.get_by_id(instructor_id)
+        if not user:
+            raise ValidationError("Invalid user")
+        
+        # Validate input
+        if not title or len(title) < 3:
+            raise ValidationError("Title must be at least 3 characters")
+        
+        if not description or len(description) < 10:
+            raise ValidationError("Description must be at least 10 characters")
+        
+        # Determine if user has instructor profile
+        is_instructor = user.role and user.role.role_type == 'instructor'
+        
+        # Create course
+        course_data = {
+            'title': title,
+            'description': description,
+            'creator_id': instructor_id,  # Always set creator_id to the current user
+            'code': code,
+            'term': term,
+            'published': published
+        }
+        
+        # Only set instructor_id if user is actually an instructor
+        if is_instructor:
+            course_data['instructor_id'] = instructor_id
+            
+        course = self.course_repo.create(**course_data)
+        
+        # Generate access code
+        access_code = secrets.token_urlsafe(6).upper()
+        self.course_repo.create_access_code(
+            course_id=course.id,
+            code=access_code
+        )
+        
+        # Invalidate cache
+        invalidate_cache(f"courses:instructor:{instructor_id}:*")
         
         return course
 

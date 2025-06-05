@@ -103,9 +103,9 @@ class Course(Base):
     creator = relationship('User')
 
     instructor_profile = relationship('InstructorProfile', back_populates='courses')
-    modules = relationship('Module', back_populates='course')
-    access_code = relationship('AccessCode', back_populates='course', uselist=False)
-    enrollments = relationship('Enrollment', back_populates='course')
+    modules = relationship('Module', back_populates='course', cascade='all, delete-orphan')
+    access_code = relationship('AccessCode', back_populates='course', uselist=False, cascade='all, delete-orphan')
+    enrollments = relationship('Enrollment', back_populates='course', cascade='all, delete-orphan')
     report = relationship('Report', back_populates='course', uselist=False, cascade='all, delete-orphan')
     
     def to_dict(self):

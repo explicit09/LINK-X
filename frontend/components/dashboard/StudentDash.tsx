@@ -36,7 +36,6 @@ export default function StudentDash({ currentUser }: StudentDashProps) {
         email: userProfile.email,
         avatar: userProfile.profile?.avatar
       } : currentUser}
-      courses={courses}
     />
   );
 }

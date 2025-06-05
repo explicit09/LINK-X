@@ -82,6 +82,11 @@ export default function CourseForm({
       return;
     }
 
+    if (!formData.description || formData.description.trim().length < 10) {
+      sonnerToast.error('Course description must be at least 10 characters');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -204,15 +209,16 @@ export default function CourseForm({
             htmlFor="description"
             className="text-sm font-medium text-gray-700 mb-2 block"
           >
-            Description
+            Description *
           </Label>
           <Textarea
             id="description"
             value={formData.description}
             onChange={(e) => handleChange('description', e.target.value)}
-            placeholder="Optional — Add learning goals, skills, outcomes, or what makes this course unique..."
+            placeholder="Add learning goals, skills, outcomes, or what makes this course unique (minimum 10 characters)..."
             className="w-full min-h-[100px] text-base border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none"
             rows={4}
+            required
           />
         </div>
 
