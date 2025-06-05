@@ -8,85 +8,103 @@ from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 
 from services.ai_service import AIService
-from db.connection import get_db_session
+from core.database import db
 from db.schema import File, FileChunk
-from core.cache import cache
+try:
+    from core.cache import cache
+except ImportError:
+    # Fallback if cache is not available
+    cache = None
 
 logger = logging.getLogger(__name__)
 
 # Chunk size for processing
 CHUNK_SIZE = 1000  # characters
-EMBEDDING_DIMENSION = 1536  # OpenAI ada-002 dimension
+EMBEDDING_DIMENSION = 1536  # OpenAI text-embedding-3-small dimension
 
 @shared_task(bind=True, max_retries=3)
 def generate_embeddings_async(self, file_id: str, content: str):
     """Generate embeddings for file content"""
-    db_session = get_db_session()
-    ai_service = AIService()
+    # Set up Flask application context for database operations
+    from app import create_app
+    app = create_app()
     
-    try:
-        logger.info(f"Generating embeddings for file {file_id}")
+    with app.app_context():
+        ai_service = AIService()
         
-        # Split content into chunks
-        chunks = split_content_into_chunks(content, CHUNK_SIZE)
-        logger.info(f"Processing {len(chunks)} chunks for file {file_id}")
-        
-        # Generate embeddings for each chunk
-        for idx, chunk_text in enumerate(chunks):
-            try:
-                # Generate embedding
-                embedding = ai_service.generate_embeddings(chunk_text)
-                
-                # Store in database
-                chunk = FileChunk(
-                    file_id=file_id,
-                    chunk_index=idx,
-                    content=chunk_text,
-                    embedding=embedding
-                )
-                db_session.add(chunk)
-                
-                # Cache the embedding for fast retrieval
-                cache_key = f"embedding:{file_id}:{idx}"
-                cache.set(cache_key, embedding, timeout=3600)  # 1 hour cache
-                
-            except Exception as chunk_error:
-                logger.error(f"Error processing chunk {idx}: {str(chunk_error)}")
-                continue
-        
-        # Update file status
-        file = db_session.query(File).filter_by(id=file_id).first()
-        if file:
-            file.embeddings_generated = True
-            file.chunk_count = len(chunks)
-        
-        db_session.commit()
-        logger.info(f"Successfully generated embeddings for file {file_id}")
-        
-        return {
-            "status": "success", 
-            "file_id": file_id,
-            "chunks_processed": len(chunks)
-        }
-        
-    except Exception as e:
-        db_session.rollback()
-        logger.error(f"Error generating embeddings: {str(e)}")
-        raise self.retry(exc=e, countdown=60)
-    finally:
-        db_session.close()
+        try:
+            logger.info(f"Generating embeddings for file {file_id}")
+            
+            # Get file and course information
+            file = db.session.query(File).filter_by(id=file_id).first()
+            if not file:
+                logger.error(f"File {file_id} not found")
+                return {"status": "error", "message": "File not found"}
+            
+            # Get course_id from module
+            from db.schema import Module
+            module = db.session.query(Module).filter_by(id=file.module_id).first()
+            course_id = module.course_id if module else None
+            
+            # Split content into chunks
+            chunks = split_content_into_chunks(content, CHUNK_SIZE)
+            logger.info(f"Processing {len(chunks)} chunks for file {file_id}")
+            
+            # Generate embeddings for each chunk
+            for idx, chunk_text in enumerate(chunks):
+                try:
+                    # Generate embedding
+                    embedding = ai_service.generate_embeddings(chunk_text)
+                    
+                    # Store in database
+                    chunk = FileChunk(
+                        file_id=file_id,
+                        course_id=course_id,
+                        chunk_index=idx,
+                        content=chunk_text,
+                        embedding=embedding
+                    )
+                    db.session.add(chunk)
+                    
+                    # Cache the embedding for fast retrieval
+                    if cache:
+                        cache_key = f"embedding:{file_id}:{idx}"
+                        cache.set(cache_key, embedding, timeout=3600)  # 1 hour cache
+                    
+                except Exception as chunk_error:
+                    logger.error(f"Error processing chunk {idx}: {str(chunk_error)}")
+                    continue
+            
+            # Update file status - using transcription field to track processing status
+            # Use transcription field to indicate embeddings generated
+            if not file.transcription or file.transcription == "PROCESSING_FAILED":
+                file.transcription = f"PROCESSED_{len(chunks)}_CHUNKS"
+            logger.info(f"File {file_id} marked as processed with {len(chunks)} chunks")
+            
+            db.session.commit()
+            logger.info(f"Successfully generated embeddings for file {file_id}")
+            
+            return {
+                "status": "success", 
+                "file_id": file_id,
+                "chunks_processed": len(chunks)
+            }
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error generating embeddings: {str(e)}")
+            raise self.retry(exc=e, countdown=60)
 
 @shared_task(bind=True, max_retries=3)
 def update_embeddings_async(self, file_id: str, content_delta: Dict[str, Any]):
     """Update embeddings for modified content"""
-    db_session = get_db_session()
     ai_service = AIService()
     
     try:
         logger.info(f"Updating embeddings for file {file_id}")
         
         # Get existing chunks
-        existing_chunks = db_session.query(FileChunk).filter_by(
+        existing_chunks = db.session.query(FileChunk).filter_by(
             file_id=file_id
         ).order_by(FileChunk.chunk_index).all()
         
@@ -111,10 +129,11 @@ def update_embeddings_async(self, file_id: str, content_delta: Dict[str, Any]):
                 chunk.embedding = ai_service.generate_embeddings(chunk.content)
                 
                 # Update cache
-                cache_key = f"embedding:{file_id}:{idx}"
-                cache.set(cache_key, chunk.embedding, timeout=3600)
+                if cache:
+                    cache_key = f"embedding:{file_id}:{idx}"
+                    cache.set(cache_key, chunk.embedding, timeout=3600)
         
-        db_session.commit()
+        db.session.commit()
         logger.info(f"Successfully updated embeddings for file {file_id}")
         
         return {
@@ -124,11 +143,9 @@ def update_embeddings_async(self, file_id: str, content_delta: Dict[str, Any]):
         }
         
     except Exception as e:
-        db_session.rollback()
+        db.session.rollback()
         logger.error(f"Error updating embeddings: {str(e)}")
         raise self.retry(exc=e, countdown=60)
-    finally:
-        db_session.close()
 
 def split_content_into_chunks(content: str, chunk_size: int) -> List[str]:
     """Split content into overlapping chunks for better context"""
@@ -142,35 +159,93 @@ def split_content_into_chunks(content: str, chunk_size: int) -> List[str]:
     
     return chunks
 
+def generate_embeddings_sync(file_id: str, content: str):
+    """Synchronous version of embedding generation for direct execution"""
+    ai_service = AIService()
+    
+    try:
+        logger.info(f"Generating embeddings synchronously for file {file_id}")
+        
+        # Get file and course information
+        file = db.session.query(File).filter_by(id=file_id).first()
+        if not file:
+            logger.error(f"File {file_id} not found")
+            return {"status": "error", "message": "File not found"}
+        
+        # Get course_id from module
+        from db.schema import Module
+        module = db.session.query(Module).filter_by(id=file.module_id).first()
+        course_id = module.course_id if module else None
+        
+        # Split content into chunks
+        chunks = split_content_into_chunks(content, CHUNK_SIZE)
+        logger.info(f"Processing {len(chunks)} chunks for file {file_id}")
+        
+        # Generate embeddings for each chunk
+        for idx, chunk_text in enumerate(chunks):
+            try:
+                # Generate embedding
+                embedding = ai_service.generate_embeddings(chunk_text)
+                
+                # Store in database
+                chunk = FileChunk(
+                    file_id=file_id,
+                    course_id=course_id,
+                    chunk_index=idx,
+                    content=chunk_text,
+                    embedding=embedding
+                )
+                db.session.add(chunk)
+                
+                # Cache the embedding for fast retrieval
+                if cache:
+                    cache_key = f"embedding:{file_id}:{idx}"
+                    cache.set(cache_key, embedding, timeout=3600)  # 1 hour cache
+                
+            except Exception as chunk_error:
+                logger.error(f"Error processing chunk {idx}: {str(chunk_error)}")
+                continue
+        
+        db.session.commit()
+        logger.info(f"Successfully generated embeddings for file {file_id}")
+        
+        return {
+            "status": "success", 
+            "file_id": file_id,
+            "chunks_processed": len(chunks)
+        }
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error generating embeddings: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
 @shared_task
 def cleanup_orphaned_embeddings():
     """Clean up embeddings for deleted files"""
-    db_session = get_db_session()
-    
     try:
         # Find chunks without corresponding files
-        orphaned_chunks = db_session.query(FileChunk).filter(
+        orphaned_chunks = db.session.query(FileChunk).filter(
             ~FileChunk.file_id.in_(
-                db_session.query(File.id)
+                db.session.query(File.id)
             )
         ).all()
         
         for chunk in orphaned_chunks:
             # Clear from cache
-            cache_key = f"embedding:{chunk.file_id}:{chunk.chunk_index}"
-            cache.delete(cache_key)
+            if cache:
+                cache_key = f"embedding:{chunk.file_id}:{chunk.chunk_index}"
+                cache.delete(cache_key)
             
             # Delete from database
-            db_session.delete(chunk)
+            db.session.delete(chunk)
         
-        db_session.commit()
+        db.session.commit()
         logger.info(f"Cleaned up {len(orphaned_chunks)} orphaned chunks")
         
         return {"status": "success", "cleaned": len(orphaned_chunks)}
         
     except Exception as e:
-        db_session.rollback()
+        db.session.rollback()
         logger.error(f"Error cleaning up embeddings: {str(e)}")
         return {"status": "error", "message": str(e)}
-    finally:
-        db_session.close()
