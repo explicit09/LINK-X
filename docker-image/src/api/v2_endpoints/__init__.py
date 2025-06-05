@@ -16,6 +16,11 @@ from .dashboard import dashboard_bp
 from .gamification import gamification_bp
 from .study_plans import study_plans_bp
 from .schedule import schedule_bp
+from .personalization_v2 import personalization_v2_bp
+from .content_personalization import content_personalization_bp
+from .enhanced_rag import bp as enhanced_rag_bp
+from .learning_analytics import analytics_bp
+from .collaboration import bp as collaboration_bp
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +37,11 @@ api_v2.register_blueprint(dashboard_bp, url_prefix='/dashboard')
 api_v2.register_blueprint(gamification_bp, url_prefix='/gamification')
 api_v2.register_blueprint(study_plans_bp, url_prefix='/study-plans')
 api_v2.register_blueprint(schedule_bp, url_prefix='/schedule')
+api_v2.register_blueprint(personalization_v2_bp, url_prefix='/personalization')
+api_v2.register_blueprint(content_personalization_bp, url_prefix='/content')
+api_v2.register_blueprint(enhanced_rag_bp, url_prefix='/rag')
+api_v2.register_blueprint(analytics_bp, url_prefix='/analytics')
+api_v2.register_blueprint(collaboration_bp, url_prefix='/collaboration')
 
 
 # ===== HEALTH CHECK =====

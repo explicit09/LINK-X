@@ -45,7 +45,7 @@ class FileRepository(BaseRepository[File]):
             pf = PersonalizedFile(
                 user_id=user_id,
                 original_file_id=original_file_id,
-                processed=False
+                content={}  # Initialize with empty content
             )
             session.add(pf)
             session.flush()
@@ -64,13 +64,17 @@ class FileRepository(BaseRepository[File]):
         """Search files with various filters"""
         with self.get_session() as session:
             search_term = f"%{query}%"
-            q = session.query(File).join(Module)
+            # Join with Module and optionally with FileChunk for content search
+            from db.schema import FileChunk
+            q = session.query(File).distinct().join(Module)
             
-            # Apply search on title and extracted text
+            # Apply search on title, transcription, or file chunk content
+            q = q.outerjoin(FileChunk, File.id == FileChunk.file_id)
             q = q.filter(
                 or_(
                     File.title.ilike(search_term),
-                    File.extracted_text.ilike(search_term)
+                    File.transcription.ilike(search_term),
+                    FileChunk.content.ilike(search_term)
                 )
             )
             
@@ -94,16 +98,16 @@ class FileRepository(BaseRepository[File]):
     def update_processing_status(self, file_id: str, processed: bool, 
                                extracted_text: str = None, error: str = None) -> Optional[File]:
         """Update file processing status"""
+        # Note: Since File table doesn't have processed/processing_error columns,
+        # we'll update transcription for audio files or create FileChunk entries
         with self.get_session() as session:
             file = session.query(File).filter_by(id=file_id).first()
             if file:
-                file.processed = processed
-                file.processing_error = error
-                if extracted_text:
-                    file.extracted_text = extracted_text
-                file.processed_at = datetime.utcnow() if processed else None
-                session.flush()
-                session.refresh(file)
+                # For audio files, update transcription
+                if file.file_type in ['audio', 'mp3', 'wav', 'm4a'] and extracted_text:
+                    file.transcription = extracted_text
+                    session.flush()
+                    session.refresh(file)
                 
                 # Make a copy before detaching
                 file_dict = {c.name: getattr(file, c.name) 
@@ -115,8 +119,12 @@ class FileRepository(BaseRepository[File]):
     def get_unprocessed_files(self, limit: int = 10) -> List[File]:
         """Get files that need processing"""
         with self.get_session() as session:
+            from db.schema import FileChunk
+            # Get files that don't have any FileChunk entries (unprocessed)
+            subquery = session.query(FileChunk.file_id).distinct()
             files = session.query(File)\
-                .filter_by(processed=False)\
+                .filter(~File.id.in_(subquery))\
+                .filter(File.storage_type == 's3')\
                 .limit(limit)\
                 .all()
             

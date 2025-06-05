@@ -41,6 +41,15 @@ export default function Page() {
   >('idle');
 
   useEffect(() => {
+    // Check for stored error messages on mount
+    if (typeof window !== 'undefined') {
+      const storedError = window.sessionStorage.getItem('auth_error');
+      if (storedError) {
+        toast.error(storedError);
+        window.sessionStorage.removeItem('auth_error');
+      }
+    }
+
     if (state === 'failed') {
       toast.error('Invalid credentials. Please try again.');
     } else if (state === 'invalid_data') {
@@ -70,7 +79,14 @@ export default function Page() {
 
       if (!sessionSuccess) {
         setState('failed');
-        toast.error('Session setup failed. Please try again.');
+        // Check if there's a more specific error message stored
+        const storedError = window.sessionStorage.getItem('auth_error');
+        if (storedError) {
+          toast.error(storedError);
+          window.sessionStorage.removeItem('auth_error');
+        } else {
+          toast.error('Session setup failed. Please try again.');
+        }
         return;
       }
 

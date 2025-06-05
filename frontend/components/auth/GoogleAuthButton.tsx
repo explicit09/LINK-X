@@ -23,6 +23,17 @@ export function GoogleAuthButton({
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  // Check for stored error messages on mount
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedError = window.sessionStorage.getItem('auth_error');
+      if (storedError) {
+        toast.error(storedError);
+        window.sessionStorage.removeItem('auth_error');
+      }
+    }
+  }, []);
+
   const handleGoogleAuth = async () => {
     if (disabled || loading) return;
 
