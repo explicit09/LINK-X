@@ -244,7 +244,8 @@ def get_active_plan():
         
         plan = repos['study_plans'].get_active_plan_by_user(g.current_user.id)
         if not plan:
-            return error_response("No active study plan found", status_code=404)
+            # Return empty data instead of 404 for new users
+            return success_response(None, "No active study plan found")
             
         # Get analytics and goals
         analytics = repos['study_plans'].get_plan_analytics(plan.id)

@@ -168,8 +168,11 @@ export const studyPlansAPI = {
       const response = await apiClient.get<any>('/api/v2/study-plans/active');
       console.log('Study Plans API - getActivePlan response:', response);
       return response.data || response;
-    } catch (error) {
-      console.error('Study Plans API - getActivePlan error:', error);
+    } catch (error: any) {
+      // Don't log 404 errors as they're expected for new users
+      if (error?.response?.status !== 404) {
+        console.error('Study Plans API - getActivePlan error:', error);
+      }
       // Return null instead of throwing to avoid breaking the UI
       return null;
     }
