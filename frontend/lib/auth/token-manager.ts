@@ -31,8 +31,18 @@ export class TokenManager {
       if (auth.currentUser) {
         try {
           return await auth.currentUser.getIdToken();
-        } catch (error) {
+        } catch (error: any) {
           console.error('Failed to get Firebase token:', error);
+          // Handle IndexedDB errors specifically
+          if (error.message?.includes('IndexedDB') || error.message?.includes('transaction')) {
+            console.warn('IndexedDB error in Firebase auth, forcing token refresh');
+            try {
+              return await auth.currentUser.getIdToken(true); // Force refresh
+            } catch (refreshError) {
+              console.error('Token refresh also failed:', refreshError);
+              return null;
+            }
+          }
           return null;
         }
       }

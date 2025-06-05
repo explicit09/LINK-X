@@ -108,7 +108,13 @@ class CourseAPI {
 
   // Modules
   async getCourseModules(courseId: string): Promise<Module[]> {
-    return apiClient.get<Module[]>(`/api/v2/courses/${courseId}/modules`);
+    try {
+      const modules = await apiClient.get<Module[]>(`/api/v2/courses/${courseId}/modules`);
+      return modules || [];
+    } catch (error) {
+      console.warn('Failed to fetch modules, returning empty array:', error);
+      return [];
+    }
   }
 
   async createModule(

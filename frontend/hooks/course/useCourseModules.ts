@@ -145,6 +145,12 @@ export const useCourseModules = (courseId: string) => {
         // Fetch real module data from backend
         const backendModules = await courseAPI.getCourseModules(courseId);
         
+        // Handle empty modules gracefully
+        if (!backendModules || backendModules.length === 0) {
+          setModules([]);
+          return;
+        }
+        
         // Transform backend data to match our interface
         const transformedModules: Module[] = backendModules
           .sort((a, b) => a.ordering - b.ordering)

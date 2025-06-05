@@ -195,6 +195,18 @@ function ModernCourseCardComponent({
               >
                 {course.title}
               </h3>
+              {/* Published Status Badge */}
+              <Badge
+                variant={course.published ? 'default' : 'outline'}
+                className={cn(
+                  'text-xs',
+                  course.published
+                    ? 'bg-green-100 text-green-700 border-green-300'
+                    : 'bg-gray-100 text-gray-600 border-gray-300',
+                )}
+              >
+                {course.published ? 'Published' : 'Draft'}
+              </Badge>
             </div>
             <div className="flex items-center gap-3 text-sm text-gray-600">
               <span className="font-medium">{course.code}</span>
