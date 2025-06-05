@@ -55,9 +55,9 @@ export default function Page() {
     } else if (state === 'invalid_data') {
       toast.error('Error validating your submission.');
     } else if (state === 'success') {
-      toast.success('Logged in successfully!');
+      // Success toast is already shown in handleSubmit
       setIsSuccessful(true);
-      router.push('/dashboard');
+      // Redirect is already handled in handleSubmit based on onboarding status
     }
   }, [state, router]);
 
@@ -90,11 +90,19 @@ export default function Page() {
         return;
       }
 
-      // If login succeeded, user is registered (backend returned 200, not 404)
-      // No need to check registration status again
-
-      setState('success');
-      // router.push("/dashboard") will happen inside useEffect
+      // Check if user has completed onboarding
+      const hasCompletedOnboarding = authService.hasCompletedOnboarding();
+      
+      if (!hasCompletedOnboarding && authService.getUser()?.role === 'student') {
+        // Redirect to onboarding for students who haven't completed it
+        setState('success');
+        toast.info('Please complete your profile setup');
+        router.push('/onboarding');
+      } else {
+        // User has completed onboarding or is not a student
+        setState('success');
+        // router.push("/dashboard") will happen inside useEffect
+      }
     } catch (error: any) {
       console.error('Firebase Auth Error:', error.message);
       if (

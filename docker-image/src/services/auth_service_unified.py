@@ -15,7 +15,7 @@ from flask_jwt_extended import create_access_token, create_refresh_token, decode
 from firebase_admin import auth as firebase_auth
 import redis
 
-from db.schema import User
+from db.schema import User, StudentProfile
 from repositories.user_repository import UserRepository
 from core.exceptions import AuthenticationError, ValidationError, NotFoundError
 from core.cache import cache
@@ -406,19 +406,32 @@ class UnifiedAuthService:
         }
         
     def _create_user_from_firebase(self, decoded_token: Dict) -> User:
-        """Create user from Firebase token data"""
+        """Create user from Firebase token data - creates user WITHOUT profile
+        
+        NOTE: This method only creates the base user record. The profile should be
+        created later through the registration endpoint with complete onboarding data.
+        This prevents empty profiles from being created during login attempts.
+        """
         email = decoded_token.get('email')
         firebase_uid = decoded_token['uid']
         name = decoded_token.get('name', email.split('@')[0])
         
-        # Create user with default student role (note: 'name' field doesn't exist in User table)
+        # Only create the base user record with role
+        # DO NOT create profile here - let registration handle it
         user_data = {
             'email': email,
             'firebase_uid': firebase_uid,
             'role': 'student'  # Default to student role
         }
         
-        return self.user_repo.create(**user_data)
+        # Create user without profile
+        user = self.user_repo.create(**user_data)
+        
+        # Important: Do NOT create a profile here
+        # Profile creation should happen through the registration endpoint
+        # with complete onboarding data
+        
+        return user
         
     def _hash_password(self, password: str) -> str:
         """Hash password for v1 compatibility"""
@@ -452,8 +465,35 @@ class UnifiedAuthService:
             # Check if user already exists
             existing_user = self.user_repo.find_by_firebase_uid(firebase_uid)
             if existing_user:
-                logger.warning(f"User already exists with firebase_uid: {firebase_uid}")
-                # If user exists, just return tokens
+                logger.info(f"User already exists with firebase_uid: {firebase_uid}")
+                
+                # Check if this is a profile update (e.g., from onboarding)
+                if role == 'student' and onboard_answers:
+                    # Update the student profile with onboarding data
+                    logger.info("Updating existing student profile with onboarding data")
+                    try:
+                        with self.user_repo.get_session() as session:
+                            profile = session.query(StudentProfile).filter_by(user_id=existing_user.id).first()
+                            if profile:
+                                profile.name = name or profile.name
+                                profile.onboard_answers = onboard_answers
+                                profile.want_quizzes = want_quizzes
+                                session.commit()
+                                logger.info("Student profile updated with onboarding data")
+                            else:
+                                # Profile doesn't exist, create it
+                                self.user_repo.create_student_profile(
+                                    user_id=existing_user.id,
+                                    name=name or email.split('@')[0],
+                                    onboard_answers=onboard_answers,
+                                    want_quizzes=want_quizzes
+                                )
+                                logger.info("Created missing student profile with onboarding data")
+                    except Exception as e:
+                        logger.error(f"Failed to update profile: {e}")
+                        raise ValidationError(f"Failed to update profile: {str(e)}")
+                
+                # Return tokens for existing user
                 return self._generate_v2_tokens(existing_user)
             
             # Step 1: Create user with role
@@ -468,14 +508,19 @@ class UnifiedAuthService:
             # Step 2: Create role-specific profile
             try:
                 if role == 'student':
-                    logger.info(f"Creating student profile for user {user.id}")
-                    self.user_repo.create_student_profile(
-                        user_id=user.id,
-                        name=name or email.split('@')[0],
-                        onboard_answers=onboard_answers or {},
-                        want_quizzes=want_quizzes
-                    )
-                    logger.info("Student profile created successfully")
+                    # Only create profile if onboarding data is provided
+                    # This prevents empty profiles during initial registration
+                    if onboard_answers and any(onboard_answers.values()):
+                        logger.info(f"Creating student profile with onboarding data for user {user.id}")
+                        self.user_repo.create_student_profile(
+                            user_id=user.id,
+                            name=name or email.split('@')[0],
+                            onboard_answers=onboard_answers,
+                            want_quizzes=want_quizzes
+                        )
+                        logger.info("Student profile created successfully with onboarding data")
+                    else:
+                        logger.info("Skipping student profile creation - no onboarding data provided")
                 elif role == 'instructor':
                     logger.info(f"Creating instructor profile for user {user.id}")
                     self.user_repo.create_instructor_profile(
