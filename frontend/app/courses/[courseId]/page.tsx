@@ -3,22 +3,37 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
-import { useCourseData } from '@/hooks/course/useCourseData';
-import { useCourseModules, type Module, type Material } from '@/hooks/course/useCourseModules';
-import { useCourseProgress } from '@/hooks/course/useCourseProgress';
 import { useAuthUser } from '@/hooks/useAuthUser';
-import { Card, CardContent } from '@/components/ui/card';
+import { useCourseData } from '@/hooks/course/useCourseData';
+import { useCourseModules } from '@/hooks/course/useCourseModules';
+import { useCourseProgress } from '@/hooks/course/useCourseProgress';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ChevronDown, ChevronRight, Play, BookOpen, Clock, AlertTriangle, TrendingUp, FileText, Video, Music, Eye, Download, Sparkles, Brain } from 'lucide-react';
-import { courseAPI, type ResumeTarget } from '@/lib/api/courses';
-import { useAlert } from '@/contexts/AlertContext';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  BookOpen, Clock, Calendar, User, Plus, Upload, 
+  AlertCircle, ChevronRight, ChevronDown, FileText,
+  PlayCircle, CheckCircle, Lock, Sparkles, BarChart3,
+  Target, TrendingUp, BookMarked, Info
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { FileCard } from '@/components/course/FileCard';
-import { toast as sonnerToast } from 'sonner';
-// import { EnhancedFileUpload } from '@/components/course/enhanced-file-upload';
+import { formatDistanceToNow } from 'date-fns';
+import { cn } from '@/lib/utils';
 
-// Use the Module type from useCourseModules hook instead of custom interface
+// Types for better type safety
+interface CourseMetrics {
+  totalModules: number;
+  completedModules: number;
+  totalFiles: number;
+  totalDuration: number;
+  overallProgress: number;
+  deadline?: Date;
+  daysRemaining?: number;
+}
 
 export default function CoursePage() {
   const params = useParams();
@@ -30,35 +45,47 @@ export default function CoursePage() {
   const { modules, loading: modulesLoading, error: modulesError } = useCourseModules(courseId);
   const { progress: courseProgress, loading: progressLoading } = useCourseProgress(courseId);
   
-  const [nextModule, setNextModule] = useState<Module | null>(null);
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
-  const [uploadingModules, setUploadingModules] = useState<Set<string>>(new Set());
-  const [showAlternateActions, setShowAlternateActions] = useState(false);
-  const [resumeTarget, setResumeTarget] = useState<ResumeTarget | null>(null);
-  const [resumeLoading, setResumeLoading] = useState(false);
-  const [alertsTriggered, setAlertsTriggered] = useState(false);
-  
-  const { addUrgentCourseAlert, clearAlerts } = useAlert();
+  const [metrics, setMetrics] = useState<CourseMetrics | null>(null);
 
-  // Determine next module based on real data
+  // Calculate course metrics from real data
   useEffect(() => {
-    if (modules && modules.length > 0) {
-      // Find the next module to work on
-      const nextModuleCandidate = modules.find(m => 
-        m.status === 'in-progress' || (m.status === 'urgent' && m.progress < 90)
-      );
+    if (course && modules) {
+      const totalFiles = modules.reduce((sum, m) => sum + (m.materials_list?.length || 0), 0);
+      const completedModules = modules.filter(m => m.progress >= 100).length;
       
-      if (nextModuleCandidate) {
-        setNextModule(nextModuleCandidate);
-      } else {
-        // Fallback: first incomplete module or first module
-        const firstIncomplete = modules.find(m => m.progress < 90);
-        setNextModule(firstIncomplete || modules[0]);
+      // Calculate total duration (assuming each file takes ~30 minutes average)
+      const totalDuration = totalFiles * 30;
+      
+      // Calculate overall progress
+      let overallProgress = 0;
+      if (courseProgress?.completion_percentage) {
+        overallProgress = courseProgress.completion_percentage;
+      } else if (modules.length > 0) {
+        const totalProgress = modules.reduce((sum, m) => sum + (m.progress || 0), 0);
+        overallProgress = Math.round(totalProgress / modules.length);
       }
-    }
-  }, [modules]);
 
-  // Toggle module expansion
+      // Calculate days remaining if deadline exists
+      let daysRemaining = undefined;
+      if (course.deadline) {
+        const deadline = new Date(course.deadline);
+        const now = new Date();
+        daysRemaining = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      }
+
+      setMetrics({
+        totalModules: modules.length,
+        completedModules,
+        totalFiles,
+        totalDuration,
+        overallProgress,
+        deadline: course.deadline ? new Date(course.deadline) : undefined,
+        daysRemaining
+      });
+    }
+  }, [course, modules, courseProgress]);
+
   const toggleModuleExpansion = (moduleId: string) => {
     setExpandedModules(prev => {
       const newSet = new Set(prev);
@@ -71,547 +98,507 @@ export default function CoursePage() {
     });
   };
 
-  // Toggle upload mode for a module
-  const toggleUploadMode = (moduleId: string) => {
-    setUploadingModules(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(moduleId)) {
-        newSet.delete(moduleId);
-      } else {
-        newSet.add(moduleId);
-      }
-      return newSet;
-    });
-  };
+  const isOwner = currentUser && course && (
+    course.creator_id === currentUser.id || 
+    course.instructor_id === currentUser.id ||
+    currentUser.role === 'admin'
+  );
 
-  // Handle upload completion - refresh modules data
-  const handleUploadComplete = () => {
-    // Trigger modules refetch to show new files
-    if (modules) {
-      // Use the refetch function from useCourseModules if available
-      window.location.reload(); // Simple refresh for now
-    }
-  };
-
-  // Fetch resume target when course loads
-  useEffect(() => {
-    if (courseId) {
-      setResumeLoading(true);
-      courseAPI.getResumeTarget(courseId)
-        .then(target => {
-          setResumeTarget(target);
-        })
-        .catch(error => {
-          console.error('Failed to fetch resume target:', error);
-        })
-        .finally(() => {
-          setResumeLoading(false);
-        });
-    }
-  }, [courseId]);
-
-  // Check for urgent conditions and trigger global alerts (only once per course)
-  useEffect(() => {
-    if (!course || !modules || modules.length === 0 || alertsTriggered) {
-      return;
-    }
-
-    let shouldTriggerAlert = false;
-    
-    const hasUrgentDeadline = modules.some(m => m.status === 'urgent') || 
-                             (course.deadline && new Date(course.deadline).getTime() - Date.now() < 72 * 60 * 60 * 1000);
-    
-    if (hasUrgentDeadline) {
-      const hoursUntilDeadline = course.deadline 
-        ? Math.round((new Date(course.deadline).getTime() - Date.now()) / (1000 * 60 * 60))
-        : 24; // Default for urgent modules
-      
-      addUrgentCourseAlert(
-        courseId,
-        `Urgent: ${course.title} Deadline Approaching`,
-        `You have ${hoursUntilDeadline} hours remaining. ${resumeTarget ? 'Continue where you left off' : 'Start studying now'} to stay on track.`,
-        resumeTarget?.type === 'file' && resumeTarget.file_id 
-          ? `/courses/${courseId}/modules/${resumeTarget.module_id}/files/${resumeTarget.file_id}`
-          : `/courses/${courseId}/modules/${resumeTarget?.module_id || modules[0]?.id}`
-      );
-      shouldTriggerAlert = true;
-    }
-    
-    if (shouldTriggerAlert) {
-      setAlertsTriggered(true);
-    }
-  }, [course, modules, resumeTarget, courseId, addUrgentCourseAlert, alertsTriggered]);
-
-  // Reset alerts when courseId changes
-  useEffect(() => {
-    setAlertsTriggered(false);
-  }, [courseId]);
-
-  const getModuleCardStyles = (status: Module['status']) => {
-    switch (status) {
-      case 'completed': 
-        return {
-          container: 'bg-white border border-[#E5E9F2] rounded-lg',
-          icon: '✔',
-          iconColor: 'text-green-600',
-          title: 'text-gray-900',
-          progress: 'bg-green-500',
-          badge: 'bg-green-100 text-green-800'
-        };
-      case 'active': 
-        return {
-          container: 'bg-white border border-[#E5E9F2] rounded-lg',
-          icon: '▶',
-          iconColor: 'text-[#3B5BFF]',
-          title: 'text-gray-900',
-          progress: 'bg-[#3B5BFF]',
-          badge: 'bg-blue-100 text-blue-800'
-        };
-      case 'urgent': 
-        return {
-          container: 'bg-white border-2 border-[#FF6363] rounded-lg',
-          icon: '!',
-          iconColor: 'text-[#FF6363]',
-          title: 'text-gray-900',
-          progress: 'bg-[#FF6363]',
-          badge: 'bg-red-100 text-red-800'
-        };
-      case 'locked': 
-        return {
-          container: 'bg-[#F4F6FA] border border-[#E5E9F2] rounded-lg opacity-75',
-          icon: '🔒',
-          iconColor: 'text-gray-400',
-          title: 'text-gray-600',
-          progress: 'bg-gray-300',
-          badge: 'bg-gray-100 text-gray-600'
-        };
-      default: 
-        return {
-          container: 'bg-white border border-[#E5E9F2] rounded-lg',
-          icon: '○',
-          iconColor: 'text-gray-400',
-          title: 'text-gray-900',
-          progress: 'bg-gray-300',
-          badge: 'bg-gray-100 text-gray-600'
-        };
-    }
-  };
-
-
-  const hasUrgentDeadline = modules?.some(m => m.status === 'urgent') || 
-                           (course?.deadline && new Date(course.deadline).getTime() - Date.now() < 72 * 60 * 60 * 1000);
-
-  const loading = courseLoading || modulesLoading;
+  const loading = courseLoading || modulesLoading || progressLoading;
   const error = courseError || modulesError;
 
+  // Loading state
   if (loading) {
     return (
-      <SharedDashboardLayout pageTitle="Loading..." currentUser={null}>
-        <div className="flex justify-center items-center min-h-screen">
-          <div className="text-center">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <div className="text-gray-600">Loading course...</div>
-          </div>
+      <SharedDashboardLayout pageTitle="Loading..." currentUser={currentUser}>
+        <div className="max-w-7xl mx-auto p-6 space-y-6">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-96 w-full" />
         </div>
       </SharedDashboardLayout>
     );
   }
 
+  // Error state
   if (error || !course) {
     return (
       <SharedDashboardLayout pageTitle="Error" currentUser={currentUser}>
-        <div className="text-center py-12">
-          <div className="text-red-600 mb-4">Failed to load course</div>
-          <Button onClick={() => router.back()} variant="outline">Go Back</Button>
+        <div className="max-w-4xl mx-auto p-6">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to load course. Please try again or contact support.
+            </AlertDescription>
+          </Alert>
+          <Button 
+            onClick={() => router.back()} 
+            variant="outline" 
+            className="mt-4"
+          >
+            Go Back
+          </Button>
         </div>
       </SharedDashboardLayout>
     );
   }
 
-  // Calculate real overall progress
-  const overallProgress = (() => {
-    // Use backend progress if available, otherwise calculate from modules
-    if (courseProgress) {
-      return courseProgress.completion_percentage;
+  // Empty course state (no modules)
+  const isEmptyCourse = !modules || modules.length === 0;
+
+  // Get next action based on progress
+  const getNextAction = () => {
+    if (isEmptyCourse) return null;
+    
+    // Find first incomplete module
+    const incompleteModule = modules.find(m => m.progress < 100);
+    if (incompleteModule) {
+      const incompleteFile = incompleteModule.materials_list.find(f => !f.completed);
+      return {
+        type: 'continue',
+        module: incompleteModule,
+        file: incompleteFile,
+        message: incompleteFile 
+          ? `Continue: ${incompleteFile.title}`
+          : `Complete Module: ${incompleteModule.title}`
+      };
     }
     
-    if (!modules || modules.length === 0) return 0;
-    
-    const totalProgress = modules.reduce((sum, module) => sum + module.progress, 0);
-    return Math.round(totalProgress / modules.length);
-  })();
+    return {
+      type: 'completed',
+      message: 'Course completed! Review materials or take the final assessment.'
+    };
+  };
+
+  const nextAction = getNextAction();
 
   return (
     <SharedDashboardLayout 
-      pageTitle={course.title || 'CS229: Machine Learning'} 
+      pageTitle={course.title || 'Course'} 
       currentUser={currentUser}
     >
-      <div className="flex min-h-screen">
-        {/* Center Content */}
-        <div className="flex-1 p-6 max-w-4xl mx-auto pr-8">
-          {/* Course Header - Clean design system */}
-          <div className="mb-8">
-            {/* Title Row */}
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-[20px] font-semibold text-gray-900 mb-1">
-                  {course.title || 'CS229: Machine Learning'}
-                </h1>
-                <div className="text-[14px] text-gray-600">
-                  {course.instructor?.name || 'Dr. Andrew Ng'} • 45.2h total
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
+        {/* Course Header */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                {course.title}
+              </h1>
+              {course.code && (
+                <p className="text-sm text-gray-600 mb-1">
+                  Course Code: {course.code}
+                </p>
+              )}
+              <div className="flex items-center gap-4 text-sm text-gray-600">
+                <div className="flex items-center gap-1">
+                  <User className="w-4 h-4" />
+                  <span>{course.instructor?.name || 'Unknown Instructor'}</span>
                 </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[14px] font-medium">
-                  A- • 4-day streak
-                </div>
-                <Button size="sm" variant="outline" className="text-[14px]">
-                  ⋯ Actions
-                </Button>
+                {metrics && metrics.totalDuration > 0 && (
+                  <div className="flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
+                    <span>{Math.round(metrics.totalDuration / 60)}h total</span>
+                  </div>
+                )}
+                {metrics?.deadline && (
+                  <div className="flex items-center gap-1">
+                    <Calendar className="w-4 h-4" />
+                    <span className={cn(
+                      metrics.daysRemaining && metrics.daysRemaining < 7 ? "text-red-600 font-medium" : ""
+                    )}>
+                      Due {formatDistanceToNow(metrics.deadline, { addSuffix: true })}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
+            
+            {/* Owner Actions */}
+            {isOwner && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toast.info('Edit course feature coming soon!')}
+                >
+                  Edit Course
+                </Button>
+                {isEmptyCourse && (
+                  <Button
+                    size="sm"
+                    onClick={() => toast.info('Module creation coming soon!')}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Module
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
 
-            {/* Glance Metrics - Three key indicators */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+          {/* Course Description */}
+          {course.description && (
+            <p className="mt-4 text-gray-700">{course.description}</p>
+          )}
+        </div>
+
+        {/* Progress Overview - Only show if there's content */}
+        {!isEmptyCourse && metrics && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[14px] font-medium text-gray-700">Progress</span>
-                  <span className="text-[16px] font-semibold text-gray-900">{overallProgress}%</span>
+                  <span className="text-sm font-medium text-gray-700">Overall Progress</span>
+                  <span className="text-xl font-bold text-gray-900">{metrics.overallProgress}%</span>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-2">
-                  <div 
-                    className="bg-indigo-500 h-2 rounded-full transition-all duration-300" 
-                    style={{ width: `${overallProgress}%` }}
+                <Progress value={metrics.overallProgress} className="h-2" />
+                {metrics.overallProgress === 100 && (
+                  <p className="text-xs text-green-600 mt-2 font-medium">Completed!</p>
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">Modules Completed</span>
+                  <span className="text-xl font-bold text-gray-900">
+                    {metrics.completedModules}/{metrics.totalModules}
+                  </span>
+                </div>
+                <Progress 
+                  value={metrics.totalModules > 0 ? (metrics.completedModules / metrics.totalModules) * 100 : 0} 
+                  className="h-2" 
+                />
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">Time Status</span>
+                  <span className={cn(
+                    "text-xl font-bold",
+                    metrics.daysRemaining !== undefined && metrics.daysRemaining < 7 
+                      ? "text-red-600" 
+                      : "text-gray-900"
+                  )}>
+                    {metrics.daysRemaining !== undefined 
+                      ? `${metrics.daysRemaining}d left` 
+                      : 'Self-paced'}
+                  </span>
+                </div>
+                {metrics.daysRemaining !== undefined && (
+                  <Progress 
+                    value={Math.max(0, Math.min(100, (metrics.daysRemaining / 30) * 100))} 
+                    className="h-2" 
                   />
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[14px] font-medium text-gray-700">Time Left</span>
-                  <span className="text-[16px] font-semibold text-gray-900">3d</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2">
-                  <div className="bg-amber-500 h-2 rounded-full w-[25%]" />
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[14px] font-medium text-gray-700">Confidence</span>
-                  <span className="text-[16px] font-semibold text-gray-900">73%</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2">
-                  <div className="bg-orange-500 h-2 rounded-full w-[73%]" />
-                </div>
-                <Button size="sm" variant="outline" className="mt-2 text-[12px] w-full">
-                  Fix
-                </Button>
-              </div>
-            </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
+        )}
 
-          {/* Action Block - Primary/Secondary structure */}
-          <div className="space-y-6 mb-8">
-            {/* Primary Action */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <span className="text-[14px] font-medium text-gray-700">Primary</span>
-                    <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-[12px] font-medium">Due in 3d</span>
-                  </div>
-                  <h3 className="text-[16px] font-semibold text-gray-900 mb-1">Complete Assignment: Support Vector Machines</h3>
-                  <p className="text-[14px] text-gray-600">High priority assignment approaching deadline</p>
-                </div>
-                <Button className="bg-indigo-600 hover:bg-indigo-700 text-white ml-6">
-                  Start Now
+        {/* Empty State */}
+        {isEmptyCourse ? (
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+              <BookOpen className="w-12 h-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {isOwner ? 'Start Building Your Course' : 'No Content Available Yet'}
+              </h3>
+              <p className="text-gray-600 mb-6 max-w-md">
+                {isOwner 
+                  ? 'Add modules to organize your course content and help students learn effectively.'
+                  : 'This course doesn\'t have any content yet. Check back later or contact your instructor.'}
+              </p>
+              {isOwner && (
+                <Button onClick={() => toast.info('Module creation coming soon!')}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create First Module
                 </Button>
-              </div>
-            </div>
-
-            {/* Secondary Actions */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <h4 className="text-[14px] font-medium text-gray-700 mb-4">Secondary</h4>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <h5 className="text-[16px] font-medium text-gray-900">Continue Linear Regression Lab</h5>
-                      <div className="w-20 bg-gray-100 rounded-full h-1.5">
-                        <div className="bg-indigo-500 h-1.5 rounded-full w-[85%]" />
+              )}
+              {!isOwner && (
+                <Alert className="mt-6 max-w-md">
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    Your instructor will add course materials soon. You'll be notified when new content is available.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {/* Quick Actions - Dynamic based on progress */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Primary Action - Smart suggestion based on progress */}
+              {nextAction && (
+                <Card className={cn(
+                  "border-2",
+                  nextAction.type === 'completed' ? "border-green-200 bg-green-50" : "border-blue-200 bg-blue-50"
+                )}>
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 mb-1">
+                          {nextAction.type === 'completed' ? 'Course Complete!' : 'Continue Learning'}
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                          {nextAction.message}
+                        </p>
                       </div>
-                      <span className="text-[14px] text-gray-600">85%</span>
-                    </div>
-                  </div>
-                  <Button size="sm" variant="outline" className="text-[14px] ml-4">
-                    Continue
-                  </Button>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-1">
-                      <h5 className="text-[16px] font-medium text-gray-900">Review clustering concepts (3 topics)</h5>
-                      <div className="w-20 bg-gray-100 rounded-full h-1.5">
-                        <div className="bg-orange-500 h-1.5 rounded-full w-[45%]" />
-                      </div>
-                      <span className="text-[14px] text-gray-600">45%</span>
-                    </div>
-                  </div>
-                  <Button size="sm" variant="outline" className="text-[14px] ml-4">
-                    Review with Tutor
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Learning Path - Accordion format */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[20px] font-semibold text-gray-900">Learning Path</h2>
-            </div>
-
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              {modules?.map((module, index) => {
-                const styles = getModuleCardStyles(module.status);
-                const isExpanded = expandedModules.has(module.id);
-                return (
-                  <div key={module.id} className="border-b border-gray-100 last:border-b-0">
-                    <div 
-                      className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                      onClick={() => toggleModuleExpansion(module.id)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          {/* Expand/Collapse Icon */}
-                          {isExpanded ? (
-                            <ChevronDown className="w-4 h-4 text-gray-600" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4 text-gray-600" />
-                          )}
-                          <div className="text-[14px] text-gray-600">Module {index + 1}</div>
-                          {module.status === 'completed' && <span className="text-green-600">✓</span>}
-                          {module.status === 'urgent' && (
-                            <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-[12px] font-medium">urgent</span>
-                          )}
-                          <h3 className="text-[16px] font-medium text-gray-900">{module.title}</h3>
-                        </div>
-                        <div className="flex items-center space-x-4 text-right">
-                          <div className="text-[14px] text-gray-900 font-medium">
-                            {Math.round(module.progress)}%
-                          </div>
-                          <div className="text-[14px] text-gray-600">
-                            {module.confidenceLevel}% confidence
-                          </div>
-                          <div className="text-[12px] text-gray-500">
-                            {module.materials} files
-                          </div>
-                          {/* Module Personalize Button */}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Navigate to personalize page for the first file in the module
-                              const firstFile = module.materials_list[0];
-                              if (firstFile) {
-                                router.push(`/personalize/${firstFile.id}?courseId=${courseId}&moduleId=${module.id}&fileName=${encodeURIComponent(firstFile.title)}`);
-                              }
-                            }}
-                            disabled={module.materials_list.length === 0}
-                            title="Personalize learning for this module"
-                          >
-                            <Sparkles className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      {/* Module Description */}
-                      {module.description && (
-                        <div className="mt-2 text-[14px] text-gray-600 pl-7">
-                          {module.description}
-                        </div>
+                      {nextAction.type === 'completed' ? (
+                        <CheckCircle className="w-8 h-8 text-green-600" />
+                      ) : (
+                        <PlayCircle className="w-8 h-8 text-blue-600" />
                       )}
                     </div>
+                    <Button 
+                      className="w-full"
+                      variant={nextAction.type === 'completed' ? 'outline' : 'default'}
+                      onClick={() => {
+                        if (nextAction.type === 'continue' && nextAction.module) {
+                          if (nextAction.file) {
+                            router.push(`/courses/${courseId}/modules/${nextAction.module.id}/files/${nextAction.file.id}`);
+                          } else {
+                            router.push(`/courses/${courseId}/modules/${nextAction.module.id}`);
+                          }
+                        } else {
+                          toast.info('Final assessment coming soon!');
+                        }
+                      }}
+                    >
+                      {nextAction.type === 'completed' ? 'Review Course' : 'Continue'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
 
-                    {/* Expanded Files Section */}
-                    {isExpanded && (
-                      <div className="border-t border-gray-100 bg-gray-50">
-                        <div className="p-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-[14px] font-medium text-gray-700">
-                              Files ({module.materials_list.length})
-                            </h4>
-                            <Button 
-                              size="sm" 
-                              variant={uploadingModules.has(module.id) ? "default" : "outline"}
-                              className="text-[12px] h-7"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleUploadMode(module.id);
-                              }}
-                            >
-                              {uploadingModules.has(module.id) ? 'Cancel' : '+ Upload'}
-                            </Button>
-                          </div>
-                          
-                          {/* File Upload Section */}
-                          {uploadingModules.has(module.id) && (
-                            <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                              <div className="text-center py-8">
-                                <div className="border-2 border-dashed border-blue-300 rounded-lg p-6">
-                                  <FileText className="w-8 h-8 mx-auto mb-2 text-blue-500" />
-                                  <p className="text-[14px] font-medium text-gray-700 mb-1">Drop files here or click to upload</p>
-                                  <p className="text-[12px] text-gray-500">PDF, DOC, TXT files up to 10MB</p>
-                                  <input
-                                    type="file"
-                                    multiple
-                                    accept=".pdf,.doc,.docx,.txt"
-                                    className="hidden"
-                                    onChange={(e) => {
-                                      const files = e.target.files;
-                                      if (files) {
-                                        // Simple file upload logic will be implemented here
-                                        sonnerToast.success(`Selected ${files.length} file(s) for upload`);
-                                      }
-                                    }}
-                                    id={`file-upload-${module.id}`}
-                                  />
-                                  <label
-                                    htmlFor={`file-upload-${module.id}`}
-                                    className="inline-block mt-2 px-4 py-2 bg-blue-600 text-white text-[14px] rounded-lg cursor-pointer hover:bg-blue-700 transition-colors"
-                                  >
-                                    Choose Files
-                                  </label>
-                                </div>
+              {/* AI Assistant Card */}
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-gray-900 mb-1">
+                        AI Study Assistant
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Get personalized help with course material
+                      </p>
+                    </div>
+                    <Sparkles className="w-8 h-8 text-purple-600" />
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => {
+                      if (modules && modules.length > 0 && modules[0].materials_list.length > 0) {
+                        const firstFile = modules[0].materials_list[0];
+                        router.push(`/personalize/${firstFile.id}?courseId=${courseId}&moduleId=${modules[0].id}`);
+                      } else {
+                        toast.info('Add course materials first to use AI assistance');
+                      }
+                    }}
+                  >
+                    Ask AI
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Modules Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Course Modules</span>
+                  {isOwner && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => toast.info('Module creation coming soon!')}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add Module
+                    </Button>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="divide-y divide-gray-200">
+                  {modules.map((module, index) => {
+                    const isExpanded = expandedModules.has(module.id);
+                    const isLocked = index > 0 && modules[index - 1].progress < 80;
+                    const hasFiles = module.materials_list && module.materials_list.length > 0;
+                    
+                    return (
+                      <div key={module.id} className="group">
+                        <div
+                          className={cn(
+                            "px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors",
+                            isLocked && "opacity-60"
+                          )}
+                          onClick={() => !isLocked && toggleModuleExpansion(module.id)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 flex-1">
+                              {!isLocked && (
+                                isExpanded ? (
+                                  <ChevronDown className="w-5 h-5 text-gray-500" />
+                                ) : (
+                                  <ChevronRight className="w-5 h-5 text-gray-500" />
+                                )
+                              )}
+                              
+                              {/* Module Status Icon */}
+                              {isLocked ? (
+                                <Lock className="w-5 h-5 text-gray-400" />
+                              ) : module.progress >= 100 ? (
+                                <CheckCircle className="w-5 h-5 text-green-600" />
+                              ) : module.progress > 0 ? (
+                                <PlayCircle className="w-5 h-5 text-blue-600" />
+                              ) : (
+                                <BookOpen className="w-5 h-5 text-gray-400" />
+                              )}
+                              
+                              <div className="flex-1">
+                                <h3 className="font-medium text-gray-900">
+                                  Module {index + 1}: {module.title}
+                                </h3>
+                                {module.description && (
+                                  <p className="text-sm text-gray-600 mt-1">
+                                    {module.description}
+                                  </p>
+                                )}
+                                {isLocked && (
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Complete previous module to unlock
+                                  </p>
+                                )}
                               </div>
                             </div>
-                          )}
-                          
-                          {module.materials_list.length > 0 ? (
-                            <div className="space-y-1">
-                              {module.materials_list.map((material, materialIndex) => (
-                                <FileCard
-                                  key={material.id}
-                                  file={{
-                                    id: material.id,
-                                    name: material.title,
-                                    type: material.file_type || material.type,
-                                    size: material.file_size,
-                                    processed: material.completed,
-                                    uploadedAt: undefined // TODO: Add upload date to Material interface
-                                  }}
-                                  onPreview={(fileId) => {
-                                    router.push(`/courses/${courseId}/modules/${module.id}/files/${fileId}`);
-                                  }}
-                                  onDownload={(fileId) => {
-                                    // TODO: Add download functionality
-                                    console.log('Download file:', fileId);
-                                  }}
-                                  onPersonalize={(fileId) => {
-                                    router.push(`/personalize/${fileId}?courseId=${courseId}&moduleId=${module.id}&fileName=${encodeURIComponent(material.title)}`);
-                                  }}
-                                  isEven={materialIndex % 2 === 0}
-                                  className="rounded-lg"
+                            
+                            <div className="flex items-center gap-4">
+                              <span className="text-sm text-gray-600">
+                                {hasFiles ? `${module.materials_list.length} files` : 'No files'}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <Progress 
+                                  value={module.progress || 0} 
+                                  className="w-20 h-2" 
                                 />
-                              ))}
+                                <span className="text-sm font-medium text-gray-700 w-10 text-right">
+                                  {Math.round(module.progress || 0)}%
+                                </span>
+                              </div>
+                              {hasFiles && module.materials_list.length > 0 && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const firstFile = module.materials_list[0];
+                                    router.push(`/personalize/${firstFile.id}?courseId=${courseId}&moduleId=${module.id}`);
+                                  }}
+                                  title="Personalize learning"
+                                >
+                                  <Sparkles className="h-4 w-4 text-purple-600" />
+                                </Button>
+                              )}
                             </div>
-                          ) : (
-                            <div className="text-center py-6 text-gray-500">
-                              <FileText className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                              <p className="text-[14px]">No files uploaded yet</p>
-                              <p className="text-[12px] text-gray-400">Upload course materials to get started</p>
-                            </div>
-                          )}
+                          </div>
                         </div>
+                        
+                        {/* Expanded Content */}
+                        {isExpanded && !isLocked && (
+                          <div className="px-6 pb-4 bg-gray-50 border-t border-gray-200">
+                            {hasFiles ? (
+                              <div className="space-y-2 mt-4">
+                                {module.materials_list.map((material) => (
+                                  <FileCard
+                                    key={material.id}
+                                    file={{
+                                      id: material.id,
+                                      name: material.title,
+                                      type: material.file_type || material.type,
+                                      size: material.file_size,
+                                      processed: material.completed,
+                                      uploadedAt: undefined
+                                    }}
+                                    onPreview={(fileId) => {
+                                      router.push(`/courses/${courseId}/modules/${module.id}/files/${fileId}`);
+                                    }}
+                                    onDownload={(fileId) => {
+                                      toast.info('Download feature coming soon!');
+                                    }}
+                                    onPersonalize={(fileId) => {
+                                      router.push(`/personalize/${fileId}?courseId=${courseId}&moduleId=${module.id}`);
+                                    }}
+                                    isEven={false}
+                                    className="bg-white"
+                                  />
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center py-8">
+                                <FileText className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                                <p className="text-sm text-gray-600 mb-4">
+                                  No files in this module yet
+                                </p>
+                                {isOwner && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toast.info('File upload feature coming soon!');
+                                    }}
+                                  >
+                                    <Upload className="w-4 h-4 mr-1" />
+                                    Upload Files
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
+
+        {/* Course Stats - Only show if there's content and progress */}
+        {!isEmptyCourse && metrics && metrics.overallProgress > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-gray-700">Study Stats</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Time Spent</span>
+                    <span className="font-medium">{courseProgress?.time_spent || 0}h</span>
                   </div>
-                );
-              })}
-            </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Last Activity</span>
+                    <span className="font-medium">
+                      {courseProgress?.last_accessed 
+                        ? formatDistanceToNow(new Date(courseProgress.last_accessed), { addSuffix: true })
+                        : 'Never'}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </div>
-
-        {/* Insights Side-rail - Cleaner design */}
-        <div className="w-72 p-6 bg-gray-50 flex-shrink-0">
-          <div className="space-y-6">
-            {/* Performance Metrics */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-              <h3 className="text-[14px] font-medium text-gray-700 mb-3">Performance</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[14px] text-gray-600">Quiz Average</span>
-                  <span className="text-[16px] font-semibold text-gray-900">82%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[14px] text-gray-600">Efficiency</span>
-                  <span className="text-[16px] font-semibold text-gray-900">73%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[14px] text-gray-600">Class Rank</span>
-                  <span className="text-[16px] font-semibold text-indigo-600">#3/156</span>
-                </div>
-              </div>
-            </div>
-
-            {/* This Week */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-              <h3 className="text-[14px] font-medium text-gray-700 mb-3">This Week</h3>
-              <div className="space-y-3">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[14px] text-gray-600">Study Time</span>
-                    <span className="text-[14px] font-medium text-gray-900">8.5h / 12h</span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-1.5">
-                    <div className="bg-indigo-500 h-1.5 rounded-full w-[70%]" />
-                  </div>
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[14px] text-gray-600">Assignments</span>
-                    <span className="text-[14px] font-medium text-gray-900">3 / 4</span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-1.5">
-                    <div className="bg-indigo-500 h-1.5 rounded-full w-[75%]" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Achievements */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-              <h3 className="text-[14px] font-medium text-gray-700 mb-3">Achievements</h3>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <span className="text-blue-500">🎯</span>
-                  <div>
-                    <div className="text-[14px] font-medium text-gray-900">Top 10%</div>
-                    <div className="text-[12px] text-gray-600">Class performance</div>
-                  </div>
-                </div>
-                <span className="text-[12px] bg-blue-100 text-blue-700 px-2 py-1 rounded-full">Earned</span>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="space-y-2">
-              <Button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[14px] justify-start">
-                Start Urgent Task
-              </Button>
-              <Button variant="outline" className="w-full text-[14px] justify-start">
-                AI Tutor Help
-              </Button>
-              <Button variant="outline" className="w-full text-[14px] justify-start">
-                Smart Schedule
-              </Button>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </SharedDashboardLayout>
   );
