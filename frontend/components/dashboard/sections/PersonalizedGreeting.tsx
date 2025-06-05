@@ -36,8 +36,8 @@ export function PersonalizedGreeting({ userName = 'there', onActionClick }: Pers
     switch (stage) {
       case UserJourneyStage.FIRST_VISIT:
         return {
-          title: `Welcome to LEARN-X, ${userName}! 🎉`,
-          subtitle: "Let's get you set up for success",
+          title: `Welcome, ${userName}! 🎉`,
+          subtitle: "Let's get you started with your first course",
           icon: <Sparkles className="h-6 w-6 text-purple-600" />,
           color: 'purple'
         };

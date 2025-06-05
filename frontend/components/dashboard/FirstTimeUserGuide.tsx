@@ -133,7 +133,7 @@ export function FirstTimeUserGuide({ onGuideComplete }: FirstTimeUserGuideProps)
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Sparkles className="h-5 w-5 text-purple-600" />
-              <span>Welcome to LEARN-X! 🎉</span>
+              <span>Welcome to Your Learning Dashboard! 🎉</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
