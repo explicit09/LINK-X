@@ -48,12 +48,16 @@ class OptimizedQueries:
         stmt = (
             select(Course)
             .options(
-                # Eager load instructor with their profile
-                joinedload(Course.instructor).joinedload(User.instructor_profile),
+                # Eager load instructor with their profile (if exists)
+                joinedload(Course.instructor_profile, innerjoin=False),
+                # Eager load creator
+                joinedload(Course.creator, innerjoin=False),
                 # Eager load modules with their files
                 selectinload(Course.modules).selectinload(Module.files),
                 # Eager load enrollments count
-                selectinload(Course.enrollments)
+                selectinload(Course.enrollments),
+                # Eager load access code
+                joinedload(Course.access_code, innerjoin=False)
             )
             .filter(Course.id == course_id)
         )
