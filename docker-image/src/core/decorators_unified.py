@@ -70,7 +70,6 @@ def auth_required(roles: Optional[List[str]] = None,
             try:
                 logger.info(f"Auth check for {request.path}, version: {version}")
                 logger.info(f"Headers: {dict(request.headers)}")
-                logger.info(f"Cookies: {dict(request.cookies)}")
                 
                 # Try authentication methods in order
                 authenticated = False
@@ -106,24 +105,8 @@ def auth_required(roles: Optional[List[str]] = None,
                     except Exception as e:
                         logger.error(f"JWT auth failed: {e}", exc_info=True)
                         
-                # Method 2: Firebase Session Cookie (v1 compatibility)
-                if not authenticated and version == 'v1':
-                    session_cookie = request.cookies.get('session')
-                    if session_cookie:
-                        try:
-                            # Verify Firebase session cookie
-                            decoded_claims = firebase_auth.verify_session_cookie(
-                                session_cookie, check_revoked=True
-                            )
-                            firebase_uid = decoded_claims.get('uid')
-                            if firebase_uid:
-                                user = _get_user_by_firebase_uid(firebase_uid)
-                                if user:
-                                    g.current_user = user
-                                    authenticated = True
-                                    logger.info(f"Session cookie auth successful for user: {user.email}")
-                        except Exception as e:
-                            logger.info(f"Session cookie auth failed: {e}")
+                # Method 2: Firebase Session Cookie - DISABLED (no cookie support)
+                # Cookie authentication has been removed for security
                             
                 # Method 3: Firebase Token (both versions)
                 if not authenticated:

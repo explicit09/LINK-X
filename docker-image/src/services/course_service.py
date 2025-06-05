@@ -86,7 +86,7 @@ class CourseService:
         )
     
     def create_course(self, instructor_id: str, title: str, description: str, 
-                     category: str = None, tags: List[str] = None) -> Dict:
+                     code: str = None, term: str = None, published: bool = False) -> Dict:
         """Create a new course"""
         # Validate user exists
         user = self.user_repo.get_by_id(instructor_id)
@@ -101,15 +101,24 @@ class CourseService:
         if not description or len(description) < 10:
             raise ValidationError("Description must be at least 10 characters")
         
+        # Determine if user has instructor profile
+        is_instructor = user.role and user.role.role_type == 'instructor'
+        
         # Create course
-        course = self.course_repo.create(
-            title=title,
-            description=description,
-            instructor_id=instructor_id,
-            category=category,
-            tags=tags or [],
-            published=False
-        )
+        course_data = {
+            'title': title,
+            'description': description,
+            'creator_id': instructor_id,  # Always set creator_id to the current user
+            'code': code,
+            'term': term,
+            'published': published
+        }
+        
+        # Only set instructor_id if user is actually an instructor
+        if is_instructor:
+            course_data['instructor_id'] = instructor_id
+            
+        course = self.course_repo.create(**course_data)
         
         # Generate access code
         access_code = self._generate_access_code(course.id)

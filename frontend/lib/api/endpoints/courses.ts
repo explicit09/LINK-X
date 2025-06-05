@@ -53,8 +53,15 @@ export const courseAPI = {
     }
   },
 
-  createCourse: (data: CreateCourseRequest): Promise<Course> =>
-    apiClient.post('/api/v2/courses', data),
+  createCourse: async (data: CreateCourseRequest): Promise<Course> => {
+    console.log('📤 courseAPI.createCourse: Creating course with data:', data);
+    const response = await apiClient.post<Course>('/api/v2/courses', data);
+    console.log('📥 courseAPI.createCourse: Response:', response);
+    console.log('🔍 courseAPI.createCourse: Response type:', typeof response);
+    console.log('🔍 courseAPI.createCourse: Response ID:', response?.id);
+    console.log('🔍 courseAPI.createCourse: Response accessCode:', response?.accessCode);
+    return response;
+  },
 
   getCourse: (courseId: string): Promise<Course> =>
     apiClient.get(`/api/v2/courses/${courseId}`),

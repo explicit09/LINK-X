@@ -41,23 +41,31 @@ export class CourseAPIClient extends AuthAPIClient {
   
   // Course management
   async getCourses(): Promise<Course[]> {
-    const response = await this.authenticatedGet<any>('/api/v2/courses');
-    return response.data || response; // Handle wrapped responses
+    // Base client already unwraps v2 responses
+    return await this.authenticatedGet<Course[]>('/api/v2/courses');
   }
 
   async getCourse(courseId: string): Promise<Course> {
-    const response = await this.authenticatedGet<any>(`/api/v2/courses/${courseId}`);
-    return response.data || response;
+    // Base client already unwraps v2 responses
+    return await this.authenticatedGet<Course>(`/api/v2/courses/${courseId}`);
   }
 
   async createCourse(courseData: Partial<Course>): Promise<Course> {
+    console.log('📤 CourseClient: Creating course with data:', courseData);
     const response = await this.authenticatedPost<any>('/api/v2/courses', courseData);
-    return response.data || response;
+    console.log('📥 CourseClient: Raw create course response:', response);
+    console.log('🔍 CourseClient: Response type:', typeof response);
+    console.log('🔍 CourseClient: Response has .data?', response && 'data' in response);
+    console.log('🔍 CourseClient: Response.id:', response?.id);
+    console.log('🔍 CourseClient: Response.data?.id:', response?.data?.id);
+    
+    // Don't double-unwrap - base client already unwraps v2 responses
+    return response;
   }
 
   async updateCourse(courseId: string, updates: Partial<Course>): Promise<Course> {
-    const response = await this.authenticatedPatch<any>(`/api/v2/courses/${courseId}`, updates);
-    return response.data || response;
+    // Base client already unwraps v2 responses
+    return await this.authenticatedPatch<Course>(`/api/v2/courses/${courseId}`, updates);
   }
 
   async deleteCourse(courseId: string): Promise<void> {
@@ -65,10 +73,10 @@ export class CourseAPIClient extends AuthAPIClient {
   }
 
   async joinCourse(accessCode: string): Promise<Course> {
-    const response = await this.authenticatedPost<any>('/api/v2/courses/join', { 
+    // Base client already unwraps v2 responses
+    return await this.authenticatedPost<Course>('/api/v2/courses/join', { 
       access_code: accessCode 
     });
-    return response.data || response;
   }
 
   async leaveCourse(courseId: string): Promise<void> {
@@ -77,21 +85,21 @@ export class CourseAPIClient extends AuthAPIClient {
 
   // Module management
   async getModules(courseId: string): Promise<Module[]> {
-    const response = await this.authenticatedGet<any>(`/api/v2/courses/${courseId}/modules`);
-    return response.data || response;
+    // Base client already unwraps v2 responses
+    return await this.authenticatedGet<Module[]>(`/api/v2/courses/${courseId}/modules`);
   }
 
   async createModule(courseId: string, moduleData: Partial<Module>): Promise<Module> {
-    const response = await this.authenticatedPost<any>(
+    // Base client already unwraps v2 responses
+    return await this.authenticatedPost<Module>(
       `/api/v2/courses/${courseId}/modules`, 
       moduleData
     );
-    return response.data || response;
   }
 
   async updateModule(moduleId: string, updates: Partial<Module>): Promise<Module> {
-    const response = await this.authenticatedPatch<any>(`/api/v2/modules/${moduleId}`, updates);
-    return response.data || response;
+    // Base client already unwraps v2 responses
+    return await this.authenticatedPatch<Module>(`/api/v2/modules/${moduleId}`, updates);
   }
 
   async deleteModule(moduleId: string): Promise<void> {
@@ -104,16 +112,16 @@ export class CourseAPIClient extends AuthAPIClient {
     formData.append('file', file);
     formData.append('module_id', moduleId);
 
-    const response = await this.authenticatedPost<any>(
+    // Base client already unwraps v2 responses
+    return await this.authenticatedPost<Material>(
       `/api/v2/courses/${courseId}/upload-content`,
       formData
     );
-    return response.data || response;
   }
 
   async getMaterials(moduleId: string): Promise<Material[]> {
-    const response = await this.authenticatedGet<any>(`/api/v2/modules/${moduleId}/materials`);
-    return response.data || response;
+    // Base client already unwraps v2 responses
+    return await this.authenticatedGet<Material[]>(`/api/v2/modules/${moduleId}/materials`);
   }
 
   async deleteMaterial(materialId: string): Promise<void> {
@@ -122,8 +130,8 @@ export class CourseAPIClient extends AuthAPIClient {
 
   // Course enrollment and students
   async getCourseStudents(courseId: string): Promise<any[]> {
-    const response = await this.authenticatedGet<any>(`/api/v2/courses/${courseId}/students`);
-    return response.data || response;
+    // Base client already unwraps v2 responses
+    return await this.authenticatedGet<any[]>(`/api/v2/courses/${courseId}/students`);
   }
 
   async removeStudent(courseId: string, studentId: string): Promise<void> {
@@ -132,8 +140,8 @@ export class CourseAPIClient extends AuthAPIClient {
 
   // Course analytics and progress
   async getCourseAnalytics(courseId: string): Promise<any> {
-    const response = await this.authenticatedGet<any>(`/api/v2/courses/${courseId}/analytics`);
-    return response.data || response;
+    // Base client already unwraps v2 responses
+    return await this.authenticatedGet<any>(`/api/v2/courses/${courseId}/analytics`);
   }
 
   async getStudentProgress(courseId: string, studentId?: string): Promise<any> {
@@ -141,7 +149,7 @@ export class CourseAPIClient extends AuthAPIClient {
       ? `/api/v2/courses/${courseId}/progress/${studentId}`
       : `/api/v2/courses/${courseId}/progress`;
     
-    const response = await this.authenticatedGet<any>(endpoint);
-    return response.data || response;
+    // Base client already unwraps v2 responses
+    return await this.authenticatedGet<any>(endpoint);
   }
 }

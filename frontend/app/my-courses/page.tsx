@@ -157,12 +157,19 @@ export default function MyCoursesPage() {
   const handleCreateCourse = async (courseData: any) => {
     try {
       const newCourse = await courseAPI.createCourse(courseData);
+      console.log('New course created:', newCourse);
+      console.log('Course data passed:', courseData);
+      
+      // Handle both the direct response and the onSave callback data
+      const courseId = courseData.id || newCourse.id || newCourse.data?.id;
+      const accessCode = courseData.accessCode || newCourse.accessCode || newCourse.data?.accessCode;
+      
       setCourses((prev) => [
         ...prev,
         {
           ...courseData,
-          id: newCourse.id,
-          accessCode: newCourse.accessCode,
+          id: courseId,
+          accessCode: accessCode,
           studentsCount: 0,
           materialsCount: 0,
           lastActivity: 'Just created',

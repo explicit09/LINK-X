@@ -10,6 +10,7 @@ import {
   useAIRecommendations,
 } from '@/hooks/useDashboardData';
 import { useHasData } from '@/hooks/useHasData';
+import { apiClient } from '@/lib/api/client';
 import { SetupMissions } from './SetupMissions';
 import { BlankStateCTA } from './BlankStateCTA';
 import {
@@ -53,6 +54,26 @@ export function DashboardMainContent({
     error: dashboardError,
   } = useDashboardOverview();
   const { data: aiData, loading: aiLoading } = useAIRecommendations();
+
+  // Get courses count for setup missions
+  const [coursesCount, setCoursesCount] = useState(0);
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const response = await apiClient.get('/api/v2/courses');
+        // Fix: BaseClient unwraps v2 responses, so response IS the array
+        console.log('📚 DashboardMainContent Courses:', {
+          response,
+          isArray: Array.isArray(response),
+          length: response?.length || 0
+        });
+        setCoursesCount(response?.length || 0);
+      } catch (error) {
+        console.error('Error fetching courses:', error);
+      }
+    };
+    fetchCourses();
+  }, []);
 
   // Extract data with fallbacks
   const weeklyProgress = dashboardData?.weekly_progress || {
@@ -151,6 +172,7 @@ export function DashboardMainContent({
         <SetupMissions 
           onMissionComplete={handleMissionComplete}
           completedMissions={completedMissions}
+          coursesCount={coursesCount}
         />
       ) : (
       <Card className="border-2 border-blue-100 bg-gradient-to-r from-blue-50/50 to-white">
