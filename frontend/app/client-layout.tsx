@@ -3,6 +3,7 @@
 import { ReactNode, useEffect } from 'react';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AlertProvider } from '@/contexts/AlertContext';
+import { SupabaseProvider } from '@/contexts/SupabaseContext';
 import { setupGlobalErrorHandlers } from '@/lib/error-handlers';
 
 interface ClientLayoutProps {
@@ -22,9 +23,11 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
       enableSystem
       disableTransitionOnChange
     >
-      <AlertProvider>
-        {children}
-      </AlertProvider>
+      <SupabaseProvider>
+        <AlertProvider>
+          {children}
+        </AlertProvider>
+      </SupabaseProvider>
     </ThemeProvider>
   );
 }
