@@ -39,17 +39,30 @@ export function useAuthGuard(requireRegistration: boolean = true) {
         const registrationCheck = await authAPI.v2.checkRegistration();
         console.log('Registration check response:', registrationCheck);
         
-        // The backend returns { success: true, data: { registered: true/false, ... } }
+        // The backend returns { success: true, data: { registered: true/false, has_completed_onboarding: true/false, ... } }
         const isRegistered = registrationCheck.data?.registered || registrationCheck.registered;
+        const hasCompletedOnboarding = registrationCheck.data?.has_completed_onboarding ?? true; // Default to true for backward compatibility
         
-        if (isRegistered) {
-          // User is registered
+        if (isRegistered && hasCompletedOnboarding) {
+          // User is registered and has completed onboarding
           setState({
             isLoading: false,
             isAuthenticated: true,
             isRegistered: true,
             needsOnboarding: false
           });
+        } else if (isRegistered && !hasCompletedOnboarding) {
+          // User is registered but hasn't completed onboarding
+          setState({
+            isLoading: false,
+            isAuthenticated: true,
+            isRegistered: true,
+            needsOnboarding: true
+          });
+          
+          if (requireRegistration) {
+            router.push('/onboarding');
+          }
         } else {
           // User needs to complete registration
           setState({
