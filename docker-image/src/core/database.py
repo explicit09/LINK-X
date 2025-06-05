@@ -19,12 +19,19 @@ class DatabaseManager:
         # Don't initialize db here as it's already initialized in the main app
         # db.init_app(app) is called in initialize_extensions
         
-        # Create engine and session factory
+        # Create engine and session factory with Neon-optimized settings
         self.engine = create_engine(
             app.config['SQLALCHEMY_DATABASE_URI'],
             pool_pre_ping=True,
-            pool_size=10,
-            max_overflow=20
+            pool_size=5,  # Reduced for Neon
+            max_overflow=10,  # Reduced for Neon
+            pool_timeout=30,
+            pool_recycle=300,  # 5 minutes - shorter for Neon
+            connect_args={
+                "sslmode": "require",
+                "connect_timeout": 10,
+                "application_name": "learn-x-backend"
+            }
         )
         self.session_factory = sessionmaker(bind=self.engine, expire_on_commit=False)
         self.Session = scoped_session(self.session_factory)

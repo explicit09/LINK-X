@@ -68,12 +68,12 @@ class Settings(BaseSettings):
     jwt_access_token_expires: int = Field(default=1800)  # 30 minutes
     jwt_refresh_token_expires: int = Field(default=2592000)  # 30 days
     
-    # Database
+    # Database - Neon-optimized defaults
     database_url: PostgresDsn = Field(..., alias="POSTGRES_URL")
-    database_pool_size: int = Field(default=10)
-    database_max_overflow: int = Field(default=20)
+    database_pool_size: int = Field(default=5)  # Reduced for Neon
+    database_max_overflow: int = Field(default=10)  # Reduced for Neon
     database_pool_timeout: int = Field(default=30)
-    database_pool_recycle: int = Field(default=1800)
+    database_pool_recycle: int = Field(default=300)  # 5 minutes for Neon
     database_echo: bool = Field(default=False)
     
     # Redis
