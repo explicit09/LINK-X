@@ -17,7 +17,11 @@ class CourseRepository(BaseRepository[Course]):
     
     def get_with_modules(self, course_id: str) -> Optional[Course]:
         """Get course with all modules eagerly loaded"""
-        return self.get_by_id(course_id, load_options=[joinedload(Course.modules)])
+        return self.get_by_id(course_id, load_options=[
+            joinedload(Course.modules),
+            joinedload(Course.instructor_profile),
+            joinedload(Course.creator)
+        ])
     
     def get_with_enrollments(self, course_id: str) -> Optional[Course]:
         """Get course with enrollments eagerly loaded"""

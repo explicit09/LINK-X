@@ -200,6 +200,12 @@ def get_course_v2(course_id):
         # Get course with access check
         course = get_course_service().get_course_with_access_check(course_id, user.id)
         
+        # Debug logging
+        logger.info(f"Course data: id={course.id}, title={course.title}")
+        logger.info(f"Course creator_id: {getattr(course, 'creator_id', 'NOT SET')}")
+        logger.info(f"Course instructor_id: {getattr(course, 'instructor_id', 'NOT SET')}")
+        logger.info(f"Current user id: {user.id}")
+        
         # Format detailed response
         formatted_course = {
             'id': str(course.id),
@@ -213,8 +219,8 @@ def get_course_v2(course_id):
             'instructor_id': str(course.instructor_id) if course.instructor_id else None,
             'instructor': {
                 'id': str(course.instructor_id) if course.instructor_id else '',
-                'name': course.instructor_profile.name if hasattr(course, 'instructor_profile') and course.instructor_profile else 'Instructor'
-            },
+                'name': course.instructor_profile.name if hasattr(course, 'instructor_profile') and course.instructor_profile and hasattr(course.instructor_profile, 'name') else None
+            } if course.instructor_id else None,
             'published': course.published,
             'access_code': get_course_service().get_access_code(course.id) if user.id == str(course.creator_id or course.instructor_id) else None,
             'stats': {
