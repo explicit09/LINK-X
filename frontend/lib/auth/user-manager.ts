@@ -11,6 +11,7 @@ export interface UserProfile {
     name?: string;
     university?: string;
   };
+  has_completed_onboarding?: boolean;
 }
 
 /**

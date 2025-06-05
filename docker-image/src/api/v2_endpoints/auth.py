@@ -50,6 +50,18 @@ def login_v2():
         # Get display name - use name if available, otherwise fallback to email
         display_name = user_data.get('name') or user_data['email'].split('@')[0]
         
+        # Check if user has completed onboarding (for students)
+        has_completed_onboarding = True
+        if user_data.get('role') == 'student':
+            # Get the actual user object to check profile
+            user_repo = UserRepository(db_manager.session_factory)
+            user = user_repo.get_by_id(user_data['user_id'])
+            if user and user.student_profile:
+                onboard_data = user.student_profile.onboard_answers or {}
+                has_completed_onboarding = bool(onboard_data and any(onboard_data.values()))
+            else:
+                has_completed_onboarding = False
+        
         response_data = {
             'user': {
                 'id': str(user_data['user_id']),
@@ -57,7 +69,8 @@ def login_v2():
                 'display_name': display_name,
                 'role': user_data.get('role'),
                 'firebase_uid': user_data.get('firebase_uid'),
-                'created_at': None  # Not available in current response
+                'created_at': None,  # Not available in current response
+                'has_completed_onboarding': has_completed_onboarding
             },
             'tokens': {
                 'access_token': result['access_token'],

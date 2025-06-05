@@ -262,6 +262,19 @@ class AuthService {
     return this.authState.user;
   }
 
+  hasCompletedOnboarding(): boolean {
+    const user = this.authState.user;
+    if (!user) return false;
+    
+    // For students, check the has_completed_onboarding flag
+    if (user.role === 'student') {
+      return user.has_completed_onboarding ?? false;
+    }
+    
+    // For instructors and admins, assume onboarding is complete
+    return true;
+  }
+
   // Access to individual managers for advanced use cases
   getFirebaseManager(): FirebaseManager {
     return this.firebase;

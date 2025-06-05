@@ -12,8 +12,9 @@ import { useUserJourneyStage, UserJourneyStage } from '@/hooks/useUserJourneySta
 import { useAuthUser } from '@/hooks/useAuthUser';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useDashboardOverview, useAIRecommendations } from '@/hooks/useDashboardData';
+import { OnboardingGuard } from '@/components/auth/OnboardingGuard';
 
-export default function Dashboard() {
+function DashboardContent() {
   const router = useRouter();
   
   // Use auth guard to ensure user is authenticated and registered
@@ -153,5 +154,13 @@ export default function Dashboard() {
         </div>
       </div>
     </SharedDashboardLayout>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <OnboardingGuard>
+      <DashboardContent />
+    </OnboardingGuard>
   );
 }

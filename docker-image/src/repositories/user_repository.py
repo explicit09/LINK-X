@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import logging
 
 from repositories.base_repository import BaseRepository
-from db.schema import User, StudentProfile, InstructorProfile, Role
+from db.schema import User, StudentProfile, InstructorProfile, Role, AdminProfile
 from core.database import db_manager
 
 logger = logging.getLogger(__name__)
@@ -93,15 +93,16 @@ class UserRepository(BaseRepository[User]):
                 session.expunge(user)
             return user
     
-    def create_student_profile(self, user_id: str, name: str, grade_level: str = None, 
-                             learning_style: str = None) -> StudentProfile:
-        """Create student profile"""
+    def create_student_profile(self, user_id: str, name: str, onboard_answers: dict = None, 
+                             want_quizzes: bool = False, model_preference: str = None) -> StudentProfile:
+        """Create student profile with onboarding data"""
         with self.get_session() as session:
             profile = StudentProfile(
                 user_id=user_id,
                 name=name,
-                grade_level=grade_level,
-                learning_style=learning_style
+                onboard_answers=onboard_answers or {},
+                want_quizzes=want_quizzes,
+                model_preference=model_preference
             )
             session.add(profile)
             session.flush()
@@ -112,15 +113,31 @@ class UserRepository(BaseRepository[User]):
             
             return profile
     
-    def create_instructor_profile(self, user_id: str, name: str, department: str = None, 
-                                bio: str = None) -> InstructorProfile:
+    def create_instructor_profile(self, user_id: str, name: str, university: str = None, 
+                                department: str = None, bio: str = None) -> InstructorProfile:
         """Create instructor profile"""
         with self.get_session() as session:
             profile = InstructorProfile(
                 user_id=user_id,
                 name=name,
-                department=department,
+                university=university,
                 bio=bio
+            )
+            session.add(profile)
+            session.flush()
+            session.refresh(profile)
+            
+            # Expunge profile to detach it from session
+            session.expunge(profile)
+            
+            return profile
+    
+    def create_admin_profile(self, user_id: str, name: str) -> AdminProfile:
+        """Create admin profile"""
+        with self.get_session() as session:
+            profile = AdminProfile(
+                user_id=user_id,
+                name=name
             )
             session.add(profile)
             session.flush()
