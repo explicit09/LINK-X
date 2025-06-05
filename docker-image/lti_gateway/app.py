@@ -75,9 +75,58 @@ class LTIGateway:
     
     def __init__(self):
         self.tool_config = ToolConfJsonFile(LTI_CONFIG_PATH)
-        self.launch_data_storage = {}  # TODO: Replace with Redis in production
-        self.nonce_storage = set()     # TODO: Replace with Redis with TTL
-        self._request = None           # Store current request for LaunchDataStorage interface
+        
+        # Redis clustering for production scalability
+        import redis
+        from redis.sentinel import Sentinel
+        
+        redis_mode = os.environ.get('REDIS_MODE', 'single')
+        
+        if redis_mode == 'cluster':
+            # Redis Cluster mode for horizontal scaling
+            from rediscluster import RedisCluster
+            startup_nodes = [
+                {"host": host.strip(), "port": int(port.strip())}
+                for node in os.environ.get('REDIS_CLUSTER_NODES', 'redis-cluster:7000').split(',')
+                for host, port in [node.split(':')]
+            ]
+            self.redis_client = RedisCluster(
+                startup_nodes=startup_nodes,
+                decode_responses=True,
+                skip_full_coverage_check=True,
+                health_check_interval=30
+            )
+        elif redis_mode == 'sentinel':
+            # Redis Sentinel for high availability
+            sentinel_hosts = [
+                (host.strip(), int(port.strip()))
+                for node in os.environ.get('REDIS_SENTINEL_HOSTS', 'redis-sentinel:26379').split(',')
+                for host, port in [node.split(':')]
+            ]
+            sentinel = Sentinel(sentinel_hosts, socket_timeout=0.1)
+            self.redis_client = sentinel.master_for(
+                os.environ.get('REDIS_MASTER_NAME', 'mymaster'),
+                socket_timeout=0.1,
+                decode_responses=True
+            )
+        else:
+            # Single Redis instance for development
+            self.redis_client = redis.Redis(
+                host=os.environ.get('REDIS_HOST', 'redis'),
+                port=int(os.environ.get('REDIS_PORT', 6379)),
+                db=int(os.environ.get('REDIS_DB', 1)),
+                decode_responses=True,
+                max_connections=20,
+                retry_on_timeout=True
+            )
+        
+        self._request = None  # Store current request for LaunchDataStorage interface
+        
+        # Initialize JWT processor for secure token handling
+        self.jwt_processor = JWTProcessor()
+        
+        # Rate limiting for security
+        self.rate_limiter = RateLimiter(self.redis_client)
         
     def get_launch_data(self, launch_id: str) -> Optional[Dict[str, Any]]:
         """Retrieve launch data by ID"""

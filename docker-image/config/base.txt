@@ -3,13 +3,18 @@ Flask==2.3.2
 Flask-Cors==4.0.0
 Flask-JWT-Extended==4.5.2
 Flask-SQLAlchemy==3.0.5
-Flask-RESTX==1.2.0
+Flask-SocketIO==5.3.4  # For real-time collaboration
+Flask-Login==0.6.3  # For user session management
+gunicorn==21.2.0
+gevent==23.9.1  # For WebSocket support
+eventlet==0.33.3  # Alternative async support for SocketIO
 
 # Database
 psycopg2-binary==2.9.7
 SQLAlchemy==1.4.50  # Downgraded to be compatible with langchain
 alembic==1.12.0
 pgvector==0.2.3
+redis==4.6.0  # For real-time collaboration state
 
 # Authentication & Cloud
 firebase-admin==6.2.0
@@ -33,12 +38,11 @@ unstructured[pdf,docx,pptx]==0.10.19
 langchain>=0.1.0  # Updated to a version that supports pydantic v2
 langchain-community>=0.0.10  # Updated to match langchain version
 langchain-openai>=0.0.5  # Keep the updated version
-llama_index==0.10.19
 
 # Task Queue
 celery[redis]==5.3.4
-redis==4.6.0  # Downgraded to be compatible with celery[redis]
 hiredis==2.2.3  # Faster Redis client
+flower==2.0.1
 
 # Performance & Optimization
 ujson==5.8.0  # Faster JSON
@@ -48,7 +52,6 @@ lz4==4.3.2  # Compression
 
 # API & Streaming
 httpx==0.25.0
-sse-starlette==1.6.5
 aiofiles==23.2.1
 
 # Utilities
@@ -57,13 +60,7 @@ python-multipart==0.0.6
 pydantic==2.5.3  # Updated to be compatible with pydantic-settings
 pydantic-settings==2.0.3  # Updated to a version that works with pydantic>=2.0.1
 
-# Dependency Injection
-dependency-injector==4.41.0
-
 # Monitoring
 prometheus-client==0.18.0
 python-json-logger==2.0.7
 sentry-sdk[flask]==1.38.0
-
-# Additional ML/Data Processing
-replicate==0.24.0
