@@ -59,13 +59,6 @@ export const useDashboardData = (userRole: string) => {
         coursesData = await instructorAPI.getCourses(); // Admin uses instructor API for courses
       }
       
-      // Ensure coursesData is an array before mapping
-      if (!Array.isArray(coursesData)) {
-        console.warn('Courses data is not an array:', coursesData);
-        setRealCourses([]);
-        return;
-      }
-      
       // Transform API data to match our interface
       const transformedCourses = coursesData.map((course: any, index: number) => ({
         id: course.id,

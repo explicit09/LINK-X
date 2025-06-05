@@ -15,3 +15,8 @@ export * from './admin';
 export * from './utilities';
 export * from './study-plans';
 export { scheduleAPI, transformSessionForFrontend, transformSessionForBackend, getDefaultSchedulePreferences } from './schedule';
+
+// Export enhanced APIs
+export { ragAPI } from '../rag';
+export { analyticsAPI } from '../analytics';
+export { collaborationAPI } from '../collaboration';

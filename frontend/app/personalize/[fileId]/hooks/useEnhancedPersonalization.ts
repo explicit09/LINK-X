@@ -183,7 +183,8 @@ export const useEnhancedPersonalization = (fileId: string) => {
         
         // For EventSource, we need to pass token as URL parameter since headers aren't universally supported
         const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-        const url = new URL(`/api/personalization/v2/stream/${fileId}`, baseURL);
+        const url = new URL(`/api/v2/personalization/stream`, baseURL);
+        url.searchParams.append('file_id', fileId);
         url.searchParams.append('token', token);
         
         console.log('🔗 Connecting to SSE:', url.toString());

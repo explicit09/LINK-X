@@ -13,7 +13,7 @@ from flask import jsonify
 from sqlalchemy.orm import Session
 
 from db.queries import create_file, get_module_by_id
-from s3_storage import s3_storage
+from .s3_storage import S3Storage
 from tasks import index_file
 
 logger = logging.getLogger(__name__)
@@ -24,6 +24,7 @@ class FileUploadHandler:
     def __init__(self, db_session: Session):
         self.db = db_session
         self.use_s3 = os.getenv('USE_S3_STORAGE', 'false').lower() == 'true'
+        self.s3_storage = S3Storage() if self.use_s3 else None
     
     def process_upload(
         self,
@@ -68,7 +69,7 @@ class FileUploadHandler:
             # Store file
             if self.use_s3:
                 # Upload to S3
-                s3_result = s3_storage.upload_file(
+                s3_result = self.s3_storage.upload_file(
                     file_obj=BytesIO(file_content),
                     course_id=str(module.course_id),
                     module_id=str(module_id),

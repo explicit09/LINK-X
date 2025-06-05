@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     
     # Security
     secret_key: str = Field(..., env="SECRET_KEY")
-    jwt_secret_key: str = Field(None, env="JWT_SECRET_KEY")
+    jwt_secret_key: str = Field(..., env="JWT_SECRET_KEY")
     jwt_access_token_expires: int = Field(default=1800)  # 30 minutes
     jwt_refresh_token_expires: int = Field(default=2592000)  # 30 days
     

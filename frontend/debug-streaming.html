@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug SSE Streaming</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .event { margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        .error { background-color: #ffe6e6; border-color: #ff9999; }
+        .success { background-color: #e6ffe6; border-color: #99ff99; }
+        .info { background-color: #e6f3ff; border-color: #99ccff; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+        .status { font-weight: bold; margin: 10px 0; }
+        button { margin: 5px; padding: 10px 15px; }
+        .content-display { max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 SSE Streaming Debug Tool</h1>
+    
+    <div>
+        <label>File ID: <input type="text" id="fileId" value="4d8c5dda-dc65-47f4-9656-08c75a7154ee" style="width: 300px;"></label><br><br>
+        <label>Firebase Token: <input type="password" id="token" placeholder="Paste Firebase token here" style="width: 400px;"></label><br><br>
+        
+        <button onclick="getFirebaseToken()">🔑 Get Firebase Token</button>
+        <button onclick="testOutline()">📋 Test Outline</button>
+        <button onclick="startSSEStream()">▶️ Start SSE Stream</button>
+        <button onclick="stopSSEStream()">⏹️ Stop Stream</button>
+        <button onclick="clearLog()">🗑️ Clear Log</button>
+    </div>
+
+    <div class="status" id="status">Ready</div>
+    
+    <div id="eventLog"></div>
+    
+    <h3>Streaming Content Display:</h3>
+    <div class="content-display" id="contentDisplay"></div>
+
+    <script type="module">
+        let eventSource = null;
+        let eventCount = 0;
+        let sections = new Map();
+        
+        function log(message, type = 'info') {
+            const eventLog = document.getElementById('eventLog');
+            const div = document.createElement('div');
+            div.className = `event ${type}`;
+            div.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            eventLog.appendChild(div);
+            eventLog.scrollTop = eventLog.scrollHeight;
+        }
+
+        function updateStatus(status) {
+            document.getElementById('status').textContent = status;
+        }
+
+        function updateContentDisplay() {
+            const display = document.getElementById('contentDisplay');
+            const html = Array.from(sections.entries()).map(([id, content]) => 
+                `<div style="border: 1px solid #eee; margin: 10px 0; padding: 10px;">
+                    <h4>${id}</h4>
+                    <div>${content}</div>
+                </div>`
+            ).join('');
+            display.innerHTML = html;
+        }
+
+        // Initialize Firebase (simplified version for testing)
+        window.getFirebaseToken = async function() {
+            try {
+                log('🔄 Attempting to get Firebase token...', 'info');
+                
+                // Try to import Firebase from the parent page if available
+                if (window.parent && window.parent.firebase) {
+                    const user = window.parent.firebase.auth().currentUser;
+                    if (user) {
+                        const token = await user.getIdToken();
+                        document.getElementById('token').value = token;
+                        log('✅ Token obtained from parent window', 'success');
+                        return;
+                    }
+                }
+                
+                // Instructions for manual token
+                log('⚠️ Please manually get your Firebase token:', 'error');
+                log('1. Open browser DevTools (F12)', 'info');
+                log('2. Go to Console tab', 'info');
+                log('3. Run: firebase.auth().currentUser.getIdToken().then(console.log)', 'info');
+                log('4. Copy the token and paste it above', 'info');
+                
+            } catch (error) {
+                log(`❌ Error getting token: ${error.message}`, 'error');
+            }
+        };
+
+        window.testOutline = async function() {
+            const fileId = document.getElementById('fileId').value;
+            const token = document.getElementById('token').value;
+            
+            if (!fileId) {
+                log('❌ Please enter a file ID', 'error');
+                return;
+            }
+            
+            if (!token) {
+                log('❌ Please provide a Firebase token', 'error');
+                return;
+            }
+            
+            try {
+                updateStatus('Testing outline endpoint...');
+                log('🔄 Testing outline endpoint...', 'info');
+                
+                const response = await fetch('http://localhost:8080/api/v2/personalization/outline', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ file_id: fileId })
+                });
+                
+                log(`📊 Outline response status: ${response.status}`, response.ok ? 'success' : 'error');
+                
+                const data = await response.text();
+                log(`📄 Outline response: <pre>${data}</pre>`, response.ok ? 'success' : 'error');
+                
+                if (response.ok) {
+                    const outline = JSON.parse(data);
+                    if (outline.data && outline.data.outline) {
+                        log(`📋 Found ${outline.data.outline.length} sections`, 'success');
+                        outline.data.outline.forEach((section, i) => {
+                            log(`  ${i+1}. ${section.title} (${section.anchor})`, 'info');
+                        });
+                    }
+                }
+                
+                updateStatus('Outline test complete');
+                
+            } catch (error) {
+                log(`❌ Outline test error: ${error.message}`, 'error');
+                updateStatus('Outline test failed');
+            }
+        };
+
+        window.startSSEStream = function() {
+            const fileId = document.getElementById('fileId').value;
+            const token = document.getElementById('token').value;
+            
+            if (!fileId) {
+                log('❌ Please enter a file ID', 'error');
+                return;
+            }
+            
+            if (!token) {
+                log('❌ Please provide a Firebase token', 'error');
+                return;
+            }
+            
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            eventCount = 0;
+            sections.clear();
+            
+            const url = `http://localhost:8080/api/v2/personalization/stream?file_id=${fileId}&token=${token}`;
+            
+            log(`🚀 Starting SSE connection to: ${url}`, 'info');
+            updateStatus('Connecting to SSE stream...');
+            
+            eventSource = new EventSource(url);
+            
+            eventSource.onopen = function(event) {
+                log('✅ SSE connection opened', 'success');
+                updateStatus('Connected - waiting for events...');
+            };
+            
+            eventSource.onmessage = function(event) {
+                eventCount++;
+                log(`📨 Event ${eventCount}: <pre>${event.data}</pre>`, 'info');
+                
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    switch (data.type) {
+                        case 'start':
+                            log(`🎬 Stream started - ${data.total_sections} sections`, 'success');
+                            updateStatus(`Streaming ${data.total_sections} sections...`);
+                            break;
+                            
+                        case 'section_start':
+                            log(`📑 Section started: ${data.title} (${data.section_id})`, 'info');
+                            sections.set(data.section_id, '');
+                            updateContentDisplay();
+                            break;
+                            
+                        case 'content':
+                            const currentContent = sections.get(data.section_id) || '';
+                            sections.set(data.section_id, currentContent + data.content);
+                            updateContentDisplay();
+                            log(`📝 Content chunk for ${data.section_id} (+${data.content.length} chars, total: ${sections.get(data.section_id).length})`, 'info');
+                            break;
+
+                        case 'content_replace':
+                            sections.set(data.section_id, data.content);
+                            updateContentDisplay();
+                            log(`🔄 Content replaced for ${data.section_id}`, 'info');
+                            break;
+
+                        case 'original_complete':
+                            log(`📄 Original content complete: ${data.section_id}`, 'success');
+                            break;
+
+                        case 'personalization_start':
+                            log(`🤖 Personalization started: ${data.section_id} - ${data.message}`, 'info');
+                            break;
+                            
+                        case 'section_complete':
+                            log(`✅ Section complete: ${data.section_id}`, 'success');
+                            break;
+                            
+                        case 'complete':
+                            log('🎉 All sections complete!', 'success');
+                            updateStatus('Streaming complete');
+                            eventSource.close();
+                            break;
+                            
+                        case 'error':
+                            log(`❌ Stream error: ${data.message}`, 'error');
+                            updateStatus('Stream error');
+                            break;
+                            
+                        default:
+                            log(`❓ Unknown event type: ${data.type}`, 'error');
+                    }
+                    
+                } catch (parseError) {
+                    log(`❌ Error parsing event data: ${parseError.message}`, 'error');
+                }
+            };
+            
+            eventSource.onerror = function(event) {
+                log(`❌ SSE connection error: ${JSON.stringify(event)}`, 'error');
+                updateStatus('Connection error');
+                
+                // Log readyState for debugging
+                if (eventSource) {
+                    const states = { 0: 'CONNECTING', 1: 'OPEN', 2: 'CLOSED' };
+                    log(`📊 Connection state: ${states[eventSource.readyState]} (${eventSource.readyState})`, 'info');
+                }
+            };
+        };
+
+        window.stopSSEStream = function() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+                log('⏹️ SSE stream stopped', 'info');
+                updateStatus('Stream stopped');
+            } else {
+                log('⚠️ No active stream to stop', 'error');
+            }
+        };
+
+        window.clearLog = function() {
+            document.getElementById('eventLog').innerHTML = '';
+            document.getElementById('contentDisplay').innerHTML = '';
+            sections.clear();
+            log('🗑️ Log cleared', 'info');
+        };
+    </script>
+    
+    <div style="margin-top: 20px; padding: 10px; background: #f9f9f9; border-radius: 4px;">
+        <h3>Debug Tips:</h3>
+        <ul>
+            <li>Make sure the backend is running on localhost:8080</li>
+            <li>Get a valid Firebase token first</li>
+            <li>Test the outline endpoint before streaming</li>
+            <li>Check browser DevTools Network tab for SSE events</li>
+            <li>Look for CORS errors in Console</li>
+        </ul>
+    </div>
+</body>
+</html>

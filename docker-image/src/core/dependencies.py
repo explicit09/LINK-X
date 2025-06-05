@@ -165,8 +165,7 @@ class Container(containers.DeclarativeContainer):
     )
     
     ai_service = providers.Factory(
-        AIService,
-        openai_api_key=providers.Configuration().openai_api_key
+        AIService
     )
     
     streaming_service = providers.Factory(
@@ -205,6 +204,7 @@ def init_container(app: Flask) -> Container:
         "api.test",
         "api.health",
         "api.legacy",
+        "api.v2_endpoints.personalization_v2",
         "tasks.file_processing",
         "tasks.embedding",
         "tasks.maintenance"

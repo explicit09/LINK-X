@@ -17,7 +17,7 @@ services:
     build:
       context: ./docker-image
       dockerfile: docker/Dockerfile.${DOCKER_ENV:-dev}
-    image: learnx:${DOCKER_ENV:-dev}
+    image: learnx:dev-fixed
     restart: always
     env_file:
       - ./docker-image/.env
@@ -48,7 +48,7 @@ services:
     build:
       context: ./docker-image
       dockerfile: docker/Dockerfile.${DOCKER_ENV:-dev}
-    image: learnx:${DOCKER_ENV:-dev}
+    image: learnx:dev-fixed
     restart: always
     entrypoint: ["/app/docker/celery-entrypoint.sh"]
     command: ["worker"]
@@ -73,7 +73,7 @@ services:
     build:
       context: ./docker-image
       dockerfile: docker/Dockerfile.${DOCKER_ENV:-dev}
-    image: learnx:${DOCKER_ENV:-dev}
+    image: learnx:dev-fixed
     restart: always
     entrypoint: ["/app/docker/celery-entrypoint.sh"]
     command: ["beat"]
@@ -93,7 +93,7 @@ services:
     build:
       context: ./docker-image
       dockerfile: docker/Dockerfile.${DOCKER_ENV:-dev}
-    image: learnx:${DOCKER_ENV:-dev}
+    image: learnx:dev-fixed
     restart: always
     entrypoint: ["/app/docker/celery-entrypoint.sh"]
     command: ["flower"]

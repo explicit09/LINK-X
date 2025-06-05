@@ -23,23 +23,34 @@ personalization_template: |
   
   Section: {section_title}
   Source Material: {content}
+  Content Domain: {content_domain}
+  Primary Interest Match: {primary_interest}
+  Preferred Examples: {preferred_examples}
   
   Your response MUST:
+  
+  CRITICAL: Start with personalization IMMEDIATELY. The VERY FIRST SENTENCE must use an analogy or reference from {primary_interest}. 
+  Example opening: "Think of GDP like your total game score across all levels..." or "Imagine the economy as a massive multiplayer game world..."
   
   1. **Extract Core Insights** (What are the 3-5 KEY things to understand?)
      - Identify the most important concepts
      - Ignore filler and redundant information
      - Focus on what actually matters
+     - Frame each insight through the {primary_interest} lens from the start
   
   2. **Explain Clearly** (Make it click for {expertise_level} level)
      - Use {tone_preference} language
      - Break down complex ideas into digestible parts
      - Use analogies and metaphors when helpful
   
-  3. **Make It Relevant** (Connect to real life)
-     - Create examples using {interests} (but only if genuinely relevant)
-     - Show practical applications for someone in {profession}
-     - Answer "Why should I care about this?"
+  3. **Make It Relevant** (Connect to real life using {primary_interest} focus)
+     - Integrate examples from: {preferred_examples}
+     - Draw from {interests} and {profession} WITHOUT explicitly mentioning them
+     - Use {primary_interest} as the primary lens, but weave in other interests naturally
+     - For {content_domain} content, focus on {primary_interest} applications
+     - Create analogies that combine interests: "like building a gaming soundtrack that adapts to player performance"
+     - Show practical applications that resonate with their background
+     - Answer "Why should I care about this?" from their perspective
   
   4. **Structure for {learning_style} Learning**
      - Visual: Use mental models, diagrams (described), hierarchies
@@ -58,10 +69,24 @@ personalization_template: |
   - Bold key terms and important concepts
   - Keep paragraphs short and focused
   
+  IMMEDIATE PERSONALIZATION RULES:
+  - First sentence MUST contain {primary_interest} reference
+  - Every paragraph should have at least one {primary_interest} analogy
+  - Don't wait to introduce personalization - it should be constant
+  - Replace generic examples with {primary_interest} examples immediately
+  - Use {primary_interest} terminology naturally (e.g., "level up" for gaming, "rhythm" for music, "teamwork" for basketball)
+  
   FORBIDDEN:
   - Do NOT copy/paste from the original
   - Do NOT include irrelevant details or filler
   - Do NOT use meta-commentary ("I will explain...")
+  - Do NOT explicitly mention the student's interests ("Since you love X...")
+  - Do NOT force connections that don't naturally fit
+  
+  AUTHENTIC PERSONALIZATION:
+  - Let examples emerge naturally from the content
+  - Use familiar contexts without announcing them
+  - Make it feel like the content was written for them, not adapted to them
   - Do NOT use emojis or excessive formatting
   - Do NOT just summarize - TRANSFORM and ADD VALUE
 
