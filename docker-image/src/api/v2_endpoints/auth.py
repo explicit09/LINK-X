@@ -109,10 +109,24 @@ def check_registration_v2():
     try:
         # Check if user exists in database
         if hasattr(g, 'current_user') and g.current_user:
-            # User is registered
+            # User is registered - check if they completed onboarding
             user = g.current_user
+            
+            # For students, check if they have completed onboarding
+            has_completed_onboarding = True
+            if user.role and user.role.role_type == 'student':
+                # Check if student has onboarding data
+                if hasattr(user, 'student_profile') and user.student_profile:
+                    # Check if onboard_answers has actual content (not empty dict)
+                    onboard_data = user.student_profile.onboard_answers or {}
+                    has_completed_onboarding = bool(onboard_data and any(onboard_data.values()))
+                else:
+                    # No student profile means onboarding not completed
+                    has_completed_onboarding = False
+            
             return success_response({
                 'registered': True,
+                'has_completed_onboarding': has_completed_onboarding,
                 'user': {
                     'id': str(user.id),
                     'email': user.email,
@@ -125,6 +139,7 @@ def check_registration_v2():
             firebase_user = g.get('firebase_user', {})
             return success_response({
                 'registered': False,
+                'has_completed_onboarding': False,
                 'firebase_user': {
                     'uid': firebase_user.get('uid'),
                     'email': firebase_user.get('email'),
