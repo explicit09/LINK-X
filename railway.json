@@ -2,7 +2,7 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "./Dockerfile"
+    "dockerfilePath": "./Dockerfile.minimal"
   },
   "deploy": {
     "numReplicas": 1,
@@ -10,32 +10,5 @@
     "healthcheckTimeout": 30,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
-  },
-  "services": [
-    {
-      "name": "postgres",
-      "image": "postgres:15",
-      "volumes": ["/var/lib/postgresql/data"],
-      "variables": {
-        "POSTGRES_DB": "${{POSTGRES_DB}}",
-        "POSTGRES_USER": "${{POSTGRES_USER}}",
-        "POSTGRES_PASSWORD": "${{POSTGRES_PASSWORD}}"
-      }
-    },
-    {
-      "name": "redis",
-      "image": "redis:7-alpine",
-      "volumes": ["/data"]
-    }
-  ],
-  "environments": {
-    "production": {
-      "variables": {
-        "FLASK_ENV": "production",
-        "USE_S3_STORAGE": "true",
-        "ENABLE_REDIS_CACHE": "true",
-        "ENABLE_RATE_LIMITING": "true"
-      }
-    }
   }
 }

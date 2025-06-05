@@ -1,0 +1,28 @@
+# Ultra-minimal Dockerfile for Railway initial deployment
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy and install only core dependencies
+RUN pip install --no-cache-dir \
+    flask==3.0.0 \
+    flask-cors==4.0.0 \
+    gunicorn==21.2.0 \
+    python-dotenv==1.0.0 \
+    psycopg2-binary==2.9.9 \
+    SQLAlchemy==2.0.23
+
+# Copy only essential files
+COPY docker-image/src/app.py ./src/
+COPY docker-image/src/core/ ./src/core/
+COPY docker-image/src/api/ ./src/api/
+COPY docker-image/src/db/ ./src/db/
+
+# Create minimal directory structure
+RUN mkdir -p logs
+
+ENV PYTHONPATH=/app/src
+ENV PYTHONUNBUFFERED=1
+
+# Simple startup
+CMD gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 1 --timeout 60 --chdir src app:app
