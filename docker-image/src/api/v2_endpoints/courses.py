@@ -94,6 +94,7 @@ def list_courses_v2():
                 'description': course_data.get('description', ''),
                 'code': course_data.get('code', ''),  # Add course code
                 'term': course_data.get('term', ''),   # Add term
+                'published': course_data.get('published', False),  # Add published status
                 'creator_id': str(course_data.get('creator_id', '')) if course_data.get('creator_id') else None,
                 'instructor_id': str(course_data.get('instructor_id', '')) if course_data.get('instructor_id') else None,
                 'instructor': {
@@ -130,6 +131,9 @@ def create_course_v2():
     try:
         user = g.current_user
         data = request.get_json()
+        
+        # Log course creation attempt
+        logger.info(f"Course creation attempt by user {user.email} with data: {data}")
         
         if not data:
             return error_response("No data provided")
@@ -197,39 +201,36 @@ def get_course_v2(course_id):
     try:
         user = g.current_user
         
-        # Get course with access check
-        course = get_course_service().get_course_with_access_check(course_id, user.id)
+        # Get course with access check (returns a dict)
+        course_dict = get_course_service().get_course_with_access_check(course_id, user.id)
         
         # Debug logging
-        logger.info(f"Course data: id={course.id}, title={course.title}")
-        logger.info(f"Course creator_id: {getattr(course, 'creator_id', 'NOT SET')}")
-        logger.info(f"Course instructor_id: {getattr(course, 'instructor_id', 'NOT SET')}")
+        logger.info(f"Course data: id={course_dict['id']}, title={course_dict['title']}")
+        logger.info(f"Course creator_id: {course_dict.get('creator_id', 'NOT SET')}")
+        logger.info(f"Course instructor_id: {course_dict.get('instructor_id', 'NOT SET')}")
         logger.info(f"Current user id: {user.id}")
         
         # Format detailed response
         formatted_course = {
-            'id': str(course.id),
-            'title': course.title,
-            'description': course.description,
-            'code': getattr(course, 'code', ''),
-            'term': getattr(course, 'term', ''),
-            'category': getattr(course, 'category', ''),
-            'tags': getattr(course, 'tags', []) or [],
-            'creator_id': str(course.creator_id) if hasattr(course, 'creator_id') and course.creator_id else None,
-            'instructor_id': str(course.instructor_id) if course.instructor_id else None,
-            'instructor': {
-                'id': str(course.instructor_id) if course.instructor_id else '',
-                'name': course.instructor_profile.name if hasattr(course, 'instructor_profile') and course.instructor_profile and hasattr(course.instructor_profile, 'name') else None
-            } if course.instructor_id else None,
-            'published': course.published,
-            'access_code': get_course_service().get_access_code(course.id) if user.id == str(course.creator_id or course.instructor_id) else None,
+            'id': str(course_dict['id']),
+            'title': course_dict['title'],
+            'description': course_dict['description'],
+            'code': course_dict.get('code', ''),
+            'term': course_dict.get('term', ''),
+            'category': course_dict.get('category', ''),
+            'tags': course_dict.get('tags', []) or [],
+            'creator_id': course_dict.get('creator_id'),
+            'instructor_id': course_dict.get('instructor_id'),
+            'instructor': course_dict.get('instructor'),
+            'published': course_dict.get('published', False),
+            'access_code': course_dict.get('access_code'),
             'stats': {
-                'students': get_course_service().get_student_count(course.id),
-                'modules': len(course.modules) if hasattr(course, 'modules') else 0,
-                'materials': sum(len(m.files) for m in course.modules) if hasattr(course, 'modules') else 0
+                'students': course_dict.get('enrollment_count', 0),
+                'modules': course_dict.get('module_count', 0),
+                'materials': 0  # Simplified for now
             },
-            'created_at': course.created_at.isoformat() if hasattr(course, 'created_at') else None,
-            'updated_at': course.last_updated.isoformat() if hasattr(course, 'last_updated') else None
+            'created_at': course_dict.get('created_at'),
+            'updated_at': course_dict.get('updated_at')
         }
         
         return success_response(formatted_course)
@@ -239,7 +240,10 @@ def get_course_v2(course_id):
     except UnauthorizedError:
         return error_response("Access denied", status_code=403)
     except Exception as e:
-        logger.error(f"Get course error: {str(e)}")
+        logger.error(f"Get course error for course_id {course_id}: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return error_response("An error occurred fetching the course", status_code=500)
 
 
@@ -328,11 +332,18 @@ def list_modules_v2(course_id):
             # Fallback: get modules directly from repository
             course_repo = CourseRepository()
             modules_raw = course_repo.get_modules(course_id)
-            modules = [{'id': str(m.id), 'title': m.title, 'description': m.description or '', 'ordering': getattr(m, 'ordering', 0)} for m in modules_raw]
+            if modules_raw is None:
+                modules = []
+            else:
+                modules = [{'id': str(m.id), 'title': m.title, 'description': m.description or '', 'ordering': getattr(m, 'ordering', 0)} for m in modules_raw]
         
         # Load files for each module
         file_repo = FileRepository()
         
+        # Handle empty modules case
+        if not modules:
+            return jsonify([]), 200
+            
         # Format response
         formatted_modules = []
         for module in modules:
@@ -458,11 +469,18 @@ def get_modules_with_files_v2(course_id):
             # Fallback: get modules directly from repository
             course_repo = CourseRepository()
             modules_raw = course_repo.get_modules(course_id)
-            modules = [{'id': str(m.id), 'title': m.title, 'description': m.description or '', 'ordering': getattr(m, 'ordering', 0)} for m in modules_raw]
+            if modules_raw is None:
+                modules = []
+            else:
+                modules = [{'id': str(m.id), 'title': m.title, 'description': m.description or '', 'ordering': getattr(m, 'ordering', 0)} for m in modules_raw]
         
         # Load files for each module
         file_repo = FileRepository()
         
+        # Handle empty modules case
+        if not modules:
+            return jsonify([]), 200
+            
         # Format response with files
         formatted_modules = []
         for module in modules:
