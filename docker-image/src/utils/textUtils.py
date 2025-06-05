@@ -56,7 +56,7 @@ def split_text(text: str, max_tokens: int = 300, overlap: int = 50) -> List[str]
     return chunks
 def embed_text(text: str) -> List[float]:
     response = _embed_client.embeddings.create(
-        model="text-embedding-ada-002",
+        model="text-embedding-3-small",
         input=text
     )
     return response.data[0].embedding

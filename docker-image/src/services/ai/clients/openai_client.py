@@ -23,7 +23,7 @@ class OpenAIClient(BaseAIService):
         """Initialize OpenAI client"""
         self.client = OpenAI(api_key=self.config.OPENAI_API_KEY)
         self.default_model = "gpt-4o"
-        self.embedding_model = "text-embedding-ada-002"
+        self.embedding_model = "text-embedding-3-small"
     
     @circuit_breaker(
         name="openai_chat",
