@@ -218,10 +218,25 @@ def get_profile_v2():
         if not fresh_user:
             return error_response("User not found", status_code=404)
         
+        # Get display name from profile or fallback to email
+        display_name = fresh_user.email.split('@')[0]  # Default fallback
+        
+        # Check role type first to avoid lazy loading issues
+        role_type = fresh_user.role.role_type if fresh_user.role else None
+        
+        # Get name from appropriate profile
+        if role_type == 'student' and hasattr(fresh_user, 'student_profile') and fresh_user.student_profile:
+            display_name = fresh_user.student_profile.name or display_name
+        elif role_type == 'instructor' and hasattr(fresh_user, 'instructor_profile') and fresh_user.instructor_profile:
+            display_name = fresh_user.instructor_profile.name or display_name
+        elif role_type == 'admin' and hasattr(fresh_user, 'admin_profile') and fresh_user.admin_profile:
+            display_name = fresh_user.admin_profile.name or display_name
+        
         # Build comprehensive profile
         profile_data = {
             'id': str(fresh_user.id),
             'email': fresh_user.email,
+            'display_name': display_name,
             'role': fresh_user.role.role_type if fresh_user.role else 'student',
             'verified': getattr(fresh_user, 'verified', True),
             'created_at': fresh_user.created_at.isoformat() if hasattr(fresh_user, 'created_at') else None,
@@ -229,9 +244,6 @@ def get_profile_v2():
         }
         
         # Add role-specific profile data
-        # Check role type first to avoid lazy loading issues
-        role_type = fresh_user.role.role_type if fresh_user.role else None
-        
         if role_type == 'student' and hasattr(fresh_user, 'student_profile') and fresh_user.student_profile:
             logger.info(f"Student profile found for {fresh_user.email}: name={fresh_user.student_profile.name}")
             profile_data['profile'] = {
