@@ -4,8 +4,6 @@ Uses blueprints and proper architecture
 """
 import os
 from flask import Flask, request
-from flask_socketio import SocketIO
-import redis
 from core.firebase_config import initialize_firebase
 import logging
 
@@ -33,8 +31,10 @@ from monitoring.api_version_monitor import monitoring_bp, create_api_usage_table
 from api.circuit_breaker_monitor import bp as circuit_breaker_bp
 # from api.docs import bp as docs_bp  # Temporarily disabled until flask-restx is installed
 
-# Import streaming blueprints
+# Import streaming and personalization blueprints
 from api.streaming import bp as streaming_bp
+from api.personalization import bp as personalization_bp
+from api.personalization_v2 import bp as personalization_v2_bp
 from api.test_sse import bp as test_sse_bp
 
 def create_app():
@@ -86,29 +86,6 @@ def create_app():
     from core.jwt_config import configure_jwt
     configure_jwt(app)
     
-    # Initialize WebSocket and Redis for collaboration
-    socketio = SocketIO(app, cors_allowed_origins="*", manage_session=False)
-    try:
-        redis_client = redis.Redis(
-            host=app.config.get('REDIS_HOST', 'localhost'),
-            port=app.config.get('REDIS_PORT', 6379),
-            db=app.config.get('REDIS_DB', 0),
-            decode_responses=True
-        )
-        # Test Redis connection
-        redis_client.ping()
-        logger.info("Redis connected successfully")
-        
-        # Initialize WebSocket manager for collaboration
-        from core.websocket_manager import init_websocket_manager
-        init_websocket_manager(socketio, redis_client)
-        logger.info("WebSocket manager initialized for collaboration")
-        
-    except Exception as e:
-        logger.error(f"Failed to initialize Redis/WebSocket: {e}")
-        # Continue without WebSocket features
-        socketio = None
-    
     # Add favicon route to prevent browser 404 errors
     @app.route('/favicon.ico')
     def favicon():
@@ -131,12 +108,14 @@ def create_app():
     # API v2 endpoints (current version) - all under /api/v2
     app.register_blueprint(api_v2)
     
-    # Collaboration endpoints - under /api/v2/collaboration
-    from api.v2_endpoints.collaboration import bp as collaboration_bp
-    app.register_blueprint(collaboration_bp, url_prefix='/api/v2/collaboration')
-    
     # Streaming endpoints - under /api/streaming
     app.register_blueprint(streaming_bp, url_prefix='/api/streaming')
+    
+    # Personalization endpoints - under /api/personalization
+    app.register_blueprint(personalization_bp, url_prefix='/api/personalization')
+    
+    # Enhanced Personalization v2 endpoints - under /api/personalization/v2
+    app.register_blueprint(personalization_v2_bp, url_prefix='/api/personalization/v2')
     
     # Test SSE endpoint - under /api/test
     app.register_blueprint(test_sse_bp, url_prefix='/api/test')
@@ -168,17 +147,13 @@ def create_app():
         response.headers['Access-Control-Allow-Credentials'] = 'true'
         return response
     
-    logger.info("Application created with API v1 and v2 support + monitoring + collaboration")
-    
-    # Store socketio in app context for access by services
-    app.socketio = socketio
+    logger.info("Application created with API v1 and v2 support + monitoring")
     return app
 
 
 if __name__ == '__main__':
     try:
         app = create_app()
-        socketio = getattr(app, 'socketio', None)
         
         # Add a global error handler for all exceptions during request handling
         @app.errorhandler(Exception)
@@ -194,21 +169,11 @@ if __name__ == '__main__':
             
             return response
         
-        # Use SocketIO server if available, otherwise regular Flask
-        if socketio:
-            socketio.run(
-                app,
-                host='0.0.0.0',
-                port=int(os.getenv('PORT', 8080)),
-                debug=os.getenv('FLASK_ENV') == 'development',
-                allow_unsafe_werkzeug=True
-            )
-        else:
-            app.run(
-                host='0.0.0.0',
-                port=int(os.getenv('PORT', 8080)),
-                debug=os.getenv('FLASK_ENV') == 'development'
-            )
+        app.run(
+            host='0.0.0.0',
+            port=int(os.getenv('PORT', 8080)),
+            debug=os.getenv('FLASK_ENV') == 'development'
+        )
     except Exception as e:
         logger.error(f"Failed to start app: {str(e)}", exc_info=True)
         raise
