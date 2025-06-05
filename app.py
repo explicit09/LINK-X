@@ -16,5 +16,7 @@ def api_health():
     return jsonify({"status": "healthy", "service": "learn-x-backend"})
 
 if __name__ == '__main__':
+    # Railway provides PORT env var
     port = int(os.environ.get('PORT', 8000))
-    app.run(host='0.0.0.0', port=port)
+    print(f"Starting Flask app on port {port}")
+    app.run(host='0.0.0.0', port=port, debug=False)
