@@ -104,6 +104,9 @@ export default function CoursePage() {
     currentUser.role === 'admin'
   );
 
+  // Check if this is a student-created course (personal course)
+  const isStudentCreatedCourse = course && course.creator_id && (!course.instructor_id || course.creator_id === course.instructor_id);
+
   const loading = courseLoading || modulesLoading || progressLoading;
   const error = courseError || modulesError;
 
@@ -182,9 +185,16 @@ export default function CoursePage() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                {course.title}
-              </h1>
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {course.title}
+                </h1>
+                {isStudentCreatedCourse && (
+                  <Badge variant="secondary" className="text-xs">
+                    Personal
+                  </Badge>
+                )}
+              </div>
               {course.code && (
                 <p className="text-sm text-gray-600 mb-1">
                   Course Code: {course.code}
@@ -193,7 +203,11 @@ export default function CoursePage() {
               <div className="flex items-center gap-4 text-sm text-gray-600">
                 <div className="flex items-center gap-1">
                   <User className="w-4 h-4" />
-                  <span>{course.instructor?.name || 'Unknown Instructor'}</span>
+                  <span>
+                    {isStudentCreatedCourse 
+                      ? 'Personal Course' 
+                      : course.instructor?.name || 'Unknown Instructor'}
+                  </span>
                 </div>
                 {metrics && metrics.totalDuration > 0 && (
                   <div className="flex items-center gap-1">
@@ -310,8 +324,12 @@ export default function CoursePage() {
               </h3>
               <p className="text-gray-600 mb-6 max-w-md">
                 {isOwner 
-                  ? 'Add modules to organize your course content and help students learn effectively.'
-                  : 'This course doesn\'t have any content yet. Check back later or contact your instructor.'}
+                  ? isStudentCreatedCourse 
+                    ? 'Add modules to organize your personal study materials and track your progress.'
+                    : 'Add modules to organize your course content and help students learn effectively.'
+                  : isStudentCreatedCourse
+                    ? 'This personal course doesn\'t have any content yet.'
+                    : 'This course doesn\'t have any content yet. Check back later or contact your instructor.'}
               </p>
               {isOwner && (
                 <Button onClick={() => toast.info('Module creation coming soon!')}>
@@ -319,7 +337,7 @@ export default function CoursePage() {
                   Create First Module
                 </Button>
               )}
-              {!isOwner && (
+              {!isOwner && !isStudentCreatedCourse && (
                 <Alert className="mt-6 max-w-md">
                   <Info className="h-4 w-4" />
                   <AlertDescription>
@@ -545,7 +563,11 @@ export default function CoursePage() {
                               <div className="text-center py-8">
                                 <FileText className="w-8 h-8 mx-auto mb-2 text-gray-400" />
                                 <p className="text-sm text-gray-600 mb-4">
-                                  No files in this module yet
+                                  {isOwner 
+                                    ? isStudentCreatedCourse 
+                                      ? 'Add your study materials to this module'
+                                      : 'No files in this module yet'
+                                    : 'No files in this module yet'}
                                 </p>
                                 {isOwner && (
                                   <Button
@@ -557,7 +579,7 @@ export default function CoursePage() {
                                     }}
                                   >
                                     <Upload className="w-4 h-4 mr-1" />
-                                    Upload Files
+                                    {isStudentCreatedCourse ? 'Add Study Materials' : 'Upload Files'}
                                   </Button>
                                 )}
                               </div>
