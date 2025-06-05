@@ -13,5 +13,8 @@ COPY docker-image/src/app_minimal.py ./
 
 ENV PYTHONUNBUFFERED=1
 
+# EXPOSE the port
+EXPOSE 8000
+
 # Simple startup
 CMD gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 1 --timeout 60 app_minimal:app

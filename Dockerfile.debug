@@ -16,5 +16,8 @@ RUN echo "Build complete" && ls -la
 ENV PORT=8000
 ENV PYTHONUNBUFFERED=1
 
+# EXPOSE the port
+EXPOSE 8000
+
 # Start with verbose logging
 CMD ["python", "-u", "app_debug.py"]

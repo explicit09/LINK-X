@@ -22,5 +22,8 @@ RUN mkdir -p logs data
 ENV PYTHONPATH=/app/src:$PYTHONPATH
 ENV PYTHONUNBUFFERED=1
 
+# EXPOSE the port for Railway to detect
+EXPOSE 8000
+
 # Start with minimal app
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "1", "--timeout", "30", "--log-level", "debug", "app_minimal:app"]
