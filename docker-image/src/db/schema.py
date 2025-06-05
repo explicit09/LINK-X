@@ -707,3 +707,268 @@ class AISessionSuggestion(Base):
     # Relationships
     user = relationship('User')
     suggested_course = relationship('Course')
+
+
+# Phase 5: Collaborative Learning Features
+
+class StudyGroup(Base):
+    __tablename__ = 'study_groups'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='CASCADE'), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    is_public = Column(Boolean, default=True)
+    max_members = Column(Integer, default=10)
+    invite_code = Column(String(32), unique=True)
+    study_schedule = Column(JSONB)
+    collaboration_settings = Column(JSONB, default={'allow_annotations': True, 'allow_discussions': True, 'allow_notes': True})
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    course = relationship('Course')
+    creator = relationship('User')
+    members = relationship('StudyGroupMember', back_populates='group', cascade='all, delete-orphan')
+    annotations = relationship('SharedAnnotation', back_populates='group')
+    discussions = relationship('PeerDiscussion', back_populates='group')
+    notes = relationship('CollaborativeNote', back_populates='group')
+    study_sessions = relationship('CollaborativeStudySession', back_populates='group')
+
+
+class StudyGroupMember(Base):
+    __tablename__ = 'study_group_members'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    group_id = Column(UUID(as_uuid=True), ForeignKey('study_groups.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    role = Column(String(20), default='member')  # 'admin', 'moderator', 'member'
+    collaboration_preferences = Column(JSONB, default={'share_annotations': True, 'share_notes': True, 'show_progress': True})
+    joined_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    last_active = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    __table_args__ = (
+        UniqueConstraint('group_id', 'user_id', name='uq_study_group_member'),
+    )
+    
+    # Relationships
+    group = relationship('StudyGroup', back_populates='members')
+    user = relationship('User')
+
+
+class SharedAnnotation(Base):
+    __tablename__ = 'shared_annotations'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    file_id = Column(UUID(as_uuid=True), ForeignKey('File.id', ondelete='CASCADE'), nullable=False)
+    group_id = Column(UUID(as_uuid=True), ForeignKey('study_groups.id', ondelete='CASCADE'))
+    created_by = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    annotation_type = Column(String(20), default='highlight')  # 'highlight', 'comment', 'question', 'note'
+    content = Column(Text, nullable=False)
+    position_data = Column(JSONB, nullable=False)  # Page number, coordinates, text selection info
+    color = Column(String(7), default='#ffff00')  # Hex color for highlights
+    is_public = Column(Boolean, default=False)
+    is_resolved = Column(Boolean, default=False)
+    annotation_metadata = Column(JSONB)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    file = relationship('File')
+    group = relationship('StudyGroup', back_populates='annotations')
+    creator = relationship('User')
+    reactions = relationship('AnnotationReaction', back_populates='annotation', cascade='all, delete-orphan')
+    discussions = relationship('PeerDiscussion', back_populates='annotation')
+
+
+class PeerDiscussion(Base):
+    __tablename__ = 'peer_discussions'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title = Column(String(255), nullable=False)
+    content = Column(Text, nullable=False)
+    file_id = Column(UUID(as_uuid=True), ForeignKey('File.id', ondelete='CASCADE'))
+    annotation_id = Column(UUID(as_uuid=True), ForeignKey('shared_annotations.id', ondelete='CASCADE'))
+    group_id = Column(UUID(as_uuid=True), ForeignKey('study_groups.id', ondelete='CASCADE'))
+    course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='CASCADE'), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    discussion_type = Column(String(20), default='question')  # 'question', 'discussion', 'study_note', 'clarification'
+    is_pinned = Column(Boolean, default=False)
+    is_resolved = Column(Boolean, default=False)
+    tags = Column(JSONB)
+    annotation_metadata = Column(JSONB)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    file = relationship('File')
+    annotation = relationship('SharedAnnotation', back_populates='discussions')
+    group = relationship('StudyGroup', back_populates='discussions')
+    course = relationship('Course')
+    creator = relationship('User')
+    replies = relationship('DiscussionReply', back_populates='discussion', cascade='all, delete-orphan')
+    votes = relationship('DiscussionVote', back_populates='discussion', cascade='all, delete-orphan')
+
+
+class DiscussionReply(Base):
+    __tablename__ = 'discussion_replies'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    discussion_id = Column(UUID(as_uuid=True), ForeignKey('peer_discussions.id', ondelete='CASCADE'), nullable=False)
+    parent_reply_id = Column(UUID(as_uuid=True), ForeignKey('discussion_replies.id', ondelete='CASCADE'))
+    content = Column(Text, nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    is_solution = Column(Boolean, default=False)
+    upvotes = Column(Integer, default=0)
+    annotation_metadata = Column(JSONB)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    discussion = relationship('PeerDiscussion', back_populates='replies')
+    parent_reply = relationship('DiscussionReply', remote_side=[id])
+    creator = relationship('User')
+    votes = relationship('DiscussionVote', back_populates='reply', cascade='all, delete-orphan')
+
+
+class CollaborativeNote(Base):
+    __tablename__ = 'collaborative_notes'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title = Column(String(255), nullable=False)
+    content = Column(JSONB, nullable=False)  # Rich text content with operational transforms
+    file_id = Column(UUID(as_uuid=True), ForeignKey('File.id', ondelete='CASCADE'))
+    group_id = Column(UUID(as_uuid=True), ForeignKey('study_groups.id', ondelete='CASCADE'))
+    course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='CASCADE'), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    last_edited_by = Column(UUID(as_uuid=True), ForeignKey('User.id'))
+    is_template = Column(Boolean, default=False)
+    collaboration_mode = Column(String(20), default='open')  # 'open', 'locked', 'review'
+    version = Column(Integer, default=1)
+    edit_history = Column(JSONB, default=[])
+    annotation_metadata = Column(JSONB)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    file = relationship('File')
+    group = relationship('StudyGroup', back_populates='notes')
+    course = relationship('Course')
+    creator = relationship('User', foreign_keys=[created_by])
+    last_editor = relationship('User', foreign_keys=[last_edited_by])
+    edit_operations = relationship('NoteEditOperation', back_populates='note', cascade='all, delete-orphan')
+
+
+class NoteEditOperation(Base):
+    __tablename__ = 'note_edit_operations'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    note_id = Column(UUID(as_uuid=True), ForeignKey('collaborative_notes.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    operation_type = Column(String(20), nullable=False)  # 'insert', 'delete', 'retain', 'format'
+    operation_data = Column(JSONB, nullable=False)  # Operational transform data
+    position_index = Column(Integer, nullable=False)
+    version = Column(Integer, nullable=False)
+    timestamp_ms = Column(Integer, nullable=False)  # Millisecond timestamp for ordering
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relationships
+    note = relationship('CollaborativeNote', back_populates='edit_operations')
+    user = relationship('User')
+
+
+class CollaborativeStudySession(Base):
+    __tablename__ = 'collaborative_study_sessions'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    group_id = Column(UUID(as_uuid=True), ForeignKey('study_groups.id', ondelete='CASCADE'), nullable=False)
+    session_name = Column(String(255), nullable=False)
+    description = Column(Text)
+    file_id = Column(UUID(as_uuid=True), ForeignKey('File.id', ondelete='CASCADE'))
+    created_by = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    session_type = Column(String(20), default='study')  # 'study', 'review', 'project', 'discussion'
+    scheduled_start = Column(DateTime)
+    scheduled_end = Column(DateTime)
+    actual_start = Column(DateTime)
+    actual_end = Column(DateTime)
+    max_participants = Column(Integer, default=10)
+    session_status = Column(String(20), default='scheduled')  # 'scheduled', 'active', 'completed', 'cancelled'
+    whiteboard_data = Column(JSONB)  # Shared whiteboard content
+    session_notes = Column(Text)
+    annotation_metadata = Column(JSONB)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    group = relationship('StudyGroup', back_populates='study_sessions')
+    file = relationship('File')
+    creator = relationship('User')
+    participants = relationship('StudySessionParticipant', back_populates='session', cascade='all, delete-orphan')
+
+
+class StudySessionParticipant(Base):
+    __tablename__ = 'study_session_participants'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id = Column(UUID(as_uuid=True), ForeignKey('collaborative_study_sessions.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    role = Column(String(20), default='participant')  # 'host', 'moderator', 'participant'
+    joined_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    left_at = Column(DateTime)
+    participation_score = Column(Numeric(3,2))  # 0.0 to 1.0 engagement score
+    contribution_data = Column(JSONB)  # Chat messages, notes shared, etc.
+    
+    __table_args__ = (
+        UniqueConstraint('session_id', 'user_id', name='uq_session_participant'),
+    )
+    
+    # Relationships
+    session = relationship('CollaborativeStudySession', back_populates='participants')
+    user = relationship('User')
+
+
+class UserCollaborationPreferences(Base):
+    __tablename__ = 'user_collaboration_preferences'
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), primary_key=True)
+    allow_public_annotations = Column(Boolean, default=False)
+    allow_study_group_invites = Column(Boolean, default=True)
+    allow_peer_discussions = Column(Boolean, default=True)
+    default_annotation_privacy = Column(String(20), default='private')  # 'private', 'group', 'public'
+    notification_preferences = Column(JSONB, default={'group_invites': True, 'annotation_replies': True, 'discussion_mentions': True})
+    collaboration_level = Column(String(20), default='selective')  # 'minimal', 'selective', 'active', 'collaborative'
+    timezone = Column(String(50), default='UTC')
+    study_availability = Column(JSONB)  # Available hours for study sessions
+    privacy_settings = Column(JSONB, default={'show_online_status': False, 'show_study_progress': False})
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship('User')
+
+
+class AnnotationReaction(Base):
+    __tablename__ = 'annotation_reactions'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    annotation_id = Column(UUID(as_uuid=True), ForeignKey('shared_annotations.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    reaction_type = Column(String(20), nullable=False)  # 'helpful', 'like', 'important', 'question'
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    __table_args__ = (
+        UniqueConstraint('annotation_id', 'user_id', 'reaction_type', name='uq_annotation_reaction'),
+    )
+    
+    # Relationships
+    annotation = relationship('SharedAnnotation', back_populates='reactions')
+    user = relationship('User')
+
+
+class DiscussionVote(Base):
+    __tablename__ = 'discussion_votes'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    discussion_id = Column(UUID(as_uuid=True), ForeignKey('peer_discussions.id', ondelete='CASCADE'))
+    reply_id = Column(UUID(as_uuid=True), ForeignKey('discussion_replies.id', ondelete='CASCADE'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    vote_type = Column(String(10), nullable=False)  # 'upvote', 'downvote'
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    __table_args__ = (
+        UniqueConstraint('user_id', 'discussion_id', 'reply_id', name='uq_discussion_vote'),
+    )
+    
+    # Relationships
+    discussion = relationship('PeerDiscussion', back_populates='votes')
+    reply = relationship('DiscussionReply', back_populates='votes')
+    user = relationship('User')

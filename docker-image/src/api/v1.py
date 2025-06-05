@@ -606,26 +606,50 @@ def enrollments():
 @firebase_auth_required
 def check_personalized(file_id):
     """Check if personalized version exists"""
-    from api.personalization import check_personalized_content
-    return check_personalized_content(file_id)
+    # Deprecated - redirect to v2
+    return jsonify({
+        'error': 'This endpoint is deprecated. Please use /api/v2/personalization/status/{file_id}',
+        '_deprecation_warning': {
+            'message': 'Personalization v1 endpoints are deprecated',
+            'use_instead': '/api/v2/personalization/status/{file_id}'
+        }
+    }), 410
 
 @api_v1.route('/personalize/outline/<file_id>', methods=['GET'])
 @firebase_auth_required
 def personalize_outline(file_id):
     """Get personalized outline"""
-    from api.personalization import get_personalization_outline
-    return get_personalization_outline(file_id)
+    # Deprecated - redirect to v2
+    return jsonify({
+        'error': 'This endpoint is deprecated. Please use POST /api/v2/personalization/outline',
+        '_deprecation_warning': {
+            'message': 'Personalization v1 endpoints are deprecated',
+            'use_instead': 'POST /api/v2/personalization/outline'
+        }
+    }), 410
 
 @api_v1.route('/personalize/save/<file_id>', methods=['POST'])
 @firebase_auth_required
 def personalize_save(file_id):
     """Save personalized content"""
-    from api.personalization import save_personalized_content
-    return save_personalized_content(file_id)
+    # Deprecated - redirect to v2
+    return jsonify({
+        'error': 'This endpoint is deprecated. Please use POST /api/v2/personalization/save',
+        '_deprecation_warning': {
+            'message': 'Personalization v1 endpoints are deprecated',
+            'use_instead': 'POST /api/v2/personalization/save'
+        }
+    }), 410
 
-@api_v1.route('/personalize/stream/<file_id>', methods=['POST'])
+@api_v1.route('/personalize/stream/<file_id>', methods=['GET'])
 @firebase_auth_required
 def personalize_stream(file_id):
     """Stream personalized content"""
-    from api.personalization import stream_personalized_content
-    return stream_personalized_content(file_id)
+    # Deprecated - redirect to v2
+    return jsonify({
+        'error': 'This endpoint is deprecated. Please use GET /api/v2/personalization/stream',
+        '_deprecation_warning': {
+            'message': 'Personalization v1 endpoints are deprecated',
+            'use_instead': 'GET /api/v2/personalization/stream?file_id=' + file_id
+        }
+    }), 410

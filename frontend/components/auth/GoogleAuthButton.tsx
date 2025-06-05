@@ -25,6 +25,17 @@ export function GoogleAuthButton({
   const router = useRouter();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
+  // Check for stored error messages on mount
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedError = window.sessionStorage.getItem('auth_error');
+      if (storedError) {
+        toast.error(storedError);
+        window.sessionStorage.removeItem('auth_error');
+      }
+    }
+  }, []);
+
   const handleGoogleAuth = async () => {
     if (disabled || loading) return;
 
