@@ -5,6 +5,7 @@ export interface Course {
   title: string;
   description: string;
   instructor_id: string;
+  creator_id?: string;  // Added to track who created the course
   category?: string;
   tags?: string[];
   published: boolean;

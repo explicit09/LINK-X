@@ -66,7 +66,8 @@ class OptimizedQueries:
         include_modules: bool = False
     ) -> List[Course]:
         """Get all courses for a student with optimized loading"""
-        stmt = (
+        # Get enrolled courses
+        enrolled_stmt = (
             select(Course)
             .join(Enrollment)
             .options(
@@ -81,13 +82,40 @@ class OptimizedQueries:
             )
         )
         
-        # Optionally load modules and files
+        # Get courses created by the student
+        created_stmt = (
+            select(Course)
+            .options(
+                # Always load instructor info
+                joinedload(Course.instructor).joinedload(User.instructor_profile),
+                selectinload(Course.enrollments)
+            )
+            .filter(Course.creator_id == student_id)
+        )
+        
+        # Optionally load modules and files for both queries
         if include_modules:
-            stmt = stmt.options(
+            enrolled_stmt = enrolled_stmt.options(
+                selectinload(Course.modules).selectinload(Module.files)
+            )
+            created_stmt = created_stmt.options(
                 selectinload(Course.modules).selectinload(Module.files)
             )
         
-        return list(session.scalars(stmt).unique())
+        # Execute both queries and combine results
+        enrolled_courses = list(session.scalars(enrolled_stmt).unique())
+        created_courses = list(session.scalars(created_stmt).unique())
+        
+        # Combine and deduplicate
+        all_courses = enrolled_courses + created_courses
+        seen = set()
+        unique_courses = []
+        for course in all_courses:
+            if course.id not in seen:
+                seen.add(course.id)
+                unique_courses.append(course)
+        
+        return unique_courses
     
     @staticmethod
     def get_courses_for_instructor_optimized(

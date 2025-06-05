@@ -57,7 +57,14 @@ export default function Page() {
     } else if (state === 'success') {
       // Success toast is already shown in handleSubmit
       setIsSuccessful(true);
-      // Redirect is already handled in handleSubmit based on onboarding status
+      // Only redirect to dashboard if not redirected to onboarding
+      const hasCompletedOnboarding = authService.hasCompletedOnboarding();
+      const user = authService.getUser();
+      
+      if (hasCompletedOnboarding || user?.role !== 'student') {
+        toast.success('Login successful!');
+        router.push('/dashboard');
+      }
     }
   }, [state, router]);
 
@@ -66,18 +73,23 @@ export default function Page() {
     setState('in_progress');
 
     try {
+      console.log('Attempting Firebase sign in...');
       const userCredential = await signInWithEmailAndPassword(
         auth,
         formData.get('email') as string,
         formData.get('password') as string,
       );
 
+      console.log('Firebase sign in successful:', userCredential.user.email);
       const token = await userCredential.user.getIdToken();
+      console.log('Got Firebase token');
 
       // Establish session using auth service
+      console.log('Establishing backend session...');
       const sessionSuccess = await authService.login(userCredential.user);
 
       if (!sessionSuccess) {
+        console.error('Backend session failed');
         setState('failed');
         // Check if there's a more specific error message stored
         const storedError = window.sessionStorage.getItem('auth_error');

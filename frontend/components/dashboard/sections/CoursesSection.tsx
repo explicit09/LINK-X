@@ -2,6 +2,19 @@ import { Button } from '@/components/ui/button';
 import { Plus, GraduationCap } from 'lucide-react';
 import { ModernCourseCard } from '@/components/dashboard/ModernCourseCard';
 import { useRouter } from 'next/navigation';
+import { courseAPI } from '@/lib/api/courses';
+import { toast as sonnerToast } from 'sonner';
+import { useState } from 'react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Course {
   id: string;
@@ -15,6 +28,8 @@ interface Course {
   unreadCount?: number;
   materialsCount?: number;
   studentsCount?: number;
+  creator_id?: string;
+  instructor_id?: string;
 }
 
 interface CoursesSectionProps {
@@ -39,6 +54,39 @@ export const CoursesSection = ({
   onQuiz,
 }: CoursesSectionProps) => {
   const router = useRouter();
+  const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
+  const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
+
+  const handleEditCourse = (courseId: string) => {
+    // For now, navigate to a course edit page
+    // You could also open an edit modal here
+    router.push(`/courses/${courseId}/edit`);
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+    const course = filteredCourses.find(c => c.id === courseId);
+    if (course) {
+      setCourseToDelete(course);
+      setDeletingCourseId(courseId);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!courseToDelete || !deletingCourseId) return;
+
+    try {
+      await courseAPI.deleteCourse(deletingCourseId);
+      sonnerToast.success('Course deleted successfully');
+      // Refresh the page to update the course list
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to delete course:', error);
+      sonnerToast.error('Failed to delete course. Please try again.');
+    } finally {
+      setDeletingCourseId(null);
+      setCourseToDelete(null);
+    }
+  };
 
   return (
     <div className="lg:col-span-3">
@@ -108,9 +156,33 @@ export const CoursesSection = ({
             onUpload={onUpload}
             onAIChat={onAIChat}
             onQuiz={onQuiz}
+            onEdit={handleEditCourse}
+            onDelete={handleDeleteCourse}
           />
         ))}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!courseToDelete} onOpenChange={(open) => !open && setCourseToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Course</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{courseToDelete?.title}"? This action cannot be undone.
+              All modules and files associated with this course will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setCourseToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete Course
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

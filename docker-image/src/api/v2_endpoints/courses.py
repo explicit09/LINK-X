@@ -94,6 +94,8 @@ def list_courses_v2():
                 'description': course_data.get('description', ''),
                 'code': course_data.get('code', ''),  # Add course code
                 'term': course_data.get('term', ''),   # Add term
+                'creator_id': str(course_data.get('creator_id', '')) if course_data.get('creator_id') else None,
+                'instructor_id': str(course_data.get('instructor_id', '')) if course_data.get('instructor_id') else None,
                 'instructor': {
                     'id': str(course_data.get('creator_id', '')),
                     'name': 'Instructor'  # Simplified for now
@@ -207,12 +209,14 @@ def get_course_v2(course_id):
             'term': getattr(course, 'term', ''),
             'category': getattr(course, 'category', ''),
             'tags': getattr(course, 'tags', []) or [],
+            'creator_id': str(course.creator_id) if hasattr(course, 'creator_id') and course.creator_id else None,
+            'instructor_id': str(course.instructor_id) if course.instructor_id else None,
             'instructor': {
                 'id': str(course.instructor_id) if course.instructor_id else '',
                 'name': course.instructor_profile.name if hasattr(course, 'instructor_profile') and course.instructor_profile else 'Instructor'
             },
             'published': course.published,
-            'access_code': get_course_service().get_access_code(course.id) if user.id == course.instructor_id else None,
+            'access_code': get_course_service().get_access_code(course.id) if user.id == str(course.creator_id or course.instructor_id) else None,
             'stats': {
                 'students': get_course_service().get_student_count(course.id),
                 'modules': len(course.modules) if hasattr(course, 'modules') else 0,

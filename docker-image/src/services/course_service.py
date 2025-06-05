@@ -135,9 +135,16 @@ class CourseService:
         if not course:
             raise NotFoundError("Course not found")
         
-        # Allow all authenticated users to update courses
+        # Check if user owns the course or is admin
         user = self.user_repo.get_by_id(user_id)
-        # You can add more specific logic here if needed
+        if not user:
+            raise AuthorizationError("User not found")
+            
+        is_owner = str(course.creator_id) == str(user_id)
+        is_admin = user.role and user.role.role_type == 'admin'
+        
+        if not is_owner and not is_admin:
+            raise AuthorizationError("Only course creator or admin can update this course")
         
         # Validate updates
         if 'title' in kwargs and len(kwargs['title']) < 3:
@@ -162,14 +169,22 @@ class CourseService:
         if not course:
             raise NotFoundError("Course not found")
         
-        # Allow all authenticated users to delete courses
+        # Check if user owns the course or is admin
         user = self.user_repo.get_by_id(user_id)
-        # You can add more specific logic here if needed
+        if not user:
+            raise AuthorizationError("User not found")
+            
+        is_owner = str(course.creator_id) == str(user_id)
+        is_admin = user.role and user.role.role_type == 'admin'
         
-        # Check if course has enrollments
-        enrollments = self.enrollment_repo.get_by_course(course_id)
-        if enrollments:
-            raise ValidationError("Cannot delete course with active enrollments")
+        if not is_owner and not is_admin:
+            raise AuthorizationError("Only course creator or admin can delete this course")
+        
+        # Check if course has enrollments (skip this check for courses created by students)
+        if course.instructor_id:  # Only check enrollments for instructor courses
+            enrollments = self.enrollment_repo.get_by_course(course_id)
+            if enrollments:
+                raise ValidationError("Cannot delete course with active enrollments")
         
         # Delete course (will cascade to modules and files)
         success = self.course_repo.delete(course_id)
@@ -188,9 +203,16 @@ class CourseService:
         if not course:
             raise NotFoundError("Course not found")
         
-        # Allow all authenticated users to publish courses
+        # Check if user owns the course or is admin
         user = self.user_repo.get_by_id(user_id)
-        # You can add more specific logic here if needed
+        if not user:
+            raise AuthorizationError("User not found")
+            
+        is_owner = str(course.creator_id) == str(user_id)
+        is_admin = user.role and user.role.role_type == 'admin'
+        
+        if not is_owner and not is_admin:
+            raise AuthorizationError("Only course creator or admin can publish this course")
         
         # Validate course is ready for publishing
         if not course.modules or len(course.modules) == 0:

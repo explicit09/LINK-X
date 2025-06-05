@@ -22,8 +22,13 @@ import {
   TrendingUp,
   Zap,
   Play,
+  Edit,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuthUser } from '@/hooks/useAuthUser';
+import { courseAPI } from '@/lib/api/courses';
+import { toast as sonnerToast } from 'sonner';
 
 interface Course {
   id: string;
@@ -37,6 +42,8 @@ interface Course {
   unreadCount?: number;
   materialsCount?: number;
   studentsCount?: number;
+  creator_id?: string;
+  instructor_id?: string;
 }
 
 interface ModernCourseCardProps {
@@ -46,6 +53,8 @@ interface ModernCourseCardProps {
   onUpload?: (courseId: string) => void;
   onAIChat?: (courseId: string) => void;
   onQuiz?: (courseId: string) => void;
+  onEdit?: (courseId: string) => void;
+  onDelete?: (courseId: string) => void;
 }
 
 const courseColors = [
@@ -130,11 +139,17 @@ function ModernCourseCardComponent({
   onUpload,
   onAIChat,
   onQuiz,
+  onEdit,
+  onDelete,
 }: ModernCourseCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const { user } = useAuthUser();
 
   // Get color scheme for this course
   const colors = courseColors[colorIndex % courseColors.length];
+  
+  // Check if current user is the course owner
+  const isOwner = user && course.creator_id && user.id === course.creator_id;
 
   const handleCardClick = () => {
     onClick?.(course);
@@ -229,6 +244,29 @@ function ModernCourseCardComponent({
                 <MessageSquare className="h-4 w-4 mr-2" />
                 Generate Quiz
               </DropdownMenuItem>
+              {isOwner && (
+                <>
+                  <DropdownMenuItem className="border-t mt-1 pt-1" disabled />
+                  <DropdownMenuItem
+                    onClick={(e) =>
+                      handleActionClick(e, () => onEdit?.(course.id))
+                    }
+                    className="cursor-pointer"
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Course
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={(e) =>
+                      handleActionClick(e, () => onDelete?.(course.id))
+                    }
+                    className="cursor-pointer text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Course
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
