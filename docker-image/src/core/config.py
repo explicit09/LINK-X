@@ -44,7 +44,12 @@ class FlaskConfig:
             'pool_timeout': self.settings.database_pool_timeout,
             'pool_recycle': self.settings.database_pool_recycle,
             'pool_pre_ping': True,
-            'echo': self.settings.database_echo
+            'echo': self.settings.database_echo,
+            'connect_args': {
+                "sslmode": "require",
+                "connect_timeout": 10,
+                "application_name": "learn-x-backend"
+            }
         }
     
     # JWT
