@@ -1,39 +1,45 @@
 import { useState, useEffect } from 'react';
-import { authAPI } from '@/lib/api';
+import { courseAPI } from '@/lib/api/courses';
+import { toast } from 'sonner';
+
+interface Instructor {
+  id: string;
+  name: string;
+  email?: string;
+}
 
 interface CourseData {
   id: string;
   title: string;
-  code: string;
-  instructor: string;
-  progress: number;
-  nextDeadline: string;
-  studyTime: string;
-  weeklyStudyTime: number;
-  targetStudyTime: number;
-  rank: string;
-  previousRank: number;
-  grade: string;
-  previousGrade: string;
-  color: string;
-  urgentTasks: number;
-  completionStreak: number;
-  efficiency: number;
-  lastActivity: string;
-}
-
-interface User {
-  name: string;
-  email: string;
-  role: string;
-  level: string;
-  streak: number;
-  xp: number;
+  description?: string;
+  code?: string;
+  instructor?: Instructor;
+  instructor_id?: string;
+  creator_id?: string;
+  deadline?: string;
+  published?: boolean;
+  created_at?: string;
+  last_updated?: string;
+  
+  // Legacy fields for compatibility
+  progress?: number;
+  nextDeadline?: string;
+  studyTime?: string;
+  weeklyStudyTime?: number;
+  targetStudyTime?: number;
+  rank?: string;
+  previousRank?: number;
+  grade?: string;
+  previousGrade?: string;
+  color?: string;
+  urgentTasks?: number;
+  completionStreak?: number;
+  efficiency?: number;
+  lastActivity?: string;
 }
 
 export const useCourseData = (courseId: string) => {
   const [course, setCourse] = useState<CourseData | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,62 +51,46 @@ export const useCourseData = (courseId: string) => {
         setLoading(true);
         setError(null);
 
-        // COPY EXACT API patterns from working dashboard
-        // Try to get user profile first
-        try {
-          const userResponse = await authAPI.v2.getProfile();
-          const userData = userResponse.data || userResponse; // Handle wrapped responses
+        // Fetch real course data
+        const courseData = await courseAPI.getCourse(courseId);
+        
+        // Ensure we have the necessary fields
+        setCourse({
+          ...courseData,
+          // Preserve any missing fields with defaults
+          id: courseData.id,
+          title: courseData.title || 'Untitled Course',
+          description: courseData.description,
+          code: courseData.code,
+          instructor: courseData.instructor,
+          instructor_id: courseData.instructor_id,
+          creator_id: courseData.creator_id,
+          deadline: courseData.deadline,
+          published: courseData.published,
+          created_at: courseData.created_at,
+          last_updated: courseData.last_updated,
           
-          setCurrentUser({
-            name: userData.profile?.name || userData.email?.split('@')[0] || 'User',
-            email: userData.email || '',
-            role: userData.role || 'student',
-            level: 'Intermediate',
-            streak: 7,
-            xp: 2450,
-          });
-        } catch (userError) {
-          console.warn('Failed to load user profile:', userError);
-          // Graceful fallback for user data
-          setCurrentUser({
-            name: 'Student User',
-            email: 'student@example.com',
-            role: 'student',
-            level: 'Intermediate',
-            streak: 7,
-            xp: 2450,
-          });
-        }
-
-        // For now, use mock course data (preserve existing functionality)
-        // TODO: Replace with real API call when course API is ready
-        const mockCourse: CourseData = {
-          id: courseId,
-          title: 'CS229: Machine Learning',
-          code: 'CS229',
-          instructor: 'Dr. Andrew Ng',
-          progress: 68,
-          nextDeadline: 'Neural Networks Assignment - Due in 3 days',
-          studyTime: '45.2h total',
-          weeklyStudyTime: 8.5,
-          targetStudyTime: 12,
-          rank: '#3 of 156 students',
-          previousRank: 5,
-          grade: 'A-',
-          previousGrade: 'B+',
+          // Add default values for legacy fields
+          progress: 0,
           color: '#3B82F6',
-          urgentTasks: 2,
-          completionStreak: 4,
-          efficiency: 73,
-          lastActivity: '2 hours ago',
-        };
+          urgentTasks: 0,
+          completionStreak: 0,
+          efficiency: 0,
+          lastActivity: 'Unknown',
+        });
 
-        setCourse(mockCourse);
-
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to load course data:', error);
-        setError('Failed to load course information');
+        const errorMessage = error.response?.data?.message || error.message || 'Failed to load course information';
+        setError(errorMessage);
         setCourse(null);
+        
+        // Show user-friendly error
+        if (error.response?.status === 404) {
+          toast.error('Course not found');
+        } else if (error.response?.status === 403) {
+          toast.error('You do not have access to this course');
+        }
       } finally {
         setLoading(false);
       }
@@ -111,15 +101,13 @@ export const useCourseData = (courseId: string) => {
 
   return {
     course,
-    currentUser,
     loading,
     error,
     refetch: () => {
       if (courseId) {
         setLoading(true);
-        // Re-trigger the effect
+        // Re-trigger the effect by clearing the course
         setCourse(null);
-        setCurrentUser(null);
       }
     }
   };

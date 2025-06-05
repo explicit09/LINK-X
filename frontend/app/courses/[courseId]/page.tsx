@@ -106,6 +106,17 @@ export default function CoursePage() {
 
   // Check if this is a student-created course (personal course)
   const isStudentCreatedCourse = course && course.creator_id && (!course.instructor_id || course.creator_id === course.instructor_id);
+  
+  // Debug logging
+  console.log('Course Debug:', {
+    course: course?.title,
+    creator_id: course?.creator_id,
+    instructor_id: course?.instructor_id,
+    currentUser_id: currentUser?.id,
+    isOwner,
+    isStudentCreatedCourse,
+    currentUserRole: currentUser?.role
+  });
 
   const loading = courseLoading || modulesLoading || progressLoading;
   const error = courseError || modulesError;
