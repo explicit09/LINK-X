@@ -34,6 +34,11 @@ class CourseService:
             raise AuthorizationError("User not found")
         
         print(f"[ACCESS CHECK] User found: {user.email}, Role: {user.role.role_type if user.role else 'No role'}")
+        
+        # Check if user is the creator (works for any role)
+        if hasattr(course, 'creator_id') and course.creator_id and str(course.creator_id) == str(user_id):
+            print(f"[ACCESS CHECK] User is the course creator")
+            return course
             
         if user.role.role_type == 'admin':
             # Admin has access to all courses
