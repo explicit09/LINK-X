@@ -187,7 +187,7 @@ class AdminService:
             'file_upload_limit': 100 * 1024 * 1024,  # 100MB
             'allowed_file_types': ['pdf', 'txt', 'doc', 'docx', 'mp3', 'wav', 'm4a'],
             'ai_model': 'gpt-4o',
-            'embedding_model': 'text-embedding-ada-002'
+            'embedding_model': 'text-embedding-3-small'
         }
     
     def update_system_settings(self, settings: Dict) -> Dict:
