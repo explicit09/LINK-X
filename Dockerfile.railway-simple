@@ -1,0 +1,19 @@
+# Simple Dockerfile that builds fast and exposes port
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install only Flask and Gunicorn
+RUN pip install flask==3.0.0 gunicorn==21.2.0
+
+# Copy the minimal app
+COPY docker-image/src/app_minimal.py ./
+
+# Expose port 8080 (matching your docker-compose.yml)
+EXPOSE 8080
+
+# Use PORT env variable from Railway, default to 8080
+ENV PORT=8080
+
+# Start the app
+CMD gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 app_minimal:app
