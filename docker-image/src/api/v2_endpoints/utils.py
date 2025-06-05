@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def success_response(data=None, message="Success", status_code=200):
     """Standardized success response"""
     response = {
-        'success': True,
+        'status': 'success',  # Changed from 'success': True to match frontend expectations
         'message': message,
         'timestamp': datetime.now(timezone.utc).isoformat()
     }
@@ -25,7 +25,7 @@ def success_response(data=None, message="Success", status_code=200):
 def error_response(message="Error", errors=None, status_code=400):
     """Standardized error response"""
     response = {
-        'success': False,
+        'status': 'error',  # Changed from 'success': False to match frontend expectations
         'message': message,
         'timestamp': datetime.now(timezone.utc).isoformat()
     }
@@ -41,7 +41,7 @@ def paginated_response(items, page, per_page, total, endpoint, **kwargs):
     pages = (total + per_page - 1) // per_page
     
     response = {
-        'success': True,
+        'status': 'success',  # Changed from 'success': True to match frontend expectations
         'data': items,
         'pagination': {
             'page': page,
