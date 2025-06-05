@@ -439,3 +439,71 @@ class UnifiedAuthService:
         if self.redis_client and jti:
             return self.redis_client.exists(f"blacklist:{jti}")
         return False
+    
+    def register_user(self, email: str, firebase_uid: str, role: str, 
+                     name: str = None, university: str = None, 
+                     department: str = None, onboard_answers: dict = None,
+                     want_quizzes: bool = False, version: str = 'v2') -> Dict[str, Any]:
+        """
+        Register a new user with complete profile creation
+        Creates user, role, and appropriate profile in database
+        """
+        try:
+            # Check if user already exists
+            existing_user = self.user_repo.find_by_firebase_uid(firebase_uid)
+            if existing_user:
+                logger.warning(f"User already exists with firebase_uid: {firebase_uid}")
+                # If user exists, just return tokens
+                return self._generate_v2_tokens(existing_user)
+            
+            # Step 1: Create user with role
+            logger.info(f"Creating new user with email: {email}, role: {role}")
+            user = self.user_repo.create(
+                email=email,
+                firebase_uid=firebase_uid,
+                role=role
+            )
+            logger.info(f"User created successfully with ID: {user.id}")
+            
+            # Step 2: Create role-specific profile
+            try:
+                if role == 'student':
+                    logger.info(f"Creating student profile for user {user.id}")
+                    self.user_repo.create_student_profile(
+                        user_id=user.id,
+                        name=name or email.split('@')[0],
+                        onboard_answers=onboard_answers or {},
+                        want_quizzes=want_quizzes
+                    )
+                    logger.info("Student profile created successfully")
+                elif role == 'instructor':
+                    logger.info(f"Creating instructor profile for user {user.id}")
+                    self.user_repo.create_instructor_profile(
+                        user_id=user.id,
+                        name=name or email.split('@')[0],
+                        university=university or ''
+                    )
+                    logger.info("Instructor profile created successfully")
+                elif role == 'admin':
+                    logger.info(f"Creating admin profile for user {user.id}")
+                    self.user_repo.create_admin_profile(
+                        user_id=user.id,
+                        name=name or email.split('@')[0]
+                    )
+                    logger.info("Admin profile created successfully")
+            except Exception as profile_error:
+                logger.error(f"Failed to create profile: {profile_error}")
+                # Continue anyway - user can update profile later
+            
+            # Step 3: Refresh user to get complete data with profile
+            user = self.user_repo.get_by_id(user.id)
+            if not user:
+                raise Exception("Failed to retrieve created user")
+            
+            # Step 4: Generate tokens and return
+            logger.info("Generating tokens for new user")
+            return self._generate_v2_tokens(user)
+            
+        except Exception as e:
+            logger.error(f"Registration failed: {type(e).__name__}: {str(e)}")
+            raise ValidationError(f"Registration failed: {str(e)}")

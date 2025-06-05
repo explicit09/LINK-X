@@ -23,7 +23,9 @@ const NETWORK_ERROR_MESSAGES = {
 
 export interface RegistrationData {
   role: 'student' | 'instructor';
-  name: string;
+  name?: string;
+  university?: string;
+  department?: string;
   onboard_answers?: Record<string, any>;
   want_quizzes?: boolean;
 }
@@ -205,7 +207,6 @@ export class RegistrationManager {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ idToken }),
-                credentials: 'include',
                 signal: controller.signal,
               });
 
@@ -321,6 +322,20 @@ export class RegistrationManager {
    */
   async register(registrationData: RegistrationData): Promise<boolean> {
     try {
+      // Import auth from firebaseconfig
+      const { auth } = await import('@/firebaseconfig');
+      
+      // Get current Firebase user
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        console.error('No Firebase user found. User must be created in Firebase first.');
+        return false;
+      }
+
+      // Get Firebase ID token
+      const idToken = await firebaseUser.getIdToken();
+      console.log('Got Firebase ID token for registration');
+
       // Check backend health before attempting registration
       const isHealthy = await this.checkBackendHealth();
       if (!isHealthy) {
@@ -337,9 +352,9 @@ export class RegistrationManager {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
+                'X-Firebase-Token': idToken,
               },
               body: JSON.stringify(registrationData),
-              credentials: 'include',
               signal: controller.signal,
             });
 
@@ -363,7 +378,8 @@ export class RegistrationManager {
       );
 
       if (!response.ok) {
-        console.error(`Registration failed with status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error(`Registration failed with status: ${response.status}`, errorData);
         return false;
       }
 

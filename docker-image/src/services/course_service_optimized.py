@@ -266,17 +266,48 @@ class OptimizedCourseService:
         return stats.get('enrollments', 0)
 
     def create_course(self, instructor_id: str, title: str, description: str, 
-                     category: Optional[str] = None, tags: Optional[List[str]] = None) -> Dict:
+                     code: Optional[str] = None, term: Optional[str] = None, 
+                     published: bool = False) -> Dict:
         """Create a new course"""
+        # Check if the user is actually an instructor
+        user = self.user_repo.get_by_id(instructor_id)
+        if not user:
+            raise ValidationError("User not found")
+        
+        # Determine if user has instructor profile
+        is_instructor = user.role and user.role.role_type == 'instructor'
+        
         course_data = {
             'title': title,
             'description': description,
-            'instructor_id': instructor_id,
-            'category': category,
-            'tags': tags or []
+            'creator_id': instructor_id,  # Always set creator_id to the current user
+            'code': code,
+            'term': term,
+            'published': published
         }
+        
+        # Only set instructor_id if user is actually an instructor
+        if is_instructor:
+            course_data['instructor_id'] = instructor_id
+            
         course = self.course_repo.create(**course_data)
+        
+        # Generate access code
+        access_code = self._generate_access_code(course.id)
+        
         return course
+
+    def _generate_access_code(self, course_id: str) -> str:
+        """Generate unique access code for course"""
+        code = secrets.token_urlsafe(6).upper()
+        
+        # Store in database
+        self.course_repo.create_access_code(
+            course_id=course_id,
+            code=code
+        )
+        
+        return code
 
     def update_course(self, course_id: str, user_id: str, **kwargs) -> Dict:
         """Update a course"""

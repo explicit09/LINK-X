@@ -158,13 +158,11 @@ class BaseRepository(Generic[T]):
             session.flush()  # Flush to get ID
             session.refresh(entity)  # Refresh to load all fields
             
-            # Make a copy of the entity data before detaching
-            entity_dict = {c.name: getattr(entity, c.name) 
-                          for c in entity.__table__.columns}
+            # Expunge the entity to detach it from the session safely
             session.expunge(entity)
             
-            # Recreate entity with all data
-            return self.model(**entity_dict)
+            # Return the detached entity directly (no need to recreate)
+            return entity
     
     def update(self, id: Any, **kwargs) -> Optional[T]:
         """Update entity"""
@@ -191,10 +189,8 @@ class BaseRepository(Generic[T]):
                 session.refresh(entity)
                 
                 # Detach and return
-                entity_dict = {c.name: getattr(entity, c.name) 
-                              for c in entity.__table__.columns}
                 session.expunge(entity)
-                return self.model(**entity_dict)
+                return entity
             except Exception as e:
                 logger.error(f"Error updating entity with ID {id}: {type(e).__name__}: {str(e)}")
                 raise
@@ -273,15 +269,12 @@ class BaseRepository(Generic[T]):
                 
             session.flush()
             
-            # Get IDs and data
-            results = []
+            # Refresh and expunge objects
             for obj in objects:
                 session.refresh(obj)
-                entity_dict = {c.name: getattr(obj, c.name) 
-                              for c in obj.__table__.columns}
-                results.append(self.model(**entity_dict))
+                session.expunge(obj)
                 
-            return results
+            return objects
     
     def bulk_update(self, updates: List[Dict[str, Any]]) -> int:
         """
