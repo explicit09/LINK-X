@@ -93,15 +93,16 @@ export default function CourseForm({
         sonnerToast.success('Course updated successfully!');
       } else {
         result = await api.createCourse(formData);
+        console.log('Course creation result:', result);
         sonnerToast.success(
           `Course created successfully! ${result.accessCode ? `Access code: ${result.accessCode}` : ''}`,
         );
       }
 
       onSave({
-        id: result.id || course?.id,
+        id: result.id || course?.id || result.data?.id,
         ...formData,
-        accessCode: result.accessCode,
+        accessCode: result.accessCode || result.data?.accessCode,
       });
     } catch (error) {
       console.error('Failed to save course:', error);
