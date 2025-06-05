@@ -16,11 +16,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   BookOpen, Clock, Calendar, User, Plus, Upload, 
   AlertCircle, ChevronRight, ChevronDown, FileText,
-  PlayCircle, CheckCircle, Lock, Sparkles, BarChart3,
+  PlayCircle, CheckCircle, Sparkles, BarChart3,
   Target, TrendingUp, BookMarked, Info
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { FileCard } from '@/components/course/FileCard';
+import { ModuleForm } from '@/components/course/ModuleForm';
+import { EnhancedFileUpload } from '@/components/course/EnhancedFileUpload';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -47,6 +49,8 @@ export default function CoursePage() {
   
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
   const [metrics, setMetrics] = useState<CourseMetrics | null>(null);
+  const [showModuleForm, setShowModuleForm] = useState(false);
+  const [uploadingToModule, setUploadingToModule] = useState<string | null>(null);
 
   // Calculate course metrics from real data
   useEffect(() => {
@@ -142,7 +146,11 @@ export default function CoursePage() {
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Failed to load course. Please try again or contact support.
+              {error === 'Access denied' || error === 'You do not have access to this course' 
+                ? 'You do not have access to this course. Please ensure you are enrolled or contact your instructor.'
+                : error === 'Course not found'
+                ? 'This course could not be found. It may have been removed or the link may be incorrect.'
+                : 'Failed to load course. Please try again or contact support.'}
             </AlertDescription>
           </Alert>
           <Button 
@@ -252,7 +260,7 @@ export default function CoursePage() {
                 {isEmptyCourse && (
                   <Button
                     size="sm"
-                    onClick={() => toast.info('Module creation coming soon!')}
+                    onClick={() => setShowModuleForm(true)}
                   >
                     <Plus className="w-4 h-4 mr-1" />
                     Add Module
@@ -343,7 +351,7 @@ export default function CoursePage() {
                     : 'This course doesn\'t have any content yet. Check back later or contact your instructor.'}
               </p>
               {isOwner && (
-                <Button onClick={() => toast.info('Module creation coming soon!')}>
+                <Button onClick={() => setShowModuleForm(true)}>
                   <Plus className="w-4 h-4 mr-2" />
                   Create First Module
                 </Button>
@@ -446,7 +454,7 @@ export default function CoursePage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => toast.info('Module creation coming soon!')}
+                      onClick={() => setShowModuleForm(true)}
                     >
                       <Plus className="w-4 h-4 mr-1" />
                       Add Module
@@ -458,32 +466,25 @@ export default function CoursePage() {
                 <div className="divide-y divide-gray-200">
                   {modules.map((module, index) => {
                     const isExpanded = expandedModules.has(module.id);
-                    const isLocked = index > 0 && modules[index - 1].progress < 80;
+                    const isLocked = false; // Removed locking behavior
                     const hasFiles = module.materials_list && module.materials_list.length > 0;
                     
                     return (
                       <div key={module.id} className="group">
                         <div
-                          className={cn(
-                            "px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors",
-                            isLocked && "opacity-60"
-                          )}
-                          onClick={() => !isLocked && toggleModuleExpansion(module.id)}
+                          className="px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                          onClick={() => toggleModuleExpansion(module.id)}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3 flex-1">
-                              {!isLocked && (
-                                isExpanded ? (
-                                  <ChevronDown className="w-5 h-5 text-gray-500" />
-                                ) : (
-                                  <ChevronRight className="w-5 h-5 text-gray-500" />
-                                )
+                              {isExpanded ? (
+                                <ChevronDown className="w-5 h-5 text-gray-500" />
+                              ) : (
+                                <ChevronRight className="w-5 h-5 text-gray-500" />
                               )}
                               
                               {/* Module Status Icon */}
-                              {isLocked ? (
-                                <Lock className="w-5 h-5 text-gray-400" />
-                              ) : module.progress >= 100 ? (
+                              {module.progress >= 100 ? (
                                 <CheckCircle className="w-5 h-5 text-green-600" />
                               ) : module.progress > 0 ? (
                                 <PlayCircle className="w-5 h-5 text-blue-600" />
@@ -498,11 +499,6 @@ export default function CoursePage() {
                                 {module.description && (
                                   <p className="text-sm text-gray-600 mt-1">
                                     {module.description}
-                                  </p>
-                                )}
-                                {isLocked && (
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    Complete previous module to unlock
                                   </p>
                                 )}
                               </div>
@@ -541,10 +537,26 @@ export default function CoursePage() {
                         </div>
                         
                         {/* Expanded Content */}
-                        {isExpanded && !isLocked && (
+                        {isExpanded && (
                           <div className="px-6 pb-4 bg-gray-50 border-t border-gray-200">
                             {hasFiles ? (
                               <div className="space-y-2 mt-4">
+                                {/* Add Materials Button for modules with existing files */}
+                                {isOwner && (
+                                  <div className="flex justify-end mb-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setUploadingToModule(module.id);
+                                      }}
+                                    >
+                                      <Plus className="w-4 h-4 mr-1" />
+                                      Add More Materials
+                                    </Button>
+                                  </div>
+                                )}
                                 {module.materials_list.map((material) => (
                                   <FileCard
                                     key={material.id}
@@ -586,13 +598,39 @@ export default function CoursePage() {
                                     variant="outline"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      toast.info('File upload feature coming soon!');
+                                      setUploadingToModule(module.id);
                                     }}
                                   >
                                     <Upload className="w-4 h-4 mr-1" />
                                     {isStudentCreatedCourse ? 'Add Study Materials' : 'Upload Files'}
                                   </Button>
                                 )}
+                              </div>
+                            )}
+                            
+                            {/* File Upload Section */}
+                            {uploadingToModule === module.id && (
+                              <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="text-sm font-medium text-gray-900">Upload Study Materials</h4>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setUploadingToModule(null)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                                <EnhancedFileUpload
+                                  courseId={courseId}
+                                  moduleId={module.id}
+                                  userRole={currentUser?.role || 'student'}
+                                  onUploadComplete={() => {
+                                    setUploadingToModule(null);
+                                    // Refresh modules to show new files
+                                    window.location.reload();
+                                  }}
+                                />
                               </div>
                             )}
                           </div>
@@ -633,6 +671,17 @@ export default function CoursePage() {
           </div>
         )}
       </div>
+      
+      {/* Module Creation Dialog */}
+      <ModuleForm
+        courseId={courseId}
+        isOpen={showModuleForm}
+        onClose={() => setShowModuleForm(false)}
+        onSuccess={() => {
+          // Refresh modules after creation
+          window.location.reload();
+        }}
+      />
     </SharedDashboardLayout>
   );
 }

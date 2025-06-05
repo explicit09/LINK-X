@@ -1,6 +1,8 @@
 import { toast as sonnerToast } from 'sonner';
 import { UploadFile } from '../types';
 import { formatFileSize, getFileTypeFromMime } from '../utils';
+import { authService } from '@/lib/auth-service';
+import { auth } from '@/firebaseconfig';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -44,7 +46,7 @@ export class UploadService {
       formData.append('title', uploadFile.file.name);
 
       if (this.options.moduleId) {
-        formData.append('module_id', this.options.moduleId);
+        formData.append('moduleId', this.options.moduleId);
       }
 
       formData.append(
@@ -52,10 +54,50 @@ export class UploadService {
         `Uploaded by student: ${uploadFile.file.name}`,
       );
 
+      // Get auth token with IndexedDB error handling
+      let authHeaders: Record<string, string> = {};
+      
+      try {
+        // Try backend token first
+        if (authService.isAuthenticated()) {
+          try {
+            const backendToken = await authService.getValidToken();
+            if (backendToken && typeof backendToken === 'string') {
+              authHeaders['Authorization'] = `Bearer ${backendToken}`;
+            }
+          } catch (authError: any) {
+            console.warn('Backend auth failed, trying Firebase fallback:', authError);
+            // If backend auth fails, try Firebase
+            throw authError;
+          }
+        } else {
+          // Force Firebase fallback
+          throw new Error('Not authenticated with backend');
+        }
+      } catch (error: any) {
+        console.log('Falling back to Firebase auth due to:', error.message);
+        // Fallback to Firebase with IndexedDB error handling
+        try {
+          const user = auth.currentUser;
+          if (user) {
+            const firebaseToken = await user.getIdToken(true); // Force refresh
+            authHeaders['X-Firebase-Token'] = firebaseToken;
+            console.log('Using Firebase token for upload');
+          }
+        } catch (firebaseError: any) {
+          console.error('Firebase auth also failed:', firebaseError);
+          // Continue without auth headers - let the server handle it
+          if (firebaseError.message?.includes('IndexedDB') || firebaseError.message?.includes('transaction')) {
+            console.warn('IndexedDB error detected, proceeding without auth (server will handle)');
+          }
+        }
+      }
+
       const response = await fetch(`${API_URL}/api/v2/files/upload`, {
         method: 'POST',
         body: formData,
         credentials: 'include',
+        headers: authHeaders,
       });
 
       if (!response.ok) {
@@ -103,12 +145,48 @@ export class UploadService {
       this.options.onStatusChange(fileId, 'uploading');
       this.options.onProgress(fileId, 0);
 
+      // Get auth token with IndexedDB error handling
+      let authHeaders: Record<string, string> = {};
+      
+      try {
+        // Try backend token first
+        if (authService.isAuthenticated()) {
+          try {
+            const backendToken = await authService.getValidToken();
+            if (backendToken && typeof backendToken === 'string') {
+              authHeaders['Authorization'] = `Bearer ${backendToken}`;
+            }
+          } catch (authError: any) {
+            console.warn('Backend auth failed, trying Firebase fallback:', authError);
+            throw authError;
+          }
+        } else {
+          throw new Error('Not authenticated with backend');
+        }
+      } catch (error: any) {
+        console.log('Falling back to Firebase auth due to:', error.message);
+        try {
+          const user = auth.currentUser;
+          if (user) {
+            const firebaseToken = await user.getIdToken(true); // Force refresh
+            authHeaders['X-Firebase-Token'] = firebaseToken;
+            console.log('Using Firebase token for instructor upload');
+          }
+        } catch (firebaseError: any) {
+          console.error('Firebase auth also failed:', firebaseError);
+          if (firebaseError.message?.includes('IndexedDB') || firebaseError.message?.includes('transaction')) {
+            console.warn('IndexedDB error detected, proceeding without auth (server will handle)');
+          }
+        }
+      }
+
       // Get course modules
       try {
         const modulesResponse = await fetch(
           `${API_URL}/api/v2/courses/${this.options.courseId}/modules`,
           {
             credentials: 'include',
+            headers: authHeaders,
           },
         );
 
@@ -120,6 +198,7 @@ export class UploadService {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
+                ...authHeaders,
               },
               credentials: 'include',
               body: JSON.stringify({
@@ -141,11 +220,16 @@ export class UploadService {
 
       const formData = new FormData();
       formData.append('file', uploadFile.file);
+      
+      if (this.options.moduleId) {
+        formData.append('moduleId', this.options.moduleId);
+      }
 
       const response = await fetch(`${API_URL}/api/v2/files/upload`, {
         method: 'POST',
         body: formData,
         credentials: 'include',
+        headers: authHeaders,
       });
 
       if (!response.ok) {

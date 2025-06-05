@@ -40,6 +40,9 @@ interface CourseFormProps {
   userRole?: 'instructor' | 'student';
 }
 
+// Add a request ID tracker outside component to persist across renders
+let activeRequestId: string | null = null;
+
 export default function CourseForm({
   course,
   onSave,
@@ -87,7 +90,17 @@ export default function CourseForm({
       return;
     }
 
+    // Generate unique request ID
+    const requestId = `${Date.now()}-${Math.random()}`;
+    
+    // Check if there's an active request
+    if (activeRequestId && isSubmitting) {
+      console.log('Duplicate request prevented:', requestId);
+      return;
+    }
+
     try {
+      activeRequestId = requestId;
       setIsSubmitting(true);
 
       let result;
@@ -97,6 +110,7 @@ export default function CourseForm({
         result = await api.updateCourse(course.id, formData);
         sonnerToast.success('Course updated successfully!');
       } else {
+        console.log('Creating course with request ID:', requestId);
         result = await api.createCourse(formData);
         console.log('Course creation result:', result);
         sonnerToast.success(
@@ -114,6 +128,12 @@ export default function CourseForm({
       sonnerToast.error('Failed to save course. Please try again.');
     } finally {
       setIsSubmitting(false);
+      // Clear the request ID after a short delay to handle React StrictMode
+      setTimeout(() => {
+        if (activeRequestId === requestId) {
+          activeRequestId = null;
+        }
+      }, 100);
     }
   };
 
