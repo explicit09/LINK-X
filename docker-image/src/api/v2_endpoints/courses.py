@@ -82,8 +82,6 @@ def list_courses_v2():
                     'description': getattr(course, 'description', ''),
                     'code': getattr(course, 'code', ''),
                     'term': getattr(course, 'term', ''),
-                    'category': getattr(course, 'category', ''),
-                    'tags': getattr(course, 'tags', []) or [],
                     'instructor_id': str(getattr(course, 'instructor_id', '')),
                     'published': getattr(course, 'published', True),
                     'created_at': getattr(course, 'created_at', None),
@@ -96,8 +94,6 @@ def list_courses_v2():
                 'description': course_data.get('description', ''),
                 'code': course_data.get('code', ''),  # Add course code
                 'term': course_data.get('term', ''),   # Add term
-                'category': course_data.get('category', ''),
-                'tags': course_data.get('tags', []) or [],
                 'instructor': {
                     'id': str(course_data.get('creator_id', '')),
                     'name': 'Instructor'  # Simplified for now
@@ -147,13 +143,22 @@ def create_course_v2():
         
         # Create course - allow any authenticated user to create courses
         try:
-            course = get_course_service().create_course(
-                instructor_id=user.id,  # Use current user as instructor regardless of role
-                title=data['title'],
-                description=data['description'],
-                category=data.get('category'),
-                tags=data.get('tags', [])
-            )
+            # Extract only the fields that exist in the Course model
+            course_data = {
+                'instructor_id': user.id,  # Use current user as instructor regardless of role
+                'title': data['title'],
+                'description': data['description']
+            }
+            
+            # Add optional fields that exist in the model
+            if 'code' in data:
+                course_data['code'] = data['code']
+            if 'term' in data:
+                course_data['term'] = data['term']
+            if 'published' in data:
+                course_data['published'] = data['published']
+                
+            course = get_course_service().create_course(**course_data)
         except Exception as creation_error:
             logger.error(f"Course creation failed: {str(creation_error)}")
             return error_response(f"Failed to create course: {str(creation_error)}", status_code=500)
@@ -163,10 +168,10 @@ def create_course_v2():
             'id': str(course.id),
             'title': course.title,
             'description': course.description,
-            'category': getattr(course, 'category', ''),
-            'tags': getattr(course, 'tags', []),
+            'code': getattr(course, 'code', ''),
+            'term': getattr(course, 'term', ''),
             'access_code': get_course_service().get_access_code(course.id),
-            'published': False,
+            'published': getattr(course, 'published', False),
             'created_at': course.created_at.isoformat() if hasattr(course, 'created_at') else datetime.utcnow().isoformat()
         }
         
