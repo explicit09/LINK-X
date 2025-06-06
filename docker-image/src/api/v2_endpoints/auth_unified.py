@@ -42,81 +42,87 @@ def create_session():
         if not auth_user:
             return error_response("Invalid or expired token", status_code=401)
         
-        # Check if user exists in our database
-        user_repo = UserRepository(db_manager.session_factory)
-        
-        # Look up user by Supabase ID (stored as firebase_uid for compatibility)
-        db_user = None
-        try:
-            db_user = user_repo.get_by_firebase_uid(auth_user.id)
-        except Exception:
-            pass
-        
-        # If not found by firebase_uid, try by email
-        if not db_user:
+        # Use session scope to avoid detached instance errors
+        with db_manager.session_scope() as session:
+            # Check if user exists in our database
+            user_repo = UserRepository(db_manager.session_factory)
+            
+            # Look up user by Supabase ID (stored as firebase_uid for compatibility)
+            db_user = None
             try:
-                db_user = user_repo.get_by_email(auth_user.email)
+                db_user = user_repo.get_by_firebase_uid(auth_user.id)
             except Exception:
                 pass
-        
-        # User is authenticated but not registered in our system
-        if not db_user:
+            
+            # If not found by firebase_uid, try by email
+            if not db_user:
+                try:
+                    db_user = user_repo.get_by_email(auth_user.email)
+                except Exception:
+                    pass
+            
+            # User is authenticated but not registered in our system
+            if not db_user:
+                return success_response({
+                    'authenticated': True,
+                    'registered': False,
+                    'requires_onboarding': True,
+                    'user': {
+                        'id': auth_user.id,
+                        'email': auth_user.email,
+                        'display_name': auth_user.email.split('@')[0],
+                        'role': None,
+                        'has_completed_onboarding': False
+                    },
+                    'supabase_user': {
+                        'id': auth_user.id,
+                        'email': auth_user.email,
+                        'metadata': auth_user.metadata
+                    }
+                }, "User authenticated but not registered")
+            
+            # Attach user to session to prevent detached instance errors
+            if db_user:
+                db_user = session.merge(db_user)
+            
+            # User exists - check onboarding status
+            has_completed_onboarding = True
+            role = db_user.role.role_type if db_user.role else 'student'
+            
+            # For students, check if onboarding is completed
+            if role == 'student':
+                if hasattr(db_user, 'student_profile') and db_user.student_profile:
+                    onboard_data = db_user.student_profile.onboard_answers or {}
+                    has_completed_onboarding = bool(onboard_data and any(onboard_data.values()))
+                else:
+                    has_completed_onboarding = False
+            
+            # Get display name
+            display_name = db_user.email.split('@')[0]  # Default
+            if role == 'student' and hasattr(db_user, 'student_profile') and db_user.student_profile:
+                display_name = db_user.student_profile.name or display_name
+            elif role == 'instructor' and hasattr(db_user, 'instructor_profile') and db_user.instructor_profile:
+                display_name = db_user.instructor_profile.name or display_name
+            
+            # Return complete user session data
             return success_response({
                 'authenticated': True,
-                'registered': False,
-                'requires_onboarding': True,
+                'registered': True,
+                'requires_onboarding': not has_completed_onboarding,
                 'user': {
-                    'id': auth_user.id,
-                    'email': auth_user.email,
-                    'display_name': auth_user.email.split('@')[0],
-                    'role': None,
-                    'has_completed_onboarding': False
+                    'id': str(db_user.id),
+                    'email': db_user.email,
+                    'display_name': display_name,
+                    'role': role,
+                    'has_completed_onboarding': has_completed_onboarding,
+                    'firebase_uid': db_user.firebase_uid,
+                    'created_at': db_user.created_at.isoformat() if hasattr(db_user, 'created_at') else None
                 },
-                'supabase_user': {
-                    'id': auth_user.id,
-                    'email': auth_user.email,
-                    'metadata': auth_user.metadata
+                'session': {
+                    'access_token': access_token,
+                    'expires_in': 3600  # 1 hour
                 }
-            }, "User authenticated but not registered")
-        
-        # User exists - check onboarding status
-        has_completed_onboarding = True
-        role = db_user.role.role_type if db_user.role else 'student'
-        
-        # For students, check if onboarding is completed
-        if role == 'student':
-            if hasattr(db_user, 'student_profile') and db_user.student_profile:
-                onboard_data = db_user.student_profile.onboard_answers or {}
-                has_completed_onboarding = bool(onboard_data and any(onboard_data.values()))
-            else:
-                has_completed_onboarding = False
-        
-        # Get display name
-        display_name = db_user.email.split('@')[0]  # Default
-        if role == 'student' and hasattr(db_user, 'student_profile') and db_user.student_profile:
-            display_name = db_user.student_profile.name or display_name
-        elif role == 'instructor' and hasattr(db_user, 'instructor_profile') and db_user.instructor_profile:
-            display_name = db_user.instructor_profile.name or display_name
-        
-        # Return complete user session data
-        return success_response({
-            'authenticated': True,
-            'registered': True,
-            'requires_onboarding': not has_completed_onboarding,
-            'user': {
-                'id': str(db_user.id),
-                'email': db_user.email,
-                'display_name': display_name,
-                'role': role,
-                'has_completed_onboarding': has_completed_onboarding,
-                'firebase_uid': db_user.firebase_uid,
-                'created_at': db_user.created_at.isoformat() if hasattr(db_user, 'created_at') else None
-            },
-            'session': {
-                'access_token': access_token,
-                'expires_in': 3600  # 1 hour
-            }
-        }, "Session created successfully")
+            }, "Session created successfully")
         
     except ValidationError as e:
         return error_response(str(e), status_code=400)

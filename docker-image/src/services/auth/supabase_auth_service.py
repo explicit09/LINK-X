@@ -220,10 +220,12 @@ class SupabaseAuthService:
     
     def _update_last_login(self, user_id: str):
         """Update user's last login timestamp"""
-        try:
-            self.user_repo.update(user_id, {'last_login_at': datetime.utcnow()})
-        except Exception as e:
-            logger.warning(f"Failed to update last login: {e}")
+        # TODO: Add last_login field to User model
+        # try:
+        #     self.user_repo.update(user_id, last_login_at=datetime.utcnow())
+        # except Exception as e:
+        #     logger.warning(f"Failed to update last login: {e}")
+        pass
     
     def create_user_profile(self, supabase_user: Dict[str, Any], role: str = 'student', **kwargs) -> Dict[str, Any]:
         """
