@@ -14,7 +14,8 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
-  Target
+  Target,
+  LogOut
 } from 'lucide-react';
 
 interface StudentSidebarProps {
@@ -38,11 +39,25 @@ export function StudentSidebar({ currentUser, isCollapsed, onToggleCollapse }: S
     { icon: Calendar, label: 'Schedule', path: '/schedule' },
     { icon: Trophy, label: 'Progress', path: '/progress' },
     { icon: MessageSquare, label: 'Messages', path: '/messages' },
+  ];
+
+  const bottomNavigationItems = [
     { icon: Settings, label: 'Settings', path: '/settings' },
   ];
 
   const handleNavigation = (path: string) => {
     router.push(path);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      // Import signOut from supabaseconfig
+      const { signOut } = await import('@/supabaseconfig');
+      await signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   return (
@@ -88,8 +103,8 @@ export function StudentSidebar({ currentUser, isCollapsed, onToggleCollapse }: S
         </div>
       )}
 
-      {/* Navigation */}
-      <nav className="p-2">
+      {/* Main Navigation */}
+      <nav className="flex-1 p-2">
         {navigationItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.path;
@@ -110,6 +125,42 @@ export function StudentSidebar({ currentUser, isCollapsed, onToggleCollapse }: S
           );
         })}
       </nav>
+
+      {/* Bottom Navigation */}
+      <div className="p-2 border-t border-gray-200">
+        {bottomNavigationItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.path;
+          
+          return (
+            <Button
+              key={item.path}
+              variant={isActive ? 'secondary' : 'ghost'}
+              className={cn(
+                'w-full justify-start mb-1',
+                isCollapsed && 'justify-center px-2'
+              )}
+              onClick={() => handleNavigation(item.path)}
+            >
+              <Icon className={cn('h-5 w-5', !isCollapsed && 'mr-3')} />
+              {!isCollapsed && <span>{item.label}</span>}
+            </Button>
+          );
+        })}
+        
+        {/* Sign Out Button */}
+        <Button
+          variant="ghost"
+          className={cn(
+            'w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50',
+            isCollapsed && 'justify-center px-2'
+          )}
+          onClick={handleSignOut}
+        >
+          <LogOut className={cn('h-5 w-5', !isCollapsed && 'mr-3')} />
+          {!isCollapsed && <span>Sign Out</span>}
+        </Button>
+      </div>
     </div>
   );
 }
