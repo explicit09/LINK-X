@@ -1,9 +1,9 @@
 'use client';
 
 import { ThemeProvider } from '@/components/theme-provider';
-import { SupabaseProvider } from '@/contexts/SupabaseContext';
 import { AuthProvider } from '@/app/(auth)/AuthContext';
 import { Toaster } from '@/components/ui/toaster';
+import { DevAuthTools } from '@/components/auth/DevAuthTools';
 
 export default function ClientLayout({
   children,
@@ -17,12 +17,11 @@ export default function ClientLayout({
       enableSystem
       disableTransitionOnChange
     >
-      <SupabaseProvider>
-        <AuthProvider>
-          {children}
-          <Toaster />
-        </AuthProvider>
-      </SupabaseProvider>
+      <AuthProvider>
+        {children}
+        <Toaster />
+        <DevAuthTools />
+      </AuthProvider>
     </ThemeProvider>
   );
 }

@@ -46,6 +46,98 @@ class UnifiedAuthService {
   private tokenHash: string | null = null; // Track current token for invalidation
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private readonly CACHE_KEY = 'unified_session_cache';
+  private readonly CACHE_EXPIRY_KEY = 'unified_session_cache_expiry';
+  private readonly TOKEN_HASH_KEY = 'unified_session_token_hash';
+  private readonly CACHE_VERSION_KEY = 'unified_session_cache_version';
+  private readonly CACHE_VERSION = '1.1'; // Increment this to invalidate old caches
+
+  constructor() {
+    // Load cache from localStorage on initialization
+    this.loadCacheFromStorage();
+    
+    // Listen for auth state changes to clear cache when user logs out
+    if (typeof window !== 'undefined') {
+      authService.onAuthStateChange((user) => {
+        if (!user) {
+          // User logged out, clear cache
+          console.log('[UnifiedAuthService] User logged out, clearing cache');
+          this.clearCache();
+        }
+      });
+    }
+  }
+
+  /**
+   * Load cached session from localStorage
+   */
+  private loadCacheFromStorage(): void {
+    try {
+      if (typeof window === 'undefined') return;
+      
+      const cachedVersion = localStorage.getItem(this.CACHE_VERSION_KEY);
+      const cachedSession = localStorage.getItem(this.CACHE_KEY);
+      const cachedExpiry = localStorage.getItem(this.CACHE_EXPIRY_KEY);
+      const cachedTokenHash = localStorage.getItem(this.TOKEN_HASH_KEY);
+      
+      // Check cache version first
+      if (cachedVersion !== this.CACHE_VERSION) {
+        console.log('[UnifiedAuthService] Cache version mismatch, clearing old cache');
+        this.clearStorageCache();
+        return;
+      }
+      
+      if (cachedSession && cachedExpiry && cachedTokenHash) {
+        const expiry = parseInt(cachedExpiry, 10);
+        if (Date.now() < expiry) {
+          this.sessionCache = cachedSession;
+          this.cacheExpiry = expiry;
+          this.tokenHash = cachedTokenHash;
+          console.log('[UnifiedAuthService] Loaded session from localStorage, expires:', new Date(expiry));
+        } else {
+          // Cache expired, clear it
+          this.clearStorageCache();
+        }
+      }
+    } catch (error) {
+      console.error('[UnifiedAuthService] Error loading cache from storage:', error);
+      this.clearStorageCache();
+    }
+  }
+
+  /**
+   * Save cache to localStorage
+   */
+  private saveCacheToStorage(): void {
+    try {
+      if (typeof window === 'undefined') return;
+      
+      if (this.sessionCache && this.tokenHash) {
+        localStorage.setItem(this.CACHE_VERSION_KEY, this.CACHE_VERSION);
+        localStorage.setItem(this.CACHE_KEY, this.sessionCache);
+        localStorage.setItem(this.CACHE_EXPIRY_KEY, this.cacheExpiry.toString());
+        localStorage.setItem(this.TOKEN_HASH_KEY, this.tokenHash);
+        console.log('[UnifiedAuthService] Saved session to localStorage');
+      }
+    } catch (error) {
+      console.error('[UnifiedAuthService] Error saving cache to storage:', error);
+    }
+  }
+
+  /**
+   * Clear localStorage cache
+   */
+  private clearStorageCache(): void {
+    try {
+      if (typeof window === 'undefined') return;
+      
+      localStorage.removeItem(this.CACHE_KEY);
+      localStorage.removeItem(this.CACHE_EXPIRY_KEY);
+      localStorage.removeItem(this.TOKEN_HASH_KEY);
+      localStorage.removeItem(this.CACHE_VERSION_KEY);
+    } catch (error) {
+      console.error('[UnifiedAuthService] Error clearing storage cache:', error);
+    }
+  }
 
   /**
    * Simple encryption for session cache (client-side only)
@@ -90,6 +182,35 @@ class UnifiedAuthService {
       console.error('Token hashing error:', error);
       return token.substring(0, 20); // Fallback to simple substring
     }
+  }
+
+  /**
+   * Get cached session without making API call
+   * Used for immediate session restoration on page load
+   */
+  async getCachedSession(): Promise<UnifiedSession | null> {
+    try {
+      if (!this.sessionCache || Date.now() >= this.cacheExpiry) {
+        return null;
+      }
+      
+      // Verify we still have a valid Supabase session
+      const supabaseSession = await authService.getSession();
+      if (!supabaseSession) {
+        console.log('[UnifiedAuthService] No Supabase session, clearing cache');
+        this.clearCache();
+        return null;
+      }
+      
+      const decryptedSession = await this.decryptSession(this.sessionCache);
+      if (decryptedSession) {
+        console.log('[UnifiedAuthService] Found valid cached session');
+        return decryptedSession;
+      }
+    } catch (error) {
+      console.error('[UnifiedAuthService] Error getting cached session:', error);
+    }
+    return null;
   }
 
   /**
@@ -155,6 +276,9 @@ class UnifiedAuthService {
       this.cacheExpiry = Date.now() + this.CACHE_TTL;
       this.tokenHash = currentTokenHash;
       
+      // Save to localStorage for persistence across page refreshes
+      this.saveCacheToStorage();
+      
       return data.data;
     } catch (error) {
       console.error('[UnifiedAuthService] Session creation error:', error);
@@ -171,6 +295,7 @@ class UnifiedAuthService {
     this.sessionCache = null;
     this.cacheExpiry = 0;
     this.tokenHash = null;
+    this.clearStorageCache();
   }
 
   /**

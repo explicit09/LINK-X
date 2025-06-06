@@ -26,14 +26,18 @@ export type AuthCallback = (user: AuthUser | null) => void;
 class SupabaseAuthService {
   private listeners: Set<AuthCallback>;
   private currentUser: AuthUser | null;
+  private initializationPromise: Promise<void> | null;
+  private isInitialized: boolean;
 
   constructor() {
     // Initialize properties first
     this.listeners = new Set<AuthCallback>();
     this.currentUser = null;
+    this.isInitialized = false;
+    this.initializationPromise = null;
     
     // Then initialize auth
-    this.initializeAuth();
+    this.initializationPromise = this.initializeAuth();
   }
 
   /**
@@ -42,25 +46,48 @@ class SupabaseAuthService {
   private async initializeAuth() {
     console.log('[SupabaseAuthService] Initializing auth service');
     try {
-      // Get initial session
+      // IMPORTANT: Wait for Supabase to restore session from localStorage
+      // This is crucial to avoid race conditions on page refresh
       const { data: { session }, error } = await supabase.auth.getSession();
-      console.log('[SupabaseAuthService] Initial session:', session ? 'exists' : 'none', error);
+      console.log('[SupabaseAuthService] Initial session restored:', session ? 'exists' : 'none', error);
+      
+      if (error) {
+        console.error('[SupabaseAuthService] Error getting session:', error);
+      }
       
       this.updateCurrentUser(session?.user || null);
+      this.isInitialized = true;
       
-      // Notify listeners with initial state
+      // Notify listeners with initial state AFTER session is restored
       this.notifyListeners();
 
       // Listen for auth changes
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         console.log('[SupabaseAuthService] Auth state change event:', event);
+        
+        // For INITIAL_SESSION event, we've already handled it above
+        if (event === 'INITIAL_SESSION') {
+          return;
+        }
+        
         this.updateCurrentUser(session?.user || null);
         this.notifyListeners();
       });
     } catch (error) {
       console.error('[SupabaseAuthService] Error during initialization:', error);
+      this.isInitialized = true;
       // Still notify listeners even on error so loading state is cleared
       this.notifyListeners();
+    }
+  }
+
+  /**
+   * Ensure the service is initialized before performing operations
+   */
+  private async ensureInitialized(): Promise<void> {
+    if (this.isInitialized) return;
+    if (this.initializationPromise) {
+      await this.initializationPromise;
     }
   }
 
@@ -105,6 +132,15 @@ class SupabaseAuthService {
    * Get current authenticated user
    */
   async getCurrentUser(): Promise<AuthUser | null> {
+    // Ensure initialization is complete before accessing user
+    await this.ensureInitialized();
+    
+    // First try to return cached user for immediate response
+    if (this.currentUser) {
+      return this.currentUser;
+    }
+    
+    // Otherwise fetch from Supabase
     const { data: { user } } = await supabase.auth.getUser();
     return this.toAuthUser(user);
   }
@@ -113,6 +149,9 @@ class SupabaseAuthService {
    * Get current session
    */
   async getSession(): Promise<Session | null> {
+    // Ensure initialization is complete
+    await this.ensureInitialized();
+    
     const { data: { session } } = await supabase.auth.getSession();
     return session;
   }
@@ -277,8 +316,18 @@ class SupabaseAuthService {
   onAuthStateChange(callback: AuthCallback): () => void {
     this.listeners.add(callback);
     
-    // Call immediately with current state
-    callback(this.currentUser);
+    // If already initialized, call immediately with current state
+    if (this.isInitialized) {
+      callback(this.currentUser);
+    } else {
+      // Wait for initialization then call with current state
+      this.initializationPromise?.then(() => {
+        callback(this.currentUser);
+      }).catch(error => {
+        console.error('[SupabaseAuthService] Error in deferred callback:', error);
+        callback(null);
+      });
+    }
 
     // Return unsubscribe function
     return () => {

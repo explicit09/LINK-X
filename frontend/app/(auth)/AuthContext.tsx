@@ -36,42 +36,74 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     console.log('[AuthProvider] Initializing auth provider');
     let timeoutId: NodeJS.Timeout;
+    let isMounted = true;
     
     // Set a timeout to ensure loading doesn't hang forever
     timeoutId = setTimeout(() => {
-      console.error('[AuthProvider] Auth initialization timeout - forcing loading to false');
-      setLoading(false);
+      if (isMounted) {
+        console.error('[AuthProvider] Auth initialization timeout - forcing loading to false');
+        setLoading(false);
+      }
     }, 10000); // 10 second timeout
     
     try {
       const unsubscribe = onAuthStateChange(async (authUser) => {
+        if (!isMounted) return;
+        
         console.log('[AuthProvider] Auth state changed:', authUser?.email || 'no user');
         clearTimeout(timeoutId); // Clear timeout on successful auth state change
         setUser(authUser);
 
         if (authUser) {
           try {
-            // Always try to create session for authenticated users
-            // This ensures session persistence across page refreshes
-            console.log('[AuthContext] Creating unified session for user:', authUser.email);
-            const unifiedSession = await unifiedAuthService.createSession();
-            console.log('[AuthContext] Unified session result:', unifiedSession);
+            // First, try to get cached session immediately
+            console.log('[AuthContext] Checking for cached session first');
+            const cachedSession = await unifiedAuthService.getCachedSession();
             
-            if (unifiedSession) {
-              setSession(unifiedSession);
-              setIsRegistered(unifiedSession.registered);
-              setRequiresOnboarding(unifiedSession.requires_onboarding);
+            if (cachedSession) {
+              console.log('[AuthContext] Using cached session for immediate state update');
+              setSession(cachedSession);
+              setIsRegistered(cachedSession.registered);
+              setRequiresOnboarding(cachedSession.requires_onboarding);
               
-              if (unifiedSession.registered) {
-                setBackendUser(unifiedSession.user);
+              if (cachedSession.registered) {
+                setBackendUser(cachedSession.user);
               }
+              
+              // Still call createSession in background to refresh if needed
+              unifiedAuthService.createSession().then(freshSession => {
+                if (freshSession && JSON.stringify(freshSession) !== JSON.stringify(cachedSession)) {
+                  console.log('[AuthContext] Updating with fresh session data');
+                  setSession(freshSession);
+                  setIsRegistered(freshSession.registered);
+                  setRequiresOnboarding(freshSession.requires_onboarding);
+                  if (freshSession.registered) {
+                    setBackendUser(freshSession.user);
+                  }
+                }
+              });
             } else {
-              // Session creation failed - user authenticated but not registered
-              console.log('[AuthContext] Session creation returned null - user may not be registered');
-              setSession(null);
-              setIsRegistered(false);
-              setBackendUser(null);
-              setRequiresOnboarding(true);
+              // No cache, create session normally
+              console.log('[AuthContext] No cached session, creating new session');
+              const unifiedSession = await unifiedAuthService.createSession();
+              console.log('[AuthContext] Unified session result:', unifiedSession);
+              
+              if (unifiedSession) {
+                setSession(unifiedSession);
+                setIsRegistered(unifiedSession.registered);
+                setRequiresOnboarding(unifiedSession.requires_onboarding);
+                
+                if (unifiedSession.registered) {
+                  setBackendUser(unifiedSession.user);
+                }
+              } else {
+                // Session creation failed - user authenticated but not registered
+                console.log('[AuthContext] Session creation returned null - user may not be registered');
+                setSession(null);
+                setIsRegistered(false);
+                setBackendUser(null);
+                setRequiresOnboarding(true);
+              }
             }
           } catch (error) {
             console.error('Error during unified authentication:', error);
@@ -96,6 +128,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       return () => {
         console.log('[AuthProvider] Cleaning up auth listener');
+        isMounted = false;
         clearTimeout(timeoutId);
         unsubscribe();
       };

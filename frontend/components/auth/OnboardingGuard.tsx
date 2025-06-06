@@ -20,10 +20,17 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
   useEffect(() => {
     // Wait for auth context to finish loading
     if (loading) {
+      console.log('[OnboardingGuard] Still loading auth state...');
       return;
     }
 
-    console.log('[OnboardingGuard] Auth state:', { user, session, requiresOnboarding });
+    console.log('[OnboardingGuard] Auth state loaded:', { 
+      user: user?.email, 
+      session: session?.authenticated, 
+      registered: session?.registered,
+      requiresOnboarding,
+      has_completed_onboarding: session?.user?.has_completed_onboarding 
+    });
 
     // If no user, redirect to login
     if (!user) {
@@ -39,8 +46,8 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
       return;
     }
 
-    // Check if onboarding is required
-    if (requiresOnboarding) {
+    // Check if onboarding is required - check both fields
+    if (requiresOnboarding || !session.user?.has_completed_onboarding) {
       console.log('[OnboardingGuard] User requires onboarding completion');
       router.push('/onboarding');
       return;

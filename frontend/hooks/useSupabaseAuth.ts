@@ -49,20 +49,22 @@ export function useSupabaseAuth(): UseSupabaseAuthReturn {
   // Initialize auth state
   useEffect(() => {
     setLoading(true);
+    let mounted = true;
     
-    // Get initial user
-    authService.getCurrentUser().then(currentUser => {
-      setUser(currentUser);
-      setLoading(false);
-    });
-
     // Subscribe to auth changes
+    // This will automatically wait for initialization and then provide the current user
     const unsubscribe = authService.onAuthStateChange((authUser) => {
-      setUser(authUser);
-      setLoading(false);
+      if (mounted) {
+        console.log('[useSupabaseAuth] Auth state updated:', authUser?.email || 'no user');
+        setUser(authUser);
+        setLoading(false);
+      }
     });
 
-    return unsubscribe;
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, []);
 
   // Sign in function
