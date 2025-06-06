@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { userAPI, authAPI, authService } from '@/lib/api';
-import { auth } from '@/firebaseconfig';
+import { supabase } from '@/supabaseconfig';
 import type { FormData, OnboardingHookReturn } from '../types/onboarding';
 
 const INITIAL_FORM_DATA: FormData = {
@@ -80,9 +80,10 @@ export function useOnboardingForm(): OnboardingHookReturn {
       // Register with backend
       const registrationResult = await authAPI.v2.register(registrationData);
       
-      // After successful registration, establish session
-      if (auth.currentUser) {
-        const sessionSuccess = await authService.login(auth.currentUser);
+      // After successful registration, establish session with Supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const sessionSuccess = await authService.loginWithSupabase(session.access_token);
         if (!sessionSuccess) {
           console.warn('Failed to establish session after registration');
         }
