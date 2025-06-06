@@ -126,12 +126,15 @@ export async function checkRegistrationStatus(): Promise<RegistrationCheckRespon
     }
 
     const data = await response.json();
+    console.log('[Auth] Check registration raw response:', data);
     // The API returns { success: true, data: { registered: boolean, has_completed_onboarding: boolean, user: {...} } }
-    return { 
+    const result = { 
       isRegistered: data.data?.registered || false,
       user: data.data?.user || null,
       has_completed_onboarding: data.data?.has_completed_onboarding ?? true
     };
+    console.log('[Auth] Check registration parsed result:', result);
+    return result;
   } catch (error) {
     console.error('Failed to check registration status:', error);
     return { isRegistered: false };

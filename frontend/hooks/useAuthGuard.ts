@@ -36,11 +36,13 @@ export function useAuthGuard(requireRegistration: boolean = true) {
       try {
         // User is authenticated with Supabase, check registration
         const registrationCheck = await authAPI.v2.checkRegistration();
-        console.log('Registration check response:', registrationCheck);
+        console.log('[useAuthGuard] Registration check response:', registrationCheck);
         
         // The checkRegistration function now returns the parsed data directly
         const isRegistered = registrationCheck.isRegistered;
         const hasCompletedOnboarding = registrationCheck.has_completed_onboarding ?? true; // Default to true for backward compatibility
+        
+        console.log('[useAuthGuard] Status:', { isRegistered, hasCompletedOnboarding });
         
         if (isRegistered && hasCompletedOnboarding) {
           // User is registered and has completed onboarding

@@ -6,12 +6,13 @@ from datetime import datetime
 import logging
 
 from core.decorators_unified import firebase_auth_required, firebase_token_required
+from core.auth.decorators import require_auth  # Add Supabase auth decorator
 from core.exceptions import ValidationError, NotFoundError, UnauthorizedError, AuthenticationError
 from services.auth_service_unified import UnifiedAuthService as AuthService
 from repositories.user_repository import UserRepository
 from repositories.course_repository import CourseRepository
 from repositories.enrollment_repository import EnrollmentRepository
-from core.database import db, db_manager
+from core.database_supabase import db, db_manager
 from db.schema import User, Enrollment, Course, PersonalizedFile
 
 from .utils import success_response, error_response
@@ -40,9 +41,27 @@ def login_v2():
         if not id_token:
             return error_response("ID token is required", errors={'idToken': 'This field is required'}, status_code=400)
         
-        # Use auth service for login
-        auth_service = get_auth_service()
-        result = auth_service.authenticate_with_firebase(id_token, version='v2')
+        # Use Supabase auth service for login
+        from services.auth.supabase_auth_service import get_auth_service as get_supabase_auth
+        supabase_auth = get_supabase_auth()
+        
+        # Verify the Supabase token and get user info
+        auth_user = supabase_auth.verify_token(id_token)
+        if not auth_user:
+            return error_response("Invalid or expired token", status_code=401)
+        
+        # Create response in expected format
+        result = {
+            'user': {
+                'user_id': auth_user.id,
+                'email': auth_user.email,
+                'role': auth_user.role,
+                'firebase_uid': auth_user.id,  # Use Supabase ID as firebase_uid for compatibility
+                'name': auth_user.metadata.get('full_name') or auth_user.email.split('@')[0]
+            },
+            'access_token': id_token,  # Return the same token since it's already valid
+            'refresh_token': None  # Supabase handles refresh internally
+        }
         
         # Enhanced response with user details
         user_data = result['user']  # This is already a dict from auth service
@@ -93,7 +112,7 @@ def login_v2():
 
 
 @auth_bp.route('/logout', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def logout_v2():
     """Enhanced logout with token invalidation"""
     try:
@@ -116,49 +135,66 @@ def logout_v2():
 
 
 @auth_bp.route('/check-registration', methods=['GET'])
-@firebase_token_required(allow_unregistered=True)
+@require_auth
 def check_registration_v2():
     """Check if a Firebase-authenticated user is registered in the system"""
     try:
-        # Check if user exists in database
-        if hasattr(g, 'current_user') and g.current_user:
-            # User is registered - check if they completed onboarding
-            user = g.current_user
+        # g.current_user is an AuthUser from Supabase
+        auth_user = g.current_user
+        
+        from sqlalchemy.orm import joinedload
+        from db.schema import User
+        
+        # Get the user from database with proper session handling
+        with db_manager.session_scope() as session:
+            user = session.query(User).options(
+                joinedload(User.role),
+                joinedload(User.student_profile),
+                joinedload(User.instructor_profile),
+                joinedload(User.admin_profile)
+            ).filter(
+                (User.firebase_uid == auth_user.id) | (User.id == auth_user.id)
+            ).first()
             
-            # For students, check if they have completed onboarding
-            has_completed_onboarding = True
-            if user.role and user.role.role_type == 'student':
-                # Check if student has onboarding data
-                if hasattr(user, 'student_profile') and user.student_profile:
-                    # Check if onboard_answers has actual content (not empty dict)
-                    onboard_data = user.student_profile.onboard_answers or {}
-                    has_completed_onboarding = bool(onboard_data and any(onboard_data.values()))
-                else:
-                    # No student profile means onboarding not completed
-                    has_completed_onboarding = False
-            
-            return success_response({
-                'registered': True,
-                'has_completed_onboarding': has_completed_onboarding,
-                'user': {
-                    'id': str(user.id),
-                    'email': user.email,
-                    'role': user.role.role_type if user.role else None,
-                    'firebase_uid': user.firebase_uid
-                }
-            })
-        else:
-            # User is not registered but has valid Firebase auth
-            firebase_user = g.get('firebase_user', {})
-            return success_response({
-                'registered': False,
-                'has_completed_onboarding': False,
-                'firebase_user': {
-                    'uid': firebase_user.get('uid'),
-                    'email': firebase_user.get('email'),
-                    'name': firebase_user.get('name')
-                }
-            })
+            if user:
+                # User is registered - check if they completed onboarding
+                has_completed_onboarding = True
+                role_type = user.role.role_type if user.role else None
+                
+                # For students, check if they have completed onboarding
+                if role_type == 'student':
+                    # Check if student has onboarding data
+                    if hasattr(user, 'student_profile') and user.student_profile:
+                        # Check if onboard_answers has actual content (not empty dict)
+                        onboard_data = user.student_profile.onboard_answers or {}
+                        has_completed_onboarding = bool(onboard_data and any(onboard_data.values()))
+                        logger.info(f"Check registration for {user.email}: onboard_data={onboard_data}, has_completed={has_completed_onboarding}")
+                    else:
+                        # No student profile means onboarding not completed
+                        has_completed_onboarding = False
+                        logger.info(f"Check registration for {user.email}: No student profile found")
+                
+                return success_response({
+                    'registered': True,
+                    'has_completed_onboarding': has_completed_onboarding,
+                    'user': {
+                        'id': str(user.id),
+                        'email': user.email,
+                        'role': role_type,
+                        'firebase_uid': user.firebase_uid
+                    }
+                })
+            else:
+                # User is not registered but has valid Supabase auth
+                return success_response({
+                    'registered': False,
+                    'has_completed_onboarding': False,
+                    'firebase_user': {
+                        'uid': auth_user.id,
+                        'email': auth_user.email,
+                        'name': auth_user.metadata.get('full_name') or auth_user.email.split('@')[0]
+                    }
+                })
             
     except Exception as e:
         logger.error(f"Check registration error: {str(e)}")
@@ -166,30 +202,34 @@ def check_registration_v2():
 
 
 @auth_bp.route('/register', methods=['POST'])
-@firebase_token_required(allow_unregistered=True)
+@require_auth
 def register_v2():
-    """Register a new user with Firebase authentication"""
+    """Register a new user with Supabase authentication"""
     try:
         data = request.get_json()
         if not data:
             return error_response("Request body is required", status_code=400)
         
-        # Get Firebase user info
-        firebase_user = g.get('firebase_user', {})
-        if not firebase_user:
-            return error_response("Firebase authentication required", status_code=401)
+        # Get current authenticated user from Supabase
+        auth_user = g.current_user
+        if not auth_user:
+            return error_response("Authentication required", status_code=401)
         
         # Extract required fields
         role = data.get('role', 'student')
         if role not in ['student', 'instructor']:
             return error_response("Invalid role. Must be 'student' or 'instructor'", status_code=400)
         
+        # Log the onboarding data received
+        logger.info(f"Registration request for {auth_user.email} with role {role}")
+        logger.info(f"Onboarding data received: {data.get('onboard_answers', {})}")
+        
         # Prepare registration data
         registration_data = {
-            'email': firebase_user.get('email'),
-            'firebase_uid': firebase_user.get('uid'),
+            'email': auth_user.email,
+            'firebase_uid': auth_user.id,  # Use Supabase ID as firebase_uid for compatibility
             'role': role,
-            'name': data.get('name') or firebase_user.get('name'),
+            'name': data.get('name') or auth_user.metadata.get('full_name') or auth_user.email.split('@')[0],
             'version': 'v2'
         }
         
@@ -199,6 +239,7 @@ def register_v2():
                 'onboard_answers': data.get('onboard_answers', {}),
                 'want_quizzes': data.get('want_quizzes', False)
             })
+            logger.info(f"Student registration data: onboard_answers={registration_data['onboard_answers']}, want_quizzes={registration_data['want_quizzes']}")
         elif role == 'instructor':
             registration_data.update({
                 'university': data.get('university'),
@@ -219,102 +260,134 @@ def register_v2():
 
 
 @auth_bp.route('/me', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_profile_v2():
     """Get current user profile with enhanced data"""
     try:
-        user = g.current_user
-        user_repo = UserRepository(db_manager.session_factory)
+        # g.current_user is now an AuthUser from Supabase auth service
+        auth_user = g.current_user
         
-        # Refresh user data from database (UserRepository already includes eager loading)
-        fresh_user = user_repo.get_by_id(user.id)
-        if not fresh_user:
-            return error_response("User not found", status_code=404)
+        # Get the full database user using the AuthUser.id
+        # The AuthUser.id should match the user's firebase_uid or id in database
+        from sqlalchemy.orm import joinedload
+        from db.schema import User
         
-        # Get display name from profile or fallback to email
-        display_name = fresh_user.email.split('@')[0]  # Default fallback
-        
-        # Check role type first to avoid lazy loading issues
-        role_type = fresh_user.role.role_type if fresh_user.role else None
-        
-        # Get name from appropriate profile
-        if role_type == 'student' and hasattr(fresh_user, 'student_profile') and fresh_user.student_profile:
-            display_name = fresh_user.student_profile.name or display_name
-        elif role_type == 'instructor' and hasattr(fresh_user, 'instructor_profile') and fresh_user.instructor_profile:
-            display_name = fresh_user.instructor_profile.name or display_name
-        elif role_type == 'admin' and hasattr(fresh_user, 'admin_profile') and fresh_user.admin_profile:
-            display_name = fresh_user.admin_profile.name or display_name
-        
-        # Build comprehensive profile
-        profile_data = {
-            'id': str(fresh_user.id),
-            'email': fresh_user.email,
-            'display_name': display_name,
-            'role': fresh_user.role.role_type if fresh_user.role else 'student',
-            'verified': getattr(fresh_user, 'verified', True),
-            'created_at': fresh_user.created_at.isoformat() if hasattr(fresh_user, 'created_at') else None,
-            'profile': {}
-        }
-        
-        # Add role-specific profile data
-        if role_type == 'student' and hasattr(fresh_user, 'student_profile') and fresh_user.student_profile:
-            logger.info(f"Student profile found for {fresh_user.email}: name={fresh_user.student_profile.name}")
-            profile_data['profile'] = {
-                'name': fresh_user.student_profile.name,
-                'onboard_answers': fresh_user.student_profile.onboard_answers,
-                'want_quizzes': fresh_user.student_profile.want_quizzes
+        # Get a fresh session and query with joined loads to avoid detached instance errors
+        with db_manager.session_scope() as session:
+            fresh_user = session.query(User).options(
+                joinedload(User.role),
+                joinedload(User.student_profile),
+                joinedload(User.instructor_profile),
+                joinedload(User.admin_profile)
+            ).filter(
+                (User.firebase_uid == auth_user.id) | (User.id == auth_user.id)
+            ).first()
+            
+            if not fresh_user:
+                return error_response("User not found", status_code=404)
+            
+            # Get display name from profile or fallback to email
+            display_name = fresh_user.email.split('@')[0]  # Default fallback
+            
+            # Check role type first to avoid lazy loading issues
+            role_type = fresh_user.role.role_type if fresh_user.role else None
+            
+            # Get name from appropriate profile
+            if role_type == 'student' and hasattr(fresh_user, 'student_profile') and fresh_user.student_profile:
+                display_name = fresh_user.student_profile.name or display_name
+            elif role_type == 'instructor' and hasattr(fresh_user, 'instructor_profile') and fresh_user.instructor_profile:
+                display_name = fresh_user.instructor_profile.name or display_name
+            elif role_type == 'admin' and hasattr(fresh_user, 'admin_profile') and fresh_user.admin_profile:
+                display_name = fresh_user.admin_profile.name or display_name
+            
+            # Check if onboarding is completed for students
+            has_completed_onboarding = True
+            if role_type == 'student':
+                if hasattr(fresh_user, 'student_profile') and fresh_user.student_profile:
+                    onboard_data = fresh_user.student_profile.onboard_answers or {}
+                    has_completed_onboarding = bool(onboard_data and any(onboard_data.values()))
+                else:
+                    has_completed_onboarding = False
+            
+            # Build comprehensive profile
+            profile_data = {
+                'id': str(fresh_user.id),
+                'email': fresh_user.email,
+                'display_name': display_name,
+                'role': fresh_user.role.role_type if fresh_user.role else 'student',
+                'verified': getattr(fresh_user, 'verified', True),
+                'has_completed_onboarding': has_completed_onboarding,
+                'created_at': fresh_user.created_at.isoformat() if hasattr(fresh_user, 'created_at') else None,
+                'profile': {}
             }
-        elif role_type == 'instructor' and hasattr(fresh_user, 'instructor_profile') and fresh_user.instructor_profile:
-            logger.info(f"Instructor profile found for {fresh_user.email}: name={fresh_user.instructor_profile.name}")
-            profile_data['profile'] = {
-                'name': fresh_user.instructor_profile.name,
-                'university': fresh_user.instructor_profile.university,
-                'department': getattr(fresh_user.instructor_profile, 'department', None)
-            }
-        elif role_type == 'admin' and hasattr(fresh_user, 'admin_profile') and fresh_user.admin_profile:
-            logger.info(f"Admin profile found for {fresh_user.email}: name={fresh_user.admin_profile.name}")
-            profile_data['profile'] = {
-                'name': fresh_user.admin_profile.name
-            }
-        else:
-            logger.warning(f"No profile found for {fresh_user.email}, role={role_type}")
-        
-        # Add statistics
-        stats = {}
-        if fresh_user.role and fresh_user.role.role_type == 'student':
-            # Get student statistics
-            enrollments = db.session.query(Enrollment).filter_by(user_id=fresh_user.id).all()
-            stats['enrolled_courses'] = len(enrollments)
-            stats['completed_courses'] = sum(1 for e in enrollments if getattr(e, 'completed', False))
-            stats['total_files_viewed'] = 0  # TODO: Implement file view tracking
-        elif fresh_user.role and fresh_user.role.role_type == 'instructor':
-            # Get instructor statistics
-            course_repo = CourseRepository()
-            courses = course_repo.get_by_instructor(fresh_user.id)
-            stats['total_courses'] = len(courses)
-            stats['total_students'] = sum(course_repo.get_student_count(c.id) for c in courses)
-        
-        profile_data['stats'] = stats
-        
-        return success_response(profile_data)
+            
+            # Add role-specific profile data
+            if role_type == 'student' and hasattr(fresh_user, 'student_profile') and fresh_user.student_profile:
+                logger.info(f"Student profile found for {fresh_user.email}: name={fresh_user.student_profile.name}")
+                profile_data['profile'] = {
+                    'name': fresh_user.student_profile.name,
+                    'onboard_answers': fresh_user.student_profile.onboard_answers,
+                    'want_quizzes': fresh_user.student_profile.want_quizzes
+                }
+            elif role_type == 'instructor' and hasattr(fresh_user, 'instructor_profile') and fresh_user.instructor_profile:
+                logger.info(f"Instructor profile found for {fresh_user.email}: name={fresh_user.instructor_profile.name}")
+                profile_data['profile'] = {
+                    'name': fresh_user.instructor_profile.name,
+                    'university': fresh_user.instructor_profile.university,
+                    'department': getattr(fresh_user.instructor_profile, 'department', None)
+                }
+            elif role_type == 'admin' and hasattr(fresh_user, 'admin_profile') and fresh_user.admin_profile:
+                logger.info(f"Admin profile found for {fresh_user.email}: name={fresh_user.admin_profile.name}")
+                profile_data['profile'] = {
+                    'name': fresh_user.admin_profile.name
+                }
+            else:
+                logger.warning(f"No profile found for {fresh_user.email}, role={role_type}")
+            
+            # Add statistics
+            stats = {}
+            if role_type == 'student':
+                # Query enrollments in the same session
+                from db.schema import Enrollment
+                enrollments = session.query(Enrollment).filter_by(user_id=fresh_user.id).all()
+                stats['enrolled_courses'] = len(enrollments)
+            elif role_type == 'instructor':
+                # Query courses in the same session
+                from db.schema import Course
+                courses = session.query(Course).filter_by(instructor_id=fresh_user.id).all()
+                stats['total_courses'] = len(courses)
+            
+            profile_data['stats'] = stats
+            
+            return success_response(profile_data)
         
     except Exception as e:
-        logger.error(f"Get profile error: {str(e)}")
+        logger.error(f"Get profile error: {str(e)}", exc_info=True)
         return error_response("An error occurred fetching profile", status_code=500)
 
 
 @auth_bp.route('/me', methods=['PATCH'])
-@firebase_auth_required
+@require_auth
 def update_profile_v2():
     """Update current user profile"""
     try:
-        user = g.current_user
+        # g.current_user is now an AuthUser from Supabase auth service
+        auth_user = g.current_user
         data = request.get_json()
         
         if not data:
             return error_response("No data provided")
         
         user_repo = UserRepository(db_manager.session_factory)
+        
+        # Get the full database user using the AuthUser.id
+        user = user_repo.get_by_firebase_uid(auth_user.id)
+        if not user:
+            # Try by direct ID lookup
+            user = user_repo.get_by_id(auth_user.id)
+        
+        if not user:
+            return error_response("User not found", status_code=404)
         
         # Update user email if provided (requires Firebase update too)
         if 'email' in data and data['email'] != user.email:
