@@ -1,7 +1,6 @@
 'use client';
 
-import type React from 'react';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,8 +39,9 @@ interface CourseFormProps {
   userRole?: 'instructor' | 'student';
 }
 
-// Add a request ID tracker outside component to persist across renders
-let activeRequestId: string | null = null;
+// Add a request tracker outside component to persist across renders
+// Using a Map to track requests by form instance
+const activeRequests = new Map<string, boolean>();
 
 export default function CourseForm({
   course,
@@ -57,6 +57,9 @@ export default function CourseForm({
     published: course?.published || false,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Create a unique form instance ID to track this specific form
+  const formInstanceId = React.useRef(`form-${Date.now()}-${Math.random()}`).current;
 
   // Auto-generate course code from title
   useEffect(() => {
@@ -90,17 +93,15 @@ export default function CourseForm({
       return;
     }
 
-    // Generate unique request ID
-    const requestId = `${Date.now()}-${Math.random()}`;
-    
-    // Check if there's an active request
-    if (activeRequestId && isSubmitting) {
-      console.log('Duplicate request prevented:', requestId);
+    // Check if this form instance already has an active request
+    if (activeRequests.get(formInstanceId)) {
+      console.log('Duplicate request prevented for form instance:', formInstanceId);
       return;
     }
 
     try {
-      activeRequestId = requestId;
+      // Mark this form instance as having an active request
+      activeRequests.set(formInstanceId, true);
       setIsSubmitting(true);
 
       let result;
@@ -110,7 +111,7 @@ export default function CourseForm({
         result = await api.updateCourse(course.id, formData);
         sonnerToast.success('Course updated successfully!');
       } else {
-        console.log('Creating course with request ID:', requestId);
+        console.log('Creating course from form instance:', formInstanceId);
         result = await api.createCourse(formData);
         console.log('Course creation result:', result);
         sonnerToast.success(
@@ -128,14 +129,17 @@ export default function CourseForm({
       sonnerToast.error('Failed to save course. Please try again.');
     } finally {
       setIsSubmitting(false);
-      // Clear the request ID after a short delay to handle React StrictMode
-      setTimeout(() => {
-        if (activeRequestId === requestId) {
-          activeRequestId = null;
-        }
-      }, 100);
+      // Clear the active request for this form instance
+      activeRequests.delete(formInstanceId);
     }
   };
+  
+  // Clean up on unmount
+  React.useEffect(() => {
+    return () => {
+      activeRequests.delete(formInstanceId);
+    };
+  }, [formInstanceId]);
 
   const handleChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({

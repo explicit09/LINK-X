@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authAPI } from '@/lib/api';
 import { onAuthStateChange } from '@/lib/auth/supabase-auth-service';
+import { initializeAuth, resetAuthInitializer } from '@/lib/auth/auth-initializer';
 
 interface AuthGuardState {
   isLoading: boolean;
@@ -18,18 +19,81 @@ export function useAuthGuard(requireRegistration: boolean = true) {
     isRegistered: false,
     needsOnboarding: false
   });
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Check for existing session on mount
   useEffect(() => {
-    const checkAuthStatus = async (user: any) => {
-      if (!user) {
-        // No Firebase user, redirect to login
+    const checkInitialAuth = async () => {
+      try {
+        console.log('[useAuthGuard] Checking initial auth state...');
+        const authState = await initializeAuth();
+        
+        console.log('[useAuthGuard] Initial auth state:', authState);
+        
+        if (authState.isAuthenticated) {
+          // User has existing session
+          setState({
+            isLoading: false,
+            isAuthenticated: true,
+            isRegistered: authState.isRegistered,
+            needsOnboarding: authState.needsOnboarding
+          });
+          
+          // Handle routing based on state
+          if (authState.needsOnboarding && requireRegistration) {
+            router.push('/onboarding');
+          }
+        } else {
+          // No existing session
+          setState({
+            isLoading: false,
+            isAuthenticated: false,
+            isRegistered: false,
+            needsOnboarding: false
+          });
+          
+          if (requireRegistration) {
+            router.push('/login');
+          }
+        }
+      } catch (error) {
+        console.error('[useAuthGuard] Error checking initial auth:', error);
         setState({
           isLoading: false,
           isAuthenticated: false,
           isRegistered: false,
           needsOnboarding: false
         });
-        router.push('/login');
+        
+        if (requireRegistration) {
+          router.push('/login');
+        }
+      } finally {
+        setIsInitialized(true);
+      }
+    };
+
+    checkInitialAuth();
+  }, []);
+
+  // Listen for auth state changes after initialization
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    const checkAuthStatus = async (user: any) => {
+      if (!user) {
+        // User logged out
+        resetAuthInitializer(); // Clear cached auth state
+        setState({
+          isLoading: false,
+          isAuthenticated: false,
+          isRegistered: false,
+          needsOnboarding: false
+        });
+        
+        if (requireRegistration) {
+          router.push('/login');
+        }
         return;
       }
 
@@ -100,7 +164,10 @@ export function useAuthGuard(requireRegistration: boolean = true) {
             isRegistered: false,
             needsOnboarding: false
           });
-          router.push('/login');
+          
+          if (requireRegistration) {
+            router.push('/login');
+          }
         }
       }
     };
@@ -108,7 +175,7 @@ export function useAuthGuard(requireRegistration: boolean = true) {
     const unsubscribe = onAuthStateChange(checkAuthStatus);
 
     return () => unsubscribe();
-  }, [router, requireRegistration]);
+  }, [router, requireRegistration, isInitialized]);
 
   return state;
 }

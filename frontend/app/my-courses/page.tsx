@@ -155,34 +155,25 @@ export default function MyCoursesPage() {
   };
 
   const handleCreateCourse = async (courseData: any) => {
-    try {
-      const newCourse = await courseAPI.createCourse(courseData);
-      console.log('New course created:', newCourse);
-      console.log('Course data passed:', courseData);
-      
-      // Handle both the direct response and the onSave callback data
-      const courseId = courseData.id || newCourse.id || newCourse.data?.id;
-      const accessCode = courseData.accessCode || newCourse.accessCode || newCourse.data?.accessCode;
-      
-      setCourses((prev) => [
-        ...prev,
-        {
-          ...courseData,
-          id: courseId,
-          accessCode: accessCode,
-          studentsCount: 0,
-          materialsCount: 0,
-          lastActivity: 'Just created',
-          progress: 0,
-          color: 'bg-blue-500',
-        },
-      ]);
-      setShowCourseForm(false);
-      sonnerToast.success('🎉 Course created successfully! +25 XP earned');
-    } catch (error) {
-      console.error('Failed to create course:', error);
-      sonnerToast.error('Failed to create course');
-    }
+    // Course has already been created by CourseForm component
+    // We just need to add it to our local state
+    console.log('Course data received from CourseForm:', courseData);
+    
+    setCourses((prev) => [
+      ...prev,
+      {
+        ...courseData,
+        studentsCount: 0,
+        materialsCount: 0,
+        lastActivity: 'Just created',
+        progress: 0,
+        color: 'bg-blue-500',
+      },
+    ]);
+    setShowCourseForm(false);
+    
+    // Reload courses to ensure we have the latest data
+    loadMyCourses();
   };
 
   const handleEditCourse = async (courseData: any) => {
