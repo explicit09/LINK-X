@@ -1,12 +1,11 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '@/firebaseconfig';
-import { authService } from '@/lib/auth-service';
+import { authService, AuthUser, onAuthStateChange } from '@/lib/auth/supabase-auth-service';
+import { authService as backendAuthService } from '@/lib/auth-service';
 
 type AuthContextType = {
-  user: User | null;
+  user: AuthUser | null;
   loading: boolean;
   error: Error | null;
   isRegistered: boolean;
@@ -22,7 +21,7 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
@@ -30,31 +29,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     try {
-      const unsubscribe = onAuthStateChanged(
-        auth,
-        async (firebaseUser) => {
-          setUser(firebaseUser);
+      const unsubscribe = onAuthStateChange(async (authUser) => {
+        setUser(authUser);
 
-          if (firebaseUser) {
-            // Only skip on landing page, not auth pages
-            const currentPath = window.location.pathname;
-            if (currentPath === '/' || currentPath === '') {
-              // Skip backend session on landing page
-              setLoading(false);
-              return;
-            }
+        if (authUser) {
+          // Only skip on landing page, not auth pages
+          const currentPath = window.location.pathname;
+          if (currentPath === '/' || currentPath === '') {
+            // Skip backend session on landing page
+            setLoading(false);
+            return;
+          }
 
-            try {
-              // Try to establish backend session
-              const loginSuccess = await authService.login(firebaseUser);
+          try {
+            // Get access token for backend
+            const token = await authService.getAccessToken();
+            
+            if (token) {
+              // Try to establish backend session with Supabase token
+              const loginSuccess = await backendAuthService.loginWithSupabase(token);
 
               if (loginSuccess) {
                 // Check if user is fully registered
-                const registered = await authService.checkRegistrationStatus();
+                const registered = await backendAuthService.checkRegistrationStatus();
                 setIsRegistered(registered);
 
                 if (registered) {
-                  setBackendUser(authService.getUser());
+                  setBackendUser(backendAuthService.getUser());
                   // User fully authenticated and registered
                 } else {
                   // User authenticated but needs to complete registration
@@ -62,24 +63,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               } else {
                 // Backend login failed
               }
-            } catch (error) {
-              console.error('Error during authentication:', error);
-              // Don't set error state for expected cases like unregistered users
             }
-          } else {
-            // No Firebase user, clear everything
-            setIsRegistered(false);
-            setBackendUser(null);
+          } catch (error) {
+            console.error('Error during authentication:', error);
+            // Don't set error state for expected cases like unregistered users
           }
+        } else {
+          // No user, clear everything
+          setIsRegistered(false);
+          setBackendUser(null);
+        }
 
-          setLoading(false);
-        },
-        (error) => {
-          console.error('Auth state change error:', error);
-          setError(error);
-          setLoading(false);
-        },
-      );
+        setLoading(false);
+      });
 
       return () => unsubscribe();
     } catch (error) {
@@ -101,5 +97,3 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
-
-export { auth };

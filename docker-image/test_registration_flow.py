@@ -10,7 +10,7 @@ from datetime import datetime
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from core.database import db_manager
+from core.database_supabase import db_manager
 from db.schema import User, Role, StudentProfile
 from repositories.user_repository import UserRepository
 from services.auth_service_unified import UnifiedAuthService

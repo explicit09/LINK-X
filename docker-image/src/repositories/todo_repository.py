@@ -6,7 +6,7 @@ from datetime import datetime
 from repositories.base_repository import BaseRepository
 from db.schema import Todo
 from core.exceptions import NotFoundError
-from core.database import db_manager
+from core.database_supabase import db_manager
 
 class TodoRepository(BaseRepository[Todo]):
     """Repository for Todo operations"""

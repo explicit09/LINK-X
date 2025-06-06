@@ -106,7 +106,7 @@ def upload_file_v2():
         
         # Check module access using direct db query
         try:
-            from core.database import db
+            from core.database_supabase import db
             from db.schema import Module
             module = db.session.query(Module).filter_by(id=module_id).first()
             logger.info(f"Module lookup result: {module}")

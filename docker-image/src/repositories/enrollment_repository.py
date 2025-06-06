@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from repositories.base_repository import BaseRepository
 from db.schema import Enrollment
-from core.database import db_manager
+from core.database_supabase import db_manager
 
 class EnrollmentRepository(BaseRepository[Enrollment]):
     """Repository for enrollment-related database operations"""

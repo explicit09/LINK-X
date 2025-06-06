@@ -4,14 +4,24 @@ Handles WebSocket connections, rooms, and real-time events for study groups,
 annotations, discussions, and collaborative note-taking.
 """
 
-from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
+try:
+    from flask_socketio import SocketIO, emit, join_room, leave_room, disconnect
+    SOCKETIO_AVAILABLE = True
+except ImportError:
+    SOCKETIO_AVAILABLE = False
+    SocketIO = None
 from flask import request, g
 import json
 import logging
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from datetime import datetime
-import redis
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+    redis = None
 from core.decorators_unified import firebase_auth_required
 from core.exceptions import AuthenticationError, ValidationError
 

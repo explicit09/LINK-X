@@ -9,7 +9,7 @@ import logging
 from functools import wraps
 
 from core.decorators_unified import firebase_auth_required
-from core.database import db
+from core.database_supabase import db
 from core.api_versioning import version_aware_route
 from db.schema import Enrollment, Course, PersonalizedFile, File, Module
 from services.course_service import CourseService

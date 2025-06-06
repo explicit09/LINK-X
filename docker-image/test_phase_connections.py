@@ -14,7 +14,7 @@ def test_database_connection():
     """Test database schema and fields"""
     logger.info("Testing database connection...")
     try:
-        from core.database import db_manager
+        from core.database_supabase import db_manager
         from db.schema import FileChunk
         
         with db_manager.get_session() as session:

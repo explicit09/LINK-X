@@ -1,4 +1,4 @@
-import { auth } from '../../firebaseconfig';
+import { supabase } from '../../supabaseconfig';
 
 // Use the API URL from environment or fallback to localhost
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -27,24 +27,19 @@ export class TokenManager {
    */
   async getValidToken(currentTokens: AuthTokens | null): Promise<string | null> {
     if (!currentTokens) {
-      // No tokens, try to use Firebase token as fallback
-      if (auth.currentUser) {
-        try {
-          return await auth.currentUser.getIdToken();
-        } catch (error: any) {
-          console.error('Failed to get Firebase token:', error);
-          // Handle IndexedDB errors specifically
-          if (error.message?.includes('IndexedDB') || error.message?.includes('transaction')) {
-            console.warn('IndexedDB error in Firebase auth, forcing token refresh');
-            try {
-              return await auth.currentUser.getIdToken(true); // Force refresh
-            } catch (refreshError) {
-              console.error('Token refresh also failed:', refreshError);
-              return null;
-            }
-          }
+      // No tokens, try to get Supabase session token as fallback
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('Failed to get Supabase session:', error);
           return null;
         }
+        if (session?.access_token) {
+          return session.access_token;
+        }
+      } catch (error: any) {
+        console.error('Failed to get Supabase token:', error);
+        return null;
       }
       return null;
     }
@@ -60,14 +55,18 @@ export class TokenManager {
         return refreshed?.accessToken || null;
       } catch (error) {
         console.error('Token refresh failed:', error);
-        // Fallback to Firebase token
-        if (auth.currentUser) {
-          try {
-            return await auth.currentUser.getIdToken();
-          } catch (firebaseError) {
-            console.error('Firebase token fallback failed:', firebaseError);
+        // Fallback to Supabase session token
+        try {
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          if (sessionError) {
+            console.error('Supabase session fallback failed:', sessionError);
             return null;
           }
+          if (session?.access_token) {
+            return session.access_token;
+          }
+        } catch (supabaseError) {
+          console.error('Supabase token fallback failed:', supabaseError);
         }
         return null;
       }
@@ -108,33 +107,57 @@ export class TokenManager {
         }
       }
 
-      // Fallback to Firebase token refresh
-      if (auth.currentUser) {
-        const idToken = await auth.currentUser.getIdToken(true); // Force refresh
+      // Fallback to Supabase session refresh
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
         
-        // Try to exchange Firebase token for backend tokens
-        const response = await fetch(`${API_URL}/api/v2/auth/login`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ idToken }),
-        });
-
-        if (response.ok) {
-          const responseData = await response.json();
-          // Handle v2 API response format where data is wrapped in a 'data' field
-          const data = responseData.data || responseData;
+        if (session?.access_token) {
+          // Use the Supabase access token directly - no need to exchange
           const newTokens: AuthTokens = {
-            accessToken: data.tokens?.access_token || data.access_token || data.token,
-            refreshToken: data.tokens?.refresh_token,
-            expiresAt: Date.now() + (data.tokens?.expires_in || 24 * 60 * 60) * 1000,
+            accessToken: session.access_token,
+            refreshToken: session.refresh_token,
+            expiresAt: Date.now() + 60 * 60 * 1000, // 1 hour default
           };
           
           this.onTokensUpdated(newTokens);
           this.scheduleTokenRefresh(newTokens);
           return newTokens;
         }
+      } catch (supabaseError) {
+        console.error('Supabase session refresh failed:', supabaseError);
+      }
+      
+      // If we have a session but no backend tokens, we might be in a mixed state
+      // Try to establish backend session with Supabase token
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          const response = await fetch(`${API_URL}/api/v2/auth/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ idToken: session.access_token }),
+          });
+
+          if (response.ok) {
+            const responseData = await response.json();
+            // Handle v2 API response format where data is wrapped in a 'data' field
+            const data = responseData.data || responseData;
+            const newTokens: AuthTokens = {
+              accessToken: data.tokens?.access_token || data.access_token || data.token,
+              refreshToken: data.tokens?.refresh_token,
+              expiresAt: Date.now() + (data.tokens?.expires_in || 24 * 60 * 60) * 1000,
+            };
+            
+            this.onTokensUpdated(newTokens);
+            this.scheduleTokenRefresh(newTokens);
+            return newTokens;
+          }
+        }
+      } catch (backendError) {
+        console.error('Backend token exchange failed:', backendError);
       }
 
       // If all refresh attempts fail, clear tokens

@@ -6,7 +6,7 @@ import logging
 
 from repositories.base_repository import BaseRepository
 from db.schema import User, StudentProfile, InstructorProfile, Role, AdminProfile
-from core.database import db_manager
+from core.database_supabase import db_manager
 
 logger = logging.getLogger(__name__)
 

@@ -13,9 +13,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session, scoped_session
 from redis import Redis
 from flask import Flask
-import firebase_admin
-from firebase_admin import credentials
 import openai
+# Firebase imports removed - using Supabase for authentication
 
 from repositories.user_repository import UserRepository
 from repositories.course_repository import CourseRepository
@@ -89,13 +88,9 @@ class Container(containers.DeclarativeContainer):
         retry_on_error=[ConnectionError]
     )
     
-    # Firebase Admin
-    firebase_app = providers.Singleton(
-        lambda cred_path: firebase_admin.initialize_app(
-            credentials.Certificate(cred_path)
-        ) if not firebase_admin._apps else firebase_admin.get_app(),
-        providers.Configuration().firebase_credentials_path
-    )
+    # Supabase Client (replacing Firebase)
+    # Supabase initialization is handled in core/supabase_config.py
+    # No need for a separate provider here as we use the singleton pattern there
     
     # Repositories
     user_repository = providers.Factory(
@@ -215,16 +210,13 @@ def init_container(app: Flask) -> Container:
         'database_url': app.config.get('SQLALCHEMY_DATABASE_URI'),
         'redis_url': app.config.get('REDIS_URL', 'redis://localhost:6379/0'),
         'debug': app.config.get('DEBUG', False),
-        'firebase_credentials_path': app.config.get('FIREBASE_CREDENTIALS_PATH', 'src/firebaseKey.json'),
+        # Firebase credentials no longer needed - using Supabase
         's3_bucket_name': app.config.get('S3_BUCKET_NAME'),
         'openai_api_key': app.config.get('OPENAI_API_KEY')
     })
     
-    # Initialize Firebase if not already initialized
-    try:
-        container.firebase_app()
-    except Exception as e:
-        logger.warning(f"Firebase initialization failed: {e}")
+    # Supabase initialization is handled in core/supabase_config.py
+    # No explicit initialization needed here
     
     return container
 

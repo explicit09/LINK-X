@@ -2,7 +2,11 @@ import json
 import hashlib
 from functools import wraps
 from flask import request
-import redis
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
 from datetime import timedelta
 import pickle
 import os
@@ -25,6 +29,11 @@ class CacheManager:
     
     def _init_redis(self):
         """Initialize Redis connection"""
+        if not REDIS_AVAILABLE:
+            print("Redis module not available - caching disabled")
+            self.redis_client = None
+            return
+            
         if self._redis_url and not self.redis_client:
             try:
                 self.redis_client = redis.from_url(self._redis_url)

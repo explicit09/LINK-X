@@ -10,7 +10,7 @@ import logging
 from flask import Blueprint, jsonify, request, g
 from sqlalchemy import text
 
-from core.database import db
+from core.database_supabase import db
 from core.decorators_unified import firebase_auth_required
 from core.cache import cache
 

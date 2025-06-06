@@ -14,7 +14,11 @@ from repositories.course_repository import CourseRepository
 from repositories.file_repository import FileRepository
 from db.connection import get_db_session
 from core.exceptions import ValidationError, NotFoundError, AuthorizationError
-from core.websocket_manager import collaboration_ws_manager
+# Try to import websocket manager - may not be available
+try:
+    from core.websocket_manager import collaboration_ws_manager
+except ImportError:
+    collaboration_ws_manager = None
 
 class CollaborationService:
     """Service for collaborative learning features"""

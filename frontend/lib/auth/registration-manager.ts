@@ -1,4 +1,4 @@
-import { User as FirebaseUser } from 'firebase/auth';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 import type { AuthTokens } from './token-manager';
 import type { UserProfile } from './user-manager';
 
@@ -43,11 +43,11 @@ export interface LoginResponse {
 
 /**
  * RegistrationManager - Handles user registration and login flow
- * COPIED from working auth-service.ts to preserve exact functionality
+ * Updated to use Supabase authentication
  */
 export class RegistrationManager {
   constructor(
-    private firebaseManager: { getFirebaseToken: (user: FirebaseUser) => Promise<string | null> },
+    private supabaseManager: { getSupabaseToken: (user: SupabaseUser) => Promise<string | null> },
     private onAuthStateUpdated: (state: {
       isAuthenticated: boolean;
       isRegistered: boolean;
@@ -174,15 +174,14 @@ export class RegistrationManager {
   }
 
   /**
-   * Login with Firebase user and establish backend session
-   * PRESERVE exact login logic from auth-service.ts
+   * Login with Supabase user and establish backend session
    */
-  async login(firebaseUser: FirebaseUser): Promise<boolean> {
+  async login(supabaseUser: SupabaseUser): Promise<boolean> {
     try {
-      // Get Firebase ID token
-      const idToken = await this.firebaseManager.getFirebaseToken(firebaseUser);
+      // Get Supabase ID token
+      const idToken = await this.supabaseManager.getSupabaseToken(supabaseUser);
       if (!idToken) {
-        console.error('Failed to get Firebase token');
+        console.error('Failed to get Supabase token');
         return false;
       }
 
@@ -234,7 +233,7 @@ export class RegistrationManager {
             tokens: null,
             user: null,
           });
-          return true; // Firebase auth successful, but needs registration
+          return true; // Supabase auth successful, but needs registration
         }
 
         // For other errors, clear auth state
@@ -322,19 +321,22 @@ export class RegistrationManager {
    */
   async register(registrationData: RegistrationData): Promise<boolean> {
     try {
-      // Import auth from firebaseconfig
-      const { auth } = await import('@/firebaseconfig');
-      
-      // Get current Firebase user
-      const firebaseUser = auth.currentUser;
-      if (!firebaseUser) {
-        console.error('No Firebase user found. User must be created in Firebase first.');
+      // Get current Supabase user
+      const { supabase } = await import('@/supabaseconfig');
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+      if (!supabaseUser) {
+        console.error('No Supabase user found. User must be created in Supabase first.');
         return false;
       }
 
-      // Get Firebase ID token
-      const idToken = await firebaseUser.getIdToken();
-      console.log('Got Firebase ID token for registration');
+      // Get Supabase access token
+      const { data: { session } } = await supabase.auth.getSession();
+      const idToken = session?.access_token;
+      if (!idToken) {
+        console.error('No Supabase access token available');
+        return false;
+      }
+      console.log('Got Supabase access token for registration');
 
       // Check backend health before attempting registration
       const isHealthy = await this.checkBackendHealth();
@@ -352,7 +354,7 @@ export class RegistrationManager {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'X-Firebase-Token': idToken,
+                'X-Supabase-Token': idToken,
               },
               body: JSON.stringify(registrationData),
               signal: controller.signal,
@@ -423,11 +425,10 @@ export class RegistrationManager {
 
   /**
    * Force session establishment
-   * PRESERVE exact logic from auth-service forceSessionEstablishment
    */
-  async forceSessionEstablishment(firebaseUser: FirebaseUser): Promise<boolean> {
-    if (!firebaseUser) {
-      console.error('No Firebase user available for session establishment');
+  async forceSessionEstablishment(supabaseUser: SupabaseUser): Promise<boolean> {
+    if (!supabaseUser) {
+      console.error('No Supabase user available for session establishment');
       return false;
     }
 
@@ -460,6 +461,6 @@ export class RegistrationManager {
       user: null,
     });
     
-    return await this.login(firebaseUser);
+    return await this.login(supabaseUser);
   }
 }

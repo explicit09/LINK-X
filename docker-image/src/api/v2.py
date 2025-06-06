@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import logging
 
 from core.decorators_unified import firebase_auth_required
-from core.database import db
+from core.database_supabase import db
 from core.exceptions import ValidationError, NotFoundError, UnauthorizedError
 from services.course_service import CourseService
 from services.file_service import FileService

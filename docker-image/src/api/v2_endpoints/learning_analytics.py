@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 
 from core.decorators_unified import auth_required
 from core.exceptions import ValidationError, NotFoundError
-from core.database import db_manager
+from core.database_supabase import db_manager
 from repositories.user_repository import UserRepository
 from repositories.course_repository import CourseRepository
 from .utils import success_response, error_response, validate_pagination

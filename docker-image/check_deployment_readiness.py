@@ -16,7 +16,7 @@ def check_imports():
         from app import app
         print("✅ Flask app imports successfully")
         
-        from core.database import db
+        from core.database_supabase import db
         print("✅ Database configuration OK")
         
         from services.ai_service import AIService

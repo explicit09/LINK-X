@@ -14,7 +14,7 @@ from tasks.enhanced_file_processing import (
     reprocess_course_with_enhancements
 )
 from repositories.file_repository import FileRepository
-from core.database import db_manager
+from core.database_supabase import db_manager
 from services.ai.ai_service import AIService
 
 logger = logging.getLogger(__name__)

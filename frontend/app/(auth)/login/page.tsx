@@ -10,8 +10,7 @@ import { AuthForm } from '@/components/auth-form';
 import { SubmitButton } from '@/components/submit-button';
 import { SiteFooter } from '@/components/SiteFooter';
 
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/firebaseconfig';
+import { signInWithEmail } from '@/lib/auth/supabase-auth-service';
 import { authService } from '@/lib/auth-service';
 
 // Import GoogleAuthButton with no SSR to prevent hydration mismatches
@@ -73,20 +72,26 @@ export default function Page() {
     setState('in_progress');
 
     try {
-      console.log('Attempting Firebase sign in...');
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
+      console.log('Attempting Supabase sign in...');
+      const { data: authUser, error } = await signInWithEmail(
         formData.get('email') as string,
         formData.get('password') as string,
       );
 
-      console.log('Firebase sign in successful:', userCredential.user.email);
-      const token = await userCredential.user.getIdToken();
-      console.log('Got Firebase token');
+      if (error) {
+        throw error;
+      }
+
+      console.log('Supabase sign in successful:', authUser?.email);
+      
+      // Get the access token for backend
+      const { authService: supabaseAuthService } = await import('@/lib/auth/supabase-auth-service');
+      const token = await supabaseAuthService.getAccessToken();
+      console.log('Got Supabase token');
 
       // Establish session using auth service
       console.log('Establishing backend session...');
-      const sessionSuccess = await authService.login(userCredential.user);
+      const sessionSuccess = token ? await authService.loginWithSupabase(token) : false;
 
       if (!sessionSuccess) {
         console.error('Backend session failed');
@@ -116,16 +121,19 @@ export default function Page() {
         // router.push("/dashboard") will happen inside useEffect
       }
     } catch (error: any) {
-      console.error('Firebase Auth Error:', error.message);
-      if (
-        error.code === 'auth/user-not-found' ||
-        error.code === 'auth/wrong-password'
-      ) {
+      console.error('Auth Error:', error.message);
+      
+      // Handle Supabase specific errors
+      if (error.message?.includes('Invalid login credentials') || 
+          error.message?.includes('Email not confirmed')) {
         setState('failed');
         toast.error('Invalid email or password!');
+      } else if (error.status === 400) {
+        setState('failed');
+        toast.error('Invalid credentials. Please try again.');
       } else {
         setState('invalid_data');
-        toast.error('Unexpected error occurred. Please try again.');
+        toast.error(error.message || 'Unexpected error occurred. Please try again.');
       }
     }
   };

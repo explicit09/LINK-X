@@ -6,7 +6,7 @@ import os
 import sys
 sys.path.insert(0, '/app/src')
 
-from core.database import db_manager
+from core.database_supabase import db_manager
 from db.schema import File, FileChunk
 
 def check_file_access(file_id):

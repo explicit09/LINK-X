@@ -158,7 +158,7 @@ def stream_personalized_content():
         
         # Get user from database
         from db.schema import User
-        from core.database import db
+        from core.database_supabase import db
         user = db.session.query(User).filter_by(firebase_uid=firebase_uid).first()
         
         if not user:
@@ -179,7 +179,7 @@ def stream_personalized_content():
             
             if user_id:
                 from db.schema import User
-                from core.database import db
+                from core.database_supabase import db
                 user = db.session.query(User).filter_by(id=user_id).first()
                 if user:
                     g.current_user = user

@@ -13,7 +13,7 @@ def process_file_async(self, file_id: str, force: bool = False):
     try:
         from services.ai_service import AIService
         from services.s3_storage_resilient import s3_storage
-        from core.database import db
+        from core.database_supabase import db
         from db.schema import File
         
         ai_service = AIService()

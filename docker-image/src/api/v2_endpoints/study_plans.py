@@ -9,7 +9,7 @@ from uuid import UUID
 import logging
 
 from core.decorators_unified import firebase_auth_required
-from core.database import db_manager
+from core.database_supabase import db_manager
 from repositories.study_plan_repository import (
     StudyPlanRepository, StudyGoalRepository, 
     StudySessionRepository, StudyRecommendationRepository,

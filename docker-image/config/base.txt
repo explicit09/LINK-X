@@ -64,3 +64,6 @@ pydantic-settings==2.0.3  # Updated to a version that works with pydantic>=2.0.1
 prometheus-client==0.18.0
 python-json-logger==2.0.7
 sentry-sdk[flask]==1.38.0
+
+# Supabase
+supabase==2.3.4

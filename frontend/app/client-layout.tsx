@@ -4,6 +4,7 @@ import { ReactNode, useEffect } from 'react';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AlertProvider } from '@/contexts/AlertContext';
 import { SupabaseProvider } from '@/contexts/SupabaseContext';
+import { AuthInitializer } from '@/components/auth/AuthInitializer';
 import { setupGlobalErrorHandlers } from '@/lib/error-handlers';
 
 interface ClientLayoutProps {
@@ -24,9 +25,11 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
       disableTransitionOnChange
     >
       <SupabaseProvider>
-        <AlertProvider>
-          {children}
-        </AlertProvider>
+        <AuthInitializer>
+          <AlertProvider>
+            {children}
+          </AlertProvider>
+        </AuthInitializer>
       </SupabaseProvider>
     </ThemeProvider>
   );

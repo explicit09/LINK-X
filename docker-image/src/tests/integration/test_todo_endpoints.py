@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 from app import create_app
-from core.database import db
+from core.database_supabase import db
 
 
 @pytest.fixture

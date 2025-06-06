@@ -34,8 +34,8 @@ export class StreamingAPIClient extends AuthAPIClient {
         };
 
         if (authInfo) {
-          if (authInfo.isFirebase) {
-            headers['X-Firebase-Token'] = authInfo.token;
+          if (authInfo.isSupabase) {
+            headers['Authorization'] = `Bearer ${authInfo.token}`;
           } else {
             headers['Authorization'] = `Bearer ${authInfo.token}`;
           }
@@ -106,9 +106,29 @@ export class StreamingAPIClient extends AuthAPIClient {
    * Get auth token for streaming - uses parent class method via reflection
    * PRESERVE exact auth logic by calling parent's private method
    */
-  private async getStreamingAuthToken(): Promise<{ token: string; isFirebase: boolean } | null> {
+  private async getStreamingAuthToken(): Promise<{ token: string; isSupabase: boolean } | null> {
     // Use the parent class's private getAuthToken method via reflection
     // This preserves exact authentication logic without duplication
     return (this as any).getAuthToken();
+  }
+
+  /**
+   * Get authentication headers for streaming requests
+   */
+  private async getAuthHeaders(): Promise<Record<string, string>> {
+    const authInfo = await this.getStreamingAuthToken();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (authInfo) {
+      if (authInfo.isSupabase) {
+        headers['Authorization'] = `Bearer ${authInfo.token}`;
+      } else {
+        headers['Authorization'] = `Bearer ${authInfo.token}`;
+      }
+    }
+
+    return headers;
   }
 }

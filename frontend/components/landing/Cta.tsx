@@ -4,17 +4,16 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-import { auth } from '@/firebaseconfig';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { onAuthStateChange } from '@/lib/auth/supabase-auth-service';
 import { dashboardRoutes } from '@/lib/navigation';
 
 const Cta = () => {
   const ctaRef = useRef<HTMLDivElement>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChange((authUser) => {
+      setUser(authUser);
     });
 
     return () => unsubscribe();

@@ -4,7 +4,7 @@ from flask_jwt_extended import JWTManager
 from datetime import timedelta
 import uuid
 from services.jwt_blacklist import jwt_blacklist
-from core.database import db
+from core.database_supabase import db
 from db.schema import User
 import logging
 

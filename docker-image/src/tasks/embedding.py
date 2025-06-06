@@ -8,7 +8,7 @@ from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 
 from services.ai_service import AIService
-from core.database import db
+from core.database_supabase import db
 from db.schema import File, FileChunk
 try:
     from core.cache import cache

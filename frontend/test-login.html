@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Supabase Login</title>
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/+esm'
+        
+        // Initialize Supabase client
+        const supabaseUrl = 'https://torsffahnivnzcnjnxgc.supabase.co'
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnNmZmFobml2bnpjbmpueGdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxMzc3MzcsImV4cCI6MjA2NDcxMzczN30.RSplRmOfX5noj_MDpRIRRgUbUYSvlaCXyUGc8PUiySA'
+        
+        const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+            auth: {
+                flowType: 'implicit',
+                persistSession: true,
+                storageKey: 'sb-torsffahnivnzcnjnxgc-auth-token',
+                storage: window.localStorage
+            }
+        })
+        
+        // Make functions available globally
+        window.supabase = supabase
+        
+        window.testLogin = async () => {
+            const email = document.getElementById('email').value
+            const password = document.getElementById('password').value
+            
+            console.log('Attempting login...')
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: email,
+                password: password
+            })
+            
+            if (error) {
+                console.error('Login error:', error)
+                document.getElementById('result').innerHTML = `<div style="color: red;">Error: ${error.message}</div>`
+            } else {
+                console.log('Login successful:', data)
+                document.getElementById('result').innerHTML = `
+                    <div style="color: green;">
+                        <h3>Login Successful!</h3>
+                        <p>User ID: ${data.user.id}</p>
+                        <p>Email: ${data.user.email}</p>
+                        <p>Token: ${data.session.access_token.substring(0, 50)}...</p>
+                        <button onclick="testBackend()">Test Backend API</button>
+                    </div>
+                `
+                
+                // Store token for backend test
+                window.accessToken = data.session.access_token
+            }
+        }
+        
+        window.testGoogleLogin = async () => {
+            console.log('Attempting Google login...')
+            const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: {
+                    redirectTo: window.location.origin + window.location.pathname
+                }
+            })
+            
+            if (error) {
+                console.error('Google login error:', error)
+                document.getElementById('result').innerHTML = `<div style="color: red;">Error: ${error.message}</div>`
+            }
+        }
+        
+        window.testBackend = async () => {
+            if (!window.accessToken) {
+                alert('Please login first')
+                return
+            }
+            
+            console.log('Testing backend with token:', window.accessToken.substring(0, 50) + '...')
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/v2/courses', {
+                    headers: {
+                        'Authorization': `Bearer ${window.accessToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                })
+                
+                console.log('Backend response status:', response.status)
+                const data = await response.json()
+                console.log('Backend response:', data)
+                
+                document.getElementById('backend-result').innerHTML = `
+                    <h4>Backend Response:</h4>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `
+            } catch (error) {
+                console.error('Backend error:', error)
+                document.getElementById('backend-result').innerHTML = `<div style="color: red;">Backend Error: ${error.message}</div>`
+            }
+        }
+        
+        window.checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session) {
+                console.log('Existing session found:', session)
+                document.getElementById('result').innerHTML = `
+                    <div style="color: green;">
+                        <h3>Existing Session Found!</h3>
+                        <p>User ID: ${session.user.id}</p>
+                        <p>Email: ${session.user.email}</p>
+                        <p>Token: ${session.access_token.substring(0, 50)}...</p>
+                        <button onclick="testBackend()">Test Backend API</button>
+                    </div>
+                `
+                window.accessToken = session.access_token
+            } else {
+                console.log('No existing session')
+                document.getElementById('result').innerHTML = '<div>No existing session</div>'
+            }
+        }
+        
+        window.signOut = async () => {
+            await supabase.auth.signOut()
+            document.getElementById('result').innerHTML = '<div>Signed out</div>'
+            document.getElementById('backend-result').innerHTML = ''
+            window.accessToken = null
+        }
+        
+        // Check session on page load
+        window.addEventListener('load', checkSession)
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        input {
+            margin: 5px 0;
+            padding: 5px;
+            width: 300px;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        #result, #backend-result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Supabase Authentication</h1>
+    
+    <div>
+        <h2>Email/Password Login</h2>
+        <input type="email" id="email" placeholder="Email" value="tadiesaemiru@gmail.com"><br>
+        <input type="password" id="password" placeholder="Password"><br>
+        <button onclick="testLogin()">Login with Email</button>
+    </div>
+    
+    <div>
+        <h2>OAuth Login</h2>
+        <button onclick="testGoogleLogin()">Login with Google</button>
+    </div>
+    
+    <div>
+        <h2>Session Management</h2>
+        <button onclick="checkSession()">Check Session</button>
+        <button onclick="signOut()">Sign Out</button>
+    </div>
+    
+    <div id="result"></div>
+    <div id="backend-result"></div>
+    
+    <div style="margin-top: 30px; padding: 10px; background: #f0f0f0;">
+        <h3>Debug Info</h3>
+        <p>Open browser console (F12) to see detailed logs</p>
+        <p>Get token from console: <code>localStorage.getItem('sb-torsffahnivnzcnjnxgc-auth-token')</code></p>
+    </div>
+</body>
+</html>

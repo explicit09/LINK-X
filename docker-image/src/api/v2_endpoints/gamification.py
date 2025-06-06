@@ -8,7 +8,7 @@ import logging
 
 from core.decorators_unified import firebase_auth_required
 from core.exceptions import ValidationError, NotFoundError
-from core.database import db_manager
+from core.database_supabase import db_manager
 from db.schema import UserStats, UserActivity, UserAchievement, ApiUsageLog
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc

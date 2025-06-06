@@ -2,9 +2,13 @@
 
 from flask import Blueprint, jsonify, request
 from sqlalchemy import text
-import redis
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
 import time
-from core.database import db
+from core.database_supabase import db
 from core.cache import cache
 from core.config import get_config
 
@@ -46,18 +50,24 @@ def detailed_health_check():
         }
     
     # Check Redis
-    try:
-        redis_client = redis.from_url(config.REDIS_URL)
-        redis_client.ping()
+    if REDIS_AVAILABLE:
+        try:
+            redis_client = redis.from_url(config.REDIS_URL)
+            redis_client.ping()
+            health_status['components']['redis'] = {
+                'status': 'healthy',
+                'message': 'Redis connection successful'
+            }
+        except Exception as e:
+            health_status['status'] = 'degraded'
+            health_status['components']['redis'] = {
+                'status': 'unhealthy',
+                'message': str(e)
+            }
+    else:
         health_status['components']['redis'] = {
-            'status': 'healthy',
-            'message': 'Redis connection successful'
-        }
-    except Exception as e:
-        health_status['status'] = 'degraded'
-        health_status['components']['redis'] = {
-            'status': 'unhealthy',
-            'message': str(e)
+            'status': 'not_available',
+            'message': 'Redis module not installed'
         }
     
     # Check S3 (optional, don't fail health check)

@@ -7,7 +7,7 @@ import logging
 from typing import Optional, Dict, List
 import json
 
-from core.database import db_manager
+from core.database_supabase import db_manager
 from db.schema import File, FileChunk, Module
 from repositories.file_repository import FileRepository
 from services.ai.utils.embeddings import EmbeddingsService

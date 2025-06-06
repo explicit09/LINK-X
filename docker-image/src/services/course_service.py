@@ -26,38 +26,50 @@ class CourseService:
         
         print(f"[ACCESS CHECK] Course found: {course.title}, Published: {course.published}, Instructor: {course.instructor_id}")
         
-        # Check access based on user role
-        # Re-fetch user to ensure we have a fresh instance with relationships loaded
-        user = self.user_repo.get_by_id(user_id)
+        # Get a fresh session to avoid detached object issues
+        from core.database_supabase import db_manager
+        from sqlalchemy.orm import joinedload
+        session = db_manager.get_session()
         
-        if not user:
-            raise AuthorizationError("User not found")
-        
-        print(f"[ACCESS CHECK] User found: {user.email}, Role: {user.role.role_type if user.role else 'No role'}")
-        
-        # Check if user is the creator (works for any role)
-        if hasattr(course, 'creator_id') and course.creator_id and str(course.creator_id) == str(user_id):
-            print(f"[ACCESS CHECK] User is the course creator")
+        try:
+            from db.schema import User
+            
+            # Query user directly with the role in the same session
+            user = session.query(User).options(
+                joinedload(User.role)
+            ).filter_by(id=user_id).first()
+            
+            if not user:
+                raise AuthorizationError("User not found")
+            
+            print(f"[ACCESS CHECK] User found: {user.email}, Role: {user.role.role_type if user.role else 'No role'}")
+            
+            # Check if user is the creator (works for any role)
+            if hasattr(course, 'creator_id') and course.creator_id and str(course.creator_id) == str(user_id):
+                print(f"[ACCESS CHECK] User is the course creator")
+                return course
+                
+            if user.role and user.role.role_type == 'admin':
+                # Admin has access to all courses
+                return course
+            elif user.role and user.role.role_type == 'instructor':
+                # Instructor has access to their own courses
+                if str(course.instructor_id) != str(user_id):
+                    raise AuthorizationError("Access denied")
+            else:  # Student
+                # Check if student is enrolled
+                enrollment = self.enrollment_repo.get_by_student_course(user_id, course_id)
+                print(f"[ACCESS CHECK] Student enrollment check: {enrollment is not None}")
+                if not enrollment and course.published:
+                    # Allow viewing published courses
+                    pass
+                elif not enrollment:
+                    raise AuthorizationError("Access denied")
+            
             return course
             
-        if user.role.role_type == 'admin':
-            # Admin has access to all courses
-            return course
-        elif user.role.role_type == 'instructor':
-            # Instructor has access to their own courses
-            if str(course.instructor_id) != str(user_id):
-                raise AuthorizationError("Access denied")
-        else:  # Student
-            # Check if student is enrolled
-            enrollment = self.enrollment_repo.get_by_student_course(user_id, course_id)
-            print(f"[ACCESS CHECK] Student enrollment check: {enrollment is not None}")
-            if not enrollment and course.published:
-                # Allow viewing published courses
-                pass
-            elif not enrollment:
-                raise AuthorizationError("Access denied")
-        
-        return course
+        finally:
+            session.close()
     
     def check_course_access(self, course_id: str, user_id: str) -> bool:
         """Check if user has access to a course"""
@@ -93,45 +105,59 @@ class CourseService:
     def create_course(self, instructor_id: str, title: str, description: str, 
                      code: str = None, term: str = None, published: bool = False) -> Dict:
         """Create a new course"""
-        # Validate user exists
-        user = self.user_repo.get_by_id(instructor_id)
-        if not user:
-            raise ValidationError("Invalid user")
-        # Allow all authenticated users to create courses
+        # Get a fresh session to avoid detached object issues
+        from core.database_supabase import db_manager
+        from sqlalchemy.orm import joinedload
+        session = db_manager.get_session()
         
-        # Validate input
-        if not title or len(title) < 3:
-            raise ValidationError("Title must be at least 3 characters")
-        
-        if not description or len(description) < 10:
-            raise ValidationError("Description must be at least 10 characters")
-        
-        # Determine if user has instructor profile
-        is_instructor = user.role and user.role.role_type == 'instructor'
-        
-        # Create course
-        course_data = {
-            'title': title,
-            'description': description,
-            'creator_id': instructor_id,  # Always set creator_id to the current user
-            'code': code,
-            'term': term,
-            'published': published
-        }
-        
-        # Only set instructor_id if user is actually an instructor
-        if is_instructor:
-            course_data['instructor_id'] = instructor_id
+        try:
+            from db.schema import User, Role
             
-        course = self.course_repo.create(**course_data)
-        
-        # Generate access code
-        access_code = self._generate_access_code(course.id)
-        
-        # Invalidate cache
-        invalidate_cache(f"courses:instructor:{instructor_id}:*")
-        
-        return course
+            # Query user directly with the role in the same session
+            user = session.query(User).options(
+                joinedload(User.role)
+            ).filter_by(id=instructor_id).first()
+            
+            if not user:
+                raise ValidationError("Invalid user")
+            # Allow all authenticated users to create courses
+            
+            # Validate input
+            if not title or len(title) < 3:
+                raise ValidationError("Title must be at least 3 characters")
+            
+            if not description or len(description) < 10:
+                raise ValidationError("Description must be at least 10 characters")
+            
+            # Determine if user has instructor profile - now safe to access role
+            is_instructor = user.role and user.role.role_type == 'instructor'
+            
+            # Create course
+            course_data = {
+                'title': title,
+                'description': description,
+                'creator_id': instructor_id,  # Always set creator_id to the current user
+                'code': code,
+                'term': term,
+                'published': published
+            }
+            
+            # Only set instructor_id if user is actually an instructor
+            if is_instructor:
+                course_data['instructor_id'] = instructor_id
+                
+            course = self.course_repo.create(**course_data)
+            
+            # Generate access code
+            access_code = self._generate_access_code(course.id)
+            
+            # Invalidate cache
+            invalidate_cache(f"courses:instructor:{instructor_id}:*")
+            
+            return course
+            
+        finally:
+            session.close()
     
     def update_course(self, course_id: str, user_id: str, **kwargs) -> Dict:
         """Update course details"""
@@ -140,32 +166,46 @@ class CourseService:
         if not course:
             raise NotFoundError("Course not found")
         
-        # Check if user owns the course or is admin
-        user = self.user_repo.get_by_id(user_id)
-        if not user:
-            raise AuthorizationError("User not found")
+        # Get a fresh session to avoid detached object issues
+        from core.database_supabase import db_manager
+        from sqlalchemy.orm import joinedload
+        session = db_manager.get_session()
+        
+        try:
+            from db.schema import User
             
-        is_owner = str(course.creator_id) == str(user_id)
-        is_admin = user.role and user.role.role_type == 'admin'
-        
-        if not is_owner and not is_admin:
-            raise AuthorizationError("Only course creator or admin can update this course")
-        
-        # Validate updates
-        if 'title' in kwargs and len(kwargs['title']) < 3:
-            raise ValidationError("Title must be at least 3 characters")
-        
-        if 'description' in kwargs and len(kwargs['description']) < 10:
-            raise ValidationError("Description must be at least 10 characters")
-        
-        # Update course
-        updated_course = self.course_repo.update(course_id, **kwargs)
-        
-        # Invalidate cache
-        invalidate_cache(f"courses:{course_id}:*")
-        invalidate_cache(f"courses:instructor:{course.instructor_id}:*")
-        
-        return updated_course
+            # Query user directly with the role in the same session
+            user = session.query(User).options(
+                joinedload(User.role)
+            ).filter_by(id=user_id).first()
+            
+            if not user:
+                raise AuthorizationError("User not found")
+                
+            is_owner = str(course.creator_id) == str(user_id)
+            is_admin = user.role and user.role.role_type == 'admin'
+            
+            if not is_owner and not is_admin:
+                raise AuthorizationError("Only course creator or admin can update this course")
+            
+            # Validate updates
+            if 'title' in kwargs and len(kwargs['title']) < 3:
+                raise ValidationError("Title must be at least 3 characters")
+            
+            if 'description' in kwargs and len(kwargs['description']) < 10:
+                raise ValidationError("Description must be at least 10 characters")
+            
+            # Update course
+            updated_course = self.course_repo.update(course_id, **kwargs)
+            
+            # Invalidate cache
+            invalidate_cache(f"courses:{course_id}:*")
+            invalidate_cache(f"courses:instructor:{course.instructor_id}:*")
+            
+            return updated_course
+            
+        finally:
+            session.close()
     
     def delete_course(self, course_id: str, user_id: str) -> bool:
         """Delete a course"""
@@ -174,32 +214,46 @@ class CourseService:
         if not course:
             raise NotFoundError("Course not found")
         
-        # Check if user owns the course or is admin
-        user = self.user_repo.get_by_id(user_id)
-        if not user:
-            raise AuthorizationError("User not found")
+        # Get a fresh session to avoid detached object issues
+        from core.database_supabase import db_manager
+        from sqlalchemy.orm import joinedload
+        session = db_manager.get_session()
+        
+        try:
+            from db.schema import User
             
-        is_owner = str(course.creator_id) == str(user_id)
-        is_admin = user.role and user.role.role_type == 'admin'
-        
-        if not is_owner and not is_admin:
-            raise AuthorizationError("Only course creator or admin can delete this course")
-        
-        # Check if course has enrollments (skip this check for courses created by students)
-        if course.instructor_id:  # Only check enrollments for instructor courses
-            enrollments = self.enrollment_repo.get_by_course(course_id)
-            if enrollments:
-                raise ValidationError("Cannot delete course with active enrollments")
-        
-        # Delete course (will cascade to modules and files)
-        success = self.course_repo.delete(course_id)
-        
-        # Invalidate cache
-        if success:
-            invalidate_cache(f"courses:{course_id}:*")
-            invalidate_cache(f"courses:instructor:{course.instructor_id}:*")
-        
-        return success
+            # Query user directly with the role in the same session
+            user = session.query(User).options(
+                joinedload(User.role)
+            ).filter_by(id=user_id).first()
+            
+            if not user:
+                raise AuthorizationError("User not found")
+                
+            is_owner = str(course.creator_id) == str(user_id)
+            is_admin = user.role and user.role.role_type == 'admin'
+            
+            if not is_owner and not is_admin:
+                raise AuthorizationError("Only course creator or admin can delete this course")
+            
+            # Check if course has enrollments (skip this check for courses created by students)
+            if course.instructor_id:  # Only check enrollments for instructor courses
+                enrollments = self.enrollment_repo.get_by_course(course_id)
+                if enrollments:
+                    raise ValidationError("Cannot delete course with active enrollments")
+            
+            # Delete course (will cascade to modules and files)
+            success = self.course_repo.delete(course_id)
+            
+            # Invalidate cache
+            if success:
+                invalidate_cache(f"courses:{course_id}:*")
+                invalidate_cache(f"courses:instructor:{course.instructor_id}:*")
+            
+            return success
+            
+        finally:
+            session.close()
     
     def publish_course(self, course_id: str, user_id: str) -> Dict:
         """Publish a course"""
@@ -208,34 +262,48 @@ class CourseService:
         if not course:
             raise NotFoundError("Course not found")
         
-        # Check if user owns the course or is admin
-        user = self.user_repo.get_by_id(user_id)
-        if not user:
-            raise AuthorizationError("User not found")
+        # Get a fresh session to avoid detached object issues
+        from core.database_supabase import db_manager
+        from sqlalchemy.orm import joinedload
+        session = db_manager.get_session()
+        
+        try:
+            from db.schema import User
             
-        is_owner = str(course.creator_id) == str(user_id)
-        is_admin = user.role and user.role.role_type == 'admin'
-        
-        if not is_owner and not is_admin:
-            raise AuthorizationError("Only course creator or admin can publish this course")
-        
-        # Validate course is ready for publishing
-        if not course.modules or len(course.modules) == 0:
-            raise ValidationError("Course must have at least one module")
-        
-        # Check each module has at least one file
-        for module in course.modules:
-            if not module.files or len(module.files) == 0:
-                raise ValidationError(f"Module '{module.title}' must have at least one file")
-        
-        # Publish course
-        updated_course = self.course_repo.update(course_id, published=True, published_at=datetime.utcnow())
-        
-        # Invalidate cache
-        invalidate_cache(f"courses:{course_id}:*")
-        invalidate_cache("courses:public:*")
-        
-        return updated_course
+            # Query user directly with the role in the same session
+            user = session.query(User).options(
+                joinedload(User.role)
+            ).filter_by(id=user_id).first()
+            
+            if not user:
+                raise AuthorizationError("User not found")
+                
+            is_owner = str(course.creator_id) == str(user_id)
+            is_admin = user.role and user.role.role_type == 'admin'
+            
+            if not is_owner and not is_admin:
+                raise AuthorizationError("Only course creator or admin can publish this course")
+            
+            # Validate course is ready for publishing
+            if not course.modules or len(course.modules) == 0:
+                raise ValidationError("Course must have at least one module")
+            
+            # Check each module has at least one file
+            for module in course.modules:
+                if not module.files or len(module.files) == 0:
+                    raise ValidationError(f"Module '{module.title}' must have at least one file")
+            
+            # Publish course
+            updated_course = self.course_repo.update(course_id, published=True, published_at=datetime.utcnow())
+            
+            # Invalidate cache
+            invalidate_cache(f"courses:{course_id}:*")
+            invalidate_cache("courses:public:*")
+            
+            return updated_course
+            
+        finally:
+            session.close()
     
     def get_course_modules(self, course_id: str, user_id: str) -> List[Dict]:
         """Get all modules for a course"""
@@ -317,21 +385,39 @@ class CourseService:
         if not course:
             raise NotFoundError("Course not found")
         
-        # Check authorization
-        user = self.user_repo.get_by_id(user_id)
-        if user.role.role_type != 'admin' and str(course.instructor_id) != str(user_id):
-            raise AuthorizationError("Not authorized to view course statistics")
+        # Get a fresh session to avoid detached object issues
+        from core.database_supabase import db_manager
+        from sqlalchemy.orm import joinedload
+        session = db_manager.get_session()
         
-        # Get statistics
-        stats = {
-            'total_students': self.enrollment_repo.count_by_course(course_id),
-            'total_modules': len(self.course_repo.get_modules(course_id)),
-            'total_files': self.course_repo.count_files(course_id),
-            'completion_rate': self._calculate_completion_rate(course_id),
-            'average_progress': self._calculate_average_progress(course_id)
-        }
-        
-        return stats
+        try:
+            from db.schema import User
+            
+            # Query user directly with the role in the same session
+            user = session.query(User).options(
+                joinedload(User.role)
+            ).filter_by(id=user_id).first()
+            
+            if not user:
+                raise AuthorizationError("User not found")
+                
+            # Check authorization
+            if user.role and user.role.role_type != 'admin' and str(course.instructor_id) != str(user_id):
+                raise AuthorizationError("Not authorized to view course statistics")
+            
+            # Get statistics
+            stats = {
+                'total_students': self.enrollment_repo.count_by_course(course_id),
+                'total_modules': len(self.course_repo.get_modules(course_id)),
+                'total_files': self.course_repo.count_files(course_id),
+                'completion_rate': self._calculate_completion_rate(course_id),
+                'average_progress': self._calculate_average_progress(course_id)
+            }
+            
+            return stats
+            
+        finally:
+            session.close()
     
     def _generate_access_code(self, course_id: str) -> str:
         """Generate unique access code for course"""

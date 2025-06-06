@@ -3,8 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '@/firebaseconfig';
+import { supabase } from '@/supabaseconfig';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -17,12 +16,19 @@ export default function ForgotPasswordPage() {
 
     setLoading(true);
     try {
-      await sendPasswordResetEmail(auth, email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
       setSent(true);
       toast.success('Password reset email sent! Check your inbox.');
     } catch (error: any) {
       console.error('Password reset error:', error);
-      if (error.code === 'auth/user-not-found') {
+      if (error.message?.includes('not found') || error.message?.includes('Invalid email')) {
         toast.error('No account found with this email address.');
       } else {
         toast.error('Failed to send password reset email. Please try again.');

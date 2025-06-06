@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Dict, Any
 from flask import Blueprint, jsonify, request
 
-from core.database import db_manager
+from core.database_supabase import db_manager
 from core.decorators_unified import firebase_auth_required
 from core.monitoring import monitor_request
 from monitoring.task_monitor import TaskMonitor

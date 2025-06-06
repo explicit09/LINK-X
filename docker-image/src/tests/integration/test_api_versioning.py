@@ -8,7 +8,7 @@ from flask import Flask
 from datetime import datetime
 
 from app import create_app
-from core.database import db
+from core.database_supabase import db
 from tests.conftest_unified import test_user, test_instructor
 
 

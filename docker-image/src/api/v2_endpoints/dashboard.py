@@ -11,7 +11,7 @@ from core.exceptions import ValidationError, NotFoundError
 from repositories.dashboard_repository import DashboardRepository
 from services.ai.dashboard_ai import DashboardAIService
 # from api.metrics.collectors.dashboard import DashboardMetricsCollector
-from core.database import db_manager
+from core.database_supabase import db_manager
 
 from .utils import success_response, error_response, validate_pagination
 

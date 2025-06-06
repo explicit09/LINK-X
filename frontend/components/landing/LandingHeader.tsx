@@ -5,8 +5,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from '@/firebaseconfig';
+import { onAuthStateChange, signOut } from '@/lib/auth/supabase-auth-service';
 import { dashboardRoutes } from '@/lib/navigation';
 // Import icons separately to avoid bundling issues
 import { Menu } from 'lucide-react';
@@ -27,7 +26,7 @@ const LandingHeader = () => {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChange((user) => {
       setIsLoggedIn(!!user);
     });
     return () => unsubscribe();
@@ -36,7 +35,7 @@ const LandingHeader = () => {
   const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
   const handleLogout = async () => {
-    await signOut(auth);
+    await signOut();
     await fetch(`${API}/sessionLogout`, {
       method: 'POST',
       credentials: 'include',

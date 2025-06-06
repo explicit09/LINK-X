@@ -18,7 +18,7 @@ def check_database_schema():
     logger.info("\n=== Checking Database Schema ===")
     
     try:
-        from core.database import db_manager
+        from core.database_supabase import db_manager
         from db.schema import FileChunk, File, Course, Module
         
         with db_manager.get_session() as session:

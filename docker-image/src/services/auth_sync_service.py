@@ -8,7 +8,7 @@ from sqlalchemy import text
 import firebase_admin.auth as firebase_auth
 from firebase_admin.exceptions import FirebaseError
 
-from core.database import db_manager
+from core.database_supabase import db_manager
 from db.schema import User, Role, StudentProfile, InstructorProfile
 from core.exceptions import AuthenticationError, DatabaseError
 

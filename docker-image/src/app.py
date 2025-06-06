@@ -4,14 +4,8 @@ Uses blueprints and proper architecture
 """
 import os
 from flask import Flask, request
-from core.firebase_config import initialize_firebase
+# from core.firebase_config import initialize_firebase  # Migrated to Supabase
 import logging
-
-from core.database import db, db_manager
-from core.cors import configure_cors
-from core.middleware import setup_middleware
-from core.monitoring import setup_monitoring
-# from core.sentry_config import init_sentry  # Temporarily disabled until sentry-sdk is installed
 
 # Configure logging
 logging.basicConfig(
@@ -19,6 +13,14 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Initialize database - always use Supabase configuration
+from core.database_supabase import db, db_manager
+logger.info("Using Supabase database configuration")
+from core.cors import configure_cors
+from core.middleware import setup_middleware
+from core.monitoring import setup_monitoring
+# from core.sentry_config import init_sentry  # Temporarily disabled until sentry-sdk is installed
 
 # Import session blueprint from api.session
 from api.session import session_bp
@@ -33,8 +35,7 @@ from api.circuit_breaker_monitor import bp as circuit_breaker_bp
 
 # Import streaming and personalization blueprints
 from api.streaming import bp as streaming_bp
-from api.personalization import bp as personalization_bp
-from api.personalization_v2 import bp as personalization_v2_bp
+# from api.personalization import bp as personalization_bp  # File doesn't exist
 from api.test_sse import bp as test_sse_bp
 
 def create_app():
@@ -75,12 +76,15 @@ def create_app():
     if app.config.get('ENABLE_MONITORING', False):
         setup_monitoring(app)
     
-    # Initialize Firebase using secure config
+    # Initialize Supabase
+    from core.supabase_config import test_supabase_connection
     try:
-        initialize_firebase()
-        logger.info("Firebase initialized successfully")
+        if test_supabase_connection():
+            logger.info("Supabase initialized successfully")
+        else:
+            logger.error("Failed to initialize Supabase - check configuration")
     except Exception as e:
-        logger.error(f"Failed to initialize Firebase: {e}")
+        logger.error(f"Failed to initialize Supabase: {e}")
     
     # Initialize JWT with blacklist support
     from core.jwt_config import configure_jwt
@@ -112,13 +116,17 @@ def create_app():
     app.register_blueprint(streaming_bp, url_prefix='/api/streaming')
     
     # Personalization endpoints - under /api/personalization
-    app.register_blueprint(personalization_bp, url_prefix='/api/personalization')
+    # app.register_blueprint(personalization_bp, url_prefix='/api/personalization')  # Disabled - file doesn't exist
     
     # Enhanced Personalization v2 endpoints - under /api/personalization/v2
-    app.register_blueprint(personalization_v2_bp, url_prefix='/api/personalization/v2')
+    # Note: personalization_v2_bp is imported via v2_endpoints, not directly
     
     # Test SSE endpoint - under /api/test
     app.register_blueprint(test_sse_bp, url_prefix='/api/test')
+    
+    # Test auth endpoint
+    from api.test_auth import test_auth_bp
+    app.register_blueprint(test_auth_bp)
     
     # API monitoring endpoints - all under /api/monitoring
     app.register_blueprint(monitoring_bp)
@@ -132,8 +140,11 @@ def create_app():
     
     
     # Initialize API usage monitoring table
-    with app.app_context():
-        create_api_usage_table()
+    try:
+        with app.app_context():
+            create_api_usage_table()
+    except Exception as e:
+        logger.warning(f"Failed to create API usage table: {e}")
     
     # Add OPTIONS handler for problematic endpoint AFTER all blueprints
     @app.route('/api/v2/auth/login', methods=['OPTIONS'])

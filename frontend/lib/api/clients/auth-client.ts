@@ -1,4 +1,4 @@
-import { auth } from '../../../firebaseconfig';
+import { supabase } from '@/supabaseconfig';
 import { BaseAPIClient, APIError, type RequestConfig } from './base-client';
 
 /**
@@ -8,35 +8,39 @@ import { BaseAPIClient, APIError, type RequestConfig } from './base-client';
 export class AuthAPIClient extends BaseAPIClient {
   
   /**
-   * Get authentication token - simplified logic to fix token type issues
-   * Priority: Backend JWT tokens first, then Firebase tokens as fallback
+   * Get authentication token
+   * Priority: Backend JWT tokens first, then Supabase tokens as fallback
    */
-  async getAuthToken(): Promise<{ token: string; isFirebase: boolean } | null> {
-    // Import authService dynamically to avoid circular dependency
+  async getAuthToken(): Promise<{ token: string; isSupabase: boolean } | null> {
     try {
-      const { authService } = await import('../../auth-service');
+      // Check if we have a backend JWT token in localStorage first
+      const backendToken = localStorage.getItem('accessToken');
       
-      // First, try to get backend token from authService
-      if (authService.isAuthenticated()) {
-        const backendToken = await authService.getValidToken();
-        if (backendToken && typeof backendToken === 'string') {
-          // If authService returns a token and user is authenticated, it's a backend token
-          return { token: backendToken, isFirebase: false };
+      if (backendToken) {
+        // Verify the token is not expired
+        try {
+          const payload = JSON.parse(atob(backendToken.split('.')[1]));
+          if (payload.exp * 1000 > Date.now()) {
+            console.log('🎯 AuthClient: Using backend JWT token');
+            return { token: backendToken, isSupabase: false };
+          }
+        } catch (e) {
+          // Token parsing failed, continue to Supabase auth
         }
       }
-    } catch (error) {
-      console.error('Error getting backend token:', error);
-    }
 
-    // Fallback to Firebase auth if no backend token available
-    const user = auth.currentUser;
-    if (!user) return null;
-
-    try {
-      const firebaseToken = await user.getIdToken();
-      return { token: firebaseToken, isFirebase: true };
+      // Fallback to Supabase auth if no backend token available
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.access_token) {
+        const supabaseToken = session.access_token;
+        return { token: supabaseToken, isSupabase: true };
+      } else {
+        console.error('Error getting Supabase token: No session found');
+        return null;
+      }
     } catch (error) {
-      console.error('Error getting Firebase token:', error);
+      console.error('Error in getAuthToken:', error);
       return null;
     }
   }
@@ -52,7 +56,7 @@ export class AuthAPIClient extends BaseAPIClient {
     if (!skipAuth) {
       console.log('🔐 AuthClient: Getting auth token for request to:', endpoint);
       const authInfo = await this.getAuthToken();
-      console.log('🔑 AuthClient: Auth info received:', authInfo ? { isFirebase: authInfo.isFirebase, tokenLength: authInfo.token.length } : 'null');
+      console.log('🔑 AuthClient: Auth info received:', authInfo ? { isSupabase: authInfo.isSupabase, tokenLength: authInfo.token.length } : 'null');
       
       if (authInfo) {
         const headers = {
@@ -60,16 +64,18 @@ export class AuthAPIClient extends BaseAPIClient {
         };
 
         // Set appropriate auth header based on token type
-        if (authInfo.isFirebase) {
-          headers['X-Firebase-Token'] = authInfo.token;
-          console.log('🔥 AuthClient: Using Firebase token');
+        if (authInfo.isSupabase) {
+          headers['Authorization'] = `Bearer ${authInfo.token}`;
+          console.log('🟦 AuthClient: Using Supabase token');
         } else {
           headers['Authorization'] = `Bearer ${authInfo.token}`;
-          console.log('🎯 AuthClient: Using Bearer token');
+          console.log('🎯 AuthClient: Using backend JWT token');
         }
 
         restConfig.headers = headers;
         console.log('📤 AuthClient: Request headers prepared');
+        console.log('🔍 AuthClient: Headers being sent to BaseClient:', headers);
+        console.log('🔍 AuthClient: Full config being sent to BaseClient:', { ...restConfig, retryCount, skipAuth });
       } else {
         console.warn('⚠️ AuthClient: No authentication token available');
       }

@@ -866,7 +866,7 @@ Return as JSON array: [{{"title": "...", "start_snippet": "..."}}]
             course_id = None
             if hasattr(file_obj, 'module_id') and file_obj.module_id:
                 from db.schema import Module
-                from core.database import db_manager
+                from core.database_supabase import db_manager
                 with db_manager.get_session() as session:
                     module = session.query(Module).filter_by(id=file_obj.module_id).first()
                     if module:
@@ -885,7 +885,7 @@ Return as JSON array: [{{"title": "...", "start_snippet": "..."}}]
             else:
                 # Get file chunks
                 from db.schema import FileChunk
-                from core.database import db_manager
+                from core.database_supabase import db_manager
                 
                 with db_manager.get_session() as session:
                     chunks = session.query(FileChunk)\

@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.database import db_manager
+from core.database_supabase import db_manager
 from db.schema import File, FileChunk
 from tasks.enhanced_file_processing import process_file_with_semantic_chunking
 import logging

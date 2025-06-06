@@ -6,7 +6,7 @@ from datetime import datetime
 import logging
 
 from core.decorators_unified import firebase_auth_required
-from core.database import db
+from core.database_supabase import db
 from db.schema import Enrollment, Course, PersonalizedFile, File, Module
 
 from .utils import success_response, error_response

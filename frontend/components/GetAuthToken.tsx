@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { auth } from '@/firebaseconfig';
+import { supabase } from '@/supabaseconfig';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Copy, Check } from 'lucide-react';
@@ -16,14 +16,18 @@ export function GetAuthToken() {
     setLoading(true);
     setError('');
     try {
-      const user = auth.currentUser;
-      if (!user) {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      
+      if (!session) {
         setError('No user logged in. Please log in first.');
         return;
       }
       
-      const idToken = await user.getIdToken();
-      setToken(idToken);
+      setToken(session.access_token);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to get token');
     } finally {
@@ -63,7 +67,7 @@ export function GetAuthToken() {
         {token && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Your Firebase Token:</span>
+              <span className="text-sm font-medium">Your Supabase Token:</span>
               <Button
                 size="sm"
                 variant="outline"

@@ -3,6 +3,7 @@ from typing import List, Dict, Optional, Any
 from datetime import datetime
 import secrets
 import logging
+from sqlalchemy.orm import joinedload
 
 from repositories.course_repository import CourseRepository
 from repositories.user_repository import UserRepository
@@ -10,7 +11,7 @@ from repositories.enrollment_repository import EnrollmentRepository
 from repositories.optimized_queries import optimized_queries
 from core.exceptions import NotFoundError, ValidationError, AuthorizationError
 from core.cache import cache, invalidate_cache
-from core.database import db_manager
+from core.database_supabase import db_manager
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class OptimizedCourseService:
         logger.info(f"Getting course {course_id} for user {user_id}")
         
         try:
-            from core.database import db
+            from core.database_supabase import db
             from db.schema import Course, User
             
             # Direct query instead of using potentially broken optimized_queries
@@ -308,16 +309,29 @@ class OptimizedCourseService:
         if not course:
             raise NotFoundError("Course not found")
         
-        # Only instructor or admin can update
-        user = self.user_repo.get_by_id(user_id)
-        if not user:
-            raise AuthorizationError("User not found")
+        # Get a fresh session to avoid detached object issues
+        from core.database_supabase import db_manager
+        session = db_manager.get_session()
         
-        user_role = user.role.role_type if user.role else 'student'
-        if user_role != 'admin' and str(course.creator_id) != str(user_id):
-            raise AuthorizationError("Access denied")
-        
-        return self.course_repo.update(course_id, **kwargs)
+        try:
+            from db.schema import User
+            
+            # Query user directly with the role in the same session
+            user = session.query(User).options(
+                joinedload(User.role)
+            ).filter_by(id=user_id).first()
+            
+            if not user:
+                raise AuthorizationError("User not found")
+            
+            user_role = user.role.role_type if user.role else 'student'
+            if user_role != 'admin' and str(course.creator_id) != str(user_id):
+                raise AuthorizationError("Access denied")
+            
+            return self.course_repo.update(course_id, **kwargs)
+            
+        finally:
+            session.close()
 
     def delete_course(self, course_id: str, user_id: str) -> bool:
         """Delete a course"""
@@ -326,16 +340,29 @@ class OptimizedCourseService:
         if not course:
             return False
         
-        # Only instructor or admin can delete
-        user = self.user_repo.get_by_id(user_id)
-        if not user:
-            return False
+        # Get a fresh session to avoid detached object issues
+        from core.database_supabase import db_manager
+        session = db_manager.get_session()
         
-        user_role = user.role.role_type if user.role else 'student'
-        if user_role != 'admin' and str(course.creator_id) != str(user_id):
-            return False
-        
-        return self.course_repo.delete(course_id)
+        try:
+            from db.schema import User
+            
+            # Query user directly with the role in the same session
+            user = session.query(User).options(
+                joinedload(User.role)
+            ).filter_by(id=user_id).first()
+            
+            if not user:
+                return False
+            
+            user_role = user.role.role_type if user.role else 'student'
+            if user_role != 'admin' and str(course.creator_id) != str(user_id):
+                return False
+            
+            return self.course_repo.delete(course_id)
+            
+        finally:
+            session.close()
 
     def check_course_access(self, course_id: str, user_id: str) -> bool:
         """Check if user has access to a course"""
@@ -381,48 +408,61 @@ class OptimizedCourseService:
     def create_course(self, instructor_id: str, title: str, description: str, 
                      code: str = None, term: str = None, published: bool = False):
         """Create a new course - allows any authenticated user"""
-        # Validate user exists
-        user = self.user_repo.get_by_id(instructor_id)
-        if not user:
-            raise ValidationError("Invalid user")
+        # Get a fresh session to avoid detached object issues
+        from core.database_supabase import db_manager
+        session = db_manager.get_session()
         
-        # Validate input
-        if not title or len(title) < 3:
-            raise ValidationError("Title must be at least 3 characters")
-        
-        if not description or len(description) < 10:
-            raise ValidationError("Description must be at least 10 characters")
-        
-        # Determine if user has instructor profile
-        is_instructor = user.role and user.role.role_type == 'instructor'
-        
-        # Create course
-        course_data = {
-            'title': title,
-            'description': description,
-            'creator_id': instructor_id,  # Always set creator_id to the current user
-            'code': code,
-            'term': term,
-            'published': published
-        }
-        
-        # Only set instructor_id if user is actually an instructor
-        if is_instructor:
-            course_data['instructor_id'] = instructor_id
+        try:
+            from db.schema import User, Role
             
-        course = self.course_repo.create(**course_data)
-        
-        # Generate access code
-        access_code = secrets.token_urlsafe(6).upper()
-        self.course_repo.create_access_code(
-            course_id=course.id,
-            code=access_code
-        )
-        
-        # Invalidate cache
-        invalidate_cache(f"courses:instructor:{instructor_id}:*")
-        
-        return course
+            # Query user directly with the role in the same session
+            user = session.query(User).options(
+                joinedload(User.role)
+            ).filter_by(id=instructor_id).first()
+            
+            if not user:
+                raise ValidationError("Invalid user")
+            
+            # Validate input
+            if not title or len(title) < 3:
+                raise ValidationError("Title must be at least 3 characters")
+            
+            if not description or len(description) < 10:
+                raise ValidationError("Description must be at least 10 characters")
+            
+            # Determine if user has instructor profile - now safe to access role
+            is_instructor = user.role and user.role.role_type == 'instructor'
+            
+            # Create course
+            course_data = {
+                'title': title,
+                'description': description,
+                'creator_id': instructor_id,  # Always set creator_id to the current user
+                'code': code,
+                'term': term,
+                'published': published
+            }
+            
+            # Only set instructor_id if user is actually an instructor
+            if is_instructor:
+                course_data['instructor_id'] = instructor_id
+                
+            course = self.course_repo.create(**course_data)
+            
+            # Generate access code
+            access_code = secrets.token_urlsafe(6).upper()
+            self.course_repo.create_access_code(
+                course_id=course.id,
+                code=access_code
+            )
+            
+            # Invalidate cache
+            invalidate_cache(f"courses:instructor:{instructor_id}:*")
+            
+            return course
+            
+        finally:
+            session.close()
 
 
 # Export optimized service

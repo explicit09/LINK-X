@@ -28,7 +28,13 @@ def get_course_service():
     """Get course service instance with lazy initialization"""
     global course_service
     if course_service is None:
-        course_service = CourseService()
+        logger.info("Initializing CourseService...")
+        try:
+            course_service = CourseService()
+            logger.info(f"CourseService initialized: {course_service}")
+        except Exception as e:
+            logger.error(f"Failed to initialize CourseService: {e}")
+            raise
     return course_service
 
 def get_module_service():
@@ -53,19 +59,31 @@ def list_courses_v2():
         courses = []
         total = 0
         
-        if user.role and user.role.role_type == 'student':
+        # Handle both User objects (with role.role_type) and AuthUser objects (with role)
+        user_role = None
+        if hasattr(user, 'role_type'):
+            user_role = user.role_type
+        elif hasattr(user, 'role') and isinstance(user.role, str):
+            user_role = user.role
+        elif hasattr(user, 'role') and hasattr(user.role, 'role_type'):
+            user_role = user.role.role_type
+        
+        logger.info(f"User role detected: {user_role} for user {user.id}")
+        
+        if user_role == 'student':
             logger.info(f"🎓 Getting student courses for user {user.id} ({user.email})")
             courses = get_course_service().get_student_courses(user.id, page, per_page)
             logger.info(f"📚 Student courses found: {len(courses)}")
             total = len(courses)  # For now, use actual count
-        elif user.role and user.role.role_type == 'instructor':
+        elif user_role == 'instructor':
             courses = get_course_service().get_instructor_courses(user.id, page, per_page)
             total = len(courses)  # For now, use actual count
-        elif user.role and user.role.role_type == 'admin':
+        elif user_role == 'admin':
             courses = get_course_service().get_all_courses(page, per_page)
             total = len(courses)  # For now, use actual count
         else:
             # No role or unknown role, return empty list
+            logger.warning(f"Unknown or missing role for user {user.id}: {user_role}")
             courses = []
             total = 0
         

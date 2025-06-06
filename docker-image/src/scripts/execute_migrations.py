@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from sqlalchemy import create_engine, text
 from alembic import command
 from alembic.config import Config
-from core.database import Base
+from core.database_supabase import Base
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

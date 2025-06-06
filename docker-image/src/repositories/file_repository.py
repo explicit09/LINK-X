@@ -5,7 +5,7 @@ from datetime import datetime
 
 from repositories.base_repository import BaseRepository
 from db.schema import File, PersonalizedFile, Module
-from core.database import db_manager
+from core.database_supabase import db_manager
 
 class FileRepository(BaseRepository[File]):
     """Repository for file-related database operations"""

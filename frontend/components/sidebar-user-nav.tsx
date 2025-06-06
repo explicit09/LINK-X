@@ -1,10 +1,9 @@
 'use client';
 import { ChevronUp } from 'lucide-react';
 import Image from 'next/image';
-import { signOut } from 'firebase/auth';
-import type { User as FirebaseUser } from 'firebase/auth';
 import { useTheme } from 'next-themes';
-import { auth } from '@/firebaseconfig';
+import { supabase } from '@/supabaseconfig';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 import {
   DropdownMenu,
@@ -19,7 +18,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 
-export function SidebarUserNav({ user }: { user: FirebaseUser }) {
+export function SidebarUserNav({ user }: { user: SupabaseUser }) {
   const { setTheme, theme } = useTheme();
 
   return (
@@ -56,9 +55,9 @@ export function SidebarUserNav({ user }: { user: FirebaseUser }) {
                 className="w-full cursor-pointer"
                 onClick={async () => {
                   try {
-                    await signOut(auth);
+                    await supabase.auth.signOut();
                     await fetch(
-                      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/sessionLogout`,
+                      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v2/auth/logout`,
                       {
                         method: 'POST',
                         credentials: 'include',

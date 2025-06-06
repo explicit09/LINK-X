@@ -18,8 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SiteFooter } from '@/components/SiteFooter';
 
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/firebaseconfig';
+import { signUpWithEmail } from '@/lib/auth/supabase-auth-service';
 import { authService, type RegistrationData } from '@/lib/auth-service';
 
 // Import GoogleAuthButton with no SSR to prevent hydration mismatches

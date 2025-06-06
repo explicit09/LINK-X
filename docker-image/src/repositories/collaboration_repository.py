@@ -25,7 +25,7 @@ class CollaborationRepository(BaseRepository):
     
     def __init__(self, session_factory=None):
         """Initialize CollaborationRepository with StudyGroup as primary model"""
-        from core.database import db_manager
+        from core.database_supabase import db_manager
         if session_factory is None:
             session_factory = db_manager.session_factory
         super().__init__(StudyGroup, session_factory)

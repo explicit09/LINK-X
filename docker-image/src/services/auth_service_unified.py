@@ -12,7 +12,7 @@ import secrets
 
 from flask import current_app
 from flask_jwt_extended import create_access_token, create_refresh_token, decode_token
-from firebase_admin import auth as firebase_auth
+from services.auth.supabase_auth_service import get_auth_service
 import redis
 
 from db.schema import User, StudentProfile
@@ -52,47 +52,59 @@ class UnifiedAuthService:
             
     def authenticate_with_firebase(self, id_token: str, version: str = 'v1') -> Dict[str, Any]:
         """
-        Authenticate user with Firebase ID token
+        Authenticate user with Supabase JWT token
         Syncs user data to PostgreSQL on first login
         
         Args:
-            id_token: Firebase ID token
+            id_token: Supabase JWT token
             version: API version ('v1' or 'v2')
             
         Returns:
             Authentication result with tokens and user data
         """
         try:
-            logger.info(f"Attempting to verify Firebase token for version {version}")
+            logger.info(f"Attempting to verify Supabase token for version {version}")
             logger.debug(f"Token preview: {id_token[:50]}..." if len(id_token) > 50 else f"Token: {id_token}")
             
-            # Verify Firebase token
-            decoded_token = firebase_auth.verify_id_token(id_token)
-            logger.info(f"Successfully verified Firebase token")
+            # Use Supabase auth service to verify token
+            auth_service = get_auth_service()
+            auth_user = auth_service.verify_token(id_token)
             
-            firebase_uid = decoded_token['uid']
-            email = decoded_token.get('email')
-            logger.info(f"Firebase uid: {firebase_uid}, email: {email}")
+            if not auth_user:
+                raise AuthenticationError("Invalid or expired token")
+            
+            logger.info(f"Successfully verified Supabase token")
+            
+            supabase_uid = auth_user.id
+            email = auth_user.email
+            logger.info(f"Supabase uid: {supabase_uid}, email: {email}")
             
             if not email:
-                raise ValidationError("Email not found in Firebase token")
+                raise ValidationError("Email not found in Supabase token")
                 
-            # Get or create user
-            logger.info(f"About to search for user with Firebase UID: {firebase_uid}")
+            # Get or create user (use firebase_uid field for Supabase ID for compatibility)
+            logger.info(f"About to search for user with Supabase UID: {supabase_uid}")
             logger.info(f"user_repo type: {type(self.user_repo)}")
             logger.info(f"user_repo: {self.user_repo}")
             
             try:
-                user = self.user_repo.find_by_firebase_uid(firebase_uid)
+                user = self.user_repo.find_by_firebase_uid(supabase_uid)  # Use firebase_uid field for Supabase ID
                 logger.info(f"User lookup result: {user}")
             except Exception as user_lookup_error:
                 logger.error(f"Error during user lookup: {type(user_lookup_error).__name__}: {str(user_lookup_error)}")
                 raise
             
             if not user:
-                logger.info("User not found, creating new user from Firebase data")
+                logger.info("User not found, creating new user from Supabase data")
                 try:
-                    user = self._create_user_from_firebase(decoded_token)
+                    # Create mock decoded token for compatibility
+                    decoded_token = {
+                        'uid': supabase_uid,
+                        'email': email,
+                        'name': auth_user.metadata.get('full_name'),
+                        'picture': auth_user.metadata.get('avatar_url')
+                    }
+                    user = self._create_user_from_firebase(decoded_token)  # Reuse existing method
                     logger.info(f"Created new user: {user}")
                 except Exception as user_creation_error:
                     logger.error(f"Error creating user: {type(user_creation_error).__name__}: {str(user_creation_error)}")
@@ -113,11 +125,8 @@ class UnifiedAuthService:
             else:
                 return self._generate_v1_tokens(user)
                     
-        except firebase_auth.InvalidIdTokenError as e:
-            logger.error(f"Invalid Firebase ID token: {e}")
-            raise AuthenticationError(f"Invalid Firebase ID token: {str(e)}")
         except Exception as e:
-            logger.error(f"Firebase authentication error: {type(e).__name__}: {str(e)}")
+            logger.error(f"Supabase authentication error: {type(e).__name__}: {str(e)}")
             raise AuthenticationError(f"Authentication failed: {str(e)}")
             
     def authenticate_email_password(self, email: str, password: str) -> Dict[str, Any]:
@@ -472,14 +481,16 @@ class UnifiedAuthService:
                     # Update the student profile with onboarding data
                     logger.info("Updating existing student profile with onboarding data")
                     try:
-                        with self.user_repo.get_session() as session:
+                        # Use database manager directly
+                        from core.database_supabase import db_manager
+                        with db_manager.session_scope() as session:
                             profile = session.query(StudentProfile).filter_by(user_id=existing_user.id).first()
                             if profile:
                                 profile.name = name or profile.name
                                 profile.onboard_answers = onboard_answers
                                 profile.want_quizzes = want_quizzes
                                 session.commit()
-                                logger.info("Student profile updated with onboarding data")
+                                logger.info(f"Student profile updated with onboarding data: {onboard_answers}")
                             else:
                                 # Profile doesn't exist, create it
                                 self.user_repo.create_student_profile(
@@ -488,7 +499,7 @@ class UnifiedAuthService:
                                     onboard_answers=onboard_answers,
                                     want_quizzes=want_quizzes
                                 )
-                                logger.info("Created missing student profile with onboarding data")
+                                logger.info(f"Created missing student profile with onboarding data: {onboard_answers}")
                     except Exception as e:
                         logger.error(f"Failed to update profile: {e}")
                         raise ValidationError(f"Failed to update profile: {str(e)}")

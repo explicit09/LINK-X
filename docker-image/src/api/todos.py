@@ -4,7 +4,7 @@ from sqlalchemy import desc
 import uuid
 
 from core.decorators_unified import firebase_auth_required
-from core.database import db
+from core.database_supabase import db
 from db.schema import Todo
 from repositories.todo_repository import TodoRepository
 from repositories.course_repository import CourseRepository

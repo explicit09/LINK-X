@@ -1,0 +1,15 @@
+{
+  "name": "supabase",
+  "version": "1.0.0",
+  "main": "test_connection.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.10"
+  }
+}

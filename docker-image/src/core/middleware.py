@@ -103,15 +103,26 @@ def setup_middleware(app):
     @app.teardown_appcontext
     def teardown_db(exception):
         """Close database session after each request"""
-        from .database import db_manager
-        db_manager.close_session()
+        try:
+            # Try Supabase first
+            from .database_supabase import db_manager
+            if hasattr(db_manager, 'close_session'):
+                db_manager.close_session()
+        except ImportError:
+            # Try original database
+            try:
+                from .database import db_manager
+                if db_manager and hasattr(db_manager, 'close_session'):
+                    db_manager.close_session()
+            except ImportError:
+                pass
         
         # Also close the session stored in g if any
         if hasattr(g, 'db_session') and g.db_session:
             try:
                 g.db_session.close()
-            except:
-                pass
+            except Exception as e:
+                logger.debug(f"Error closing g.db_session: {e}")
         
         if exception:
             logger.error(f"Request ended with exception: {exception}", extra={

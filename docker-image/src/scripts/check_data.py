@@ -3,7 +3,7 @@
 import sys
 sys.path.append('/app/src')
 
-from core.database import db_manager
+from core.database_supabase import db_manager
 from db.schema import Course, Enrollment, User
 
 def check_data():

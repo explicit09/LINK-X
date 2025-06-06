@@ -26,14 +26,23 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - USE_S3_STORAGE=${USE_S3_STORAGE:-true}
       - PORT=${PORT:-8080}
+      # Supabase configuration
+      - SUPABASE_URL=https://torsffahnivnzcnjnxgc.supabase.co
+      - SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnNmZmFobml2bnpjbmpueGdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxMzc3MzcsImV4cCI6MjA2NDcxMzczN30.RSplRmOfX5noj_MDpRIRRgUbUYSvlaCXyUGc8PUiySA
+      - SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnNmZmFobml2bnpjbmpueGdjIiwicm9sZSI6InNlcnZpY2VfX3JvbGUiLCJpYXQiOjE3NDkxMzc3MzcsImV4cCI6MjA2NDcxMzczN30.QXKXdZaYaGJo4k-2LdD3qD3c9gvXFQHPGIWCLBu59j0
+      - SUPABASE_JWT_SECRET=EBdk62TNJ2Ku7oMGN4ZXCjIOsg17P9PydhA9/orqUYV+cADaT/ZbTFMpCo90FfG05StLcKdrfH9zDeqLI2xIRg==
+      - DATABASE_URL=postgresql://postgres.torsffahnivnzcnjnxgc:DjGJCVNYksijOQuG@aws-0-us-east-2.pooler.supabase.com:6543/postgres
+      # Disable optional dependencies
+      - DISABLE_REDIS=1
+      - DISABLE_CELERY=1
     volumes:
       - ./docker-image/src:/app/src:cached  # Dev only - hot reload
       - ./data/learning_pdfs:/app/src/learning_pdfs
     ports:
       - "${PORT:-8080}:${PORT:-8080}"
-    depends_on:
-      redis:
-        condition: service_healthy
+    # depends_on:
+    #   redis:
+    #     condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${PORT:-8080}/health"]
       interval: 30s
@@ -58,6 +67,12 @@ services:
       - FLASK_ENV=${FLASK_ENV:-development}
       - REDIS_URL=redis://redis:6379/0
       - USE_S3_STORAGE=${USE_S3_STORAGE:-true}
+      # Supabase configuration
+      - SUPABASE_URL=https://torsffahnivnzcnjnxgc.supabase.co
+      - SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnNmZmFobml2bnpjbmpueGdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxMzc3MzcsImV4cCI6MjA2NDcxMzczN30.RSplRmOfX5noj_MDpRIRRgUbUYSvlaCXyUGc8PUiySA
+      - SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnNmZmFobml2bnpjbmpueGdjIiwicm9sZSI6InNlcnZpY2VfX3JvbGUiLCJpYXQiOjE3NDkxMzc3MzcsImV4cCI6MjA2NDcxMzczN30.QXKXdZaYaGJo4k-2LdD3qD3c9gvXFQHPGIWCLBu59j0
+      - SUPABASE_JWT_SECRET=EBdk62TNJ2Ku7oMGN4ZXCjIOsg17P9PydhA9/orqUYV+cADaT/ZbTFMpCo90FfG05StLcKdrfH9zDeqLI2xIRg==
+      - DATABASE_URL=postgresql://postgres.torsffahnivnzcnjnxgc:DjGJCVNYksijOQuG@aws-0-us-east-2.pooler.supabase.com:6543/postgres
     volumes:
       - ./docker-image/src:/app/src:cached  # Dev only
       - ./data/learning_pdfs:/app/src/learning_pdfs

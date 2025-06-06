@@ -29,10 +29,10 @@ class RoleType(PyEnum):
 role_enum = ENUM('admin', 'instructor', 'student', name='role_enum', create_type=True)
 
 class User(Base):
-    __tablename__ = 'User'
+    __tablename__ = 'users'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(64), nullable=False, unique=True)
-    password = Column(String(255), nullable=False)
+    password = Column(String(255), nullable=True)  # Made nullable for Supabase auth
     firebase_uid = Column(String(128))
 
     role = relationship('Role', back_populates='user', uselist=False)
@@ -41,18 +41,18 @@ class User(Base):
     admin_profile = relationship('AdminProfile', back_populates='user', uselist=False)
 
 class Role(Base):
-    __tablename__ = 'Role'
+    __tablename__ = 'roles'
     user_id = Column(UUID(as_uuid=True),
-                     ForeignKey('User.id', ondelete='CASCADE'),
+                     ForeignKey('users.id', ondelete='CASCADE'),
                      primary_key=True)
     role_type = Column(role_enum, nullable=False)
 
     user = relationship('User', back_populates='role')
 
 class InstructorProfile(Base):
-    __tablename__ = 'InstructorProfile'
+    __tablename__ = 'instructor_profiles'
     user_id = Column(UUID(as_uuid=True),
-                     ForeignKey('User.id', ondelete='CASCADE'),
+                     ForeignKey('users.id', ondelete='CASCADE'),
                      primary_key=True)
     name = Column(Text, nullable=False)
     university = Column(String(128))
@@ -61,9 +61,9 @@ class InstructorProfile(Base):
     courses = relationship('Course', back_populates='instructor_profile')
 
 class StudentProfile(Base):
-    __tablename__ = 'StudentProfile'
+    __tablename__ = 'student_profiles'
     user_id = Column(UUID(as_uuid=True),
-                     ForeignKey('User.id', ondelete='CASCADE'),
+                     ForeignKey('users.id', ondelete='CASCADE'),
                      primary_key=True)
     name = Column(Text, nullable=False)
     onboard_answers = Column(JSONB, nullable=False)
@@ -76,16 +76,16 @@ class StudentProfile(Base):
     personalized_files = relationship('PersonalizedFile', back_populates='student')
 
 class AdminProfile(Base):
-    __tablename__ = 'AdminProfile'
+    __tablename__ = 'admin_profiles'
     user_id = Column(UUID(as_uuid=True),
-                     ForeignKey('User.id', ondelete='CASCADE'),
+                     ForeignKey('users.id', ondelete='CASCADE'),
                      primary_key=True)
     name = Column(Text, nullable=False)
 
     user = relationship('User', back_populates='admin_profile')
 
 class Course(Base):
-    __tablename__ = 'Course'
+    __tablename__ = 'courses'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(String(128), nullable=False)
     description = Column(Text)
@@ -95,10 +95,10 @@ class Course(Base):
     last_updated = Column(DateTime, nullable=False, default=datetime.utcnow)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     instructor_id = Column(UUID(as_uuid=True),
-                           ForeignKey('InstructorProfile.user_id', ondelete='SET NULL'),
+                           ForeignKey('instructor_profiles.user_id', ondelete='SET NULL'),
                            nullable=True)
     creator_id = Column(UUID(as_uuid=True),
-                       ForeignKey('User.id', ondelete='SET NULL'),
+                       ForeignKey('users.id', ondelete='SET NULL'),
                        nullable=True)
     creator = relationship('User')
 
@@ -123,10 +123,10 @@ class Course(Base):
         }
 
 class Module(Base):
-    __tablename__ = 'Module'
+    __tablename__ = 'modules'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     course_id = Column(UUID(as_uuid=True),
-                       ForeignKey('Course.id', ondelete='CASCADE'),
+                       ForeignKey('courses.id', ondelete='CASCADE'),
                        nullable=False)
     title = Column(String(128), nullable=False)
     description = Column(Text, nullable=True)
@@ -145,10 +145,10 @@ class Module(Base):
         }
 
 class File(Base):
-    __tablename__ = 'File'
+    __tablename__ = 'files'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     module_id = Column(UUID(as_uuid=True),
-                       ForeignKey('Module.id', ondelete='CASCADE'),
+                       ForeignKey('modules.id', ondelete='CASCADE'),
                        nullable=False)
     title = Column(String(128), nullable=False)
     filename = Column(String, nullable=False)
@@ -189,15 +189,15 @@ class File(Base):
         }
 
 class FileChunk(Base):
-    __tablename__ = 'FileChunk'
+    __tablename__ = 'file_chunks'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     content = Column(Text, nullable=False)
     embedding = Column(Vector(1536), nullable=False)
     file_id = Column(UUID(as_uuid=True),
-                     ForeignKey('File.id', ondelete='CASCADE'),
+                     ForeignKey('files.id', ondelete='CASCADE'),
                      nullable=False)
     course_id = Column(UUID(as_uuid=True),
-                       ForeignKey('Course.id', ondelete='CASCADE'),
+                       ForeignKey('courses.id', ondelete='CASCADE'),
                        nullable=False)
     chunk_index = Column(Integer, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -211,24 +211,24 @@ class FileChunk(Base):
     course = relationship('Course')
 
 class AccessCode(Base):
-    __tablename__ = 'AccessCode'
+    __tablename__ = 'access_codes'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     code = Column(String(32), nullable=False, unique=True)
     course_id = Column(UUID(as_uuid=True),
-                       ForeignKey('Course.id', ondelete='CASCADE'),
+                       ForeignKey('courses.id', ondelete='CASCADE'),
                        nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     course = relationship('Course', back_populates='access_code')
 
 class Enrollment(Base):
-    __tablename__ = 'Enrollment'
+    __tablename__ = 'enrollments'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True),
-                     ForeignKey('StudentProfile.user_id', ondelete='CASCADE'),
+                     ForeignKey('student_profiles.user_id', ondelete='CASCADE'),
                      nullable=False)
     course_id = Column(UUID(as_uuid=True),
-                       ForeignKey('Course.id', ondelete='CASCADE'),
+                       ForeignKey('courses.id', ondelete='CASCADE'),
                        nullable=False)
     enrolled_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
@@ -240,13 +240,13 @@ class Enrollment(Base):
     course = relationship('Course', back_populates='enrollments')
 
 class PersonalizedFile(Base):
-    __tablename__ = 'PersonalizedFile'
+    __tablename__ = 'personalized_files'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True),
-                     ForeignKey('StudentProfile.user_id', ondelete='CASCADE'),
+                     ForeignKey('student_profiles.user_id', ondelete='CASCADE'),
                      nullable=False)
     original_file_id = Column(UUID(as_uuid=True),
-                              ForeignKey('File.id', ondelete='SET NULL'),
+                              ForeignKey('files.id', ondelete='SET NULL'),
                               nullable=True)
     content = Column(JSONB, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -255,10 +255,10 @@ class PersonalizedFile(Base):
     original_file = relationship('File', back_populates='personalized_files')
 
 class Todo(Base):
-    __tablename__ = 'Todo'
+    __tablename__ = 'todos'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True),
-                     ForeignKey('User.id', ondelete='CASCADE'),
+                     ForeignKey('users.id', ondelete='CASCADE'),
                      nullable=False)
     title = Column(String(255), nullable=False)
     course = Column(String(255), nullable=True)  # Course name, not ID
@@ -273,13 +273,13 @@ class Todo(Base):
     user = relationship('User')
 
 class Chat(Base):
-    __tablename__ = 'Chat'
+    __tablename__ = 'chats'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True),
-                     ForeignKey('StudentProfile.user_id', ondelete='CASCADE'),
+                     ForeignKey('student_profiles.user_id', ondelete='CASCADE'),
                      nullable=False)
     file_id = Column(UUID(as_uuid=True),
-                     ForeignKey('File.id', ondelete='SET NULL'),
+                     ForeignKey('files.id', ondelete='SET NULL'),
                      nullable=True)
     title = Column(Text, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -289,10 +289,10 @@ class Chat(Base):
     messages = relationship('Message', back_populates='chat')
 
 class Message(Base):
-    __tablename__ = 'Message'
+    __tablename__ = 'messages'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     chat_id = Column(UUID(as_uuid=True),
-                     ForeignKey('Chat.id', ondelete='CASCADE'),
+                     ForeignKey('chats.id', ondelete='CASCADE'),
                      nullable=False)
     role = Column(String, nullable=False)
     content = Column(Text, nullable=False)
@@ -301,26 +301,26 @@ class Message(Base):
     chat = relationship('Chat', back_populates='messages')
 
 class Report(Base):
-    __tablename__ = 'Report'
+    __tablename__ = 'reports'
     __table_args__ = (
         UniqueConstraint('course_id', name='uq_report_course'),
     )
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='CASCADE'), nullable=False)
+    course_id = Column(UUID(as_uuid=True), ForeignKey('courses.id', ondelete='CASCADE'), nullable=False)
     summary = Column(JSONB, nullable=False)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     course = relationship('Course', back_populates='report')
 
 class Market(Base):
-    __tablename__ = 'Market'
+    __tablename__ = 'market'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     snp500 = Column(Numeric, nullable=False)
     date = Column(Date, nullable=False)
 
 
 class News(Base):
-    __tablename__ = 'News'
+    __tablename__ = 'news'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(String(64), nullable=False)
     subject = Column(String(64), nullable=False)
@@ -330,7 +330,7 @@ class News(Base):
 class UserStats(Base):
     __tablename__ = 'user_stats'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False, unique=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False, unique=True)
     current_xp = Column(Integer, nullable=False, default=0)
     current_level = Column(Integer, nullable=False, default=1)
     total_xp = Column(Integer, nullable=False, default=0)
@@ -348,7 +348,7 @@ class UserStats(Base):
 class UserActivity(Base):
     __tablename__ = 'user_activities'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     activity_type = Column(String(50), nullable=False)  # 'file_view', 'todo_complete', 'chat_message', etc.
     xp_earned = Column(Integer, nullable=False, default=0)
     description = Column(Text)
@@ -361,7 +361,7 @@ class UserActivity(Base):
 class UserAchievement(Base):
     __tablename__ = 'user_achievements'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     achievement_type = Column(String(50), nullable=False)
     achievement_name = Column(String(100), nullable=False)
     description = Column(Text)
@@ -382,7 +382,7 @@ class ApiUsageLog(Base):
     version = Column(String(10), nullable=False)
     endpoint = Column(String(255), nullable=False)
     method = Column(String(10), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='SET NULL'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='SET NULL'))
     hour = Column(String(13), nullable=False)
     response_status = Column(Integer)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -393,7 +393,7 @@ class ApiUsageLog(Base):
 class StudyPlan(Base):
     __tablename__ = 'study_plans'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     plan_name = Column(String(100), nullable=False, default='My Study Plan')
     weekly_study_hours = Column(Integer, nullable=False, default=12)
     preferred_session_length = Column(Integer, nullable=False, default=45)
@@ -414,7 +414,7 @@ class StudyPlan(Base):
 class StudyGoal(Base):
     __tablename__ = 'study_goals'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     study_plan_id = Column(UUID(as_uuid=True), ForeignKey('study_plans.id', ondelete='CASCADE'), nullable=False)
     title = Column(String(255), nullable=False)
     description = Column(Text)
@@ -422,9 +422,9 @@ class StudyGoal(Base):
     priority = Column(String(10), nullable=False, default='medium')
     estimated_hours = Column(Numeric(4,2))
     target_date = Column(Date)
-    course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='SET NULL'))
-    module_id = Column(UUID(as_uuid=True), ForeignKey('Module.id', ondelete='SET NULL'))
-    file_id = Column(UUID(as_uuid=True), ForeignKey('File.id', ondelete='SET NULL'))
+    course_id = Column(UUID(as_uuid=True), ForeignKey('courses.id', ondelete='SET NULL'))
+    module_id = Column(UUID(as_uuid=True), ForeignKey('modules.id', ondelete='SET NULL'))
+    file_id = Column(UUID(as_uuid=True), ForeignKey('files.id', ondelete='SET NULL'))
     status = Column(String(20), default='pending')
     completion_percentage = Column(Integer, default=0)
     xp_reward = Column(Integer, default=0)
@@ -443,8 +443,8 @@ class StudyGoal(Base):
 class StudySession(Base):
     __tablename__ = 'study_sessions'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
-    course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='SET NULL'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    course_id = Column(UUID(as_uuid=True), ForeignKey('courses.id', ondelete='SET NULL'))
     study_plan_id = Column(UUID(as_uuid=True), ForeignKey('study_plans.id', ondelete='SET NULL'))
     study_goal_id = Column(UUID(as_uuid=True), ForeignKey('study_goals.id', ondelete='SET NULL'))
     
@@ -529,7 +529,7 @@ class StudySession(Base):
 class StudyRecommendation(Base):
     __tablename__ = 'study_recommendations'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     recommendation_type = Column(String(50), nullable=False)
     title = Column(String(255), nullable=False)
     description = Column(Text)
@@ -553,7 +553,7 @@ class GoalProgress(Base):
     __tablename__ = 'goal_progress'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     goal_id = Column(UUID(as_uuid=True), ForeignKey('study_goals.id', ondelete='CASCADE'), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     progress_date = Column(Date, nullable=False)
     time_spent_minutes = Column(Integer, default=0)
     tasks_completed = Column(Integer, default=0)
@@ -575,7 +575,7 @@ class SessionNote(Base):
     __tablename__ = 'session_notes'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id = Column(UUID(as_uuid=True), ForeignKey('study_sessions.id', ondelete='CASCADE'), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     
     note_type = Column(String(20), default='general')
     content = Column(Text, nullable=False)
@@ -594,7 +594,7 @@ class SessionNote(Base):
 
 class UserSchedulePreferences(Base):
     __tablename__ = 'user_schedule_preferences'
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
     
     # Core Hours Configuration
     core_start_hour = Column(Integer, default=8)
@@ -639,7 +639,7 @@ class UserSchedulePreferences(Base):
 class SessionAnalytics(Base):
     __tablename__ = 'session_analytics'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     session_id = Column(UUID(as_uuid=True), ForeignKey('study_sessions.id', ondelete='SET NULL'))
     
     # Analytics Event Data
@@ -673,7 +673,7 @@ class SessionAnalytics(Base):
 class AISessionSuggestion(Base):
     __tablename__ = 'ai_session_suggestions'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     
     # Suggestion Details
     suggestion_type = Column(String(30), nullable=False)
@@ -683,7 +683,7 @@ class AISessionSuggestion(Base):
     # Suggested Session Data
     suggested_start = Column(DateTime)
     suggested_duration = Column(Integer)
-    suggested_course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='SET NULL'))
+    suggested_course_id = Column(UUID(as_uuid=True), ForeignKey('courses.id', ondelete='SET NULL'))
     suggested_cognitive_load = Column(String(10))
     
     # AI Confidence and Reasoning
@@ -716,8 +716,8 @@ class StudyGroup(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
     description = Column(Text)
-    course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='CASCADE'), nullable=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    course_id = Column(UUID(as_uuid=True), ForeignKey('courses.id', ondelete='CASCADE'), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     is_public = Column(Boolean, default=True)
     max_members = Column(Integer, default=10)
     invite_code = Column(String(32), unique=True)
@@ -740,7 +740,7 @@ class StudyGroupMember(Base):
     __tablename__ = 'study_group_members'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     group_id = Column(UUID(as_uuid=True), ForeignKey('study_groups.id', ondelete='CASCADE'), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     role = Column(String(20), default='member')  # 'admin', 'moderator', 'member'
     collaboration_preferences = Column(JSONB, default={'share_annotations': True, 'share_notes': True, 'show_progress': True})
     joined_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -758,9 +758,9 @@ class StudyGroupMember(Base):
 class SharedAnnotation(Base):
     __tablename__ = 'shared_annotations'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    file_id = Column(UUID(as_uuid=True), ForeignKey('File.id', ondelete='CASCADE'), nullable=False)
+    file_id = Column(UUID(as_uuid=True), ForeignKey('files.id', ondelete='CASCADE'), nullable=False)
     group_id = Column(UUID(as_uuid=True), ForeignKey('study_groups.id', ondelete='CASCADE'))
-    created_by = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     annotation_type = Column(String(20), default='highlight')  # 'highlight', 'comment', 'question', 'note'
     content = Column(Text, nullable=False)
     position_data = Column(JSONB, nullable=False)  # Page number, coordinates, text selection info
@@ -784,11 +784,11 @@ class PeerDiscussion(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(String(255), nullable=False)
     content = Column(Text, nullable=False)
-    file_id = Column(UUID(as_uuid=True), ForeignKey('File.id', ondelete='CASCADE'))
+    file_id = Column(UUID(as_uuid=True), ForeignKey('files.id', ondelete='CASCADE'))
     annotation_id = Column(UUID(as_uuid=True), ForeignKey('shared_annotations.id', ondelete='CASCADE'))
     group_id = Column(UUID(as_uuid=True), ForeignKey('study_groups.id', ondelete='CASCADE'))
-    course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='CASCADE'), nullable=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    course_id = Column(UUID(as_uuid=True), ForeignKey('courses.id', ondelete='CASCADE'), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     discussion_type = Column(String(20), default='question')  # 'question', 'discussion', 'study_note', 'clarification'
     is_pinned = Column(Boolean, default=False)
     is_resolved = Column(Boolean, default=False)
@@ -813,7 +813,7 @@ class DiscussionReply(Base):
     discussion_id = Column(UUID(as_uuid=True), ForeignKey('peer_discussions.id', ondelete='CASCADE'), nullable=False)
     parent_reply_id = Column(UUID(as_uuid=True), ForeignKey('discussion_replies.id', ondelete='CASCADE'))
     content = Column(Text, nullable=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     is_solution = Column(Boolean, default=False)
     upvotes = Column(Integer, default=0)
     annotation_metadata = Column(JSONB)
@@ -832,11 +832,11 @@ class CollaborativeNote(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title = Column(String(255), nullable=False)
     content = Column(JSONB, nullable=False)  # Rich text content with operational transforms
-    file_id = Column(UUID(as_uuid=True), ForeignKey('File.id', ondelete='CASCADE'))
+    file_id = Column(UUID(as_uuid=True), ForeignKey('files.id', ondelete='CASCADE'))
     group_id = Column(UUID(as_uuid=True), ForeignKey('study_groups.id', ondelete='CASCADE'))
-    course_id = Column(UUID(as_uuid=True), ForeignKey('Course.id', ondelete='CASCADE'), nullable=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
-    last_edited_by = Column(UUID(as_uuid=True), ForeignKey('User.id'))
+    course_id = Column(UUID(as_uuid=True), ForeignKey('courses.id', ondelete='CASCADE'), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    last_edited_by = Column(UUID(as_uuid=True), ForeignKey('users.id'))
     is_template = Column(Boolean, default=False)
     collaboration_mode = Column(String(20), default='open')  # 'open', 'locked', 'review'
     version = Column(Integer, default=1)
@@ -858,7 +858,7 @@ class NoteEditOperation(Base):
     __tablename__ = 'note_edit_operations'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     note_id = Column(UUID(as_uuid=True), ForeignKey('collaborative_notes.id', ondelete='CASCADE'), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     operation_type = Column(String(20), nullable=False)  # 'insert', 'delete', 'retain', 'format'
     operation_data = Column(JSONB, nullable=False)  # Operational transform data
     position_index = Column(Integer, nullable=False)
@@ -877,8 +877,8 @@ class CollaborativeStudySession(Base):
     group_id = Column(UUID(as_uuid=True), ForeignKey('study_groups.id', ondelete='CASCADE'), nullable=False)
     session_name = Column(String(255), nullable=False)
     description = Column(Text)
-    file_id = Column(UUID(as_uuid=True), ForeignKey('File.id', ondelete='CASCADE'))
-    created_by = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    file_id = Column(UUID(as_uuid=True), ForeignKey('files.id', ondelete='CASCADE'))
+    created_by = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     session_type = Column(String(20), default='study')  # 'study', 'review', 'project', 'discussion'
     scheduled_start = Column(DateTime)
     scheduled_end = Column(DateTime)
@@ -903,7 +903,7 @@ class StudySessionParticipant(Base):
     __tablename__ = 'study_session_participants'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id = Column(UUID(as_uuid=True), ForeignKey('collaborative_study_sessions.id', ondelete='CASCADE'), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     role = Column(String(20), default='participant')  # 'host', 'moderator', 'participant'
     joined_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     left_at = Column(DateTime)
@@ -921,7 +921,7 @@ class StudySessionParticipant(Base):
 
 class UserCollaborationPreferences(Base):
     __tablename__ = 'user_collaboration_preferences'
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
     allow_public_annotations = Column(Boolean, default=False)
     allow_study_group_invites = Column(Boolean, default=True)
     allow_peer_discussions = Column(Boolean, default=True)
@@ -942,7 +942,7 @@ class AnnotationReaction(Base):
     __tablename__ = 'annotation_reactions'
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     annotation_id = Column(UUID(as_uuid=True), ForeignKey('shared_annotations.id', ondelete='CASCADE'), nullable=False)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     reaction_type = Column(String(20), nullable=False)  # 'helpful', 'like', 'important', 'question'
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     
@@ -960,7 +960,7 @@ class DiscussionVote(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     discussion_id = Column(UUID(as_uuid=True), ForeignKey('peer_discussions.id', ondelete='CASCADE'))
     reply_id = Column(UUID(as_uuid=True), ForeignKey('discussion_replies.id', ondelete='CASCADE'))
-    user_id = Column(UUID(as_uuid=True), ForeignKey('User.id', ondelete='CASCADE'), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     vote_type = Column(String(10), nullable=False)  # 'upvote', 'downvote'
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     

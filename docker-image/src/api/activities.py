@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import desc, func
 
 from core.decorators_unified import firebase_auth_required
-from core.database import db
+from core.database_supabase import db
 from db.schema import Chat, File, Enrollment, Course, PersonalizedFile, Module
 from repositories.user_repository import UserRepository
 from repositories.file_repository import FileRepository

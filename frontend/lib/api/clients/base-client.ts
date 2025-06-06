@@ -90,6 +90,10 @@ export class BaseAPIClient {
         ...((options.headers as Record<string, string>) || {}),
       };
 
+      // Add debug logging to see what headers we're actually sending
+      console.log('🔍 BaseClient: Raw options.headers received:', options.headers);
+      console.log('🔍 BaseClient: Final headers prepared:', headers);
+
       // Remove Content-Type for FormData (browser will set it with boundary)
       if (options.body instanceof FormData) {
         delete headers['Content-Type'];
@@ -150,7 +154,7 @@ export class BaseAPIClient {
           if (data === null || data === undefined) {
             console.warn('⚠️ BaseClient: API returned success but data is null/undefined:', jsonResponse);
             // Return empty array if this looks like a list endpoint, otherwise return null
-            return (url.includes('/courses') || url.includes('/list') ? [] : null) as T;
+            return (url.toString().includes('/courses') || url.toString().includes('/list') ? [] : null) as T;
           }
           console.log('✅ BaseClient: Returning unwrapped data');
           return data as T;

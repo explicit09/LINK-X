@@ -1,5 +1,5 @@
-import { User as FirebaseUser } from 'firebase/auth';
-import { FirebaseManager } from './auth/firebase-manager';
+import { User as SupabaseUser } from '@supabase/supabase-js';
+import { SupabaseManager } from './auth/supabase-manager';
 import { TokenManager, type AuthTokens } from './auth/token-manager';
 import { UserManager, type UserProfile } from './auth/user-manager';
 import { RegistrationManager, type RegistrationData } from './auth/registration-manager';
@@ -12,8 +12,8 @@ interface AuthState {
 }
 
 /**
- * AuthService - Unified authentication service using modular architecture
- * PRESERVES exact functionality from original auth-service.ts while improving modularity
+ * AuthService - Unified authentication service using Supabase
+ * Provides a clean interface for Supabase authentication
  */
 class AuthService {
   private static instance: AuthService;
@@ -25,14 +25,14 @@ class AuthService {
   };
 
   // Focused service modules
-  private firebase: FirebaseManager;
+  private supabase: SupabaseManager;
   private tokens: TokenManager;
   private users: UserManager;
   private registration: RegistrationManager;
 
   private constructor() {
     // Initialize focused modules
-    this.firebase = new FirebaseManager();
+    this.supabase = new SupabaseManager();
     
     this.tokens = new TokenManager((tokens) => {
       this.authState.tokens = tokens;
@@ -42,7 +42,7 @@ class AuthService {
     this.users = new UserManager(() => this.getValidToken());
 
     this.registration = new RegistrationManager(
-      this.firebase,
+      this.supabase,
       (state) => {
         this.authState = state;
         this.saveAuthState();
@@ -55,8 +55,8 @@ class AuthService {
     // Load auth state from localStorage on initialization
     if (typeof window !== 'undefined') {
       this.loadAuthState();
-      // Clear old session cookies on initialization to prevent auth issues
-      this.firebase.clearOldSessionCookies();
+      // Clear old session data on initialization
+      this.supabase.clearOldSessionData();
     }
   }
 
@@ -130,11 +130,36 @@ class AuthService {
   // Public API - delegate to focused modules while preserving exact interface
 
   /**
-   * Login with Firebase user
-   * PRESERVE exact login flow
+   * Login with Supabase user
+   * Updated from Firebase to Supabase
    */
-  async login(firebaseUser: FirebaseUser): Promise<boolean> {
-    return this.registration.login(firebaseUser);
+  async login(supabaseUser: SupabaseUser): Promise<boolean> {
+    return this.registration.login(supabaseUser);
+  }
+
+  /**
+   * Login with Supabase access token
+   * Uses the token directly for backend authentication
+   */
+  async loginWithSupabase(accessToken: string): Promise<boolean> {
+    try {
+      // Store the token
+      this.authState.tokens = {
+        accessToken,
+        refreshToken: '', // Supabase handles refresh internally
+        expiresAt: Date.now() + 3600000, // 1 hour default
+      };
+      this.authState.isAuthenticated = true;
+      this.saveAuthState();
+
+      // Check registration status with the backend
+      const registered = await this.checkRegistrationStatus();
+      return registered;
+    } catch (error) {
+      console.error('Supabase login failed:', error);
+      this.clearAuthState();
+      return false;
+    }
   }
 
   /**
@@ -156,10 +181,11 @@ class AuthService {
 
   /**
    * Check registration status
-   * PRESERVE exact registration check logic
+   * Updated to work with Supabase authentication
    */
   async checkRegistrationStatus(): Promise<boolean> {
-    if (!this.firebase.getCurrentUser() || !this.authState.isAuthenticated) {
+    // For Supabase authentication, we don't need Firebase user
+    if (!this.authState.isAuthenticated) {
       return false;
     }
 
@@ -180,12 +206,12 @@ class AuthService {
 
   /**
    * Force session establishment
-   * PRESERVE exact force session logic
+   * Updated for Supabase
    */
   async forceSessionEstablishment(): Promise<boolean> {
-    const currentUser = this.firebase.getCurrentUser();
+    const currentUser = await this.supabase.getCurrentUser();
     if (!currentUser) {
-      console.error('No Firebase user available for session establishment');
+      console.error('No Supabase user available for session establishment');
       return false;
     }
 
@@ -194,12 +220,12 @@ class AuthService {
 
   /**
    * Logout
-   * PRESERVE exact logout flow
+   * Updated for Supabase
    */
   async logout() {
     try {
-      // Clear old session cookies first
-      this.firebase.clearOldSessionCookies();
+      // Clear old session data first
+      this.supabase.clearOldSessionData();
 
       // Logout from backend
       const tokenForLogout = (this.authState.tokens && typeof this.authState.tokens.accessToken === 'string')
@@ -216,8 +242,8 @@ class AuthService {
     // Clear local state
     this.clearAuthState();
 
-    // Logout from Firebase
-    await this.firebase.signOut();
+    // Logout from Supabase
+    await this.supabase.signOut();
   }
 
   /**
@@ -276,8 +302,8 @@ class AuthService {
   }
 
   // Access to individual managers for advanced use cases
-  getFirebaseManager(): FirebaseManager {
-    return this.firebase;
+  getSupabaseManager(): SupabaseManager {
+    return this.supabase;
   }
 
   getTokenManager(): TokenManager {

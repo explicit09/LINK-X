@@ -3,7 +3,7 @@ import os
 
 from core.decorators_unified import firebase_auth_required
 from core.exceptions import NotFoundError, ValidationError, AuthorizationError
-from core.database import db_manager
+from core.database_supabase import db_manager
 from db.queries import (
     get_module_by_id, get_course_by_id, get_enrollment_by_student_course,
     update_module, delete_module, get_files_by_module

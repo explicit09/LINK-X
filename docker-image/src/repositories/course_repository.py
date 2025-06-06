@@ -5,7 +5,7 @@ from datetime import datetime
 
 from repositories.base_repository import BaseRepository
 from db.schema import Course, Module, File, AccessCode, Enrollment
-from core.database import db_manager
+from core.database_supabase import db_manager
 
 class CourseRepository(BaseRepository[Course]):
     """Repository for course-related database operations"""

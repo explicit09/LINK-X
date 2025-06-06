@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from db.schema import File, FileChunk, Module
 from repositories.file_repository import FileRepository
-from core.database import db_manager
+from core.database_supabase import db_manager
 import logging
 
 logging.basicConfig(level=logging.INFO)

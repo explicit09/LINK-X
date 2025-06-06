@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 from core.decorators_unified import firebase_auth_required
 from core.exceptions import NotFoundError, ValidationError, FileProcessingError
 from core.config import get_config
-from core.database import db
+from core.database_supabase import db
 from core.file_validation import file_validator
 from core.rate_limiter_v2 import rate_limit_decorator, RateLimitConfig
 from services.file_service import FileService
@@ -42,7 +42,7 @@ def upload_file():
     
     # Use the same logic as the working legacy endpoint
     from sqlalchemy.orm import sessionmaker
-    from core.database import db_manager
+    from core.database_supabase import db_manager
     
     # Get a database session
     db_session = db_manager.get_session()
@@ -141,7 +141,7 @@ def upload_file():
 def get_file(file_id):
     """Get file metadata"""
     from sqlalchemy.orm import sessionmaker
-    from core.database import db_manager
+    from core.database_supabase import db_manager
     
     db_session = db_manager.get_session()
     
@@ -193,7 +193,7 @@ def get_file(file_id):
 def get_file_content(file_id):
     """Get file content for viewing"""
     from sqlalchemy.orm import sessionmaker
-    from core.database import db_manager
+    from core.database_supabase import db_manager
     
     db_session = db_manager.get_session()
     
@@ -329,7 +329,7 @@ def stream_file(file_id):
 def delete_file_endpoint(file_id):
     """Delete a file"""
     from sqlalchemy.orm import sessionmaker
-    from core.database import db_manager
+    from core.database_supabase import db_manager
     from db.queries import delete_file
     
     db_session = db_manager.get_session()
@@ -385,7 +385,7 @@ def delete_file_endpoint(file_id):
 def get_module_files(module_id):
     """Get all files in a module"""
     from sqlalchemy.orm import sessionmaker
-    from core.database import db_manager
+    from core.database_supabase import db_manager
     from db.queries import get_files_by_module
     
     db_session = db_manager.get_session()
@@ -520,7 +520,7 @@ def reprocess_file(file_id):
 def update_file_endpoint(file_id):
     """Update file metadata"""
     from sqlalchemy.orm import sessionmaker
-    from core.database import db_manager
+    from core.database_supabase import db_manager
     from db.queries import update_file
     
     db_session = db_manager.get_session()
@@ -584,7 +584,7 @@ def update_file_endpoint(file_id):
 def get_download_url(file_id):
     """Generate a signed URL for downloading a file"""
     from sqlalchemy.orm import sessionmaker
-    from core.database import db_manager
+    from core.database_supabase import db_manager
     
     db_session = db_manager.get_session()
     

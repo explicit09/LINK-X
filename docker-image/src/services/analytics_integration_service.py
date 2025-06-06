@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
-from core.database import db_manager
+from core.database_supabase import db_manager
 from repositories.analytics_repository import AnalyticsRepository
 from repositories.user_repository import UserRepository
 from services.ai.ai_service import AIService

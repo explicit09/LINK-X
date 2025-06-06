@@ -17,7 +17,7 @@ from services.auth_service_unified import UnifiedAuthService
 from services.jwt_blacklist import jwt_blacklist
 from core.decorators_unified import auth_required
 from core.exceptions import ValidationError, AuthenticationError, NotFoundError
-from core.database import db
+from core.database_supabase import db
 from core.cookie_auth import cookie_auth
 from core.rate_limiter_v2 import rate_limit_decorator, RateLimitConfig
 

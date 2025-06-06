@@ -8,7 +8,7 @@ from typing import Dict, List, Any, Optional
 import uuid
 from core.decorators_unified import firebase_auth_required
 from core.exceptions import ValidationError, NotFoundError
-from core.database import db_manager
+from core.database_supabase import db_manager
 from repositories.schedule_repository import (
     ScheduleRepository, 
     SchedulePreferencesRepository,

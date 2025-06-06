@@ -12,7 +12,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from core.database import db_manager
+from core.database_supabase import db_manager
 from services.ai.embeddings_service import EmbeddingsService
 from services.ai.hybrid_search_service import HybridSearchService
 from services.ai.hierarchical_rag_service import HierarchicalRAGService

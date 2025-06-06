@@ -42,7 +42,12 @@ class DatabaseManager:
     
     def close_session(self):
         """Close the current session"""
-        self.Session.remove()
+        if self.Session:
+            try:
+                self.Session.remove()
+            except Exception as e:
+                # Ignore errors during session cleanup
+                pass
 
 # Global database manager instance
 db_manager = DatabaseManager()

@@ -355,7 +355,7 @@ def create_database_health_check():
     """Create database health check"""
     def check():
         try:
-            from core.database import db
+            from core.database_supabase import db
             db.session.execute("SELECT 1")
             return True
         except:

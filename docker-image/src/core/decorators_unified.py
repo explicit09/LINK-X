@@ -11,7 +11,7 @@ import json
 
 from flask import request, g, jsonify, current_app
 from flask_jwt_extended import verify_jwt_in_request, get_jwt, get_jwt_identity
-from firebase_admin import auth as firebase_auth
+from services.auth.supabase_auth_service import get_auth_service
 import redis
 from werkzeug.exceptions import Unauthorized, Forbidden
 
@@ -108,36 +108,25 @@ def auth_required(roles: Optional[List[str]] = None,
                 # Method 2: Firebase Session Cookie - DISABLED (no cookie support)
                 # Cookie authentication has been removed for security
                             
-                # Method 3: Firebase Token (both versions)
-                if not authenticated:
-                    firebase_token = request.headers.get('X-Firebase-Token')
-                    if firebase_token:
+                # Method 3: Supabase Token (both versions)
+                if not authenticated and auth_header.startswith('Bearer '):
+                    # We already have the Bearer token, use it for Supabase auth
+                    supabase_token = auth_header[7:]
+                    if supabase_token:
                         try:
-                            # First try to get existing user
-                            user = _verify_firebase_token(firebase_token)
-                            if user:
-                                g.current_user = user
+                            # Use simple auth service first
+                            from services.auth.simple_auth_service import get_simple_auth_service
+                            auth_service = get_simple_auth_service()
+                            auth_user = auth_service.verify_token(supabase_token)
+                            if auth_user:
+                                # Simple auth service already returns the complete user
+                                # No need to look up again - just use the AuthUser directly
+                                g.current_user = auth_user
+                                g.auth_type = 'supabase'
                                 authenticated = True
-                            else:
-                                # Firebase token is valid but user not in database
-                                # This means they need to complete registration
-                                decoded_token = firebase_auth.verify_id_token(firebase_token)
-                                g.firebase_user = {
-                                    'uid': decoded_token['uid'],
-                                    'email': decoded_token.get('email'),
-                                    'name': decoded_token.get('name'),
-                                    'picture': decoded_token.get('picture')
-                                }
-                                # For certain endpoints, we might allow Firebase-only auth
-                                # But for most endpoints, they need to be registered
-                                if not optional:
-                                    return jsonify({
-                                        'error': 'User not registered',
-                                        'code': 'USER_NOT_REGISTERED',
-                                        'message': 'Please complete registration to access this resource'
-                                    }), 404
+                                logger.info(f"Authenticated user via Supabase: {auth_user.email} ({auth_user.role})")
                         except Exception as e:
-                            logger.info(f"Firebase auth failed: {e}")
+                            logger.info(f"Supabase auth failed: {e}")
                             
                 # Check if authentication is required
                 if not optional and not authenticated:
@@ -146,7 +135,9 @@ def auth_required(roles: Optional[List[str]] = None,
                     
                 # Check roles if specified
                 if authenticated and roles and g.current_user:
-                    if g.current_user.role_type not in roles:
+                    # Handle both User objects (with role_type) and AuthUser objects (with role)
+                    user_role = getattr(g.current_user, 'role_type', None) or getattr(g.current_user, 'role', None)
+                    if user_role and user_role not in roles:
                         return jsonify({'error': 'Insufficient permissions'}), 403
                         
                 # Call the decorated function
@@ -302,7 +293,7 @@ def validate_request(schema: dict):
 
 def _get_user_by_id(user_id: str) -> Optional[User]:
     """Get user by ID from database"""
-    from core.database import db
+    from core.database_supabase import db
     from sqlalchemy.orm import joinedload
     
     try:
@@ -389,22 +380,23 @@ def _verify_v1_jwt(token: str) -> Optional[User]:
     return None
 
 
-def _verify_firebase_token(token: str) -> Optional[User]:
-    """Verify Firebase token and get user"""
+def _verify_supabase_token(token: str) -> Optional[User]:
+    """Verify Supabase token and get user"""
     try:
-        decoded_token = firebase_auth.verify_id_token(token)
-        firebase_uid = decoded_token['uid']
-        
-        return _get_user_by_firebase_uid(firebase_uid)
+        auth_service = get_auth_service()
+        auth_user = auth_service.verify_token(token)
+        if auth_user:
+            return _get_user_by_firebase_uid(auth_user.id)  # Use firebase_uid field for Supabase ID
+        return None
             
     except Exception as e:
-        logger.debug(f"Firebase token verification failed: {e}")
+        logger.debug(f"Supabase token verification failed: {e}")
         return None
 
 
 def _get_user_by_firebase_uid(firebase_uid: str) -> Optional[User]:
     """Get user by Firebase UID from database"""
-    from core.database import db
+    from core.database_supabase import db
     from sqlalchemy.orm import joinedload
     
     try:
@@ -429,7 +421,7 @@ def _get_user_by_firebase_uid(firebase_uid: str) -> Optional[User]:
 # Backward compatibility aliases
 # Create proper decorators instead of partials to avoid Flask endpoint naming issues
 def firebase_auth_required(f):
-    """Firebase authentication required decorator"""
+    """Supabase authentication required decorator (Firebase compatibility)"""
     print(f"firebase_auth_required called for function: {f.__name__}")
     return auth_required(version_aware=True)(f)
 
@@ -442,12 +434,12 @@ def jwt_required_v2(f):
     return auth_required(version_aware=True)(f)
 
 
-def firebase_token_required(allow_unregistered: bool = False):
+def supabase_token_required(allow_unregistered: bool = False):
     """
-    Decorator specifically for Firebase token authentication
+    Decorator specifically for Supabase token authentication
     
     Args:
-        allow_unregistered: If True, allows Firebase authenticated users who aren't registered in the database
+        allow_unregistered: If True, allows Supabase authenticated users who aren't registered in the database
     """
     def decorator(f):
         @functools.wraps(f)
@@ -456,26 +448,34 @@ def firebase_token_required(allow_unregistered: bool = False):
             if request.method == 'OPTIONS':
                 return f(*args, **kwargs)
                 
-            # Check for Firebase token
-            firebase_token = request.headers.get('X-Firebase-Token')
-            if not firebase_token:
-                return jsonify({'error': 'Firebase token required'}), 401
+            # Check for Supabase token
+            auth_header = request.headers.get('Authorization', '')
+            supabase_token = request.headers.get('X-Auth-Token')
+            
+            if auth_header.startswith('Bearer '):
+                supabase_token = auth_header[7:]
+            
+            if not supabase_token:
+                return jsonify({'error': 'Authentication token required'}), 401
                 
             try:
-                # Verify Firebase token
-                decoded_token = firebase_auth.verify_id_token(firebase_token)
-                firebase_uid = decoded_token['uid']
+                # Verify Supabase token
+                auth_service = get_auth_service()
+                auth_user = auth_service.verify_token(supabase_token)
                 
-                # Store Firebase user info
-                g.firebase_user = {
-                    'uid': firebase_uid,
-                    'email': decoded_token.get('email'),
-                    'name': decoded_token.get('name'),
-                    'picture': decoded_token.get('picture')
+                if not auth_user:
+                    return jsonify({'error': 'Invalid authentication token'}), 401
+                
+                # Store Supabase user info
+                g.supabase_user = {
+                    'uid': auth_user.id,
+                    'email': auth_user.email,
+                    'name': auth_user.metadata.get('full_name'),
+                    'role': auth_user.role
                 }
                 
                 # Try to get user from database
-                user = _get_user_by_firebase_uid(firebase_uid)
+                user = _get_user_by_firebase_uid(auth_user.id)  # Use firebase_uid field for Supabase ID
                 if user:
                     g.current_user = user
                 elif not allow_unregistered:
@@ -488,8 +488,11 @@ def firebase_token_required(allow_unregistered: bool = False):
                 return f(*args, **kwargs)
                 
             except Exception as e:
-                logger.error(f"Firebase token verification failed: {e}")
-                return jsonify({'error': 'Invalid Firebase token'}), 401
+                logger.error(f"Supabase token verification failed: {e}")
+                return jsonify({'error': 'Invalid authentication token'}), 401
                 
         return decorated_function
     return decorator
+
+# Backward compatibility - redirect Firebase calls to Supabase
+firebase_token_required = supabase_token_required

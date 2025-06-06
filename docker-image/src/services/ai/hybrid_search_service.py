@@ -11,7 +11,7 @@ import psycopg2
 import os
 
 from services.ai.utils.vector_search import retrieve_chunks_pgvector, VectorSearchService
-from core.database import db_manager
+from core.database_supabase import db_manager
 from db.schema import FileChunk, File, Module
 
 logger = logging.getLogger(__name__)

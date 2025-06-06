@@ -27,7 +27,11 @@ POOL_RECYCLE = 1800  # 30 minutes
 # Get database URL from environment
 POSTGRES_URL = os.getenv("POSTGRES_URL")
 if not POSTGRES_URL:
-    raise RuntimeError("POSTGRES_URL not set")
+    # Try Supabase DATABASE_URL as fallback
+    POSTGRES_URL = os.getenv("DATABASE_URL")
+    if not POSTGRES_URL:
+        logger.warning("POSTGRES_URL not set, using placeholder for import compatibility")
+        POSTGRES_URL = "postgresql://user:pass@localhost/db"  # Placeholder to prevent import errors
 
 # Create engine with connection pooling
 engine = create_engine(

@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 
 from repositories.base_repository import BaseRepository
 from db.schema import Module, File
-from core.database import db_manager
+from core.database_supabase import db_manager
 
 class ModuleRepository(BaseRepository[Module]):
     """Repository for module-related database operations"""

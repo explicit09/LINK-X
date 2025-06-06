@@ -10,7 +10,7 @@ from app import create_app
 app = create_app()
 
 with app.app_context():
-    from core.database import db
+    from core.database_supabase import db
     
     file_id = "4d8c5dda-dc65-47f4-9656-08c75a7154ee"
     
