@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { FileCard } from './FileCard';
-import { useFileViewXP } from '@/hooks/useXPTracking';
+import { useContentViewXP } from '@/hooks/useXPTracking';
 import { useMetrics } from '@/services/metricsService';
 import { useGamification } from '@/contexts/GamificationContext';
 
@@ -34,7 +34,7 @@ export function FileViewerWithXP({
   isEven,
   className
 }: FileViewerWithXPProps) {
-  const { trackInteraction } = useFileViewXP(file.id, {
+  const { trackInteraction } = useContentViewXP(file.id, {
     courseId,
     moduleId,
     fileType: file.type,
@@ -104,13 +104,13 @@ export function FileViewerWithXP({
 
   const handleDownload = async (fileId: string) => {
     recordEvent('file_action', { action: 'download', fileId });
-    await awardXP('FILE_DOWNLOAD', { fileId });
+    // No XP awarded for download in simplified system
     onDownload(fileId);
   };
 
   const handlePersonalize = async (fileId: string) => {
     recordEvent('file_action', { action: 'personalize', fileId });
-    await awardXP('PERSONALIZE_CONTENT', { fileId });
+    // No XP awarded for personalization in simplified system
     onPersonalize(fileId);
   };
 

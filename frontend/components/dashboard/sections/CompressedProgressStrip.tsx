@@ -3,6 +3,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { Flame, Trophy, Target, TrendingUp } from 'lucide-react';
+import { useGamification } from '@/contexts/GamificationContext';
 
 interface CompressedProgressStripProps {
   onStreakClick?: () => void;
@@ -13,18 +14,28 @@ export function CompressedProgressStrip({
   onStreakClick, 
   onLevelClick 
 }: CompressedProgressStripProps) {
-  // Sample data - in a real app, this would come from props or API
-  const stats = {
-    streak: 7,
-    level: 12,
-    xpToNext: 160,
-    xpCurrent: 340,
-    xpTotal: 500,
-    weeklyGoal: 75,
-    rank: 15
-  };
+  const { userStats, isLoading } = useGamification();
 
-  const xpProgress = (stats.xpCurrent / stats.xpTotal) * 100;
+  if (isLoading || !userStats) {
+    return (
+      <div className="bg-white border-b border-gray-200 px-6 py-3 mb-6">
+        <div className="flex items-center justify-between gap-6 animate-pulse">
+          <div className="h-10 w-20 bg-gray-200 rounded-lg" />
+          <div className="h-10 flex-1 max-w-sm bg-gray-200 rounded-lg" />
+          <div className="h-10 w-20 bg-gray-200 rounded-lg" />
+          <div className="h-10 w-20 bg-gray-200 rounded-lg" />
+        </div>
+      </div>
+    );
+  }
+
+  // Calculate level boundaries
+  const calculateLevelXP = (level: number) => Math.floor(100 * Math.pow(level, 1.5));
+  const currentLevelXP = userStats.level > 1 ? calculateLevelXP(userStats.level - 1) : 0;
+  const nextLevelXP = calculateLevelXP(userStats.level);
+  const xpInCurrentLevel = userStats.total_xp - currentLevelXP;
+  const xpNeededForLevel = nextLevelXP - currentLevelXP;
+  const xpProgress = (xpInCurrentLevel / xpNeededForLevel) * 100;
 
   return (
     <div className="bg-white border-b border-gray-200 px-6 py-3 mb-6">
@@ -37,7 +48,7 @@ export function CompressedProgressStrip({
           <Flame className="h-5 w-5 text-orange-500" />
           <div className="text-left">
             <p className="text-xs text-gray-500">Streak</p>
-            <p className="text-sm font-semibold">{stats.streak} days</p>
+            <p className="text-sm font-semibold">{userStats.current_streak} days</p>
           </div>
         </button>
 
@@ -49,13 +60,13 @@ export function CompressedProgressStrip({
           <Trophy className="h-5 w-5 text-yellow-500" />
           <div className="flex-1">
             <div className="flex justify-between items-center mb-1">
-              <p className="text-xs text-gray-500">Level {stats.level}</p>
-              <p className="text-xs text-gray-500">{stats.xpToNext} XP to next</p>
+              <p className="text-xs text-gray-500">Level {userStats.level}</p>
+              <p className="text-xs text-gray-500">{xpNeededForLevel - xpInCurrentLevel} XP to next</p>
             </div>
             <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 transition-all"
-                style={{ width: `${xpProgress}%` }}
+                style={{ width: `${Math.min(100, xpProgress)}%` }}
               />
             </div>
           </div>
@@ -66,7 +77,9 @@ export function CompressedProgressStrip({
           <Target className="h-5 w-5 text-blue-500" />
           <div className="text-left">
             <p className="text-xs text-gray-500">Weekly Goal</p>
-            <p className="text-sm font-semibold">{stats.weeklyGoal}%</p>
+            <p className="text-sm font-semibold">
+              {Math.round((userStats.weekly_goal_progress / userStats.weekly_goal_target) * 100)}%
+            </p>
           </div>
         </div>
 
@@ -75,7 +88,7 @@ export function CompressedProgressStrip({
           <TrendingUp className="h-5 w-5 text-green-500" />
           <div className="text-left">
             <p className="text-xs text-gray-500">Rank</p>
-            <p className="text-sm font-semibold">#{stats.rank}</p>
+            <p className="text-sm font-semibold">#{userStats.rank || '—'}</p>
           </div>
         </div>
       </div>

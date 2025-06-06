@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
+import { CanvasCourseHeader } from '@/components/course/canvas/CanvasCourseHeader';
+import { CanvasCourseTabs } from '@/components/course/canvas/CanvasCourseTabs';
 import { useAuthUser } from '@/hooks/useAuthUser';
 import { useCourseData } from '@/hooks/course/useCourseData';
 import { useCourseModules } from '@/hooks/course/useCourseModules';
@@ -46,6 +48,9 @@ export default function CoursePage() {
   const { course, loading: courseLoading, error: courseError } = useCourseData(courseId);
   const { modules, loading: modulesLoading, error: modulesError } = useCourseModules(courseId);
   const { progress: courseProgress, loading: progressLoading } = useCourseProgress(courseId);
+  
+  // Determine user role for tabs
+  const userRole = currentUser?.role as 'student' | 'instructor' | 'admin' || 'student';
   
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
   const [metrics, setMetrics] = useState<CourseMetrics | null>(null);
@@ -128,20 +133,40 @@ export default function CoursePage() {
   // Loading state
   if (loading) {
     return (
-      <SharedDashboardLayout pageTitle="Loading..." currentUser={currentUser}>
-        <div className="max-w-7xl mx-auto p-6 space-y-6">
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-64 w-full" />
-          <Skeleton className="h-96 w-full" />
+      <div className="min-h-screen bg-gray-50">
+        {/* Header skeleton */}
+        <div className="bg-white">
+          <div className="h-12 bg-gray-100 animate-pulse" />
+          <div className="h-48 bg-gradient-to-r from-blue-500 to-blue-600 animate-pulse" />
+          <div className="h-16 bg-gray-50 animate-pulse" />
+          <div className="h-12 bg-white border-b animate-pulse" />
         </div>
-      </SharedDashboardLayout>
+        
+        <div className="px-6 py-8">
+          <div className="max-w-7xl mx-auto space-y-6">
+            {/* Content skeleton */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-32 w-full" />
+              ))}
+            </div>
+            
+            {/* Modules skeleton */}
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-20 w-full" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
   // Error state
   if (error || !course) {
     return (
-      <SharedDashboardLayout pageTitle="Error" currentUser={currentUser}>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="max-w-4xl mx-auto p-6">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
@@ -161,7 +186,7 @@ export default function CoursePage() {
             Go Back
           </Button>
         </div>
-      </SharedDashboardLayout>
+      </div>
     );
   }
 
@@ -195,11 +220,34 @@ export default function CoursePage() {
   const nextAction = getNextAction();
 
   return (
-    <SharedDashboardLayout 
-      pageTitle={course.title || 'Course'} 
-      currentUser={currentUser}
-    >
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+    <div className="min-h-screen bg-gray-50">
+      {/* Canvas-style Course Header */}
+      <CanvasCourseHeader
+        course={{
+          id: courseId,
+          title: course?.title || 'Loading...',
+          code: course?.code || course?.title?.split(' ')[0] || 'COURSE',
+          description: course?.description,
+          instructor: {
+            name: course?.instructor?.name || 'Unknown Instructor',
+            email: course?.instructor?.email,
+          },
+          term: course?.term || 'Fall 2024',
+          credits: course?.credits || 3,
+          enrolledCount: course?.stats?.students,
+          category: course?.category,
+        }}
+      />
+      
+      {/* Canvas-style Navigation Tabs */}
+      <CanvasCourseTabs 
+        courseId={courseId}
+        userRole={userRole}
+      />
+      
+      {/* Main Content Area */}
+      <div className="px-6 py-8">
+        <div className="max-w-7xl mx-auto space-y-6">
         {/* Course Header */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-start justify-between">
@@ -670,6 +718,7 @@ export default function CoursePage() {
             </Card>
           </div>
         )}
+        </div>
       </div>
       
       {/* Module Creation Dialog */}
@@ -682,6 +731,6 @@ export default function CoursePage() {
           window.location.reload();
         }}
       />
-    </SharedDashboardLayout>
+    </div>
   );
 }

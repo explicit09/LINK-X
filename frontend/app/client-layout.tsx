@@ -2,6 +2,7 @@
 
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/app/(auth)/AuthContext';
+import { GamificationProvider } from '@/contexts/GamificationContext';
 import { Toaster } from '@/components/ui/toaster';
 
 export default function ClientLayout({
@@ -17,8 +18,10 @@ export default function ClientLayout({
       disableTransitionOnChange
     >
       <AuthProvider>
-        {children}
-        <Toaster />
+        <GamificationProvider>
+          {children}
+          <Toaster />
+        </GamificationProvider>
       </AuthProvider>
     </ThemeProvider>
   );
