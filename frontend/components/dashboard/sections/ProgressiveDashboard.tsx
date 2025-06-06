@@ -1,364 +1,316 @@
 'use client';
 
-import React, { useState } from 'react';
-import { UserJourneyStage, useUserJourneyStage } from '@/hooks/useUserJourneyStage';
-import { PersonalizedGreeting } from './PersonalizedGreeting';
-import { SetupMissions } from './SetupMissions';
-import { BlankStateCTA } from './BlankStateCTA';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Target,
-  Zap,
-  Brain,
-  TrendingUp,
-  Calendar,
+import { Progress } from '@/components/ui/progress';
+import { 
+  ArrowRight, 
+  Brain, 
+  Target, 
+  TrendingUp, 
+  Clock,
+  Sparkles,
   BookOpen,
-  Trophy,
-  ChevronRight,
-  Info,
-  Lock,
-  Sparkles
+  Trophy
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+
+interface AIRecommendation {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  action: string;
+  xp_reward: number;
+  estimated_time: string;
+}
+
+interface DashboardData {
+  weekly_progress?: {
+    overall: number;
+    xp: { current: number; target: number };
+    tasks: { completed: number; total: number };
+    study_time: { current: number; target: number };
+  };
+  priority_actions?: Array<{
+    id: string;
+    title: string;
+    description: string;
+    urgency: string;
+    time_estimate: string;
+    type: string;
+    course?: string;
+  }>;
+  performance_pulse?: {
+    improvement_percentage: number;
+    current_rank: number;
+    rank_change: number;
+    average_score: number;
+  };
+}
 
 interface ProgressiveDashboardProps {
-  userName?: string;
-  dashboardData?: any;
-  aiRecommendations?: any[];
-  onActionClick?: (action: any) => void;
+  userName: string;
+  dashboardData?: DashboardData | null;
+  aiRecommendations?: AIRecommendation[];
+  onActionClick: (action: any) => void;
 }
 
 export function ProgressiveDashboard({
   userName,
   dashboardData,
-  aiRecommendations = [],
+  aiRecommendations,
   onActionClick
 }: ProgressiveDashboardProps) {
-  const { stage, metrics, isLoading } = useUserJourneyStage();
-  const [activeTab, setActiveTab] = useState('overview');
-  const [completedMissions, setCompletedMissions] = useState<string[]>([]);
-
-  // Debug logging (commented out for production)
-  // console.log('🎨 ProgressiveDashboard Debug:', {
-  //   stage,
-  //   metrics,
-  //   coursesCount: metrics.coursesCount,
-  //   showingSetupMissions: stage === UserJourneyStage.FIRST_VISIT
-  // });
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Card className="animate-pulse">
-          <CardContent className="h-32" />
-        </Card>
-      </div>
-    );
-  }
-
-  // Define which features are available at each stage
-  const features = {
-    missions: [UserJourneyStage.FIRST_VISIT, UserJourneyStage.ONBOARDED].includes(stage),
-    weeklyGoals: ![UserJourneyStage.FIRST_VISIT].includes(stage),
-    aiRecommendations: [UserJourneyStage.ACTIVE_LEARNER, UserJourneyStage.POWER_USER].includes(stage),
-    advancedAnalytics: [UserJourneyStage.POWER_USER].includes(stage),
-    scheduling: [UserJourneyStage.ACTIVE_LEARNER, UserJourneyStage.POWER_USER].includes(stage),
-    achievements: ![UserJourneyStage.FIRST_VISIT, UserJourneyStage.ONBOARDED].includes(stage)
+  // Default data if none provided
+  const weeklyProgress = dashboardData?.weekly_progress || {
+    overall: 65,
+    xp: { current: 1250, target: 2000 },
+    tasks: { completed: 8, total: 12 },
+    study_time: { current: 12.5, target: 20 }
   };
 
-  // Helper function to show locked features with tooltip
-  const LockedFeature = ({ children, unlockStage, featureName }: any) => (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="relative opacity-50 cursor-not-allowed">
-            {children}
-            <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg">
-              <Lock className="h-6 w-6 text-gray-400" />
-            </div>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p className="text-sm">
-            {featureName} unlocks when you become a{' '}
-            <span className="font-semibold">{unlockStage}</span>
-          </p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
+  const priorityActions = dashboardData?.priority_actions || [
+    {
+      id: 'focus-session',
+      title: 'Deep Focus Session',
+      description: 'Complete Chapter 5 of Data Structures',
+      urgency: 'urgent',
+      time_estimate: '45 min',
+      type: 'study',
+      course: 'CS201'
+    },
+    {
+      id: 'quick-tutorial',
+      title: 'Quick Review',
+      description: 'Watch video on Binary Trees',
+      urgency: 'high',
+      time_estimate: '15 min',
+      type: 'video',
+      course: 'CS201'
+    }
+  ];
+
+  const performancePulse = dashboardData?.performance_pulse || {
+    improvement_percentage: 12,
+    current_rank: 15,
+    rank_change: 3,
+    average_score: 85
+  };
+
+  const defaultRecommendations: AIRecommendation[] = aiRecommendations || [
+    {
+      id: '1',
+      title: 'Adaptive Learning Path',
+      description: 'AI-optimized study sequence based on your progress',
+      icon: 'brain',
+      action: 'Start Adaptive Session',
+      xp_reward: 250,
+      estimated_time: '30 min'
+    },
+    {
+      id: '2',
+      title: 'Concept Reinforcement',
+      description: 'Strengthen weak areas identified by AI',
+      icon: 'target',
+      action: 'Practice Now',
+      xp_reward: 150,
+      estimated_time: '20 min'
+    }
+  ];
+
+  const getIconComponent = (iconName: string) => {
+    const icons: { [key: string]: any } = {
+      brain: Brain,
+      target: Target,
+      trending: TrendingUp,
+      clock: Clock,
+      sparkles: Sparkles,
+      book: BookOpen,
+      trophy: Trophy
+    };
+    const IconComponent = icons[iconName] || Sparkles;
+    return <IconComponent className="h-5 w-5" />;
+  };
 
   return (
     <div className="space-y-6">
-      {/* Personalized Greeting */}
-      <PersonalizedGreeting 
-        userName={userName} 
-        onActionClick={onActionClick}
-      />
-
-      {/* Stage-specific content */}
-      {stage === UserJourneyStage.FIRST_VISIT && (
-        <SetupMissions 
-          onMissionComplete={(id) => setCompletedMissions([...completedMissions, id])}
-          completedMissions={completedMissions}
-          coursesCount={metrics.coursesCount}
-        />
-      )}
-
-      {stage === UserJourneyStage.ONBOARDED && metrics.coursesCount === 0 && (
-        <BlankStateCTA />
-      )}
-
-      {/* Main Dashboard Content with Progressive Tabs */}
-      {![UserJourneyStage.FIRST_VISIT].includes(stage) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Learning Hub</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid grid-cols-4 w-full">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="goals" disabled={!features.weeklyGoals}>
-                  Goals
-                  {!features.weeklyGoals && <Lock className="h-3 w-3 ml-1" />}
-                </TabsTrigger>
-                <TabsTrigger value="insights" disabled={!features.aiRecommendations}>
-                  AI Insights
-                  {!features.aiRecommendations && <Lock className="h-3 w-3 ml-1" />}
-                </TabsTrigger>
-                <TabsTrigger value="analytics" disabled={!features.advancedAnalytics}>
-                  Analytics
-                  {!features.advancedAnalytics && <Lock className="h-3 w-3 ml-1" />}
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Overview Tab - Available to all */}
-              <TabsContent value="overview" className="space-y-4 mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Current Focus */}
-                  <Card className="border-blue-200 bg-blue-50/30">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm flex items-center">
-                        <Target className="h-4 w-4 mr-2 text-blue-600" />
-                        Current Focus
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      {dashboardData?.current_focus ? (
-                        <div>
-                          <p className="font-medium">{dashboardData.current_focus.title}</p>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {dashboardData.current_focus.description}
-                          </p>
-                          <Button size="sm" className="mt-3">
-                            Continue <ChevronRight className="h-3 w-3 ml-1" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <p className="text-sm text-gray-500">
-                          Add courses to see your personalized focus areas
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* Quick Actions */}
-                  <Card className="border-green-200 bg-green-50/30">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm flex items-center">
-                        <Zap className="h-4 w-4 mr-2 text-green-600" />
-                        Quick Actions
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      <Button variant="outline" size="sm" className="w-full justify-start">
-                        <BookOpen className="h-3 w-3 mr-2" />
-                        Browse Courses
-                      </Button>
-                      {features.scheduling ? (
-                        <Button variant="outline" size="sm" className="w-full justify-start">
-                          <Calendar className="h-3 w-3 mr-2" />
-                          Schedule Study Time
-                        </Button>
-                      ) : (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="w-full justify-start opacity-50" 
-                                disabled
-                              >
-                                <Calendar className="h-3 w-3 mr-2" />
-                                Schedule Study Time
-                                <Lock className="h-3 w-3 ml-auto" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Unlocks as Active Learner</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Recent Activity - Shows for users with activity */}
-                {metrics.tasksCompleted > 0 && (
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm">Recent Activity</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">Tasks completed today</span>
-                          <Badge variant="secondary">{metrics.tasksCompleted}</Badge>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">Study streak</span>
-                          <Badge variant="secondary">{metrics.streakDays} days</Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </TabsContent>
-
-              {/* Goals Tab - Available from GETTING_STARTED */}
-              <TabsContent value="goals" className="space-y-4 mt-4">
-                {features.weeklyGoals ? (
-                  <div className="space-y-4">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-sm">Weekly Goals</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {/* Weekly goals content */}
-                        <p className="text-sm text-gray-600">
-                          Track your progress towards weekly learning goals
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <Lock className="h-8 w-8 mx-auto mb-2" />
-                    <p>Complete setup missions to unlock goals</p>
-                  </div>
-                )}
-              </TabsContent>
-
-              {/* AI Insights Tab - Available from ACTIVE_LEARNER */}
-              <TabsContent value="insights" className="space-y-4 mt-4">
-                {features.aiRecommendations ? (
-                  <div className="space-y-4">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-sm flex items-center">
-                          <Brain className="h-4 w-4 mr-2 text-purple-600" />
-                          AI-Powered Insights
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {aiRecommendations.map((rec, idx) => (
-                          <div key={idx} className="p-3 bg-purple-50 rounded-lg mb-2">
-                            <p className="text-sm font-medium">{rec.title}</p>
-                            <p className="text-xs text-gray-600 mt-1">{rec.description}</p>
-                          </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <Lock className="h-8 w-8 mx-auto mb-2" />
-                    <p>Become an Active Learner to unlock AI insights</p>
-                  </div>
-                )}
-              </TabsContent>
-
-              {/* Analytics Tab - Available for POWER_USER */}
-              <TabsContent value="analytics" className="space-y-4 mt-4">
-                {features.advancedAnalytics ? (
-                  <div className="space-y-4">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-sm">Advanced Analytics</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-gray-600">
-                          Deep insights into your learning patterns
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <Lock className="h-8 w-8 mx-auto mb-2" />
-                    <p>Power Users get access to advanced analytics</p>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Feature Discovery Card - Shows features user is close to unlocking */}
-      {stage !== UserJourneyStage.POWER_USER && (
-        <Card className="border-purple-200 bg-gradient-to-r from-purple-50/50 to-white">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center">
-              <Sparkles className="h-4 w-4 mr-2 text-purple-600" />
-              Coming Up Next
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600 mb-3">
-              Features you'll unlock as you progress:
-            </p>
-            <div className="space-y-2">
-              {!features.weeklyGoals && (
-                <div className="flex items-center text-sm">
-                  <Target className="h-4 w-4 mr-2 text-gray-400" />
-                  <span>Weekly Goals & Progress Tracking</span>
-                </div>
-              )}
-              {!features.aiRecommendations && (
-                <div className="flex items-center text-sm">
-                  <Brain className="h-4 w-4 mr-2 text-gray-400" />
-                  <span>AI-Powered Study Recommendations</span>
-                </div>
-              )}
-              {!features.scheduling && (
-                <div className="flex items-center text-sm">
-                  <Calendar className="h-4 w-4 mr-2 text-gray-400" />
-                  <span>Smart Study Scheduling</span>
-                </div>
-              )}
-              {!features.advancedAnalytics && (
-                <div className="flex items-center text-sm">
-                  <TrendingUp className="h-4 w-4 mr-2 text-gray-400" />
-                  <span>Advanced Learning Analytics</span>
-                </div>
-              )}
+      {/* Hero Welcome Section */}
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-0">
+        <CardContent className="p-8">
+          <h1 className="text-3xl font-bold mb-2">
+            Welcome back, {userName}! 👋
+          </h1>
+          <p className="text-lg text-muted-foreground mb-6">
+            You're making great progress! Let's keep the momentum going.
+          </p>
+          
+          {/* Weekly Progress Overview */}
+          <div className="bg-white rounded-lg p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-green-600" />
+                Weekly Progress
+              </h3>
+              <span className="text-2xl font-bold text-primary">
+                {weeklyProgress.overall}%
+              </span>
             </div>
-          </CardContent>
-        </Card>
-      )}
+            <Progress value={weeklyProgress.overall} className="h-3 mb-4" />
+            
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-sm text-muted-foreground">XP Earned</p>
+                <p className="font-semibold">
+                  {weeklyProgress.xp.current}/{weeklyProgress.xp.target}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Tasks Done</p>
+                <p className="font-semibold">
+                  {weeklyProgress.tasks.completed}/{weeklyProgress.tasks.total}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Study Time</p>
+                <p className="font-semibold">
+                  {weeklyProgress.study_time.current}h
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Priority Actions */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <Target className="h-5 w-5" />
+          Priority Actions
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {priorityActions.slice(0, 2).map((action) => (
+            <Card 
+              key={action.id}
+              className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
+              onClick={() => onActionClick(action)}
+            >
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start mb-3">
+                  <Badge 
+                    variant={action.urgency === 'urgent' ? 'destructive' : 'secondary'}
+                  >
+                    {action.urgency}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {action.time_estimate}
+                  </span>
+                </div>
+                <h3 className="font-semibold mb-1">{action.title}</h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  {action.description}
+                </p>
+                {action.course && (
+                  <p className="text-xs text-primary font-medium">
+                    {action.course}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* AI Recommendations */}
+      <div>
+        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-purple-600" />
+          AI Recommendations
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {defaultRecommendations.map((rec) => (
+            <Card 
+              key={rec.id}
+              className="border-purple-200 hover:border-purple-400 transition-colors"
+            >
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-purple-100 rounded-lg">
+                    {getIconComponent(rec.icon)}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold mb-1">{rec.title}</h3>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      {rec.description}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4 text-sm">
+                        <span className="flex items-center gap-1">
+                          <Trophy className="h-3 w-3 text-yellow-600" />
+                          +{rec.xp_reward} XP
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {rec.estimated_time}
+                        </span>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        className="text-purple-600 hover:text-purple-700"
+                        onClick={() => onActionClick(rec)}
+                      >
+                        {rec.action}
+                        <ArrowRight className="ml-1 h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Performance Pulse */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            Performance Pulse
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">Improvement</p>
+              <p className="text-2xl font-bold text-green-600">
+                +{performancePulse.improvement_percentage}%
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">Current Rank</p>
+              <p className="text-2xl font-bold">
+                #{performancePulse.current_rank}
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">Rank Change</p>
+              <p className="text-2xl font-bold text-green-600">
+                ↑{performancePulse.rank_change}
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground">Avg Score</p>
+              <p className="text-2xl font-bold">
+                {performancePulse.average_score}%
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
