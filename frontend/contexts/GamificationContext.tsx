@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { useAuthUser } from '@/hooks/useAuthUser';
 import { toast } from 'sonner';
-import { api } from '@/lib/api';
+import { gamificationAPI, type UserStats as APIUserStats, type Achievement as APIAchievement } from '@/lib/api/endpoints/gamification';
 
 // Simplified XP actions for 72-hour ship - only essential actions
 export const XP_ACTIONS = {
@@ -43,7 +43,7 @@ interface Achievement {
   description: string;
   icon: string;
   earned_at: string;
-  xp_reward: number;
+  type?: string;
 }
 
 interface XPAnimation {
@@ -166,66 +166,33 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     if (!user?.id) return;
     
     try {
-      const response = await api.get('/api/v2/gamification/stats');
-      console.log('[GamificationContext] API Response:', response);
+      console.log('[GamificationContext] Fetching user stats...');
+      const data = await gamificationAPI.getUserStats();
+      console.log('[GamificationContext] API Response:', data);
       
-      // Check if response and response.data exist
-      if (!response?.data) {
-        console.error('[GamificationContext] Invalid response structure:', response);
-        // Provide fallback default stats
-        setUserStats({
-          user_id: user.id,
-          total_xp: 0,
-          level: 1,
-          current_streak: 0,
-          weekly_goal_progress: 0,
-          weekly_goal_target: 500,
-          last_activity: new Date().toISOString(),
-          achievements_count: 0,
-          rank: undefined,
-          next_level_xp: 100,
-          current_level_xp: 0,
-          longest_streak: 0,
-          weekly_login_days: 0,
-          weekly_help_given: 0,
-          weekly_time_spent: 0,
-          weekly_files_viewed: 0,
-          completion_rate: 0
-        });
-        return;
-      }
-      
-      if (response.data.status === 'success') {
-        const data = response.data.data;
-        
-        // Check if this is a default response (tables not created yet)
-        if (response.data.message?.includes('gamification tables not yet created')) {
-          console.log('[GamificationContext] Gamification tables not yet created - using defaults');
-        }
-        
-        // Map backend response to frontend interface
-        const stats: UserStats = {
-          user_id: user.id,
-          total_xp: data.totalXP || data.total_xp || 0,
-          level: data.currentLevel || data.current_level || 1,
-          current_streak: data.dailyStreak || data.daily_streak || 0,
-          weekly_goal_progress: data.weeklyProgress || data.weekly_progress || 0,
-          weekly_goal_target: data.weeklyGoal || data.weekly_goal || 500,
-          last_activity: new Date().toISOString(), // Backend doesn't return this yet
-          achievements_count: 0, // Will be set from achievements endpoint
-          rank: data.rank,
-          next_level_xp: data.xpToNextLevel || data.xp_to_next_level || 100,
-          current_level_xp: data.currentXP || data.current_xp || 0,
-          longest_streak: data.maxStreak || data.max_streak || 0,
-          // Additional stats for dashboard
-          weekly_login_days: 0, // TODO: Calculate from activities
-          weekly_help_given: 0, // TODO: Calculate from activities
-          weekly_time_spent: 0, // TODO: Calculate from activities
-          weekly_files_viewed: 0, // TODO: Calculate from activities
-          completion_rate: 0 // TODO: Calculate from course progress
-        };
-        setUserStats(stats);
-      }
+      // Map backend response to frontend interface
+      const stats: UserStats = {
+        user_id: user.id,
+        total_xp: data.totalXP || data.total_xp || 0,
+        level: data.currentLevel || data.level || 1,
+        current_streak: data.dailyStreak || data.current_streak || 0,
+        weekly_goal_progress: data.weeklyProgress || data.weekly_goal_progress || 0,
+        weekly_goal_target: data.weeklyGoal || data.weekly_goal_target || 500,
+        last_activity: new Date().toISOString(),
+        achievements_count: 0, // Will be set from achievements endpoint
+        rank: data.rank,
+        next_level_xp: data.xpToNextLevel || 100,
+        current_level_xp: data.currentXP || 0,
+        longest_streak: data.maxStreak || 0,
+        // Additional stats for dashboard
+        weekly_login_days: 0, // TODO: Calculate from activities
+        weekly_help_given: 0, // TODO: Calculate from activities
+        weekly_time_spent: 0, // TODO: Calculate from activities
+        weekly_files_viewed: 0, // TODO: Calculate from activities
+        completion_rate: 0 // TODO: Calculate from course progress
+      };
+      setUserStats(stats);
+      console.log('[GamificationContext] Stats updated:', stats);
     } catch (error) {
       console.error('Failed to fetch user stats:', error);
       // Provide fallback default stats on any error
