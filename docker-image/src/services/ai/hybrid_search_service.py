@@ -37,18 +37,20 @@ class HybridSearchService:
     Especially important for educational content with technical terms.
     """
     
-    def __init__(self, embeddings_service, alpha: float = 0.7):
+    def __init__(self, alpha: float = 0.7):
         """
+        Note: Embeddings are now handled automatically by Supabase
+        
         Args:
-            embeddings_service: Service for generating embeddings
             alpha: Weight for vector search (1-alpha for keyword search)
         """
-        self.embeddings_service = embeddings_service
-        self.vector_search = VectorSearchService(embeddings_service)
+        # No longer needs embeddings_service - Supabase handles it
+        self.vector_search = VectorSearchService()
         self.alpha = alpha
     
     def search(self, 
                query: str,
+               query_embedding: Optional[List[float]] = None,
                course_id: Optional[str] = None,
                file_id: Optional[str] = None,
                limit: int = 10,
@@ -64,17 +66,18 @@ class HybridSearchService:
             search_type: 'hybrid', 'vector', or 'keyword'
         """
         if search_type == 'vector':
-            return self._vector_only_search(query, course_id, file_id, limit)
+            return self._vector_only_search(query, query_embedding, course_id, file_id, limit)
         elif search_type == 'keyword':
             return self._keyword_only_search(query, course_id, file_id, limit)
         else:
-            return self._hybrid_search(query, course_id, file_id, limit)
+            return self._hybrid_search(query, query_embedding, course_id, file_id, limit)
     
-    def _hybrid_search(self, query: str, course_id: Optional[str], 
-                      file_id: Optional[str], limit: int) -> List[SearchResult]:
+    def _hybrid_search(self, query: str, query_embedding: Optional[List[float]], 
+                      course_id: Optional[str], file_id: Optional[str], 
+                      limit: int) -> List[SearchResult]:
         """Perform hybrid search combining vector and keyword results"""
         # Get vector search results
-        vector_results = self._vector_only_search(query, course_id, file_id, limit * 2)
+        vector_results = self._vector_only_search(query, query_embedding, course_id, file_id, limit * 2)
         
         # Get keyword search results  
         keyword_results = self._keyword_only_search(query, course_id, file_id, limit * 2)
@@ -85,12 +88,14 @@ class HybridSearchService:
         # Return top results
         return combined_results[:limit]
     
-    def _vector_only_search(self, query: str, course_id: Optional[str],
-                           file_id: Optional[str], limit: int) -> List[SearchResult]:
+    def _vector_only_search(self, query: str, query_embedding: Optional[List[float]], 
+                           course_id: Optional[str], file_id: Optional[str], 
+                           limit: int) -> List[SearchResult]:
         """Perform vector similarity search using existing infrastructure"""
         try:
-            # Generate query embedding
-            query_embedding = self.embeddings_service.generate_embeddings(query)
+            # Use pre-computed embedding from Supabase or require it as parameter
+            if query_embedding is None:
+                raise ValueError("query_embedding is required for vector search (get from Supabase)")
             
             with db_manager.get_session() as session:
                 # Use existing pgvector search

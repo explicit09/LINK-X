@@ -12,7 +12,7 @@ from db.schema import File, FileChunk, Module
 from repositories.file_repository import FileRepository
 from services.ai.utils.embeddings import EmbeddingsService
 from services.ai.ai_service import AIService
-from services.s3_storage import S3Storage
+from services.file_service_supabase import SupabaseFileService as S3Storage
 from utils.semantic_chunker import create_enhanced_chunks
 from utils.textUtils import extract_text
 

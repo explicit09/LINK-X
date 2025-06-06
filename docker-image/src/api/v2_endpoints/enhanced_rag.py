@@ -8,7 +8,7 @@ import logging
 
 # Removed duplicate import
 from services.ai.hybrid_search_service import HybridSearchService
-from services.ai.utils.embeddings import EmbeddingsService
+# Note: EmbeddingsService removed - Supabase handles embeddings automatically
 from tasks.enhanced_file_processing import (
     process_file_with_semantic_chunking,
     reprocess_course_with_enhancements

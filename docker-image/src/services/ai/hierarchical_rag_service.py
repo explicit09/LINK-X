@@ -66,10 +66,10 @@ class HierarchicalRAGService:
         ]
     }
     
-    def __init__(self, embeddings_service: EmbeddingsService):
-        self.hybrid_search = HybridSearchService(embeddings_service)
+    def __init__(self):
+        # Note: EmbeddingsService removed - Supabase handles embeddings automatically
+        self.hybrid_search = HybridSearchService()
         self.query_router = QueryRouter()
-        self.embeddings_service = embeddings_service
     
     def retrieve(self, 
                 query: str,
