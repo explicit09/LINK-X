@@ -325,3 +325,4 @@ function debounce<T extends (...args: any[]) => any>(func: T, delay: number): T 
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => func.apply(this, args), delay);
   }) as T;
+}

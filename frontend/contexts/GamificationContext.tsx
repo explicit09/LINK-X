@@ -141,7 +141,14 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
 
   // Load initial stats
   useEffect(() => {
+    console.log('[GamificationContext] User state:', { 
+      hasUser: !!user, 
+      userId: user?.id, 
+      userEmail: user?.email 
+    });
+    
     if (user?.id) {
+      console.log('[GamificationContext] Loading stats for user:', user.id);
       refreshStats();
       checkAchievements();
       
@@ -160,8 +167,42 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     
     try {
       const response = await api.get('/api/v2/gamification/stats');
+      console.log('[GamificationContext] API Response:', response);
+      
+      // Check if response and response.data exist
+      if (!response?.data) {
+        console.error('[GamificationContext] Invalid response structure:', response);
+        // Provide fallback default stats
+        setUserStats({
+          user_id: user.id,
+          total_xp: 0,
+          level: 1,
+          current_streak: 0,
+          weekly_goal_progress: 0,
+          weekly_goal_target: 500,
+          last_activity: new Date().toISOString(),
+          achievements_count: 0,
+          rank: undefined,
+          next_level_xp: 100,
+          current_level_xp: 0,
+          longest_streak: 0,
+          weekly_login_days: 0,
+          weekly_help_given: 0,
+          weekly_time_spent: 0,
+          weekly_files_viewed: 0,
+          completion_rate: 0
+        });
+        return;
+      }
+      
       if (response.data.status === 'success') {
         const data = response.data.data;
+        
+        // Check if this is a default response (tables not created yet)
+        if (response.data.message?.includes('gamification tables not yet created')) {
+          console.log('[GamificationContext] Gamification tables not yet created - using defaults');
+        }
+        
         // Map backend response to frontend interface
         const stats: UserStats = {
           user_id: user.id,
@@ -187,6 +228,26 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Failed to fetch user stats:', error);
+      // Provide fallback default stats on any error
+      setUserStats({
+        user_id: user.id,
+        total_xp: 0,
+        level: 1,
+        current_streak: 0,
+        weekly_goal_progress: 0,
+        weekly_goal_target: 500,
+        last_activity: new Date().toISOString(),
+        achievements_count: 0,
+        rank: undefined,
+        next_level_xp: 100,
+        current_level_xp: 0,
+        longest_streak: 0,
+        weekly_login_days: 0,
+        weekly_help_given: 0,
+        weekly_time_spent: 0,
+        weekly_files_viewed: 0,
+        completion_rate: 0
+      });
     } finally {
       setIsLoading(false);
     }
@@ -197,6 +258,14 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     
     try {
       const response = await api.get('/api/v2/gamification/achievements');
+      console.log('[GamificationContext] Achievements Response:', response);
+      
+      // Check if response and response.data exist
+      if (!response?.data) {
+        console.error('[GamificationContext] Invalid achievements response structure:', response);
+        return;
+      }
+      
       if (response.data.status === 'success') {
         const achievementsData = response.data.data.achievements || response.data.data || [];
         
@@ -275,6 +344,18 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
         description: actionConfig.message,
         metadata
       });
+      
+      console.log('[GamificationContext] Award XP Response:', response);
+      
+      // Check if response and response.data exist
+      if (!response?.data) {
+        console.error('[GamificationContext] Invalid award XP response structure:', response);
+        // Still show the toast for user feedback even if API fails
+        toast.success(`+${xpAmount} XP - ${actionConfig.message}`, {
+          duration: 3000,
+        });
+        return;
+      }
       
       if (response.data.status === 'success') {
         // Update stats with new values from backend

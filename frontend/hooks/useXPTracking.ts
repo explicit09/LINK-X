@@ -72,10 +72,19 @@ export function useXPTracking({
 
 // Specific hooks for simplified XP actions
 
-export function useContentViewXP(contentId: string, contentType: 'file' | 'video', metadata?: Record<string, any>) {
+export function useDailyLoginXP() {
+  return useXPTracking({
+    action: 'DAILY_LOGIN',
+    metadata: { timestamp: new Date().toISOString() },
+    autoTrigger: true,
+    triggerDelay: 1000 // Award after 1 second of being logged in
+  });
+}
+
+export function useContentViewXP(contentId: string, metadata?: Record<string, any>) {
   return useXPTracking({
     action: 'CONTENT_VIEW',
-    metadata: { contentId, contentType, ...metadata },
+    metadata: { contentId, ...metadata },
     autoTrigger: true,
     triggerDelay: 3000, // Award after 3 seconds
     requireInteraction: true // Require scroll or click
