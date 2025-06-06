@@ -5,23 +5,14 @@ import { useAuthUser } from '@/hooks/useAuthUser';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 
-// XP action types with amounts and cooldowns (in seconds)
+// Simplified XP actions for 72-hour ship - only essential actions
 export const XP_ACTIONS = {
-  FILE_VIEW: { xp: 2, cooldown: 300, message: 'Viewed a file' },
-  FILE_DOWNLOAD: { xp: 1, cooldown: 0, message: 'Downloaded a file' },
-  CHAT_MESSAGE: { xp: 3, cooldown: 60, message: 'Sent a message' },
-  TODO_COMPLETE: { xp: 10, cooldown: 0, message: 'Completed a task' },
-  MODULE_COMPLETE: { xp: 50, cooldown: 0, message: 'Completed a module!' },
-  COURSE_ENROLL: { xp: 20, cooldown: 0, message: 'Enrolled in a course' },
-  DAILY_LOGIN: { xp: 5, cooldown: 86400, message: 'Daily login bonus!' },
-  STUDY_STREAK: { xp: 15, cooldown: 86400, message: 'Study streak bonus!' },
+  DAILY_LOGIN: { xp: 3, cooldown: 86400, message: 'Daily login bonus!' },
+  CONTENT_VIEW: { xp: 5, cooldown: 86400, message: 'Viewed content' }, // Merged FILE_VIEW + WATCH_VIDEO
   QUIZ_COMPLETE: { xp: 15, cooldown: 0, message: 'Completed a quiz' },
-  ASSIGNMENT_SUBMIT: { xp: 25, cooldown: 0, message: 'Submitted an assignment' },
-  HELP_PEER: { xp: 5, cooldown: 300, message: 'Helped a peer' },
-  RESOURCE_SHARE: { xp: 8, cooldown: 600, message: 'Shared a resource' },
-  PERSONALIZE_CONTENT: { xp: 5, cooldown: 180, message: 'Personalized content' },
-  COMPLETE_READING: { xp: 7, cooldown: 0, message: 'Completed reading' },
-  WATCH_VIDEO: { xp: 5, cooldown: 0, message: 'Watched a video' }
+  MODULE_COMPLETE: { xp: 40, cooldown: 86400, message: 'Completed a module!' },
+  HELP_PEER: { xp: 10, cooldown: 0, message: 'Helped a peer' }, // Only when rated 4+ stars
+  STREAK_BONUS: { xp: 0, cooldown: 86400, message: 'Streak bonus!' } // XP = streak_days
 } as const;
 
 export type XPActionType = keyof typeof XP_ACTIONS;
@@ -86,6 +77,16 @@ const COOLDOWN_STORAGE_KEY = 'learn-x-xp-cooldowns';
 interface CooldownData {
   [key: string]: number; // action -> timestamp
 }
+
+// Helper functions for XP calculations
+const calculateXPForLevel = (level: number): number => {
+  return Math.floor(100 * Math.pow(level, 1.5));
+};
+
+const calculateCurrentLevelXP = (totalXP: number, currentLevel: number): number => {
+  const xpForCurrentLevel = currentLevel > 1 ? calculateXPForLevel(currentLevel) : 0;
+  return totalXP - xpForCurrentLevel;
+};
 
 export function GamificationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuthUser();
@@ -244,11 +245,16 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     
     const actionConfig = XP_ACTIONS[action];
     
+    // Special handling for streak bonus
+    const xpAmount = action === 'STREAK_BONUS' 
+      ? (userStats?.current_streak || 1) 
+      : actionConfig.xp;
+    
     try {
       // Optimistic update
       const animation: XPAnimation = {
         id: `${Date.now()}-${Math.random()}`,
-        amount: actionConfig.xp,
+        amount: xpAmount,
         action: actionConfig.message,
         timestamp: Date.now()
       };
@@ -265,36 +271,46 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
       // Award XP via API
       const response = await api.post('/api/v2/gamification/award-xp', {
         activity_type: action.toLowerCase(),
-        xp_amount: actionConfig.xp,
+        xp_amount: xpAmount,
+        description: actionConfig.message,
         metadata
       });
       
       if (response.data.status === 'success') {
-        // Update stats with new values
+        // Update stats with new values from backend
         const result = response.data.data;
-        setUserStats(prev => prev ? {
-          ...prev,
-          total_xp: result.new_total_xp,
-          level: result.new_level,
-          current_streak: result.streak || prev.current_streak,
-          weekly_goal_progress: result.weekly_progress || prev.weekly_goal_progress
-        } : null);
+        
+        // Get the previous level to check for level up
+        const previousLevel = userStats?.level || 1;
+        const newLevel = result.new_level || previousLevel;
+        
+        setUserStats(prev => {
+          if (!prev) return null;
+          
+          const newTotalXP = result.new_total_xp || (prev.total_xp + actionConfig.xp);
+          const currentLevelXP = calculateCurrentLevelXP(newTotalXP, newLevel);
+          const nextLevelXP = calculateXPForLevel(newLevel + 1);
+          
+          return {
+            ...prev,
+            total_xp: newTotalXP,
+            level: newLevel,
+            current_level_xp: currentLevelXP,
+            next_level_xp: nextLevelXP,
+            current_streak: result.new_streak || prev.current_streak,
+            weekly_goal_progress: Math.min(
+              (prev.weekly_goal_progress || 0) + actionConfig.xp,
+              prev.weekly_goal_target
+            )
+          };
+        });
         
         // Check for level up
-        if (result.level_up) {
-          toast.success(`🎉 Level Up! You're now Level ${result.new_level}!`, {
+        if (newLevel > previousLevel) {
+          toast.success(`🎉 Level Up! You're now Level ${newLevel}!`, {
             duration: 5000,
           });
-        }
-        
-        // Check for new achievements
-        if (result.achievements && result.achievements.length > 0) {
-          result.achievements.forEach((achievement: any) => {
-            toast.success(`🏆 ${achievement.name}`, {
-              description: achievement.description,
-              duration: 5000,
-            });
-          });
+          // Refresh achievements as level ups create new achievements
           checkAchievements();
         }
       }

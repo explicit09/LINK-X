@@ -70,31 +70,23 @@ export function useXPTracking({
   };
 }
 
-// Specific hooks for common actions
+// Specific hooks for simplified XP actions
 
-export function useFileViewXP(fileId: string, metadata?: Record<string, any>) {
+export function useContentViewXP(contentId: string, contentType: 'file' | 'video', metadata?: Record<string, any>) {
   return useXPTracking({
-    action: 'FILE_VIEW',
-    metadata: { fileId, ...metadata },
+    action: 'CONTENT_VIEW',
+    metadata: { contentId, contentType, ...metadata },
     autoTrigger: true,
     triggerDelay: 3000, // Award after 3 seconds
     requireInteraction: true // Require scroll or click
   });
 }
 
-export function useChatMessageXP(metadata?: Record<string, any>) {
+export function useQuizCompleteXP(quizId: string, score: number, metadata?: Record<string, any>) {
   return useXPTracking({
-    action: 'CHAT_MESSAGE',
-    metadata,
-    autoTrigger: false // Manual trigger on send
-  });
-}
-
-export function useTodoCompleteXP(todoId: string, metadata?: Record<string, any>) {
-  return useXPTracking({
-    action: 'TODO_COMPLETE',
-    metadata: { todoId, ...metadata },
-    autoTrigger: false // Manual trigger on complete
+    action: 'QUIZ_COMPLETE',
+    metadata: { quizId, score, ...metadata },
+    autoTrigger: false // Manual trigger on quiz submit
   });
 }
 
@@ -102,25 +94,23 @@ export function useModuleCompleteXP(moduleId: string, metadata?: Record<string, 
   return useXPTracking({
     action: 'MODULE_COMPLETE',
     metadata: { moduleId, ...metadata },
-    autoTrigger: false // Manual trigger when all files viewed
+    autoTrigger: false // Manual trigger when all content viewed
   });
 }
 
-export function useVideoWatchXP(videoId: string, metadata?: Record<string, any>) {
-  const progressRef = useRef(0);
+export function useHelpPeerXP(helpId: string, rating: number, metadata?: Record<string, any>) {
   const { trigger } = useXPTracking({
-    action: 'WATCH_VIDEO',
-    metadata: { videoId, ...metadata },
+    action: 'HELP_PEER',
+    metadata: { helpId, rating, ...metadata },
     autoTrigger: false
   });
 
-  const updateProgress = useCallback((progress: number) => {
-    progressRef.current = progress;
-    // Award XP when video is 80% complete
-    if (progress >= 80 && progressRef.current < 80) {
+  // Only award XP if peer rates 4+ stars
+  const awardIfHighRating = useCallback(() => {
+    if (rating >= 4) {
       trigger();
     }
-  }, [trigger]);
+  }, [rating, trigger]);
 
-  return { updateProgress };
+  return { awardIfHighRating };
 }

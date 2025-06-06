@@ -36,8 +36,8 @@ export function CanvasCourseCard({ course, className }: CanvasCourseCardProps) {
   const router = useRouter();
   
   // Get color based on course ID for consistency
-  const colorIndex = parseInt(course.id, 10) % canvasColors.length;
-  const courseColor = canvasColors[colorIndex];
+  const colorIndex = isNaN(parseInt(course.id, 10)) ? 0 : parseInt(course.id, 10) % canvasColors.length;
+  const courseColor = canvasColors[colorIndex] || canvasColors[0];
   
   const handleClick = () => {
     router.push(`/courses/${course.id}`);
@@ -69,13 +69,13 @@ export function CanvasCourseCard({ course, className }: CanvasCourseCardProps) {
       {/* Course Banner - Canvas style with pattern */}
       <div 
         className="relative h-36 w-full overflow-hidden"
-        style={{ backgroundColor: courseColor.bg }}
+        style={{ backgroundColor: courseColor?.bg || '#1A73E8' }}
       >
         {/* Pattern overlay */}
         <div 
           className="absolute inset-0 opacity-30"
           style={{
-            backgroundImage: `url("${getPatternSVG(courseColor.pattern, courseColor.name)}")`,
+            backgroundImage: `url("${getPatternSVG(courseColor?.pattern || 'dots', courseColor?.name || 'blue')}")`,
             backgroundRepeat: 'repeat',
           }}
         />

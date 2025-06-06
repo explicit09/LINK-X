@@ -282,21 +282,28 @@ def get_activity_history_v2():
         return error_response("An error occurred fetching activity history", status_code=500)
 
 
-# Helper function to award XP for common activities
+# Helper function to award XP for common activities (simplified for 72-hour ship)
 def award_activity_xp(user_id: str, activity_type: str, **kwargs):
     """Helper function to award XP for common activities"""
+    # Simplified XP amounts for essential actions only
     xp_amounts = {
-        'login': 5,
-        'file_view': 2,
-        'todo_complete': 10,
-        'chat_message': 3,
+        'daily_login': 3,
+        'content_view': 5,  # Merged file_view + watch_video
         'quiz_complete': 15,
-        'assignment_complete': 25,
-        'course_enroll': 20,
-        'streak_maintain': 5
+        'module_complete': 40,
+        'help_peer': 10,  # Only when rated 4+ stars
+        'streak_bonus': 0  # Special: XP = current streak days
     }
     
-    xp_amount = xp_amounts.get(activity_type, 1)
+    xp_amount = xp_amounts.get(activity_type, 0)
+    
+    # Special handling for streak bonus
+    if activity_type == 'streak_bonus':
+        # Get current streak from user stats
+        with get_session() as session:
+            stats = session.query(UserStats).filter(UserStats.user_id == user_id).first()
+            xp_amount = stats.daily_streak if stats else 1
+    
     description = kwargs.get('description', f"Completed {activity_type.replace('_', ' ')}")
     metadata = kwargs.get('metadata')
     
