@@ -34,8 +34,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [requiresOnboarding, setRequiresOnboarding] = useState(false);
 
   useEffect(() => {
+    console.log('[AuthProvider] Initializing auth provider');
+    let timeoutId: NodeJS.Timeout;
+    
+    // Set a timeout to ensure loading doesn't hang forever
+    timeoutId = setTimeout(() => {
+      console.error('[AuthProvider] Auth initialization timeout - forcing loading to false');
+      setLoading(false);
+    }, 10000); // 10 second timeout
+    
     try {
       const unsubscribe = onAuthStateChange(async (authUser) => {
+        console.log('[AuthProvider] Auth state changed:', authUser?.email || 'no user');
+        clearTimeout(timeoutId); // Clear timeout on successful auth state change
         setUser(authUser);
 
         if (authUser) {
@@ -56,6 +67,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               }
             } else {
               // Session creation failed - user authenticated but not registered
+              console.log('[AuthContext] Session creation returned null - user may not be registered');
               setSession(null);
               setIsRegistered(false);
               setBackendUser(null);
@@ -82,9 +94,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setLoading(false);
       });
 
-      return () => unsubscribe();
+      return () => {
+        console.log('[AuthProvider] Cleaning up auth listener');
+        clearTimeout(timeoutId);
+        unsubscribe();
+      };
     } catch (error) {
-      console.error('Auth initialization error:', error);
+      console.error('[AuthProvider] Auth initialization error:', error);
+      clearTimeout(timeoutId);
       setError(
         error instanceof Error ? error : new Error('Authentication failed'),
       );

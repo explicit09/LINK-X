@@ -40,7 +40,7 @@ export interface OnboardingData {
 }
 
 class UnifiedAuthService {
-  private baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  private baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   private sessionCache: string | null = null; // Now stores encrypted session
   private cacheExpiry: number = 0;
   private tokenHash: string | null = null; // Track current token for invalidation
@@ -98,8 +98,10 @@ class UnifiedAuthService {
    */
   async createSession(): Promise<UnifiedSession | null> {
     try {
+      console.log('[UnifiedAuthService] Creating session, baseUrl:', this.baseUrl);
       const token = await authService.getAccessToken();
       if (!token) {
+        console.log('[UnifiedAuthService] No access token available');
         throw new Error('No access token available');
       }
 
@@ -113,12 +115,15 @@ class UnifiedAuthService {
       if (cacheValid && this.sessionCache) {
         const decryptedSession = await this.decryptSession(this.sessionCache);
         if (decryptedSession) {
+          console.log('[UnifiedAuthService] Returning cached session');
           return decryptedSession;
         }
       }
 
       // Cache miss or invalid - fetch new session
-      const response = await fetch(`${this.baseUrl}/api/v2/auth/unified/session`, {
+      const url = `${this.baseUrl}/api/v2/auth/unified/session`;
+      console.log('[UnifiedAuthService] Fetching session from:', url);
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -128,12 +133,22 @@ class UnifiedAuthService {
         }),
       });
 
+      console.log('[UnifiedAuthService] Response status:', response.status);
+      
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorText = await response.text();
+        console.error('[UnifiedAuthService] Error response:', errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText };
+        }
         throw new Error(errorData.error || 'Session creation failed');
       }
 
       const data = await response.json();
+      console.log('[UnifiedAuthService] Session created successfully:', data.data);
       
       // Encrypt and cache the session
       this.sessionCache = await this.encryptSession(data.data);
@@ -142,7 +157,7 @@ class UnifiedAuthService {
       
       return data.data;
     } catch (error) {
-      console.error('Session creation error:', error);
+      console.error('[UnifiedAuthService] Session creation error:', error);
       // Clear cache on error
       this.clearCache();
       return null;

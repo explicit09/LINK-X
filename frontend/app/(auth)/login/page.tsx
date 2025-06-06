@@ -39,6 +39,18 @@ export default function Page() {
     'idle' | 'in_progress' | 'success' | 'failed' | 'invalid_data'
   >('idle');
 
+  // Show loading screen while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-12 w-12 border-4 border-brand-indigo border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Verifying authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
   useEffect(() => {
     // Check for stored error messages on mount
     if (typeof window !== 'undefined') {

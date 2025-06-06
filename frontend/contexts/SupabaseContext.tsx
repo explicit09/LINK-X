@@ -51,7 +51,7 @@ export const SupabaseProvider = ({
 
   return (
     <SupabaseContext.Provider value={{ session, user, loading }}>
-      {!loading && children}
+      {children}
     </SupabaseContext.Provider>
   );
 };

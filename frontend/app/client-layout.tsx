@@ -2,6 +2,7 @@
 
 import { ThemeProvider } from '@/components/theme-provider';
 import { SupabaseProvider } from '@/contexts/SupabaseContext';
+import { AuthProvider } from '@/app/(auth)/AuthContext';
 import { Toaster } from '@/components/ui/toaster';
 
 export default function ClientLayout({
@@ -17,8 +18,10 @@ export default function ClientLayout({
       disableTransitionOnChange
     >
       <SupabaseProvider>
-        {children}
-        <Toaster />
+        <AuthProvider>
+          {children}
+          <Toaster />
+        </AuthProvider>
       </SupabaseProvider>
     </ThemeProvider>
   );

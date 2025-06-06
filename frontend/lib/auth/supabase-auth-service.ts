@@ -40,15 +40,28 @@ class SupabaseAuthService {
    * Initialize auth and set up listeners
    */
   private async initializeAuth() {
-    // Get initial session
-    const { data: { session } } = await supabase.auth.getSession();
-    this.updateCurrentUser(session?.user || null);
-
-    // Listen for auth changes
-    supabase.auth.onAuthStateChange((event, session) => {
+    console.log('[SupabaseAuthService] Initializing auth service');
+    try {
+      // Get initial session
+      const { data: { session }, error } = await supabase.auth.getSession();
+      console.log('[SupabaseAuthService] Initial session:', session ? 'exists' : 'none', error);
+      
       this.updateCurrentUser(session?.user || null);
+      
+      // Notify listeners with initial state
       this.notifyListeners();
-    });
+
+      // Listen for auth changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        console.log('[SupabaseAuthService] Auth state change event:', event);
+        this.updateCurrentUser(session?.user || null);
+        this.notifyListeners();
+      });
+    } catch (error) {
+      console.error('[SupabaseAuthService] Error during initialization:', error);
+      // Still notify listeners even on error so loading state is cleared
+      this.notifyListeners();
+    }
   }
 
   /**
