@@ -29,13 +29,15 @@ RUN pip install --no-cache-dir --upgrade pip \
 # Copy application code
 COPY --chown=linkx:linkx docker-image/src/ ./src/
 COPY --chown=linkx:linkx docker-image/scripts/ ./scripts/
+COPY --chown=linkx:linkx docker-image/docker/ ./docker/
 
 # Create necessary directories and set permissions
 RUN mkdir -p logs \
     && chown -R linkx:linkx /app \
     && find /app -type f -exec chmod 644 {} \; \
     && find /app -type d -exec chmod 755 {} \; \
-    && find /app/scripts -name "*.py" -exec chmod 755 {} \;
+    && find /app/scripts -name "*.py" -exec chmod 755 {} \; \
+    && find /app/docker -name "*.sh" -exec chmod 755 {} \;
 
 # Switch to non-root user
 USER linkx

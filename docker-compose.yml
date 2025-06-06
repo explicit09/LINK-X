@@ -79,9 +79,8 @@ services:
       - redis
       - backend
     profiles:
-      - dev
-      - prod
       - workers
+      - prod
 
   celery-beat:
     build:
