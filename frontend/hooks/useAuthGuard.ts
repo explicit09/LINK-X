@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authAPI } from '@/lib/api';
-import { auth } from '@/firebaseconfig';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChange } from '@/lib/auth/supabase-auth-service';
 
 interface AuthGuardState {
   isLoading: boolean;
@@ -35,13 +34,13 @@ export function useAuthGuard(requireRegistration: boolean = true) {
       }
 
       try {
-        // User is authenticated with Firebase, check registration
+        // User is authenticated with Supabase, check registration
         const registrationCheck = await authAPI.v2.checkRegistration();
         console.log('Registration check response:', registrationCheck);
         
-        // The backend returns { success: true, data: { registered: true/false, has_completed_onboarding: true/false, ... } }
-        const isRegistered = registrationCheck.data?.registered || registrationCheck.registered;
-        const hasCompletedOnboarding = registrationCheck.data?.has_completed_onboarding ?? true; // Default to true for backward compatibility
+        // The checkRegistration function now returns the parsed data directly
+        const isRegistered = registrationCheck.isRegistered;
+        const hasCompletedOnboarding = registrationCheck.has_completed_onboarding ?? true; // Default to true for backward compatibility
         
         if (isRegistered && hasCompletedOnboarding) {
           // User is registered and has completed onboarding
@@ -104,7 +103,7 @@ export function useAuthGuard(requireRegistration: boolean = true) {
       }
     };
 
-    const unsubscribe = onAuthStateChanged(auth, checkAuthStatus);
+    const unsubscribe = onAuthStateChange(checkAuthStatus);
 
     return () => unsubscribe();
   }, [router, requireRegistration]);

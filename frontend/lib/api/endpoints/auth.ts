@@ -2,9 +2,11 @@
  * Authentication endpoint handlers
  */
 
-import { auth } from '../../../firebaseconfig';
+// Removed Firebase import - now using Supabase
 import { authService } from '../../auth-service';
 import type { UserProfile } from '../../../types/api';
+import { AuthAPIClient } from '../clients/auth-client';
+import { supabase } from '@/supabaseconfig';
 
 interface UserProfileResponse {
   name: string;
@@ -16,16 +18,19 @@ interface UserProfileResponse {
 }
 import { apiClient } from '../client';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
+// Create a single auth client instance
+const authClient = new AuthAPIClient();
+
 export async function getAuthToken(): Promise<string | null> {
   return await authService.getValidToken();
 }
 
 export async function sessionLogin(forceEstablish = false): Promise<boolean> {
-  console.warn('sessionLogin is deprecated, use authService.login() instead');
-  if (!auth.currentUser) {
-    return false;
-  }
-  return await authService.login(auth.currentUser);
+  console.warn('sessionLogin is deprecated - Supabase authentication is handled automatically');
+  // For Supabase, session is handled automatically via callback
+  return true;
 }
 
 export const authAPI = {
@@ -68,26 +73,9 @@ export const authAPI = {
       apiClient.patch('/api/v2/auth/me', data),
     deleteProfile: () => apiClient.delete('/api/v2/auth/me'),
     
-    // Registration endpoints
+    // Registration endpoints - updated to use Supabase
     checkRegistration: async () => {
-      // This endpoint specifically requires Firebase token, not backend JWT
-      const user = auth.currentUser;
-      if (!user) {
-        throw new Error('No Firebase user found');
-      }
-      
-      try {
-        const firebaseToken = await user.getIdToken();
-        return apiClient.get('/api/v2/auth/check-registration', {
-          headers: {
-            'X-Firebase-Token': firebaseToken
-          },
-          skipAuth: true // Skip the normal auth header logic
-        });
-      } catch (error) {
-        console.error('Failed to get Firebase token for registration check:', error);
-        throw error;
-      }
+      return checkRegistrationStatus();
     },
     register: async (data: {
       role: 'student' | 'instructor';
@@ -97,24 +85,129 @@ export const authAPI = {
       university?: string;
       department?: string;
     }) => {
-      // Registration endpoint requires Firebase token
-      const user = auth.currentUser;
-      if (!user) {
-        throw new Error('No Firebase user found');
-      }
-      
-      try {
-        const firebaseToken = await user.getIdToken();
-        return apiClient.post('/api/v2/auth/register', data, {
-          headers: {
-            'X-Firebase-Token': firebaseToken
-          },
-          skipAuth: true // Skip the normal auth header logic
-        });
-      } catch (error) {
-        console.error('Failed to get Firebase token for registration:', error);
-        throw error;
-      }
+      return registerUser(data);
     },
   },
 };
+
+export interface RegistrationCheckResponse {
+  isRegistered: boolean;
+  user?: UserProfile;
+  has_completed_onboarding?: boolean;
+}
+
+/**
+ * Check user registration status with backend
+ * Updated to use Supabase tokens
+ */
+export async function checkRegistrationStatus(): Promise<RegistrationCheckResponse> {
+  try {
+    // This endpoint specifically requires Supabase token, not backend JWT
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('No Supabase user found');
+    }
+
+    const supabaseToken = session.access_token;
+
+    const response = await fetch(`${API_URL}/api/v2/auth/check-registration`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseToken}`
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return { isRegistered: false };
+      }
+      throw new Error(`Registration check failed: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    // The API returns { success: true, data: { registered: boolean, has_completed_onboarding: boolean, user: {...} } }
+    return { 
+      isRegistered: data.data?.registered || false,
+      user: data.data?.user || null,
+      has_completed_onboarding: data.data?.has_completed_onboarding ?? true
+    };
+  } catch (error) {
+    console.error('Failed to check registration status:', error);
+    return { isRegistered: false };
+  }
+}
+
+/**
+ * Register user with backend
+ * Updated to use Supabase tokens
+ */
+export async function registerUser(userData: {
+  role: 'student' | 'instructor';
+  name?: string;
+  university?: string;
+  department?: string;
+  onboard_answers?: Record<string, any>;
+  want_quizzes?: boolean;
+}): Promise<UserProfile | null> {
+  try {
+    // Registration endpoint requires Supabase token
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('No Supabase user found');
+    }
+
+    const supabaseToken = session.access_token;
+
+    const response = await fetch(`${API_URL}/api/v2/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseToken}`
+      },
+      body: JSON.stringify(userData)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Registration failed: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to register user:', error);
+    return null;
+  }
+}
+
+/**
+ * Login with session token
+ */
+export async function loginWithToken(accessToken: string): Promise<{
+  access_token?: string;
+  user?: UserProfile;
+} | null> {
+  try {
+    const response = await authClient.authenticatedPost<{
+      access_token?: string;
+      user?: UserProfile;
+    }>(`/api/v2/auth/login`, {
+      token: accessToken
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Failed to login with token:', error);
+    return null;
+  }
+}
+
+/**
+ * Logout from backend
+ */
+export async function logoutFromBackend(): Promise<void> {
+  try {
+    await authClient.authenticatedPost(`/api/v2/auth/logout`, {});
+  } catch (error) {
+    console.error('Failed to logout from backend:', error);
+  }
+}
