@@ -29,6 +29,9 @@ export function CompressedProgressStrip({
     );
   }
 
+  // Show setup message if user has no XP and is at level 1 (likely default values)
+  const isDefaultStats = userStats.total_xp === 0 && userStats.level === 1;
+
   // Calculate level boundaries
   const calculateLevelXP = (level: number) => Math.floor(100 * Math.pow(level, 1.5));
   const currentLevelXP = userStats.level > 1 ? calculateLevelXP(userStats.level - 1) : 0;
@@ -39,6 +42,11 @@ export function CompressedProgressStrip({
 
   return (
     <div className="bg-white border-b border-gray-200 px-6 py-3 mb-6">
+      {isDefaultStats && (
+        <div className="mb-2 px-3 py-1 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
+          🚀 Gamification system ready! Start learning to earn XP and level up.
+        </div>
+      )}
       <div className="flex items-center justify-between gap-6">
         {/* Streak */}
         <button

@@ -15,7 +15,8 @@ import {
   ChevronRight,
   User,
   Target,
-  LogOut
+  LogOut,
+  Award
 } from 'lucide-react';
 
 interface StudentSidebarProps {
@@ -38,6 +39,7 @@ export function StudentSidebar({ currentUser, isCollapsed, onToggleCollapse }: S
     { icon: Target, label: 'Study Plan', path: '/study-plan' },
     { icon: Calendar, label: 'Schedule', path: '/schedule' },
     { icon: Trophy, label: 'Progress', path: '/progress' },
+    { icon: Award, label: 'Gamification', path: '/dashboard/gamification' },
     { icon: MessageSquare, label: 'Messages', path: '/messages' },
   ];
 
