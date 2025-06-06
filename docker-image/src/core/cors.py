@@ -1,6 +1,7 @@
 """
 CORS utilities for handling Cross-Origin Resource Sharing
 """
+import os
 from flask import current_app, request
 from functools import wraps
 import logging
@@ -133,28 +134,44 @@ def cors_enabled(f):
 
 def configure_cors(app):
     """
-    Configure CORS for the Flask application
+    Configure CORS for the Flask application using Flask-CORS properly
     """
     from flask_cors import CORS
     
     # Get CORS options from config
     cors_options = app.config.get('CORS_OPTIONS', {})
     
-    # For development, use permissive CORS settings
+    # Get frontend origin from environment or config
+    frontend_origin = os.getenv('FRONTEND_ORIGIN', 'http://localhost:3000')
+    cors_origins = cors_options.get('origins', [frontend_origin])
+    
+    # For development, allow common localhost ports
     if app.config.get('DEBUG', False):
-        CORS(app, resources={
-            r"/*": {
-                "origins": ["http://localhost:*", "http://127.0.0.1:*", "https://localhost:*", "https://127.0.0.1:*"],
-                "allow_headers": ["Content-Type", "Authorization", "X-Requested-With", "Accept", "X-Firebase-Token", "X-CSRF-Token"],
-                "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
-                "supports_credentials": True,
-                "expose_headers": ["Content-Type", "X-Total-Count"]
-            }
-        })
-        logger.info("CORS configured with development settings")
-    else:
-        # Initialize CORS with the app
-        CORS(app, **cors_options)
-        # Also add our custom after_request handler
-        app.after_request(cors_after_request)
-        logger.info("CORS configured with options: %s", cors_options)
+        development_origins = [
+            "http://localhost:3000", "http://localhost:3001", "http://localhost:3002",
+            "http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:3002",
+            "https://localhost:3000", "https://localhost:3001"
+        ]
+        # Combine configured origins with development origins
+        cors_origins.extend(development_origins)
+        # Remove duplicates while preserving order
+        cors_origins = list(dict.fromkeys(cors_origins))
+    
+    # Configure CORS globally for all routes
+    CORS(app, resources={
+        r"/*": {
+            "origins": cors_origins,
+            "allow_headers": [
+                "Content-Type", "Authorization", "X-Requested-With", 
+                "Accept", "X-Firebase-Token", "X-CSRF-Token", "X-Supabase-Auth"
+            ],
+            "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+            "supports_credentials": True,
+            "expose_headers": ["Content-Type", "X-Total-Count", "X-Request-ID"],
+            "max_age": 3600  # Cache preflight for 1 hour
+        }
+    })
+    
+    logger.info(f"CORS configured for origins: {cors_origins[:3]}... (showing first 3)")
+    logger.info("CORS supports credentials: True")
+    logger.info("All auth routes now properly handle CORS without custom OPTIONS handlers")

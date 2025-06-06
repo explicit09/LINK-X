@@ -23,23 +23,7 @@ logger = logging.getLogger(__name__)
 auth_bp = Blueprint('api_v2_auth', __name__)
 
 
-def handle_cors_preflight(f):
-    """Decorator to handle CORS preflight requests"""
-    from functools import wraps
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        # Handle OPTIONS request for CORS
-        if request.method == 'OPTIONS':
-            from flask import make_response
-            response = make_response('', 200)
-            response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
-            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-            response.headers['Access-Control-Allow-Credentials'] = 'true'
-            return response
-        # For other methods, apply auth and call original function
-        return require_auth(f)(*args, **kwargs)
-    return decorated_function
+# OPTIONS handling removed - now handled globally by Flask-CORS
 
 
 # Initialize services with proper session factory
@@ -49,19 +33,11 @@ def get_auth_service():
     return AuthService(user_repo=user_repo)
 
 
-@auth_bp.route('/login', methods=['POST', 'OPTIONS'])
+@auth_bp.route('/login', methods=['POST'])
 def login_v2():
     """Enhanced login with better error handling and response structure"""
-    # Handle OPTIONS request for CORS
-    if request.method == 'OPTIONS':
-        from flask import make_response
-        response = make_response('', 200)
-        response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
-        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        return response
-        
+    # OPTIONS requests now handled globally by Flask-CORS
+    
     try:
         data = request.get_json()
         if not data:
@@ -289,8 +265,8 @@ def register_v2():
         return error_response("An error occurred during registration", status_code=500)
 
 
-@auth_bp.route('/me', methods=['GET', 'OPTIONS'])
-@handle_cors_preflight
+@auth_bp.route('/me', methods=['GET'])
+@require_auth
 def get_profile_v2():
     """Get current user profile with enhanced data"""
     try:
