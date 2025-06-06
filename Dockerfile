@@ -1,58 +1,56 @@
-# Optimized Production Dockerfile for LINK-X
-# Supabase Storage + Automatic Embeddings + Clean Dependencies
-FROM python:3.11-slim
+# Optimized multi-stage Dockerfile for LINK-X backend
+FROM python:3.11-slim as builder
 
-# Build arguments
-ARG BUILD_ENV=production
-ARG WORKERS=4
-ARG THREADS=2
-
-# Install minimal system dependencies
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    g++ \
     libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /build
+
+# Copy requirements
+COPY docker-image/src/requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# Runtime stage
+FROM python:3.11-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
     curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user for security
-RUN groupadd -r linkx && useradd -r -g linkx -d /app -s /bin/bash linkx
+# Create non-root user
+RUN groupadd -r linkx && useradd -r -g linkx linkx
 
+# Set working directory
 WORKDIR /app
 
-# Copy and install Python requirements
-COPY docker-image/src/requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt \
-    && pip cache purge
+# Copy Python dependencies from builder
+COPY --from=builder /root/.local /root/.local
 
 # Copy application code
 COPY --chown=linkx:linkx docker-image/src/ ./src/
-COPY --chown=linkx:linkx docker-image/scripts/ ./scripts/
 COPY --chown=linkx:linkx docker-image/docker/ ./docker/
 
-# Create necessary directories and set permissions
-RUN mkdir -p logs \
-    && chown -R linkx:linkx /app \
-    && find /app -type f -exec chmod 644 {} \; \
-    && find /app -type d -exec chmod 755 {} \; \
-    && find /app/scripts -name "*.py" -exec chmod 755 {} \; \
-    && find /app/docker -name "*.sh" -exec chmod 755 {} \;
+# Make scripts executable
+RUN chmod +x /app/docker/*.sh
+
+# Ensure Python can find the packages
+ENV PATH=/root/.local/bin:$PATH
+ENV PYTHONPATH=/app/src:$PYTHONPATH
 
 # Switch to non-root user
 USER linkx
 
-# Environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app/src \
-    PORT=8000
+# Expose port
+EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:${PORT}/api/v2/health || exit 1
-
-EXPOSE ${PORT}
-
-# Production command
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "--chdir", "src", "wsgi:app"]
+# Default command
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "300", "--chdir", "/app/src", "app:create_app()"]

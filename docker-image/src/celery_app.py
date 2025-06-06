@@ -7,14 +7,14 @@ from celery import Celery
 from kombu import Exchange, Queue
 from datetime import timedelta
 
-# Redis configuration
-REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+# Redis configuration - use the docker-compose network name
+REDIS_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')
 
 # Create Celery app
 app = Celery('learnx')
 
 # Configure task autodiscovery
-app.autodiscover_tasks(['src.tasks'], force=True)
+app.autodiscover_tasks(['tasks'], force=True)
 
 # Celery configuration
 app.conf.update(
@@ -44,7 +44,7 @@ app.conf.update(
     # Rate limiting
     task_annotations={
         'tasks.index_file': {'rate_limit': '10/m'},  # Max 10 files per minute
-        'tasks.generate_embeddings': {'rate_limit': '100/m'},  # Max 100 embedding batches per minute
+        # Embeddings handled by Supabase - removed rate limit
     },
     
     # Retry settings
@@ -64,13 +64,13 @@ app.conf.update(
         Queue('high', Exchange('high'), routing_key='high', priority=7),
         Queue('default', Exchange('default'), routing_key='default', priority=5),
         Queue('low', Exchange('low'), routing_key='low', priority=3),
-        Queue('embeddings', Exchange('embeddings'), routing_key='embeddings', priority=4),
+        # Embeddings queue removed - Supabase handles embeddings automatically
     ),
     
     # Route tasks to appropriate queues
     task_routes={
         'tasks.index_file': {'queue': 'high'},
-        'tasks.generate_embeddings': {'queue': 'embeddings'},
+        # 'tasks.generate_embeddings' removed - Supabase handles embeddings
         'tasks.cleanup_old_chunks': {'queue': 'low'},
         'tasks.reindex_course': {'queue': 'default'},
         'tasks.health_check': {'queue': 'critical'},
@@ -80,30 +80,26 @@ app.conf.update(
     beat_schedule={
         # File maintenance
         'cleanup-old-files': {
-            'task': 'src.tasks.maintenance.cleanup_old_files_async',
+            'task': 'tasks.maintenance.cleanup_old_files_async',
             'schedule': timedelta(days=1),  # Daily at midnight
             'kwargs': {'days': 30},
             'options': {'queue': 'low'}
         },
         'cleanup-orphaned-s3': {
-            'task': 'src.tasks.maintenance.cleanup_orphaned_s3_files',
+            'task': 'tasks.maintenance.cleanup_orphaned_s3_files',
             'schedule': timedelta(days=7),  # Weekly
             'options': {'queue': 'low'}
         },
-        'cleanup-orphaned-embeddings': {
-            'task': 'src.tasks.embedding.cleanup_orphaned_embeddings',
-            'schedule': timedelta(days=1),  # Daily
-            'options': {'queue': 'low'}
-        },
+        # Embeddings now handled by Supabase - removed cleanup task
         # Database maintenance
         'vacuum-database': {
-            'task': 'src.tasks.maintenance.vacuum_database',
+            'task': 'tasks.maintenance.vacuum_database',
             'schedule': timedelta(days=1),  # Daily at 3 AM
             'options': {'queue': 'low'}
         },
         # Health monitoring
         'health-check': {
-            'task': 'src.tasks.health_check',
+            'task': 'tasks.health_check',
             'schedule': timedelta(minutes=5),  # Every 5 minutes
             'options': {'queue': 'critical'}
         },
@@ -112,6 +108,6 @@ app.conf.update(
 
 # Import tasks to register them
 try:
-    import src.tasks
+    import tasks
 except ImportError:
-    app.autodiscover_tasks(['src'])
+    app.autodiscover_tasks(['tasks'])
