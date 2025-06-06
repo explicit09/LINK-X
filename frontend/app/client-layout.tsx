@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/app/(auth)/AuthContext';
 import { GamificationProvider } from '@/contexts/GamificationContext';
 import { Toaster } from '@/components/ui/toaster';
+import { DailyLoginTracker } from '@/components/gamification/DailyLoginTracker';
 
 export default function ClientLayout({
   children,
@@ -19,6 +20,7 @@ export default function ClientLayout({
     >
       <AuthProvider>
         <GamificationProvider>
+          <DailyLoginTracker />
           {children}
           <Toaster />
         </GamificationProvider>
