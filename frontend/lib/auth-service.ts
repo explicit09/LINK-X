@@ -1,378 +1,113 @@
-import { User as SupabaseUser } from '@supabase/supabase-js';
-import { SupabaseManager } from './auth/supabase-manager';
-import { TokenManager, type AuthTokens } from './auth/token-manager';
-import { UserManager, type UserProfile } from './auth/user-manager';
-import { RegistrationManager, type RegistrationData } from './auth/registration-manager';
+// Legacy auth service - compatibility layer for unified auth system
+// This provides backward compatibility while transitioning to unified auth
 
-interface AuthState {
-  isAuthenticated: boolean;
-  isRegistered: boolean;
-  tokens: AuthTokens | null;
-  user: UserProfile | null;
+import { unifiedAuthService } from './auth/unified-auth-service';
+import { authService as supabaseAuth } from './auth/supabase-auth-service';
+
+export interface RegistrationData {
+  role: 'student' | 'instructor';
+  name?: string;
+  onboard_answers?: Record<string, any>;
+  want_quizzes?: boolean;
+  university?: string;
+  department?: string;
 }
 
 /**
- * AuthService - Unified authentication service using Supabase
- * Provides a clean interface for Supabase authentication
+ * Legacy AuthService for backward compatibility
+ * Now uses the unified authentication system under the hood
  */
-class AuthService {
-  private static instance: AuthService;
-  private authState: AuthState = {
-    isAuthenticated: false,
-    isRegistered: false,
-    tokens: null,
-    user: null,
-  };
+class LegacyAuthService {
+  private cachedSession: any = null;
+  private lastSessionCheck: number = 0;
+  private readonly SESSION_CACHE_TTL = 30000; // 30 seconds
 
-  // Focused service modules
-  private supabase: SupabaseManager;
-  private tokens: TokenManager;
-  private users: UserManager;
-  private registration: RegistrationManager;
-
-  private constructor() {
-    // Initialize focused modules
-    this.supabase = new SupabaseManager();
-    
-    this.tokens = new TokenManager((tokens) => {
-      this.authState.tokens = tokens;
-      this.saveAuthState();
-    });
-
-    this.users = new UserManager(() => this.getValidToken());
-
-    this.registration = new RegistrationManager(
-      this.supabase,
-      (state) => {
-        this.authState = state;
-        this.saveAuthState();
-        if (state.tokens) {
-          this.tokens.scheduleTokenRefresh(state.tokens);
-        }
-      }
-    );
-
-    // Initialize auth state on construction
-    if (typeof window !== 'undefined') {
-      // First try to restore from Supabase session
-      this.initializeFromSupabaseSession();
+  async getCurrentSession() {
+    const now = Date.now();
+    if (this.cachedSession && (now - this.lastSessionCheck) < this.SESSION_CACHE_TTL) {
+      return this.cachedSession;
     }
-  }
 
-  /**
-   * PRESERVE singleton pattern - components depend on this
-   */
-  static getInstance(): AuthService {
-    if (!AuthService.instance) {
-      AuthService.instance = new AuthService();
-    }
-    return AuthService.instance;
-  }
-
-  /**
-   * Initialize auth state from Supabase session
-   */
-  private async initializeFromSupabaseSession() {
     try {
-      // First check if we have a Supabase session
-      const session = await this.supabase.getCurrentSession();
-      
-      if (session) {
-        console.log('[AuthService] Found existing Supabase session');
-        // Try to establish backend session with the token
-        const loginSuccess = await this.loginWithSupabase(session.access_token);
-        
-        if (!loginSuccess) {
-          console.log('[AuthService] Backend session establishment failed, loading from localStorage');
-          // Fallback to localStorage if backend session fails
-          this.loadAuthState();
-        }
-      } else {
-        console.log('[AuthService] No Supabase session found, loading from localStorage');
-        // No Supabase session, try localStorage
-        this.loadAuthState();
-      }
+      this.cachedSession = await unifiedAuthService.createSession();
+      this.lastSessionCheck = now;
+      return this.cachedSession;
     } catch (error) {
-      console.error('[AuthService] Failed to initialize from Supabase session:', error);
-      // Fallback to localStorage
-      this.loadAuthState();
+      console.error('Failed to get current session:', error);
+      return null;
     }
   }
 
-  /**
-   * Load auth state from localStorage
-   * PRESERVE exact state persistence logic
-   */
-  private loadAuthState() {
+  async isAuthenticated(): Promise<boolean> {
+    const user = await supabaseAuth.getCurrentUser();
+    return !!user;
+  }
+
+  async isRegistered(): Promise<boolean> {
+    const session = await this.getCurrentSession();
+    return session?.registered || false;
+  }
+
+  async hasCompletedOnboarding(): Promise<boolean> {
+    const session = await this.getCurrentSession();
+    return !session?.requires_onboarding;
+  }
+
+  async getUser() {
+    const session = await this.getCurrentSession();
+    return session?.user || null;
+  }
+
+  async loginWithSupabase(token: string): Promise<boolean> {
     try {
-      const savedState = localStorage.getItem('authState');
-      if (savedState) {
-        const state = JSON.parse(savedState);
-        // Check if tokens are still valid
-        if (state.tokens && state.tokens.expiresAt > Date.now()) {
-          this.authState = state;
-          if (state.tokens) {
-            this.tokens.scheduleTokenRefresh(state.tokens);
-          }
-        } else {
-          // Clear expired state
-          this.clearAuthState();
-        }
-      }
+      const session = await unifiedAuthService.createSession();
+      return !!session;
     } catch (error) {
-      console.error('Failed to load auth state:', error);
-      this.clearAuthState();
-    }
-  }
-
-  /**
-   * Save auth state to localStorage
-   * PRESERVE exact state persistence logic
-   */
-  private saveAuthState() {
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('authState', JSON.stringify(this.authState));
-      } catch (error) {
-        console.error('Failed to save auth state:', error);
-      }
-    }
-  }
-
-  /**
-   * Clear auth state
-   * PRESERVE exact state clearing logic
-   */
-  private clearAuthState() {
-    this.authState = {
-      isAuthenticated: false,
-      isRegistered: false,
-      tokens: null,
-      user: null,
-    };
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('authState');
-    }
-    this.tokens.clearTokenRefreshTimer();
-  }
-
-  // Public API - delegate to focused modules while preserving exact interface
-
-  /**
-   * Login with Supabase user
-   * Updated from Firebase to Supabase
-   */
-  async login(supabaseUser: SupabaseUser): Promise<boolean> {
-    return this.registration.login(supabaseUser);
-  }
-
-  /**
-   * Login with Supabase access token
-   * Uses the token directly for backend authentication
-   */
-  async loginWithSupabase(accessToken: string): Promise<boolean> {
-    try {
-      // Store the token
-      this.authState.tokens = {
-        accessToken,
-        refreshToken: '', // Supabase handles refresh internally
-        expiresAt: Date.now() + 3600000, // 1 hour default
-      };
-      this.authState.isAuthenticated = true;
-      this.saveAuthState();
-
-      // Check registration status with the backend
-      const registered = await this.checkRegistrationStatus();
-      return registered;
-    } catch (error) {
-      console.error('Supabase login failed:', error);
-      this.clearAuthState();
+      console.error('Login with Supabase failed:', error);
       return false;
     }
   }
 
-  /**
-   * Get valid token with automatic refresh
-   * PRESERVE exact token management
-   */
-  async getValidToken(): Promise<string | null> {
-    return this.tokens.getValidToken(this.authState.tokens);
-  }
-
-  /**
-   * Refresh tokens
-   * PRESERVE exact refresh logic
-   */
-  async refreshTokens(): Promise<boolean> {
-    const newTokens = await this.tokens.refreshTokens(this.authState.tokens);
-    return newTokens !== null;
-  }
-
-  /**
-   * Check registration status
-   * Updated to work with Supabase authentication
-   */
-  async checkRegistrationStatus(): Promise<boolean> {
-    // For Supabase authentication, we don't need Firebase user
-    if (!this.authState.isAuthenticated) {
-      return false;
-    }
-
-    // If we already know the user is registered, return true
-    if (this.authState.isRegistered && this.authState.user) {
-      return true;
-    }
-
-    const result = await this.users.checkRegistrationStatus();
-    if (result.isRegistered && result.user) {
-      this.authState.isRegistered = true;
-      this.authState.user = result.user;
-      this.saveAuthState();
-    }
-    
-    return result.isRegistered;
-  }
-
-  /**
-   * Force session establishment
-   * Updated for Supabase
-   */
-  async forceSessionEstablishment(): Promise<boolean> {
-    const currentUser = await this.supabase.getCurrentUser();
-    if (!currentUser) {
-      console.error('No Supabase user available for session establishment');
-      return false;
-    }
-
-    return this.registration.forceSessionEstablishment(currentUser);
-  }
-
-  /**
-   * Logout
-   * Updated for Supabase
-   */
-  async logout() {
+  async register(data: RegistrationData): Promise<any> {
     try {
-      // Clear old session data first
-      this.supabase.clearOldSessionData();
-
-      // Logout from backend
-      const tokenForLogout = (this.authState.tokens && typeof this.authState.tokens.accessToken === 'string')
-        ? this.authState.tokens.accessToken
-        : null;
-
-      if (tokenForLogout) {
-        await this.users.logoutFromBackend(tokenForLogout);
+      const token = await supabaseAuth.getAccessToken();
+      if (!token) {
+        throw new Error('No access token available');
       }
-    } catch (error) {
-      console.error('Backend logout failed:', error);
-    }
 
-    // Clear local state
-    this.clearAuthState();
-
-    // Logout from Supabase
-    await this.supabase.signOut();
-  }
-
-  /**
-   * Register new user
-   */
-  async register(registrationData: RegistrationData): Promise<boolean> {
-    return this.registration.register(registrationData);
-  }
-
-  /**
-   * Make authenticated request
-   * PRESERVE exact request handling with retry logic
-   */
-  async makeAuthenticatedRequest(
-    url: string,
-    options: RequestInit = {},
-  ): Promise<Response> {
-    const response = await this.users.makeAuthenticatedRequest(url, options);
-
-    // If 401, try to refresh token and retry once
-    if (response.status === 401 && this.authState.isAuthenticated) {
-      const refreshed = await this.refreshTokens();
-      if (refreshed) {
-        // Retry the request with new token
-        return this.users.makeAuthenticatedRequest(url, options);
-      }
-    }
-
-    return response;
-  }
-
-  /**
-   * Set up auth state change listener
-   * This ensures we stay in sync with Supabase auth state
-   */
-  setupAuthStateListener() {
-    if (typeof window === 'undefined') return;
-    
-    // Import supabase directly to set up listener
-    import('@/supabaseconfig').then(({ supabase, onAuthStateChange }) => {
-      onAuthStateChange(async (session) => {
-        if (session) {
-          // Session exists, try to sync with backend
-          const loginSuccess = await this.loginWithSupabase(session.access_token);
-          if (!loginSuccess) {
-            console.log('[AuthService] Failed to sync session with backend');
-          }
-        } else {
-          // No session, clear auth state
-          this.clearAuthState();
-        }
+      return await unifiedAuthService.registerUser({
+        ...data,
+        access_token: token,
       });
-    });
-  }
-
-  // Getters - preserve exact interface
-  isAuthenticated(): boolean {
-    return this.authState.isAuthenticated;
-  }
-
-  isRegistered(): boolean {
-    return this.authState.isRegistered;
-  }
-
-  getUser(): UserProfile | null {
-    return this.authState.user;
-  }
-
-  hasCompletedOnboarding(): boolean {
-    const user = this.authState.user;
-    if (!user) return false;
-    
-    // For students, check the has_completed_onboarding flag
-    if (user.role === 'student') {
-      return user.has_completed_onboarding ?? false;
+    } catch (error) {
+      console.error('Registration failed:', error);
+      throw error;
     }
-    
-    // For instructors and admins, assume onboarding is complete
-    return true;
   }
 
-  // Access to individual managers for advanced use cases
-  getSupabaseManager(): SupabaseManager {
-    return this.supabase;
+  async logout(): Promise<void> {
+    try {
+      await supabaseAuth.signOut();
+      unifiedAuthService.clearCache();
+      this.cachedSession = null;
+      this.lastSessionCheck = 0;
+    } catch (error) {
+      console.error('Logout failed:', error);
+      throw error;
+    }
   }
 
-  getTokenManager(): TokenManager {
-    return this.tokens;
+  // Keep singleton pattern for backward compatibility
+  static getInstance(): LegacyAuthService {
+    if (!this.instance) {
+      this.instance = new LegacyAuthService();
+    }
+    return this.instance;
   }
 
-  getUserManager(): UserManager {
-    return this.users;
-  }
-
-  getRegistrationManager(): RegistrationManager {
-    return this.registration;
-  }
+  private static instance: LegacyAuthService;
 }
 
-// Export singleton instance to maintain compatibility
-export const authService = AuthService.getInstance();
-export { AuthService };
-export type { AuthState, AuthTokens, UserProfile, RegistrationData };
+// Export singleton instance for backward compatibility
+export const authService = LegacyAuthService.getInstance();
+export default authService;

@@ -33,7 +33,8 @@ export function useUnifiedAuth() {
 
       const result = await unifiedAuthService.registerUser(registrationData);
       
-      // Reload the page to refresh auth context
+      // Clear cache and reload to refresh auth context
+      unifiedAuthService.clearCache();
       window.location.reload();
       
       return result;
@@ -65,7 +66,8 @@ export function useUnifiedAuth() {
 
       await unifiedAuthService.completeOnboarding(onboardingData);
       
-      // Reload the page to refresh auth context
+      // Clear cache and reload to refresh auth context
+      unifiedAuthService.clearCache();
       window.location.reload();
       
       return true;

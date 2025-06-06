@@ -39,16 +39,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(authUser);
 
         if (authUser) {
-          // Only skip on landing page, not auth pages
-          const currentPath = window.location.pathname;
-          if (currentPath === '/' || currentPath === '') {
-            // Skip backend session on landing page
-            setLoading(false);
-            return;
-          }
-
           try {
-            // Use unified authentication service
+            // Always try to create session for authenticated users
+            // This ensures session persistence across page refreshes
             const unifiedSession = await unifiedAuthService.createSession();
             
             if (unifiedSession) {
@@ -68,7 +61,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
           } catch (error) {
             console.error('Error during unified authentication:', error);
-            // Don't set error state for expected cases like unregistered users
+            // For session errors, try to keep Supabase auth but clear backend state
+            // This allows the user to stay "logged in" to Supabase while backend registration happens
             setSession(null);
             setIsRegistered(false);
             setBackendUser(null);

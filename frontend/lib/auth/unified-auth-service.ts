@@ -41,12 +41,19 @@ export interface OnboardingData {
 
 class UnifiedAuthService {
   private baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  private sessionCache: UnifiedSession | null = null;
+  private cacheExpiry: number = 0;
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   /**
    * Create a session using unified endpoint
    * This replaces login + registration check + onboarding status check
    */
   async createSession(): Promise<UnifiedSession | null> {
+    // Return cached session if still valid
+    if (this.sessionCache && Date.now() < this.cacheExpiry) {
+      return this.sessionCache;
+    }
     try {
       const token = await authService.getAccessToken();
       if (!token) {
@@ -69,11 +76,27 @@ class UnifiedAuthService {
       }
 
       const data = await response.json();
+      
+      // Cache the session
+      this.sessionCache = data.data;
+      this.cacheExpiry = Date.now() + this.CACHE_TTL;
+      
       return data.data;
     } catch (error) {
       console.error('Session creation error:', error);
+      // Clear cache on error
+      this.sessionCache = null;
+      this.cacheExpiry = 0;
       return null;
     }
+  }
+
+  /**
+   * Clear session cache (call this on logout)
+   */
+  clearCache(): void {
+    this.sessionCache = null;
+    this.cacheExpiry = 0;
   }
 
   /**

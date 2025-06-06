@@ -12,10 +12,23 @@ import { useUserJourneyStage, UserJourneyStage } from '@/hooks/useUserJourneySta
 import { useAuthUser } from '@/hooks/useAuthUser';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useDashboardOverview, useAIRecommendations } from '@/hooks/useDashboardData';
-import { authService } from '@/lib/auth-service';
+import { useUnifiedAuth } from '@/hooks/useUnifiedAuth';
 
 function DashboardContent() {
   const router = useRouter();
+  
+  // Use unified auth system
+  const { 
+    user: currentUser, 
+    session, 
+    isAuthenticated, 
+    isRegistered, 
+    needsOnboarding,
+    loading: authLoading 
+  } = useUnifiedAuth();
+  
+  // Extract role from session data
+  const role = (session?.user?.role as 'student' | 'instructor' | 'admin') || 'student';
   
   // Simple auth check
   const [authCheckComplete, setAuthCheckComplete] = useState(false);
@@ -24,11 +37,8 @@ function DashboardContent() {
   // Use auth guard to ensure user is authenticated and registered
   const authState = useAuthGuard(true);
   
-  // Use centralized auth user hook
-  const { user: currentUser, isLoading: userLoading, error: userError } = useAuthUser();
-  
-  // Extract role from user data
-  const role = (currentUser?.role as 'student' | 'instructor' | 'admin') || 'student';
+  // Use centralized auth user hook for backward compatibility (if still needed)
+  const { user: legacyUser, isLoading: userLoading, error: userError } = useAuthUser();
   
   // New hooks for progressive dashboard
   const { stage, isLoading: journeyLoading } = useUserJourneyStage();
@@ -38,50 +48,38 @@ function DashboardContent() {
   // Feature flag to enable new dashboard (set to true to test)
   const useProgressiveDashboard = true;
 
-  // SIMPLE AUTH CHECK - bypass complex flows
+  // SIMPLE AUTH CHECK using unified auth
   useEffect(() => {
-    const simpleAuthCheck = async () => {
-      console.log('[Dashboard] Starting simple auth check...');
-      
-      // Check if user is authenticated
-      const isAuth = authService.isAuthenticated();
-      const isReg = authService.isRegistered();
-      const hasOnboarding = authService.hasCompletedOnboarding();
-      const user = authService.getUser();
-      
-      console.log('[Dashboard] Auth status:', {
-        isAuthenticated: isAuth,
-        isRegistered: isReg,
-        hasCompletedOnboarding: hasOnboarding,
-        user: user?.email
-      });
+    if (authLoading) return; // Wait for auth to load
+    
+    console.log('[Dashboard] Auth status:', {
+      isAuthenticated,
+      isRegistered,
+      needsOnboarding,
+      user: session?.user?.email
+    });
 
-      // If all conditions are met, allow access
-      if (isAuth && isReg && hasOnboarding) {
-        console.log('[Dashboard] All auth conditions met, allowing access');
-        setAuthCheckComplete(true);
-        return;
-      }
+    // If all conditions are met, allow access
+    if (isAuthenticated && isRegistered && !needsOnboarding) {
+      console.log('[Dashboard] All auth conditions met, allowing access');
+      setAuthCheckComplete(true);
+      return;
+    }
 
-      // If not authenticated, redirect to login
-      if (!isAuth) {
-        console.log('[Dashboard] Not authenticated, redirecting to login');
-        setShouldRedirect('/login');
-        return;
-      }
+    // If not authenticated, redirect to login
+    if (!isAuthenticated) {
+      console.log('[Dashboard] Not authenticated, redirecting to login');
+      setShouldRedirect('/login');
+      return;
+    }
 
-      // If not registered or no onboarding, redirect to onboarding
-      if (!isReg || !hasOnboarding) {
-        console.log('[Dashboard] Not registered or onboarding incomplete, redirecting to onboarding');
-        setShouldRedirect('/onboarding');
-        return;
-      }
-    };
-
-    // Add small delay to let auth state initialize from API
-    const timer = setTimeout(simpleAuthCheck, 500);
-    return () => clearTimeout(timer);
-  }, []);
+    // If not registered or onboarding needed, redirect to onboarding
+    if (!isRegistered || needsOnboarding) {
+      console.log('[Dashboard] Not registered or onboarding incomplete, redirecting to onboarding');
+      setShouldRedirect('/onboarding');
+      return;
+    }
+  }, [authLoading, isAuthenticated, isRegistered, needsOnboarding, session]);
 
   // Handle redirects
   useEffect(() => {

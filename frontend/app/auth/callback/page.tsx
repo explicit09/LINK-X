@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/supabaseconfig';
-import { authService } from '@/lib/auth-service';
+import { unifiedAuthService } from '@/lib/auth/unified-auth-service';
 import { toast } from 'sonner';
 
 export default function AuthCallbackPage() {
@@ -67,44 +67,41 @@ export default function AuthCallbackPage() {
         const mode = window.sessionStorage.getItem('google_auth_mode') || 'login';
         window.sessionStorage.removeItem('google_auth_mode');
 
-        const token = currentSession.access_token;
-
-        if (token) {
-          // Establish backend session
-          const sessionSuccess = await authService.loginWithSupabase(token);
-
+        // Use unified authentication system
+        const unifiedSession = await unifiedAuthService.createSession();
+        
+        if (unifiedSession) {
           if (mode === 'login') {
-            if (!sessionSuccess) {
+            if (!unifiedSession.registered) {
               toast.error('Account not found. Please sign up first.');
               router.push('/register');
               return;
             }
 
-            // Check if user needs onboarding
-            const hasCompletedOnboarding = authService.hasCompletedOnboarding();
-            const user = authService.getUser();
+            // Check redirect path based on unified auth state
+            const redirectPath = unifiedAuthService.getRedirectPath(unifiedSession);
             
-            if (!hasCompletedOnboarding && user?.role === 'student') {
+            if (redirectPath === '/onboarding') {
               toast.info('Please complete your profile setup');
-              router.push('/onboarding');
             } else {
               toast.success('Successfully signed in with Google!');
-              router.push('/dashboard');
             }
+            
+            router.push(redirectPath);
           } else {
             // Register mode
-            if (sessionSuccess && authService.isRegistered()) {
-              // User already exists and is registered
+            if (unifiedSession.registered && !unifiedSession.requires_onboarding) {
+              // User already exists and is fully set up
               toast.error('Account already exists. Please sign in instead.');
               router.push('/login');
             } else {
-              // New user or needs to complete registration
+              // New user or needs to complete onboarding
               toast.success('Account created successfully! Complete your profile.');
               router.push('/onboarding');
             }
           }
         } else {
-          throw new Error('Failed to get authentication token');
+          throw new Error('Failed to establish session');
         }
       } catch (error: any) {
         console.error('OAuth callback error:', error);

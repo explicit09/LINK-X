@@ -1,5 +1,7 @@
 """
-API v2 Authentication Endpoints
+API v2 Authentication Endpoints - LEGACY
+These endpoints are deprecated. Use /api/v2/auth/unified endpoints instead.
+Kept for backward compatibility.
 """
 from flask import Blueprint, request, g
 from datetime import datetime
