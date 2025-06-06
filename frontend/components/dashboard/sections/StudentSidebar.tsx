@@ -63,7 +63,7 @@ export function StudentSidebar({ currentUser, isCollapsed, onToggleCollapse }: S
   return (
     <div
       className={cn(
-        'fixed left-0 top-0 h-full bg-white border-r border-gray-200 transition-all duration-300 z-40',
+        'fixed left-0 top-0 h-full bg-white border-r border-gray-200 transition-all duration-300 z-40 flex flex-col',
         isCollapsed ? 'w-16' : 'w-64'
       )}
     >
@@ -103,8 +103,8 @@ export function StudentSidebar({ currentUser, isCollapsed, onToggleCollapse }: S
         </div>
       )}
 
-      {/* Main Navigation */}
-      <nav className="flex-1 p-2">
+      {/* Main Navigation - flex-1 to take up available space */}
+      <nav className="flex-1 p-2 overflow-y-auto">
         {navigationItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.path;
@@ -126,8 +126,8 @@ export function StudentSidebar({ currentUser, isCollapsed, onToggleCollapse }: S
         })}
       </nav>
 
-      {/* Bottom Navigation */}
-      <div className="p-2 border-t border-gray-200">
+      {/* Bottom Navigation - stays at absolute bottom */}
+      <div className="mt-auto p-2 border-t border-gray-200">
         {bottomNavigationItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.path;
