@@ -4,6 +4,8 @@ import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { User, Settings, Bell, Shield } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
+import { useAuthUser } from '@/hooks/useAuthUser';
 
 // Hooks
 import { useUserRole } from './hooks/useUserRole';
@@ -16,30 +18,44 @@ import { PrivacySettings } from './sections/PrivacySettings';
 
 export default function StudentSettings() {
   const { role, loading: roleLoading, isStudent } = useUserRole();
+  const { user: currentUser } = useAuthUser();
 
   // Loading state
   if (roleLoading) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-4 w-96" />
-          </div>
-          <Skeleton className="h-12 w-full" />
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full" />
-            ))}
+      <SharedDashboardLayout
+        pageTitle="Settings"
+        showGamification={false}
+        showFocusMode={false}
+        currentUser={currentUser}
+      >
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-4 w-96" />
+            </div>
+            <Skeleton className="h-12 w-full" />
+            <div className="space-y-4">
+              {[...Array(3)].map((_, i) => (
+                <Skeleton key={i} className="h-32 w-full" />
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      </SharedDashboardLayout>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="space-y-6">
+    <SharedDashboardLayout
+      pageTitle="Settings"
+      showGamification={false}
+      showFocusMode={false}
+      currentUser={currentUser}
+    >
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="space-y-6">
         {/* Header */}
         <div className="space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
@@ -150,5 +166,6 @@ export default function StudentSettings() {
         </Tabs>
       </div>
     </div>
+    </SharedDashboardLayout>
   );
 }
