@@ -38,7 +38,7 @@ def add_security_headers(response: Response) -> Response:
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
         "img-src 'self' data: https: blob:",
-        "connect-src 'self' https://api.openai.com https://*.amazonaws.com wss://localhost:* ws://localhost:*",
+        "connect-src 'self' https://api.openai.com https://*.amazonaws.com http://localhost:* wss://localhost:* ws://localhost:*",
         "frame-src 'self' https://accounts.google.com",
         "object-src 'none'",
         "base-uri 'self'",

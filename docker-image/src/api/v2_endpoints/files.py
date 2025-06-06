@@ -10,7 +10,7 @@ import json
 
 from core.auth.decorators import require_auth
 from core.exceptions import ValidationError, NotFoundError, UnauthorizedError
-from services.file_service_supabase import FileService
+from services.file_service_supabase import SupabaseFileService as FileService
 from repositories.module_repository import ModuleRepository
 from core.prompts import prompt_generate_personalized_file_content, prompt3_generate_module_content
 
