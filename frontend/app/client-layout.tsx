@@ -3,7 +3,6 @@
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/app/(auth)/AuthContext';
 import { Toaster } from '@/components/ui/toaster';
-import { DevAuthTools } from '@/components/auth/DevAuthTools';
 
 export default function ClientLayout({
   children,
@@ -20,7 +19,6 @@ export default function ClientLayout({
       <AuthProvider>
         {children}
         <Toaster />
-        <DevAuthTools />
       </AuthProvider>
     </ThemeProvider>
   );
