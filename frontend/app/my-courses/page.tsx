@@ -83,63 +83,7 @@ export default function MyCoursesPage() {
   // Use centralized auth user hook
   const { user: currentUser } = useAuthUser();
 
-  // Load student's created courses
-  useEffect(() => {
-    const loadMyCourses = async () => {
-      try {
-        setLoading(true);
-        console.log('🏫 MyCoursesPage: Starting to load courses...');
-        const coursesData = await courseAPI.getCourses();
-        console.log('🎯 MyCoursesPage: Received courses data:', coursesData);
-        console.log('📊 MyCoursesPage: Data type:', typeof coursesData, 'Length:', coursesData?.length);
-
-        // Ensure coursesData is an array before mapping
-        if (!Array.isArray(coursesData)) {
-          console.warn('⚠️ MyCoursesPage: Courses data is not an array:', coursesData);
-          setCourses([]);
-          return;
-        }
-
-        // Transform API data with enhanced course info
-        const transformedCourses = coursesData.map(
-          (course: any, index: number) => ({
-            id: course.id,
-            title: course.title,
-            code: course.code || 'N/A',
-            term: course.term || 'Current',
-            description: course.description || '',
-            published: course.published,
-            studentsCount:
-              course.students || Math.floor(Math.random() * 50) + 5,
-            materialsCount:
-              course.modules?.length || Math.floor(Math.random() * 20) + 3,
-            accessCode: course.accessCode,
-            lastActivity: course.last_updated
-              ? formatRelativeTime(course.last_updated)
-              : 'Recently',
-            progress: Math.floor(Math.random() * 100),
-            color: [
-              'bg-blue-500',
-              'bg-green-500',
-              'bg-purple-500',
-              'bg-orange-500',
-              'bg-red-500',
-            ][index % 5],
-          }),
-        );
-
-        setCourses(transformedCourses);
-      } catch (error) {
-        console.error('Failed to load courses:', error);
-        sonnerToast.error('Failed to load your courses');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadMyCourses();
-  }, []);
-
+  // Helper function to format relative time
   const formatRelativeTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -153,6 +97,64 @@ export default function MyCoursesPage() {
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString();
   };
+
+  // Define loadMyCourses function so it can be reused
+  const loadMyCourses = async () => {
+    try {
+      setLoading(true);
+      console.log('🏫 MyCoursesPage: Starting to load courses...');
+      const coursesData = await courseAPI.getCourses();
+      console.log('🎯 MyCoursesPage: Received courses data:', coursesData);
+      console.log('📊 MyCoursesPage: Data type:', typeof coursesData, 'Length:', coursesData?.length);
+
+      // Ensure coursesData is an array before mapping
+      if (!Array.isArray(coursesData)) {
+        console.warn('⚠️ MyCoursesPage: Courses data is not an array:', coursesData);
+        setCourses([]);
+        return;
+      }
+
+      // Transform API data with enhanced course info
+      const transformedCourses = coursesData.map(
+        (course: any, index: number) => ({
+          id: course.id,
+          title: course.title,
+          code: course.code || 'N/A',
+          term: course.term || 'Current',
+          description: course.description || '',
+          published: course.published,
+          studentsCount:
+            course.students || Math.floor(Math.random() * 50) + 5,
+          materialsCount:
+            course.modules?.length || Math.floor(Math.random() * 20) + 3,
+          accessCode: course.accessCode,
+          lastActivity: course.last_updated
+            ? formatRelativeTime(course.last_updated)
+            : 'Recently',
+          progress: Math.floor(Math.random() * 100),
+          color: [
+            'bg-blue-500',
+            'bg-green-500',
+            'bg-purple-500',
+            'bg-orange-500',
+            'bg-red-500',
+          ][index % 5],
+        }),
+      );
+
+      setCourses(transformedCourses);
+    } catch (error) {
+      console.error('Failed to load courses:', error);
+      sonnerToast.error('Failed to load your courses');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load student's created courses on mount
+  useEffect(() => {
+    loadMyCourses();
+  }, []);
 
   const handleCreateCourse = async (courseData: any) => {
     // Course has already been created by CourseForm component
