@@ -24,6 +24,7 @@ import {
   Upload,
   MessageSquare,
   Circle,
+  Target,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -136,6 +137,12 @@ const ModernSidebar = ({
             path: '/my-courses',
             icon: BookOpen,
             active: pathname === '/my-courses',
+          },
+          {
+            name: 'Study Plan',
+            path: '/study-plan',
+            icon: Target,
+            active: pathname === '/study-plan',
           },
         ]
       : []),
