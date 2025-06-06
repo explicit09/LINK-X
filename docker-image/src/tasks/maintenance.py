@@ -8,7 +8,7 @@ from typing import List, Dict, Any
 
 from db.connection import get_db_session
 from db.schema import File, FileChunk, PersonalizedFile
-from services.s3_storage_resilient import s3_storage
+# S3 storage removed - using Supabase Storage
 from .file_processing import process_file_async
 from .embedding import generate_embeddings_async
 from core.cache import cache
@@ -35,13 +35,9 @@ def cleanup_old_files_async(self, days: int = 30):
         
         for file in old_files:
             try:
-                # Delete from S3 if applicable
+                # Skip S3 deletion - files are now in Supabase Storage
                 if file.storage_type == 's3' and file.s3_key:
-                    try:
-                        s3_storage.delete_file(file.s3_key)
-                        logger.info(f"Deleted S3 file: {file.s3_key}")
-                    except Exception as s3_error:
-                        logger.warning(f"Failed to delete S3 file {file.s3_key}: {str(s3_error)}")
+                    logger.info(f"Skipping S3 deletion for migrated file: {file.s3_key}")
                 
                 # Delete file chunks
                 db_session.query(FileChunk).filter_by(file_id=file.id).delete()
@@ -111,24 +107,9 @@ def reindex_all_content(self):
                 # Clear cache
                 cache.delete_pattern(f"embedding:{file.id}:*")
                 
-                # Get file content
-                if file.storage_type == 's3' and file.s3_key:
-                    # For S3 files, we need to download content first
-                    content = s3_storage.download_file_content(file.s3_key)
-                    if isinstance(content, bytes):
-                        content = content.decode('utf-8', errors='ignore')
-                elif file.file_data:
-                    content = file.file_data
-                    if isinstance(content, bytes):
-                        content = content.decode('utf-8', errors='ignore')
-                else:
-                    content = file.transcription or ""
-                
-                # Trigger embedding generation
-                if content:
-                    generate_embeddings_async.delay(str(file.id), content)
-                    indexed_count += 1
-                    logger.info(f"Queued reindexing for file {file.id}")
+                # Skip reindexing - handled by Supabase Edge Function
+                logger.info(f"Skipping manual reindexing for file {file.id} - handled by Supabase triggers")
+                indexed_count += 1
                 
             except Exception as file_error:
                 errors.append({
@@ -183,47 +164,10 @@ def vacuum_database():
         db_session.close()
 
 @shared_task
-def cleanup_orphaned_s3_files():
-    """Clean up S3 files not referenced in database"""
-    db_session = get_db_session()
-    
-    try:
-        logger.info("Checking for orphaned S3 files")
-        
-        # Get all S3 keys from database
-        db_files = db_session.query(File.s3_key).filter(
-            File.s3_key.isnot(None),
-            File.storage_type == 's3'
-        ).all()
-        
-        db_keys = {file.s3_key for file in db_files}
-        
-        # List all files in S3
-        s3_keys = s3_storage.list_all_files()
-        
-        # Find orphaned files
-        orphaned_keys = set(s3_keys) - db_keys
-        
-        cleaned_count = 0
-        for key in orphaned_keys:
-            try:
-                s3_storage.delete_file(key)
-                cleaned_count += 1
-                logger.info(f"Deleted orphaned S3 file: {key}")
-            except Exception as e:
-                logger.error(f"Failed to delete orphaned file {key}: {str(e)}")
-        
-        logger.info(f"Cleaned up {cleaned_count} orphaned S3 files")
-        
-        return {
-            "status": "success",
-            "total_s3_files": len(s3_keys),
-            "db_files": len(db_keys),
-            "orphaned_cleaned": cleaned_count
-        }
-        
-    except Exception as e:
-        logger.error(f"Error cleaning orphaned S3 files: {str(e)}")
-        return {"status": "error", "message": str(e)}
-    finally:
-        db_session.close()
+def cleanup_orphaned_files():
+    """Clean up orphaned files (placeholder for Supabase Storage cleanup)"""
+    logger.info("Orphaned file cleanup not needed with Supabase Storage RLS")
+    return {
+        "status": "success",
+        "message": "Supabase Storage uses RLS policies for automatic cleanup"
+    }

@@ -25,6 +25,8 @@ interface S3FileViewerProps {
 }
 
 export function S3FileViewer({ file, courseId, moduleId, onError }: S3FileViewerProps) {
+  // Note: Despite the name, this component now works with both S3 and Supabase Storage
+  // The backend handles the storage abstraction
   const { user: currentUser } = useAuthUser();
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

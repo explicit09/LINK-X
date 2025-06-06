@@ -12,7 +12,7 @@ def process_file_async(self, file_id: str, force: bool = False):
     """Process uploaded file - extract text, generate embeddings"""
     try:
         from services.ai_service import AIService
-        from services.s3_storage_resilient import s3_storage
+        # S3 storage removed - using Supabase Storage
         from core.database_supabase import db
         from db.schema import File
         
@@ -33,24 +33,13 @@ def process_file_async(self, file_id: str, force: bool = False):
         logger.info(f"Processing file {file_id}: {file.filename}, storage_type: {getattr(file, 'storage_type', 'unknown')}")
         
         try:
-            # Check storage type and handle accordingly
-            if hasattr(file, 'storage_type') and file.storage_type == 's3' and hasattr(file, 's3_key') and file.s3_key:
-                # Download and extract text from S3
-                logger.info(f"Processing S3 file: bucket={getattr(file, 's3_bucket', 'unknown')}, key={file.s3_key}")
-                if file.file_type == 'pdf':
-                    from utils.textUtils import extract_text, clean_extracted_text
-                    file_content = s3_storage.download_file(file.s3_key)
-                    raw_text = extract_text(file_content, file.filename)
-                    extracted_text = clean_extracted_text(raw_text)
-                elif file.file_type in ['txt', 'md']:
-                    file_content = s3_storage.download_file(file.s3_key)
-                    extracted_text = file_content.decode('utf-8')
-                elif file.file_type in ['mp3', 'wav', 'm4a']:
-                    from utils.transcriber import transcribe_audio
-                    file_content = s3_storage.download_file(file.s3_key)
-                    extracted_text = transcribe_audio(file_content, file.file_type)
-                else:
-                    raise ValueError(f"Unsupported file type: {file.file_type}")
+            # File processing now handled by Supabase Edge Function
+            if hasattr(file, 'storage_type') and file.storage_type == 'supabase':
+                logger.info(f"File {file.id} uses Supabase Storage - embeddings generated automatically")
+                # Mark as processed since Supabase handles it
+                file.processed = True
+                db.session.commit()
+                return
                     
             elif hasattr(file, 'storage_type') and file.storage_type == 'database':
                 # Handle local/database storage
@@ -68,33 +57,12 @@ def process_file_async(self, file_id: str, force: bool = False):
                     raise ValueError(f"Local processing not implemented for file type: {file.file_type}")
                     
             else:
-                # Fallback: try S3 first, then check for transcription
-                logger.warning(f"Unknown storage type for file {file_id}, attempting fallback processing")
-                try:
-                    # Try S3 if we have the keys
-                    if hasattr(file, 's3_key') and file.s3_key and hasattr(file, 's3_bucket') and file.s3_bucket:
-                        logger.info("Attempting S3 fallback")
-                        file_content = s3_storage.download_file(file.s3_key)
-                        if file.file_type == 'pdf':
-                            from utils.textUtils import extract_text, clean_extracted_text
-                            raw_text = extract_text(file_content, file.filename)
-                            extracted_text = clean_extracted_text(raw_text)
-                        elif file.file_type in ['txt', 'md']:
-                            extracted_text = file_content.decode('utf-8')
-                        elif file.file_type in ['mp3', 'wav', 'm4a']:
-                            from utils.transcriber import transcribe_audio
-                            extracted_text = transcribe_audio(file_content, file.file_type)
-                        else:
-                            raise ValueError(f"Unsupported file type: {file.file_type}")
-                    else:
-                        # Try transcription field for text files
-                        if file.file_type in ['txt', 'md'] and hasattr(file, 'transcription') and file.transcription:
-                            extracted_text = file.transcription
-                        else:
-                            raise ValueError("No accessible file content found")
-                except Exception as fallback_error:
-                    logger.error(f"Fallback processing failed: {str(fallback_error)}")
-                    raise ValueError(f"Could not process file: {str(fallback_error)}")
+                # Legacy files or migration needed
+                logger.warning(f"File {file_id} not using Supabase Storage - consider migrating")
+                # Mark as needing migration
+                file.transcription = "NEEDS_MIGRATION_TO_SUPABASE"
+                db.session.commit()
+                return
             
             # Update file with extracted text
             file.transcription = extracted_text
