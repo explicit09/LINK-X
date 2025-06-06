@@ -52,11 +52,10 @@ class AuthService {
       }
     );
 
-    // Load auth state from localStorage on initialization
+    // Initialize auth state on construction
     if (typeof window !== 'undefined') {
-      this.loadAuthState();
-      // Clear old session data on initialization
-      this.supabase.clearOldSessionData();
+      // First try to restore from Supabase session
+      this.initializeFromSupabaseSession();
     }
   }
 
@@ -68,6 +67,36 @@ class AuthService {
       AuthService.instance = new AuthService();
     }
     return AuthService.instance;
+  }
+
+  /**
+   * Initialize auth state from Supabase session
+   */
+  private async initializeFromSupabaseSession() {
+    try {
+      // First check if we have a Supabase session
+      const session = await this.supabase.getCurrentSession();
+      
+      if (session) {
+        console.log('[AuthService] Found existing Supabase session');
+        // Try to establish backend session with the token
+        const loginSuccess = await this.loginWithSupabase(session.access_token);
+        
+        if (!loginSuccess) {
+          console.log('[AuthService] Backend session establishment failed, loading from localStorage');
+          // Fallback to localStorage if backend session fails
+          this.loadAuthState();
+        }
+      } else {
+        console.log('[AuthService] No Supabase session found, loading from localStorage');
+        // No Supabase session, try localStorage
+        this.loadAuthState();
+      }
+    } catch (error) {
+      console.error('[AuthService] Failed to initialize from Supabase session:', error);
+      // Fallback to localStorage
+      this.loadAuthState();
+    }
   }
 
   /**
@@ -273,6 +302,30 @@ class AuthService {
     }
 
     return response;
+  }
+
+  /**
+   * Set up auth state change listener
+   * This ensures we stay in sync with Supabase auth state
+   */
+  setupAuthStateListener() {
+    if (typeof window === 'undefined') return;
+    
+    // Import supabase directly to set up listener
+    import('@/supabaseconfig').then(({ supabase, onAuthStateChange }) => {
+      onAuthStateChange(async (session) => {
+        if (session) {
+          // Session exists, try to sync with backend
+          const loginSuccess = await this.loginWithSupabase(session.access_token);
+          if (!loginSuccess) {
+            console.log('[AuthService] Failed to sync session with backend');
+          }
+        } else {
+          // No session, clear auth state
+          this.clearAuthState();
+        }
+      });
+    });
   }
 
   // Getters - preserve exact interface

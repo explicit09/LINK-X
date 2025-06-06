@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { AlertProvider } from '@/contexts/AlertContext';
 import { SupabaseProvider } from '@/contexts/SupabaseContext';
 import { AuthInitializer } from '@/components/auth/AuthInitializer';
+import { AuthStateProvider } from '@/components/auth/AuthStateProvider';
 import { setupGlobalErrorHandlers } from '@/lib/error-handlers';
 
 interface ClientLayoutProps {
@@ -25,11 +26,13 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
       disableTransitionOnChange
     >
       <SupabaseProvider>
-        <AuthInitializer>
-          <AlertProvider>
-            {children}
-          </AlertProvider>
-        </AuthInitializer>
+        <AuthStateProvider>
+          <AuthInitializer>
+            <AlertProvider>
+              {children}
+            </AlertProvider>
+          </AuthInitializer>
+        </AuthStateProvider>
       </SupabaseProvider>
     </ThemeProvider>
   );
