@@ -1,70 +1,167 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
+import { CanvasCoursesGrid } from '@/components/dashboard/CanvasCoursesGrid';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import Sidebar from "@/components/dashboard/DashSidebar";
-import StatisticsCard from "@/components/dashboard/StatisticsCard";
-import MarketTrends from "@/components/dashboard/MarketTrends";
-import CoursesList from "@/components/dashboard/CoursesList";
-import AudioUpload from "@/components/dashboard/AudioUpload";
-import RecentlyCompletedCourses from "@/components/dashboard/RecentCourses";
-import Header from "@/components/learn-x/Header";
-import Footer from "@/components/landing/Footer";
-import { cn } from "@/lib/utils";
-import { BookOpen, Clock, TrendingUp, GraduationCap } from "lucide-react";
-import LearnPrompt from "@/components/dashboard/LearnPrompt";
+import { useAuthUser } from '@/hooks/useAuthUser';
+import { Search, Plus, Filter } from "lucide-react";
 import AccessCodeCard from "@/components/dashboard/AccessCodeCard";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-export default function Dashboard() {
+interface Course {
+  id: string;
+  title: string;
+  code?: string;
+  description?: string;
+  category?: string;
+  instructor: {
+    id: string;
+    name: string;
+  };
+  stats?: {
+    materials: number;
+    modules: number;
+    students: number;
+  };
+  term?: string;
+  credits?: number;
+}
+
+export default function CoursesPage() {
   const [search, setSearch] = useState("");
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [accessCode, setAccessCode] = useState("");
   const [showPopup, setShowPopup] = useState(false);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all");
   const router = useRouter();
+  const { user: currentUser } = useAuthUser();
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const res = await fetch('http://localhost:8080/api/v2/courses', {
+          method: 'GET',
+          credentials: 'include',
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setCourses(data.data || []);
+      } catch (err) {
+        console.error('Failed to load courses:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
+
   const handleCourseAdded = () => {
-    setShowPopup(false);     // Close popup
-    router.refresh();        // Refresh page content
+    setShowPopup(false);
+    router.refresh();
   };
 
-  return (
-    <div className="min-h-screen bg-white text-gray-900 flex flex-col">
-      <Sidebar onCollapseChange={(value) => setIsCollapsed(value)} userRole={"student"} />
-      <div className={cn("flex-1 transition-all duration-300", isCollapsed ? "ml-14" : "ml-44")}>
-        <main className={cn("pt-6 transition-all duration-300", isCollapsed ? "px-6 md:px-8 lg:px-12" : "px-4")}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
-            <div>
-              <h1 className="text-4xl font-bold text-blue-600">Current Courses</h1>
-              <h2 className="text-lg font-medium text-gray-700">
-                Welcome back to Learn-X! Here&apos;s your current courses.
-              </h2>
-            </div>
+  // Filter courses based on search and filter
+  const filteredCourses = courses.filter((course) => {
+    const matchesSearch = course.title.toLowerCase().includes(search.toLowerCase()) ||
+                         course.code?.toLowerCase().includes(search.toLowerCase()) ||
+                         course.instructor?.name.toLowerCase().includes(search.toLowerCase());
+    
+    const matchesFilter = filter === "all" || 
+                         (filter === "current" && course.term === "Fall 2024") ||
+                         (filter === "past" && course.term !== "Fall 2024");
+    
+    return matchesSearch && matchesFilter;
+  });
 
-            <div className="mt-4 sm:mt-0">
-              <button
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                onClick={() => setShowPopup(true)}
-              >
-                + Join Course
-              </button>
-            </div>
+  return (
+    <SharedDashboardLayout
+      pageTitle="All Courses"
+      showGamification={false}
+      showFocusMode={false}
+      currentUser={currentUser}
+    >
+      <div className="space-y-6">
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">All Courses</h1>
+            <p className="text-gray-600 mt-1">
+              Browse and enroll in available courses
+            </p>
           </div>
 
-          <AccessCodeCard open={showPopup} onClose={() => setShowPopup(false)} onSuccess={() => {
-            setShowPopup(false);
-            router.push('/dashboard'); // ✅ This will now work properly
-          }} />
+          <Button
+            onClick={() => setShowPopup(true)}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Join Course
+          </Button>
+        </div>
 
-          <CoursesList search={search} setSearch={setSearch} />
-        </main>
-      </div>
+        {/* Search and Filter Bar */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              type="text"
+              placeholder="Search courses, instructors, or course codes..."
+              className="pl-10"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filter courses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Courses</SelectItem>
+              <SelectItem value="current">Current Term</SelectItem>
+              <SelectItem value="past">Past Terms</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-      {/* Footer with adjusted styling */}
-      <div className={cn(" transition-all duration-300 flex-shrink-0 h-[25vh]", isCollapsed ? "ml-14" : "ml-44")}>
-        <Footer />
+        {/* Course Results */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-gray-600">
+              Showing {filteredCourses.length} of {courses.length} courses
+            </p>
+          </div>
+          
+          {/* Canvas-style Course Grid */}
+          <CanvasCoursesGrid
+            courses={filteredCourses}
+            loading={loading}
+            emptyMessage={
+              search
+                ? `No courses found matching "${search}"`
+                : "No courses available"
+            }
+          />
+        </div>
+
+        {/* Access Code Modal */}
+        <AccessCodeCard 
+          open={showPopup} 
+          onClose={() => setShowPopup(false)} 
+          onSuccess={handleCourseAdded}
+        />
       </div>
-    </div>
+    </SharedDashboardLayout>
   );
 }

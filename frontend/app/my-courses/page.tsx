@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import CourseForm from '@/components/dashboard/CourseForm';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
+import { CanvasCoursesGrid } from '@/components/dashboard/CanvasCoursesGrid';
 import {
   MoreVertical,
   Search,
@@ -65,6 +66,16 @@ interface Course {
   lastActivity?: string;
   progress?: number;
   color?: string;
+  instructor?: {
+    id: string;
+    name: string;
+  };
+  stats?: {
+    materials: number;
+    modules: number;
+    students: number;
+  };
+  credits?: number;
 }
 
 export default function MyCoursesPage() {
@@ -465,171 +476,20 @@ export default function MyCoursesPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCourses.map((course) => (
-            <Card
-              key={course.id}
-              className="transition-all duration-200 cursor-pointer group border border-blue-200 hover:border-blue-400 hover:shadow-lg hover:scale-[1.02] bg-gradient-to-br from-gray-50/50 to-white"
-              onClick={() => router.push(`/courses/${course.id}`)}
-              style={{
-                boxShadow: '0px 2px 6px rgba(0,0,0,0.04)',
-              }}
-            >
-              <CardHeader className="pb-3 relative">
-                {/* Enhanced Status Badge - Top Left */}
-                <div className="absolute -top-1 -left-1 z-10">
-                  <Badge
-                    className={`text-xs font-medium px-2 py-1 shadow-sm border-0 ${
-                      course.published
-                        ? 'bg-green-500 text-white'
-                        : 'bg-blue-500 text-white'
-                    }`}
-                  >
-                    {course.published ? (
-                      <>
-                        <Eye className="h-3 w-3 mr-1" />
-                        Published
-                      </>
-                    ) : (
-                      <>
-                        <EyeOff className="h-3 w-3 mr-1" />
-                        Draft
-                      </>
-                    )}
-                  </Badge>
-                </div>
-
-                <div className="flex items-start justify-between pt-4">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <div
-                        className={`w-3 h-3 rounded-full ${course.color} shadow-sm`}
-                      />
-                      <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
-                        {course.code}
-                      </span>
-                    </div>
-                    <CardTitle className="text-lg font-semibold text-gray-900 line-clamp-1 group-hover:text-blue-600 transition-colors">
-                      {course.title}
-                    </CardTitle>
-                    <p className="text-sm text-gray-500 mt-1">{course.term}</p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        asChild
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/courses/${course.id}`);
-                          }}
-                        >
-                          <BookOpen className="h-4 w-4 mr-2" />
-                          Open Course
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingCourse(course);
-                          }}
-                        >
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDeletingCourse(course);
-                          }}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              </CardHeader>
-
-              <CardContent>
-                <p className="text-sm text-gray-600 line-clamp-2 mb-4">
-                  {course.description || 'No description provided'}
-                </p>
-
-                {/* Enhanced Progress Bar */}
-                {course.progress !== undefined && (
-                  <div className="mb-4">
-                    <div className="flex justify-between text-xs text-gray-500 mb-1">
-                      <span>Course Development</span>
-                      <span>{course.progress}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${course.progress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Original 3-Column Stats Layout */}
-                <div className="grid grid-cols-3 gap-4 text-center text-sm">
-                  <div>
-                    <div className="flex items-center justify-center text-blue-600 mb-1">
-                      <Users className="h-4 w-4" />
-                    </div>
-                    <p className="font-semibold text-gray-900">
-                      {course.studentsCount}
-                    </p>
-                    <p className="text-xs text-gray-500">Students</p>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-center text-green-600 mb-1">
-                      <BookOpen className="h-4 w-4" />
-                    </div>
-                    <p className="font-semibold text-gray-900">
-                      {course.materialsCount}
-                    </p>
-                    <p className="text-xs text-gray-500">Materials</p>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-center text-orange-600 mb-1">
-                      <Clock className="h-4 w-4" />
-                    </div>
-                    <p className="font-semibold text-gray-900 text-xs">
-                      {course.lastActivity}
-                    </p>
-                    <p className="text-xs text-gray-500">Updated</p>
-                  </div>
-                </div>
-
-                {course.accessCode && (
-                  <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-lg text-center">
-                    <p className="text-xs text-blue-600 mb-1 font-medium">
-                      Access Code
-                    </p>
-                    <p className="font-mono font-bold text-blue-700 text-lg tracking-wider">
-                      {course.accessCode}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <CanvasCoursesGrid
+          courses={filteredCourses.map(course => ({
+            ...course,
+            instructor: course.instructor || { id: '1', name: 'Unknown Instructor' },
+            stats: course.stats || {
+              materials: course.materialsCount || 0,
+              modules: 0,
+              students: course.studentsCount || 0,
+            },
+            credits: course.credits || 3,
+          }))}
+          loading={false}
+          emptyMessage="No courses found"
+        />
       )}
 
       {/* Create Course Dialog */}

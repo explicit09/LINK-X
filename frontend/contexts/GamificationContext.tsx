@@ -38,6 +38,12 @@ interface UserStats {
   rank?: number;
   next_level_xp: number;
   current_level_xp: number;
+  longest_streak?: number;
+  weekly_login_days?: number;
+  weekly_help_given?: number;
+  weekly_time_spent?: number;
+  weekly_files_viewed?: number;
+  completion_rate?: number;
 }
 
 interface Achievement {
@@ -154,7 +160,29 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     try {
       const response = await api.get('/api/v2/gamification/stats');
       if (response.data.status === 'success') {
-        setUserStats(response.data.data);
+        const data = response.data.data;
+        // Map backend response to frontend interface
+        const stats: UserStats = {
+          user_id: user.id,
+          total_xp: data.totalXP || data.total_xp || 0,
+          level: data.currentLevel || data.current_level || 1,
+          current_streak: data.dailyStreak || data.daily_streak || 0,
+          weekly_goal_progress: data.weeklyProgress || data.weekly_progress || 0,
+          weekly_goal_target: data.weeklyGoal || data.weekly_goal || 500,
+          last_activity: new Date().toISOString(), // Backend doesn't return this yet
+          achievements_count: 0, // Will be set from achievements endpoint
+          rank: data.rank,
+          next_level_xp: data.xpToNextLevel || data.xp_to_next_level || 100,
+          current_level_xp: data.currentXP || data.current_xp || 0,
+          longest_streak: data.maxStreak || data.max_streak || 0,
+          // Additional stats for dashboard
+          weekly_login_days: 0, // TODO: Calculate from activities
+          weekly_help_given: 0, // TODO: Calculate from activities
+          weekly_time_spent: 0, // TODO: Calculate from activities
+          weekly_files_viewed: 0, // TODO: Calculate from activities
+          completion_rate: 0 // TODO: Calculate from course progress
+        };
+        setUserStats(stats);
       }
     } catch (error) {
       console.error('Failed to fetch user stats:', error);
@@ -169,7 +197,20 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     try {
       const response = await api.get('/api/v2/gamification/achievements');
       if (response.data.status === 'success') {
-        const newAchievements = response.data.data.filter(
+        const achievementsData = response.data.data.achievements || response.data.data || [];
+        
+        // Map backend response to frontend Achievement interface
+        const mappedAchievements: Achievement[] = achievementsData.map((a: any) => ({
+          id: a.id,
+          name: a.name || a.achievement_name,
+          description: a.description,
+          icon: a.icon || '🏆',
+          earned_at: a.earned_at,
+          xp_reward: a.xp_reward || 0
+        }));
+        
+        // Find new achievements
+        const newAchievements = mappedAchievements.filter(
           (achievement: Achievement) => !achievements.find(a => a.id === achievement.id)
         );
         
@@ -181,7 +222,10 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
           });
         });
         
-        setAchievements(response.data.data);
+        setAchievements(mappedAchievements);
+        
+        // Update achievement count in stats
+        setUserStats(prev => prev ? { ...prev, achievements_count: mappedAchievements.length } : null);
       }
     } catch (error) {
       console.error('Failed to fetch achievements:', error);
