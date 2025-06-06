@@ -16,8 +16,8 @@ os.environ.update({
     'SUPABASE_JWT_SECRET': 'EBdk62TNJ2Ku7oMGN4ZXCjIOsg17P9PydhA9/orqUYV+cADaT/ZbTFMpCo90FfG05StLcKdrfH9zDeqLI2xIRg==',
     'SUPABASE_DB_URL': 'postgresql://postgres:learnx@2321@db.torsffahnivnzcnjnxgc.supabase.co:5432/postgres',
     
-    # Legacy support
-    'POSTGRES_URL': 'postgresql://postgres:learnx@2321@db.torsffahnivnzcnjnxgc.supabase.co:5432/postgres',
+    # Database URL
+    'DATABASE_URL': 'postgresql://postgres:learnx@2321@db.torsffahnivnzcnjnxgc.supabase.co:5432/postgres',
     
     # Flask
     'FLASK_ENV': 'development',

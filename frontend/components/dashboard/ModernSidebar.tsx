@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/firebaseconfig';
+import { signOut } from '@/supabaseconfig';
 import { useRouter } from 'next/navigation';
 import {
   BookOpen,
@@ -110,7 +109,7 @@ const ModernSidebar = ({
 
   const handleSignOut = async () => {
     try {
-      await signOut(auth);
+      await signOut();
       router.push('/login');
     } catch (error) {
       console.error('Error signing out:', error);

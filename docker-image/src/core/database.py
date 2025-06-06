@@ -19,14 +19,14 @@ class DatabaseManager:
         # Don't initialize db here as it's already initialized in the main app
         # db.init_app(app) is called in initialize_extensions
         
-        # Create engine and session factory with Neon-optimized settings
+        # Create engine and session factory with Supabase-optimized settings
         self.engine = create_engine(
             app.config['SQLALCHEMY_DATABASE_URI'],
             pool_pre_ping=True,
-            pool_size=5,  # Reduced for Neon
-            max_overflow=10,  # Reduced for Neon
+            pool_size=5,  # Optimized for Supabase
+            max_overflow=10,  # Optimized for Supabase
             pool_timeout=30,
-            pool_recycle=300,  # 5 minutes - shorter for Neon
+            pool_recycle=300,  # 5 minutes - optimized for Supabase
             connect_args={
                 "sslmode": "require",
                 "connect_timeout": 10,

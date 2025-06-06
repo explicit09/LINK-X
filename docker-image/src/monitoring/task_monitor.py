@@ -16,8 +16,8 @@ from celery_app import app as celery_app
 redis_client = redis.from_url(os.getenv('REDIS_URL', 'redis://localhost:6379/0'))
 
 # Database setup
-POSTGRES_URL = os.getenv("POSTGRES_URL")
-engine = create_engine(POSTGRES_URL, pool_pre_ping=True)
+DATABASE_URL = os.getenv("DATABASE_URL")
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 Session = sessionmaker(bind=engine)
 
 class TaskMonitor:

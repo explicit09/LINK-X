@@ -12,10 +12,14 @@ import { useUserJourneyStage, UserJourneyStage } from '@/hooks/useUserJourneySta
 import { useAuthUser } from '@/hooks/useAuthUser';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useDashboardOverview, useAIRecommendations } from '@/hooks/useDashboardData';
-import { OnboardingGuard } from '@/components/auth/OnboardingGuard';
+import { authService } from '@/lib/auth-service';
 
 function DashboardContent() {
   const router = useRouter();
+  
+  // Simple auth check
+  const [authCheckComplete, setAuthCheckComplete] = useState(false);
+  const [shouldRedirect, setShouldRedirect] = useState<string | null>(null);
   
   // Use auth guard to ensure user is authenticated and registered
   const authState = useAuthGuard(true);
@@ -32,7 +36,57 @@ function DashboardContent() {
   const { data: aiData } = useAIRecommendations();
   
   // Feature flag to enable new dashboard (set to true to test)
-  const useProgressiveDashboard = true; // Make sure this is enabled
+  const useProgressiveDashboard = true;
+
+  // SIMPLE AUTH CHECK - bypass complex flows
+  useEffect(() => {
+    const simpleAuthCheck = async () => {
+      console.log('[Dashboard] Starting simple auth check...');
+      
+      // Check if user is authenticated
+      const isAuth = authService.isAuthenticated();
+      const isReg = authService.isRegistered();
+      const hasOnboarding = authService.hasCompletedOnboarding();
+      const user = authService.getUser();
+      
+      console.log('[Dashboard] Auth status:', {
+        isAuthenticated: isAuth,
+        isRegistered: isReg,
+        hasCompletedOnboarding: hasOnboarding,
+        user: user?.email
+      });
+
+      // If all conditions are met, allow access
+      if (isAuth && isReg && hasOnboarding) {
+        console.log('[Dashboard] All auth conditions met, allowing access');
+        setAuthCheckComplete(true);
+        return;
+      }
+
+      // If not authenticated, redirect to login
+      if (!isAuth) {
+        console.log('[Dashboard] Not authenticated, redirecting to login');
+        setShouldRedirect('/login');
+        return;
+      }
+
+      // If not registered or no onboarding, redirect to onboarding
+      if (!isReg || !hasOnboarding) {
+        console.log('[Dashboard] Not registered or onboarding incomplete, redirecting to onboarding');
+        setShouldRedirect('/onboarding');
+        return;
+      }
+    };
+
+    simpleAuthCheck();
+  }, []);
+
+  // Handle redirects
+  useEffect(() => {
+    if (shouldRedirect) {
+      router.push(shouldRedirect);
+    }
+  }, [shouldRedirect, router]);
 
   // Handle user not registered case
   useEffect(() => {
@@ -76,6 +130,20 @@ function DashboardContent() {
     router.push('/schedule');
   };
 
+  // Show loading while checking auth
+  if (!authCheckComplete || shouldRedirect) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">
+            {shouldRedirect ? 'Redirecting...' : 'Verifying authentication...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (authState.isLoading || journeyLoading || (authState.isRegistered && role === 'unknown')) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -87,11 +155,6 @@ function DashboardContent() {
         </div>
       </div>
     );
-  }
-
-  // If not registered, auth guard will redirect to onboarding
-  if (!authState.isRegistered) {
-    return null;
   }
 
   // Debug user data
@@ -116,15 +179,6 @@ function DashboardContent() {
   // Use SharedDashboardLayout with professional structure
   return (
     <SharedDashboardLayout currentUser={currentUser}>
-      {/* Show first time guide only for truly new users with no courses */}
-      {false && ( // Temporarily disable FirstTimeUserGuide to prevent duplicate welcome
-        <FirstTimeUserGuide 
-          onGuideComplete={() => {
-            console.log('Guide completed');
-          }}
-        />
-      )}
-      
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Main Content - 3 columns */}
         <div className="lg:col-span-3">
@@ -158,9 +212,28 @@ function DashboardContent() {
 }
 
 export default function Dashboard() {
-  return (
-    <OnboardingGuard>
-      <DashboardContent />
-    </OnboardingGuard>
-  );
+  // Remove OnboardingGuard - handle auth directly in component
+  return <DashboardContent />;
 }
+
+// Monitor all navigation events
+const originalPushState = history.pushState;
+const originalReplaceState = history.replaceState;
+
+history.pushState = function(...args) {
+  console.log('[Navigation] pushState to:', args[2]);
+  return originalPushState.apply(this, args);
+};
+
+history.replaceState = function(...args) {
+  console.log('[Navigation] replaceState to:', args[2]);
+  return originalReplaceState.apply(this, args);
+};
+
+window.addEventListener('beforeunload', () => {
+  console.log('[Navigation] Page unloading');
+});
+
+window.addEventListener('popstate', () => {
+  console.log('[Navigation] popstate event');
+});

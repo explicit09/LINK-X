@@ -30,18 +30,18 @@ logger = logging.getLogger(__name__)
 
 def get_connection():
     """Get database connection from environment."""
-    postgres_url = os.getenv("POSTGRES_URL")
-    if not postgres_url:
-        raise RuntimeError("POSTGRES_URL not set")
-    return psycopg2.connect(postgres_url, cursor_factory=RealDictCursor)
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL not set")
+    return psycopg2.connect(database_url, cursor_factory=RealDictCursor)
 
 def get_sqlalchemy_session():
     """Get SQLAlchemy session."""
-    postgres_url = os.getenv("POSTGRES_URL")
-    if not postgres_url:
-        raise RuntimeError("POSTGRES_URL not set")
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL not set")
     
-    engine = create_engine(postgres_url, pool_pre_ping=True)
+    engine = create_engine(database_url, pool_pre_ping=True)
     Session = sessionmaker(bind=engine)
     return Session()
 

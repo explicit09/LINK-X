@@ -16,10 +16,10 @@ import json
 
 def get_connection():
     """Get database connection."""
-    postgres_url = os.getenv("POSTGRES_URL")
-    if not postgres_url:
-        raise RuntimeError("POSTGRES_URL not set")
-    return psycopg2.connect(postgres_url, cursor_factory=RealDictCursor)
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL not set")
+    return psycopg2.connect(database_url, cursor_factory=RealDictCursor)
 
 def generate_random_embedding(dimension=1536):
     """Generate a random embedding for testing."""

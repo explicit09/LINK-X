@@ -14,9 +14,9 @@ def get_connection():
     load_dotenv()
     
     # Get database URL from environment variables
-    database_url = os.getenv('POSTGRES_URL')
+    database_url = os.getenv('DATABASE_URL')
     if not database_url:
-        raise ValueError("POSTGRES_URL environment variable is not set")
+        raise ValueError("DATABASE_URL environment variable is not set")
     
     try:
         conn = psycopg2.connect(database_url)

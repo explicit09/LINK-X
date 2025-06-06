@@ -9,12 +9,12 @@ from sqlalchemy.orm import sessionmaker
 load_dotenv()
 
 # Database setup
-POSTGRES_URL = os.getenv("POSTGRES_URL")
-if not POSTGRES_URL:
-    print("ERROR: POSTGRES_URL not set")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    print("ERROR: DATABASE_URL not set")
     exit(1)
 
-engine = create_engine(POSTGRES_URL, pool_pre_ping=True, pool_recycle=1800)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=1800)
 Session = sessionmaker(bind=engine, expire_on_commit=False)
 
 def check_files_status():

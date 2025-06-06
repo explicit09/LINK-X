@@ -3,8 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/firebaseconfig';
+import { signOut } from '@/supabaseconfig';
 import { useRouter } from 'next/navigation';
 import {
   BookOpen,
@@ -242,7 +241,7 @@ const Sidebar = ({ className, onCollapseChange, userRole }: SidebarProps) => {
               size={collapsed ? 'icon' : 'default'}
               onClick={async () => {
                 try {
-                  await signOut(auth);
+                  await signOut();
                   const API =
                     process.env.NEXT_PUBLIC_API_BASE_URL ||
                     'http://localhost:8080';

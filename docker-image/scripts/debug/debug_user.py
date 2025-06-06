@@ -12,12 +12,12 @@ from sqlalchemy.orm import sessionmaker
 from src.db.schema import Base
 
 # Database connection
-POSTGRES_URL = os.getenv("POSTGRES_URL")
-if not POSTGRES_URL:
-    print("POSTGRES_URL not set")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    print("DATABASE_URL not set")
     sys.exit(1)
 
-engine = create_engine(POSTGRES_URL)
+engine = create_engine(DATABASE_URL)
 Session = sessionmaker(bind=engine)
 
 def check_users():

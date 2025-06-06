@@ -3,8 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/firebaseconfig';
+import { signOut } from '@/supabaseconfig';
 import { useAuth } from '@/app/(auth)/AuthContext';
 
 type HeaderProps = {
@@ -20,7 +19,7 @@ const Header = ({ showAuthButton = true, isLoggedIn }: HeaderProps) => {
 
   const handleSignOut = async () => {
     try {
-      await signOut(auth);
+      await signOut();
       await fetch(`${API}/sessionLogout`, {
         method: 'POST',
         credentials: 'include',

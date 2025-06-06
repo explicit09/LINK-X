@@ -41,7 +41,7 @@ class ProductionConfig:
     
     @property
     def database_url(self) -> str:
-        """Get database URL (supports both DATABASE_URL and POSTGRES_URL)"""
+        """Get database URL from DATABASE_URL environment variable"""
         return os.getenv('DATABASE_URL') or os.getenv('POSTGRES_URL', '')
     
     @property

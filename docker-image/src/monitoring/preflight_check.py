@@ -12,16 +12,16 @@ def check_environment():
     """Check environment variables."""
     print("🔍 Checking environment...")
     
-    postgres_url = os.getenv("POSTGRES_URL")
-    if not postgres_url:
-        print("  ❌ POSTGRES_URL not set!")
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        print("  ❌ DATABASE_URL not set!")
         return False
     else:
-        print("  ✅ POSTGRES_URL is set")
+        print("  ✅ DATABASE_URL is set")
     
     # Check if we can connect
     try:
-        conn = psycopg2.connect(postgres_url)
+        conn = psycopg2.connect(database_url)
         conn.close()
         print("  ✅ Database connection successful")
     except Exception as e:
@@ -147,7 +147,7 @@ def main():
     
     # Connect to database
     try:
-        conn = psycopg2.connect(os.getenv("POSTGRES_URL"))
+        conn = psycopg2.connect(os.getenv("DATABASE_URL"))
         
         # Run checks
         if not check_current_state(conn):

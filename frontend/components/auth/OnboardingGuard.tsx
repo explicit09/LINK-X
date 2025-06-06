@@ -1,10 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { authAPI } from '@/lib/api';
-import { toast } from 'sonner';
-import { supabase } from '@/supabaseconfig';
+import { useAuth } from '@/app/(auth)/AuthContext';
 
 interface OnboardingGuardProps {
   children: React.ReactNode;
@@ -12,39 +10,57 @@ interface OnboardingGuardProps {
 
 /**
  * OnboardingGuard - Ensures students have completed onboarding before accessing protected pages
- * Redirects to /onboarding if student hasn't completed profile setup
+ * Uses existing auth context instead of making fresh API calls to prevent race conditions
  */
 export function OnboardingGuard({ children }: OnboardingGuardProps) {
   const router = useRouter();
+  const { user, loading, isRegistered, backendUser } = useAuth();
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    const checkOnboarding = async () => {
-      // Check if user is authenticated with Supabase
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/login');
-        return;
-      }
+    // Wait for auth context to finish loading
+    if (loading) {
+      return;
+    }
 
-      try {
-        // Check registration status with backend
-        const registrationCheck = await authAPI.v2.checkRegistration();
-        console.log('[OnboardingGuard] Registration check:', registrationCheck);
-        
-        // Check if user is registered and has completed onboarding
-        if (registrationCheck.isRegistered && !registrationCheck.has_completed_onboarding) {
-          toast.info('Please complete your profile setup first');
-          router.push('/onboarding');
-        }
-      } catch (error) {
-        console.error('[OnboardingGuard] Error checking registration:', error);
-        // If there's an error, assume user needs to register
-        router.push('/onboarding');
-      }
-    };
+    console.log('[OnboardingGuard] Auth state:', { user, isRegistered, backendUser });
 
-    checkOnboarding();
-  }, [router]);
+    // If no user, redirect to login
+    if (!user) {
+      console.log('[OnboardingGuard] No user found, redirecting to login');
+      router.push('/login');
+      return;
+    }
+
+    // If user exists but not registered with backend, redirect to onboarding
+    if (!isRegistered || !backendUser) {
+      console.log('[OnboardingGuard] User not registered with backend, redirecting to onboarding');
+      router.push('/onboarding');
+      return;
+    }
+
+    // For students, check if onboarding is completed
+    if (backendUser.role === 'student' && !backendUser.has_completed_onboarding) {
+      console.log('[OnboardingGuard] Student has not completed onboarding');
+      router.push('/onboarding');
+      return;
+    }
+
+    // All checks passed, allow access
+    console.log('[OnboardingGuard] All checks passed, allowing access');
+    setIsChecking(false);
+  }, [user, loading, isRegistered, backendUser, router]);
+  
+  if (loading || isChecking) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Verifying access...</p>
+        </div>
+      </div>
+    );
+  }
 
   return <>{children}</>;
 }

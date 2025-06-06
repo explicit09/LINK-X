@@ -17,10 +17,10 @@ import json
 
 def get_connection():
     """Get database connection from environment."""
-    postgres_url = os.getenv("POSTGRES_URL")
-    if not postgres_url:
-        raise RuntimeError("POSTGRES_URL not set")
-    return psycopg2.connect(postgres_url, cursor_factory=RealDictCursor)
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL not set")
+    return psycopg2.connect(database_url, cursor_factory=RealDictCursor)
 
 def check_s3_configuration():
     """Check S3 configuration and connectivity."""
