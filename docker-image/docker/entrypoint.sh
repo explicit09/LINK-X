@@ -8,7 +8,7 @@ if [ "${RUN_MIGRATIONS}" = "true" ]; then
 fi
 
 # Set Flask app
-export FLASK_APP=${FLASK_APP:-src.wsgi}
+export FLASK_APP=${FLASK_APP:-wsgi:app}
 
 # Start the application
 if [ "${FLASK_ENV}" = "development" ]; then
@@ -24,5 +24,5 @@ else
         --access-logfile - \
         --error-logfile - \
         --log-level ${LOG_LEVEL:-info} \
-        ${FLASK_APP}:app
+        wsgi:app
 fi

@@ -57,7 +57,7 @@ check_required_files() {
     required_files=(
         "railway.json"
         "railway.toml"
-        "docker-image/docker/Dockerfile.railway"
+        "Dockerfile"
         "docker-image/requirements.txt"
         "docker-image/src/app.py"
     )

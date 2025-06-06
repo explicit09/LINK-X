@@ -50,7 +50,7 @@ fi
 required_files=(
     ".env.production"
     "docker-compose.yml"
-    "docker-image/docker/Dockerfile.prod"
+    "Dockerfile"
 )
 
 for file in "${required_files[@]}"; do
@@ -81,12 +81,12 @@ echo -e "\n${YELLOW}4. Building production Docker images...${NC}"
 
 # Build backend
 docker build \
-    -f docker-image/docker/Dockerfile.prod \
+    -f Dockerfile \
     -t learnx-backend:latest \
     -t learnx-backend:$(date +%Y%m%d-%H%M%S) \
     --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
     --build-arg VCS_REF=$(git rev-parse --short HEAD) \
-    ./docker-image
+    .
 
 # Build frontend
 docker build \
