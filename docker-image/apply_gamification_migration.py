@@ -9,7 +9,7 @@ from supabase import create_client, Client
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv('../.env')
+load_dotenv('.env')
 
 # Get Supabase credentials
 SUPABASE_URL = os.getenv('SUPABASE_URL')

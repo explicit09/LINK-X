@@ -68,25 +68,43 @@ def get_user_stats_v2():
                 func.date(UserActivity.created_at) == today
             ).scalar() or 0
             
+            # Calculate weekly XP progress (Monday to Sunday)
+            today_weekday = today.weekday()  # 0=Monday, 6=Sunday
+            week_start = today - timedelta(days=today_weekday)
+            week_end = week_start + timedelta(days=6)
+            
+            weekly_xp = session.query(func.sum(UserActivity.xp_earned)).filter(
+                UserActivity.user_id == user_id,
+                func.date(UserActivity.created_at) >= week_start,
+                func.date(UserActivity.created_at) <= week_end
+            ).scalar() or 0
+            
             stats_data = {
                 "currentXP": stats.current_xp,
                 "currentLevel": stats.current_level,
                 "xpToNextLevel": xp_for_next_level,
                 "dailyStreak": stats.daily_streak,
                 "weeklyGoal": stats.weekly_goal,
-                "weeklyProgress": stats.weekly_progress,
+                "weeklyProgress": weekly_xp,  # Real weekly XP calculation
+                "weekly_goal_target": stats.weekly_goal,  # Frontend expects this name
+                "weekly_goal_progress": weekly_xp,  # Frontend expects this name
                 "todayCompleted": today_completed,
                 "todayXP": today_xp,
                 "rank": rank,
                 "totalXP": stats.total_xp,
-                "maxStreak": stats.max_streak
+                "maxStreak": stats.max_streak,
+                "level": stats.current_level,  # Alternative field name
+                "current_streak": stats.daily_streak,  # Alternative field name
+                "total_xp": stats.total_xp  # Alternative field name
             }
             
             return success_response(stats_data, message="User stats retrieved successfully")
             
     except Exception as e:
         logger.error(f"Get user stats error: {str(e)}")
-        return error_response("An error occurred fetching user stats", status_code=500)
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        return error_response(f"An error occurred fetching user stats: {str(e)}", status_code=500)
 
 
 @gamification_bp.route('/award-xp', methods=['POST'])
@@ -97,6 +115,7 @@ def award_xp_v2():
         user = g.current_user
         user_id = str(user.id)
         data = request.get_json()
+        
         
         if not data:
             return error_response("No data provided")
@@ -155,6 +174,7 @@ def get_user_achievements_v2():
     try:
         user = g.current_user
         user_id = str(user.id)
+        
         
         with get_session() as session:
             achievements = session.query(UserAchievement).filter(
@@ -324,3 +344,133 @@ def award_activity_xp(user_id: str, activity_type: str, **kwargs):
     except Exception as e:
         logger.error(f"Error awarding XP: {e}")
         return False
+
+
+@gamification_bp.route('/weekly-goals', methods=['GET'])
+@require_auth
+def get_weekly_goals_v2():
+    """Get user's weekly goals and progress"""
+    try:
+        user = g.current_user
+        user_id = str(user.id)
+        
+        with get_session() as session:
+            # Get user stats
+            stats = session.query(UserStats).filter(UserStats.user_id == user_id).first()
+            
+            if not stats:
+                # Create default stats for new user
+                stats = UserStats(user_id=user_id)
+                session.add(stats)
+                session.commit()
+                session.refresh(stats)
+            
+            # Calculate weekly XP progress (Monday to Sunday)
+            today = datetime.utcnow().date()
+            today_weekday = today.weekday()  # 0=Monday, 6=Sunday
+            week_start = today - timedelta(days=today_weekday)
+            week_end = week_start + timedelta(days=6)
+            
+            weekly_xp = session.query(func.sum(UserActivity.xp_earned)).filter(
+                UserActivity.user_id == user_id,
+                func.date(UserActivity.created_at) >= week_start,
+                func.date(UserActivity.created_at) <= week_end
+            ).scalar() or 0
+            
+            # Calculate daily progress this week
+            daily_activities = []
+            for i in range(7):
+                day = week_start + timedelta(days=i)
+                day_xp = session.query(func.sum(UserActivity.xp_earned)).filter(
+                    UserActivity.user_id == user_id,
+                    func.date(UserActivity.created_at) == day
+                ).scalar() or 0
+                
+                day_activities = session.query(func.count(UserActivity.id)).filter(
+                    UserActivity.user_id == user_id,
+                    func.date(UserActivity.created_at) == day
+                ).scalar() or 0
+                
+                daily_activities.append({
+                    "date": day.isoformat(),
+                    "day_name": day.strftime("%A"),
+                    "xp_earned": day_xp,
+                    "activities_count": day_activities,
+                    "is_today": day == today
+                })
+            
+            # Calculate days remaining in week
+            days_remaining = 7 - today_weekday if today_weekday < 7 else 1
+            
+            # Calculate daily target
+            xp_remaining = max(0, stats.weekly_goal - weekly_xp)
+            daily_target = xp_remaining // max(days_remaining, 1) if days_remaining > 0 else 0
+            
+            weekly_goals_data = {
+                "weekly_goal_target": stats.weekly_goal,
+                "weekly_goal_progress": weekly_xp,
+                "progress_percentage": min(100, (weekly_xp / stats.weekly_goal) * 100) if stats.weekly_goal > 0 else 0,
+                "days_remaining": days_remaining,
+                "daily_target": daily_target,
+                "week_start": week_start.isoformat(),
+                "week_end": week_end.isoformat(),
+                "daily_progress": daily_activities,
+                "is_goal_achieved": weekly_xp >= stats.weekly_goal
+            }
+            
+            return success_response(weekly_goals_data, message="Weekly goals retrieved successfully")
+            
+    except Exception as e:
+        logger.error(f"Get weekly goals error: {str(e)}")
+        return error_response("An error occurred fetching weekly goals", status_code=500)
+
+
+@gamification_bp.route('/weekly-goals', methods=['PUT'])
+@require_auth
+def update_weekly_goals_v2():
+    """Update user's weekly goal target"""
+    try:
+        user = g.current_user
+        user_id = str(user.id)
+        data = request.get_json()
+        
+        if not data:
+            return error_response("No data provided")
+        
+        new_weekly_goal = data.get('weekly_goal_target')
+        
+        if not new_weekly_goal or not isinstance(new_weekly_goal, int) or new_weekly_goal <= 0:
+            return error_response("Valid weekly_goal_target (positive integer) is required")
+        
+        if new_weekly_goal > 10000:  # Reasonable upper limit
+            return error_response("Weekly goal cannot exceed 10,000 XP")
+        
+        with get_session() as session:
+            # Get user stats
+            stats = session.query(UserStats).filter(UserStats.user_id == user_id).first()
+            
+            if not stats:
+                # Create new stats with the goal
+                stats = UserStats(user_id=user_id, weekly_goal=new_weekly_goal)
+                session.add(stats)
+            else:
+                # Update existing stats
+                stats.weekly_goal = new_weekly_goal
+            
+            session.commit()
+            session.refresh(stats)
+            
+            response_data = {
+                "weekly_goal_target": stats.weekly_goal,
+                "message": f"Weekly goal updated to {new_weekly_goal} XP"
+            }
+            
+            return success_response(
+                response_data,
+                message=f"Weekly goal updated to {new_weekly_goal} XP",
+                status_code=200
+            )
+            
+    except Exception as e:
+        logger.error(f"Update weekly goals error: {str(e)}")
+        return error_response("An error occurred updating weekly goals", status_code=500)

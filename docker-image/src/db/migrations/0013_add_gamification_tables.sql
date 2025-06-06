@@ -4,7 +4,7 @@
 -- Create user_stats table for tracking XP, levels, and streaks
 CREATE TABLE IF NOT EXISTS user_stats (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     current_xp INTEGER NOT NULL DEFAULT 0,
     current_level INTEGER NOT NULL DEFAULT 1,
     total_xp INTEGER NOT NULL DEFAULT 0,
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS user_stats (
 -- Create user_activities table for tracking XP earning events
 CREATE TABLE IF NOT EXISTS user_activities (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     activity_type VARCHAR(50) NOT NULL, -- 'file_view', 'todo_complete', 'chat_message', 'quiz_complete', 'login'
     xp_earned INTEGER NOT NULL DEFAULT 0,
     description TEXT,
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS user_activities (
 -- Create user_achievements table for badges and milestones
 CREATE TABLE IF NOT EXISTS user_achievements (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     achievement_type VARCHAR(50) NOT NULL, -- 'first_login', 'streak_5', 'level_10', 'files_viewed_100'
     achievement_name VARCHAR(100) NOT NULL,
     description TEXT,
@@ -216,11 +216,11 @@ SELECT
     us.daily_streak,
     us.weekly_progress,
     ROW_NUMBER() OVER (ORDER BY us.total_xp DESC) as rank
-FROM "User" u
+FROM users u
 LEFT JOIN user_stats us ON u.id = us.user_id
-LEFT JOIN "StudentProfile" sp ON u.id = sp.user_id
-LEFT JOIN "InstructorProfile" ip ON u.id = ip.user_id
-LEFT JOIN "AdminProfile" ap ON u.id = ap.user_id
+LEFT JOIN student_profiles sp ON u.id = sp.user_id
+LEFT JOIN instructor_profiles ip ON u.id = ip.user_id
+LEFT JOIN admin_profiles ap ON u.id = ap.user_id
 WHERE us.user_id IS NOT NULL
 ORDER BY us.total_xp DESC;
 
@@ -232,6 +232,18 @@ COMMENT ON FUNCTION award_xp IS 'Awards XP to user and updates stats/achievement
 COMMENT ON VIEW user_leaderboard IS 'Current user rankings by XP';
 
 -- Initialize existing users with default stats
-INSERT INTO user_stats (user_id)
-SELECT id FROM "User" 
+INSERT INTO user_stats (id, user_id, current_xp, current_level, total_xp, daily_streak, max_streak, weekly_goal, weekly_progress, created_at, updated_at)
+SELECT 
+    gen_random_uuid(), 
+    id, 
+    0, 
+    1, 
+    0, 
+    0, 
+    0, 
+    5, 
+    0,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+FROM users 
 WHERE id NOT IN (SELECT user_id FROM user_stats);
