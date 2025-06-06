@@ -30,9 +30,8 @@ def configure_jwt(app: Flask) -> JWTManager:
     )
     app.config['JWT_ALGORITHM'] = app.config.get('JWT_ALGORITHM', 'HS256')
     
-    # Configure for secure cookie authentication
-    from core.cookie_auth import cookie_auth
-    cookie_auth.configure_jwt_for_cookies(app)
+    # Cookie authentication removed during cleanup
+    # JWT tokens are now handled via Authorization headers
     
     jwt = JWTManager(app)
     

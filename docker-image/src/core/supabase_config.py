@@ -121,6 +121,14 @@ def get_database_url() -> str:
     return config.database_url
 
 
+def get_supabase_client() -> Optional[Client]:
+    """
+    Get the default Supabase client (admin client for backend operations)
+    This is a convenience alias for get_supabase_admin_client()
+    """
+    return get_supabase_admin_client()
+
+
 def test_supabase_connection() -> bool:
     """Test Supabase connectivity"""
     if not SUPABASE_AVAILABLE:

@@ -91,11 +91,6 @@ ai_api_latency = Histogram(
     ['model', 'operation']
 )
 
-embedding_generation_duration = Histogram(
-    'embedding_generation_duration_seconds',
-    'Time to generate embeddings',
-    ['model', 'chunk_size']
-)
 
 # User activity metrics
 user_sessions_active = Gauge(
