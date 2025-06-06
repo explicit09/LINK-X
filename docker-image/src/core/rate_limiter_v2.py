@@ -125,13 +125,14 @@ class RateLimiter:
             )
         except Exception as e:
             logger.error(f"Unexpected error in rate limiter: {e}")
-            # Fail open for any other errors
-            return True, {
-                'limit': max_requests,
-                'remaining': max_requests,
-                'reset': int(now + window_seconds),
-                'fallback': True
-            }
+            # Use conservative local fallback instead of failing completely open
+            logger.warning("SECURITY: Rate limiting using conservative local fallback due to error")
+            return local_rate_limiter.is_allowed(
+                key=key,
+                limit=max(1, max_requests // 2),  # More conservative limit
+                window=window_seconds,
+                cost=1
+            )
     
     def _fixed_window_check(
         self, 
@@ -180,12 +181,14 @@ class RateLimiter:
             )
         except Exception as e:
             logger.error(f"Unexpected error in fixed window rate limiter: {e}")
-            return True, {
-                'limit': max_requests,
-                'remaining': max_requests,
-                'reset': int(time.time()) + window_seconds,
-                'fallback': True
-            }
+            # Use conservative local fallback instead of failing open
+            logger.warning("SECURITY: Fixed window rate limiting using conservative local fallback due to error")
+            return local_rate_limiter.is_allowed(
+                key=key,
+                limit=max(1, max_requests // 2),  # More conservative limit
+                window=window_seconds,
+                cost=1
+            )
     
     def _token_bucket_check(
         self, 
@@ -255,12 +258,14 @@ class RateLimiter:
             )
         except Exception as e:
             logger.error(f"Unexpected error in token bucket rate limiter: {e}")
-            return True, {
-                'limit': capacity,
-                'remaining': capacity,
-                'reset': int(now + refill_rate),
-                'fallback': True
-            }
+            # Use conservative local fallback instead of failing open
+            logger.warning("SECURITY: Token bucket rate limiting using conservative local fallback due to error")
+            return local_rate_limiter.is_allowed(
+                key=key,
+                limit=max(1, capacity // 2),  # More conservative limit
+                window=refill_rate,
+                cost=1
+            )
     
     def reset_limits(self, key: str, identifier_type: str = 'ip'):
         """Reset rate limits for a specific key and identifier"""

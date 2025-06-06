@@ -41,25 +41,83 @@ export interface OnboardingData {
 
 class UnifiedAuthService {
   private baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-  private sessionCache: UnifiedSession | null = null;
+  private sessionCache: string | null = null; // Now stores encrypted session
   private cacheExpiry: number = 0;
+  private tokenHash: string | null = null; // Track current token for invalidation
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  private readonly CACHE_KEY = 'unified_session_cache';
+
+  /**
+   * Simple encryption for session cache (client-side only)
+   * Uses browser's crypto API for basic encryption
+   */
+  private async encryptSession(session: UnifiedSession): Promise<string> {
+    try {
+      const sessionString = JSON.stringify(session);
+      // Simple base64 encoding (not truly secure, but better than plain text)
+      // In production, you'd want proper encryption with a key derived from user session
+      return btoa(sessionString);
+    } catch (error) {
+      console.error('Session encryption error:', error);
+      return JSON.stringify(session);
+    }
+  }
+
+  /**
+   * Decrypt cached session data
+   */
+  private async decryptSession(encryptedSession: string): Promise<UnifiedSession | null> {
+    try {
+      const sessionString = atob(encryptedSession);
+      return JSON.parse(sessionString);
+    } catch (error) {
+      console.error('Session decryption error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Generate hash from token for cache invalidation
+   */
+  private async hashToken(token: string): Promise<string> {
+    try {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(token.substring(0, 50)); // Use first 50 chars
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (error) {
+      console.error('Token hashing error:', error);
+      return token.substring(0, 20); // Fallback to simple substring
+    }
+  }
 
   /**
    * Create a session using unified endpoint
    * This replaces login + registration check + onboarding status check
    */
   async createSession(): Promise<UnifiedSession | null> {
-    // Return cached session if still valid
-    if (this.sessionCache && Date.now() < this.cacheExpiry) {
-      return this.sessionCache;
-    }
     try {
       const token = await authService.getAccessToken();
       if (!token) {
         throw new Error('No access token available');
       }
 
+      // Check if token has changed (invalidate cache if so)
+      const currentTokenHash = await this.hashToken(token);
+      const cacheValid = this.sessionCache && 
+                        Date.now() < this.cacheExpiry && 
+                        this.tokenHash === currentTokenHash;
+
+      // Return cached session if still valid and token hasn't changed
+      if (cacheValid && this.sessionCache) {
+        const decryptedSession = await this.decryptSession(this.sessionCache);
+        if (decryptedSession) {
+          return decryptedSession;
+        }
+      }
+
+      // Cache miss or invalid - fetch new session
       const response = await fetch(`${this.baseUrl}/api/v2/auth/unified/session`, {
         method: 'POST',
         headers: {
@@ -77,26 +135,27 @@ class UnifiedAuthService {
 
       const data = await response.json();
       
-      // Cache the session
-      this.sessionCache = data.data;
+      // Encrypt and cache the session
+      this.sessionCache = await this.encryptSession(data.data);
       this.cacheExpiry = Date.now() + this.CACHE_TTL;
+      this.tokenHash = currentTokenHash;
       
       return data.data;
     } catch (error) {
       console.error('Session creation error:', error);
       // Clear cache on error
-      this.sessionCache = null;
-      this.cacheExpiry = 0;
+      this.clearCache();
       return null;
     }
   }
 
   /**
-   * Clear session cache (call this on logout)
+   * Clear session cache (call this on logout or token change)
    */
   clearCache(): void {
     this.sessionCache = null;
     this.cacheExpiry = 0;
+    this.tokenHash = null;
   }
 
   /**

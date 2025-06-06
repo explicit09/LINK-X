@@ -21,6 +21,7 @@ hiredis==2.2.3
 
 # Authentication (Firebase for auth, Supabase for data)
 firebase-admin==6.2.0
+bcrypt==4.1.2
 
 # AI/ML Core
 openai>=1.6.1,<2.0.0

@@ -4,11 +4,12 @@ Combines v1 and v2 authentication logic with version awareness
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 import json
 import hashlib
 import secrets
+import bcrypt
 
 from flask import current_app
 from flask_jwt_extended import create_access_token, create_refresh_token, decode_token
@@ -38,6 +39,10 @@ class UnifiedAuthService:
             raise AuthenticationError(f"Database connection failed: {str(e)}")
             
         self.redis_client = redis_client or self._get_redis_client()
+        
+        # Password migration tracking
+        self._migration_needed = False
+        self._new_hash = None
         
     def _get_redis_client(self) -> redis.Redis:
         """Get Redis client for session management"""
@@ -148,12 +153,25 @@ class UnifiedAuthService:
         if not user:
             raise AuthenticationError("Invalid credentials")
             
-        # Check password (legacy v1 used simple hash)
+        # Check password and handle migration
+        self._migration_needed = False
+        self._new_hash = None
+        
         if not self._verify_password(password, user.password_hash):
             raise AuthenticationError("Invalid credentials")
+        
+        # If password migration is needed, update the hash
+        if self._migration_needed and self._new_hash:
+            try:
+                logger.info(f"Updating password hash for user {user.id} from SHA256 to bcrypt")
+                self.user_repo.update(user.id, password_hash=self._new_hash)
+                logger.info("Password migration completed successfully")
+            except Exception as e:
+                logger.error(f"Failed to save migrated password hash: {e}")
+                # Don't fail the login, just log the issue
             
         # Update last login
-        self.user_repo.update(user.id, last_login=datetime.utcnow())
+        self.user_repo.update(user.id, last_login=datetime.now(timezone.utc))
         
         return self._generate_v1_tokens(user)
             
@@ -505,13 +523,48 @@ class UnifiedAuthService:
         return user
         
     def _hash_password(self, password: str) -> str:
-        """Hash password for v1 compatibility"""
-        # v1 used simple SHA256 (not secure, but maintaining compatibility)
-        return hashlib.sha256(password.encode()).hexdigest()
+        """
+        Hash password using bcrypt (secure)
+        New passwords use bcrypt, legacy SHA256 passwords are migrated on first login
+        """
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
         
     def _verify_password(self, password: str, password_hash: str) -> bool:
-        """Verify password for v1 compatibility"""
-        return self._hash_password(password) == password_hash
+        """
+        Verify password with automatic migration from legacy SHA256 to bcrypt
+        """
+        try:
+            # Check if it's a legacy SHA256 hash (64 characters, hex)
+            if len(password_hash) == 64 and all(c in '0123456789abcdef' for c in password_hash.lower()):
+                # Legacy SHA256 hash - verify and migrate
+                legacy_hash = hashlib.sha256(password.encode()).hexdigest()
+                if legacy_hash == password_hash:
+                    # Password is correct, migrate to bcrypt
+                    logger.info("Migrating legacy SHA256 password to bcrypt")
+                    new_hash = self._hash_password(password)
+                    
+                    # Update password hash in database
+                    try:
+                        # Get user by current context or find another way to update
+                        # For now, we'll let the calling function handle the migration
+                        # by checking if migration is needed after successful verification
+                        self._migration_needed = True
+                        self._new_hash = new_hash
+                        return True
+                    except Exception as e:
+                        logger.error(f"Failed to migrate password hash: {e}")
+                        # Still allow login even if migration fails
+                        return True
+                else:
+                    return False
+            else:
+                # Modern bcrypt hash
+                return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
+                
+        except Exception as e:
+            logger.error(f"Password verification error: {e}")
+            return False
         
     def _blacklist_token(self, jti: str, ttl: int):
         """Blacklist a token by JTI"""

@@ -98,27 +98,29 @@ class JWTBlacklistService:
             jti: JWT ID to check
             
         Returns:
-            bool: True if token is blacklisted
+            bool: True if token is blacklisted OR if Redis is unavailable (fail-safe)
         """
         try:
             redis_client = self.redis_client
             if not redis_client:
-                # Redis is unavailable - fail OPEN to prevent total lockout
-                logger.warning(f"SECURITY: Redis unavailable, allowing token {jti[:8]}... (fail-open)")
-                return False
+                # Redis is unavailable - fail CLOSED for security (deny access)
+                logger.error(f"SECURITY: Redis unavailable, denying token {jti[:8]}... (fail-safe)")
+                # In production, you might want to have a grace period or fallback
+                # but for security, we fail closed
+                return True
             
             key = f"{self.prefix}{jti}"
             return redis_client.exists(key) > 0
         except redis.ConnectionError as e:
-            # Redis is down - fail OPEN to prevent total lockout
+            # Redis is down - fail CLOSED for security
             logger.error(f"Redis connection error when checking blacklist: {e}")
-            logger.warning(f"SECURITY: Allowing token {jti[:8]}... due to Redis failure (fail-open)")
-            return False
+            logger.error(f"SECURITY: Denying token {jti[:8]}... due to Redis failure (fail-safe)")
+            return True
         except Exception as e:
-            # Other errors - log but fail open
+            # Other errors - fail closed for security
             logger.error(f"Unexpected error checking blacklist: {e}")
-            logger.warning(f"SECURITY: Allowing token {jti[:8]}... due to unexpected error (fail-open)")
-            return False
+            logger.error(f"SECURITY: Denying token {jti[:8]}... due to unexpected error (fail-safe)")
+            return True
     
     def blacklist_all_user_tokens(self, user_id: str) -> int:
         """
