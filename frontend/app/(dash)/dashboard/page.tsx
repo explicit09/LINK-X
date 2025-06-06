@@ -78,7 +78,9 @@ function DashboardContent() {
       }
     };
 
-    simpleAuthCheck();
+    // Add small delay to let auth state initialize from API
+    const timer = setTimeout(simpleAuthCheck, 500);
+    return () => clearTimeout(timer);
   }, []);
 
   // Handle redirects
