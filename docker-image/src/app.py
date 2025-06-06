@@ -40,7 +40,7 @@ from monitoring.api_version_monitor import monitoring_bp, create_api_usage_table
 # Import streaming and personalization blueprints
 from api.streaming import bp as streaming_bp
 # Personalization integrated into v2 endpoints
-from api.test_sse import bp as test_sse_bp
+# from api.test_sse import bp as test_sse_bp  # Removed - test file deleted during cleanup
 
 def create_app():
     """Application factory pattern"""
@@ -124,7 +124,7 @@ def create_app():
     # Note: personalization_v2_bp is imported via v2_endpoints, not directly
     
     # Test SSE endpoint - under /api/test
-    app.register_blueprint(test_sse_bp, url_prefix='/api/test')
+    # app.register_blueprint(test_sse_bp, url_prefix='/api/test')  # Removed - test file deleted during cleanup
     
     # Test auth endpoint removed during cleanup
     

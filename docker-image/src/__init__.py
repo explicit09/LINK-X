@@ -7,7 +7,7 @@ Main package initialization with unified app factory
 from .app import create_app
 
 # Export commonly used utilities
-from .core.database import db
+from .core.database_supabase import db_manager as db
 from .core.config import get_config
 
 __all__ = ['create_app', 'db', 'get_config']

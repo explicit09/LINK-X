@@ -23,8 +23,8 @@ bp = Blueprint('enhanced_rag', __name__, url_prefix='/api/v2/rag')
 
 # Initialize services
 ai_service = AIService()
-embeddings_service = EmbeddingsService(ai_service.client)
-hybrid_search = HybridSearchService(embeddings_service)
+# Note: EmbeddingsService is deprecated - Supabase handles embeddings automatically
+hybrid_search = HybridSearchService()
 
 
 @bp.route('/search', methods=['POST'])
