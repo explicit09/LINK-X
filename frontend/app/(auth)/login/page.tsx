@@ -11,7 +11,7 @@ import { SubmitButton } from '@/components/submit-button';
 import { SiteFooter } from '@/components/SiteFooter';
 
 import { signInWithEmail } from '@/lib/auth/supabase-auth-service';
-import { authService } from '@/lib/auth-service';
+import { useUnifiedAuth } from '@/hooks/useUnifiedAuth';
 
 // Import GoogleAuthButton with no SSR to prevent hydration mismatches
 const GoogleAuthButton = dynamic(
@@ -31,7 +31,7 @@ const GoogleAuthButton = dynamic(
 
 export default function Page() {
   const router = useRouter();
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const { getRedirectPath, isAuthenticated, session, loading: authLoading } = useUnifiedAuth();
 
   const [email, setEmail] = useState('');
   const [isSuccessful, setIsSuccessful] = useState(false);
@@ -49,23 +49,32 @@ export default function Page() {
       }
     }
 
+    // Handle auth state changes
     if (state === 'failed') {
       toast.error('Invalid credentials. Please try again.');
     } else if (state === 'invalid_data') {
       toast.error('Error validating your submission.');
     } else if (state === 'success') {
-      // Success toast is already shown in handleSubmit
       setIsSuccessful(true);
-      // Only redirect to dashboard if not redirected to onboarding
-      const hasCompletedOnboarding = authService.hasCompletedOnboarding();
-      const user = authService.getUser();
+      toast.success('Login successful!');
       
-      if (hasCompletedOnboarding || user?.role !== 'student') {
-        toast.success('Login successful!');
-        router.push('/dashboard');
+      // Use unified auth to determine redirect path
+      setTimeout(() => {
+        const redirectPath = getRedirectPath();
+        router.push(redirectPath);
+      }, 500);
+    }
+  }, [state, router, getRedirectPath]);
+
+  // Redirect already authenticated users
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && session?.registered) {
+      const redirectPath = getRedirectPath();
+      if (redirectPath !== '/login') {
+        router.push(redirectPath);
       }
     }
-  }, [state, router]);
+  }, [authLoading, isAuthenticated, session, getRedirectPath, router]);
 
   const handleSubmit = async (formData: FormData) => {
     setEmail(formData.get('email') as string);
@@ -84,42 +93,10 @@ export default function Page() {
 
       console.log('Supabase sign in successful:', authUser?.email);
       
-      // Get the access token for backend
-      const { authService: supabaseAuthService } = await import('@/lib/auth/supabase-auth-service');
-      const token = await supabaseAuthService.getAccessToken();
-      console.log('Got Supabase token');
-
-      // Establish session using auth service
-      console.log('Establishing backend session...');
-      const sessionSuccess = token ? await authService.loginWithSupabase(token) : false;
-
-      if (!sessionSuccess) {
-        console.error('Backend session failed');
-        setState('failed');
-        // Check if there's a more specific error message stored
-        const storedError = window.sessionStorage.getItem('auth_error');
-        if (storedError) {
-          toast.error(storedError);
-          window.sessionStorage.removeItem('auth_error');
-        } else {
-          toast.error('Session setup failed. Please try again.');
-        }
-        return;
-      }
-
-      // Check if user has completed onboarding
-      const hasCompletedOnboarding = authService.hasCompletedOnboarding();
+      // The AuthContext will automatically handle session creation
+      // through the unified authentication system
+      setState('success');
       
-      if (!hasCompletedOnboarding && authService.getUser()?.role === 'student') {
-        // Redirect to onboarding for students who haven't completed it
-        setState('success');
-        toast.info('Please complete your profile setup');
-        router.push('/onboarding');
-      } else {
-        // User has completed onboarding or is not a student
-        setState('success');
-        // router.push("/dashboard") will happen inside useEffect
-      }
     } catch (error: any) {
       console.error('Auth Error:', error.message);
       

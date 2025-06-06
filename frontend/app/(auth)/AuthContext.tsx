@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { authService, AuthUser, onAuthStateChange } from '@/lib/auth/supabase-auth-service';
-import { authService as backendAuthService } from '@/lib/auth-service';
+import { unifiedAuthService, UnifiedSession } from '@/lib/auth/unified-auth-service';
 
 type AuthContextType = {
   user: AuthUser | null;
@@ -10,6 +10,8 @@ type AuthContextType = {
   error: Error | null;
   isRegistered: boolean;
   backendUser: any | null;
+  session: UnifiedSession | null;
+  requiresOnboarding: boolean;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,6 +20,8 @@ const AuthContext = createContext<AuthContextType>({
   error: null,
   isRegistered: false,
   backendUser: null,
+  session: null,
+  requiresOnboarding: false,
 });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
@@ -26,6 +30,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [error, setError] = useState<Error | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const [backendUser, setBackendUser] = useState<any | null>(null);
+  const [session, setSession] = useState<UnifiedSession | null>(null);
+  const [requiresOnboarding, setRequiresOnboarding] = useState(false);
 
   useEffect(() => {
     try {
@@ -42,36 +48,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
 
           try {
-            // Get access token for backend
-            const token = await authService.getAccessToken();
+            // Use unified authentication service
+            const unifiedSession = await unifiedAuthService.createSession();
             
-            if (token) {
-              // Try to establish backend session with Supabase token
-              const loginSuccess = await backendAuthService.loginWithSupabase(token);
-
-              if (loginSuccess) {
-                // Check if user is fully registered
-                const registered = await backendAuthService.checkRegistrationStatus();
-                setIsRegistered(registered);
-
-                if (registered) {
-                  setBackendUser(backendAuthService.getUser());
-                  // User fully authenticated and registered
-                } else {
-                  // User authenticated but needs to complete registration
-                }
-              } else {
-                // Backend login failed
+            if (unifiedSession) {
+              setSession(unifiedSession);
+              setIsRegistered(unifiedSession.registered);
+              setRequiresOnboarding(unifiedSession.requires_onboarding);
+              
+              if (unifiedSession.registered) {
+                setBackendUser(unifiedSession.user);
               }
+            } else {
+              // Session creation failed - user authenticated but not registered
+              setSession(null);
+              setIsRegistered(false);
+              setBackendUser(null);
+              setRequiresOnboarding(true);
             }
           } catch (error) {
-            console.error('Error during authentication:', error);
+            console.error('Error during unified authentication:', error);
             // Don't set error state for expected cases like unregistered users
+            setSession(null);
+            setIsRegistered(false);
+            setBackendUser(null);
+            setRequiresOnboarding(true);
           }
         } else {
           // No user, clear everything
+          setSession(null);
           setIsRegistered(false);
           setBackendUser(null);
+          setRequiresOnboarding(false);
         }
 
         setLoading(false);
@@ -89,7 +97,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, error, isRegistered, backendUser }}
+      value={{ user, loading, error, isRegistered, backendUser, session, requiresOnboarding }}
     >
       {children}
     </AuthContext.Provider>

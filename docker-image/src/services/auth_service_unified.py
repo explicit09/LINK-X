@@ -205,6 +205,68 @@ class UnifiedAuthService:
             'role': user.role.role_type if user.role else 'student',
             'name': name  # Use the name parameter passed to the method
         }
+
+    def register_user(self, email: str, firebase_uid: str, role: str, name: str, 
+                     onboard_answers: Optional[Dict] = None, want_quizzes: bool = False, 
+                     university: Optional[str] = None, department: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Register a new user with profile data (for unified auth API)
+        
+        Args:
+            email: User email
+            firebase_uid: Supabase/Firebase UID
+            role: User role (student/instructor)
+            name: User display name
+            onboard_answers: Onboarding answers for students
+            want_quizzes: Whether student wants quizzes
+            university: University for instructors
+            department: Department for instructors
+            
+        Returns:
+            Created user data
+        """
+        # Create the user first
+        user_result = self.create_user(email, role, firebase_uid, name=name, version='v2')
+        user_id = user_result['user_id']
+        
+        # Create role-specific profile
+        if role == 'student':
+            # Create student profile
+            from core.database_supabase import db_manager
+            with db_manager.session_scope() as session:
+                student_profile = StudentProfile(
+                    user_id=user_id,
+                    name=name,
+                    onboard_answers=onboard_answers or {},
+                    want_quizzes=want_quizzes
+                )
+                session.add(student_profile)
+                session.commit()
+        elif role == 'instructor':
+            # Create instructor profile (if InstructorProfile model exists)
+            try:
+                from db.schema import InstructorProfile
+                from core.database_supabase import db_manager
+                with db_manager.session_scope() as session:
+                    instructor_profile = InstructorProfile(
+                        user_id=user_id,
+                        name=name,
+                        university=university,
+                        department=department
+                    )
+                    session.add(instructor_profile)
+                    session.commit()
+            except ImportError:
+                logger.warning("InstructorProfile model not found, skipping profile creation")
+        
+        return {
+            'user': {
+                'id': user_id,
+                'email': email,
+                'name': name,
+                'role': role
+            }
+        }
             
     def refresh_access_token(self, refresh_token: str) -> Dict[str, Any]:
         """

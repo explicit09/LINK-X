@@ -113,3 +113,12 @@ backups/
 *.sqlite3
 *.db
 frontend/node_modules.backup/
+
+# Prevent directories from reappearing
+coralx-frontend/
+additional_files/
+docker-image/learning_pdfs/
+docker-image/src/learning_pdfs/
+scripts/original_FAISS_scripts/
+scripts/FAISS_scripts_single_pdf/
+data/learning_pdfs/

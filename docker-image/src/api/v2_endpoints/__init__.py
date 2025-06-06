@@ -8,6 +8,7 @@ import logging
 
 # Import all sub-blueprints
 from .auth import auth_bp
+from .auth_unified import auth_unified_bp
 from .courses import courses_bp
 # Import files blueprint based on feature flag
 import os
@@ -34,6 +35,7 @@ api_v2 = Blueprint('api_v2', __name__, url_prefix='/api/v2')
 
 # Register all sub-blueprints
 api_v2.register_blueprint(auth_bp, url_prefix='/auth')
+api_v2.register_blueprint(auth_unified_bp, url_prefix='/auth/unified')
 api_v2.register_blueprint(courses_bp, url_prefix='/courses')
 api_v2.register_blueprint(files_bp, url_prefix='/files')
 api_v2.register_blueprint(activities_bp, url_prefix='/activities')

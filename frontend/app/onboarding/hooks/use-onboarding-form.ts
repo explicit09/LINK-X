@@ -5,8 +5,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { userAPI, authAPI, authService } from '@/lib/api';
-import { supabase } from '@/supabaseconfig';
+import { useUnifiedAuth } from '@/hooks/useUnifiedAuth';
 import type { FormData, OnboardingHookReturn } from '../types/onboarding';
 
 const INITIAL_FORM_DATA: FormData = {
@@ -22,9 +21,11 @@ const INITIAL_FORM_DATA: FormData = {
 
 export function useOnboardingForm(): OnboardingHookReturn {
   const router = useRouter();
+  const { registerUser, completeOnboarding, isRegistered, registering, completingOnboarding } = useUnifiedAuth();
   const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
+  
+  const isSubmitting = registering || completingOnboarding;
 
   const updateField = (field: keyof FormData, value: string | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -60,42 +61,34 @@ export function useOnboardingForm(): OnboardingHookReturn {
   const handleSubmit = async () => {
     if (!canProceed(4)) return;
 
-    setIsSubmitting(true);
     try {
-      // First, register the user with the backend
-      const registrationData = {
-        role: 'student' as const,
-        name: `${formData.firstName} ${formData.lastName}`,
-        onboard_answers: {
-          learningStyle: formData.learningStyle,
-          depth: formData.depth,
-          schedule: formData.schedule,
-          tone: formData.tone,
-          topics: formData.topics,
-          interests: formData.interests,
-        },
-        want_quizzes: true, // Default to true, can be made configurable
+      const onboardingAnswers = {
+        learningStyle: formData.learningStyle,
+        depth: formData.depth,
+        schedule: formData.schedule,
+        tone: formData.tone,
+        topics: formData.topics,
+        interests: formData.interests,
       };
 
-      // Register with backend
-      const registrationResult = await authAPI.v2.register(registrationData);
-      
-      // After successful registration, establish session with Supabase
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const sessionSuccess = await authService.loginWithSupabase(session.access_token);
-        if (!sessionSuccess) {
-          console.warn('Failed to establish session after registration');
-        }
+      if (!isRegistered) {
+        // User is not registered yet - register with onboarding data
+        await registerUser({
+          role: 'student',
+          name: `${formData.firstName} ${formData.lastName}`,
+          onboard_answers: onboardingAnswers,
+          want_quizzes: true,
+        });
+      } else {
+        // User is registered but needs to complete onboarding
+        await completeOnboarding(onboardingAnswers, true);
       }
 
       toast.success('Profile created successfully! Welcome to Learn-X!');
-      router.push('/dashboard');
+      // The hook will reload the page automatically, which will update the auth context
     } catch (error) {
       console.error('Error creating profile:', error);
       toast.error('An error occurred. Please try again.');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 

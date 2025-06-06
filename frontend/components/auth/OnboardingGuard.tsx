@@ -14,7 +14,7 @@ interface OnboardingGuardProps {
  */
 export function OnboardingGuard({ children }: OnboardingGuardProps) {
   const router = useRouter();
-  const { user, loading, isRegistered, backendUser } = useAuth();
+  const { user, loading, session, requiresOnboarding } = useAuth();
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
       return;
     }
 
-    console.log('[OnboardingGuard] Auth state:', { user, isRegistered, backendUser });
+    console.log('[OnboardingGuard] Auth state:', { user, session, requiresOnboarding });
 
     // If no user, redirect to login
     if (!user) {
@@ -33,15 +33,15 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
     }
 
     // If user exists but not registered with backend, redirect to onboarding
-    if (!isRegistered || !backendUser) {
+    if (!session || !session.registered) {
       console.log('[OnboardingGuard] User not registered with backend, redirecting to onboarding');
       router.push('/onboarding');
       return;
     }
 
-    // For students, check if onboarding is completed
-    if (backendUser.role === 'student' && !backendUser.has_completed_onboarding) {
-      console.log('[OnboardingGuard] Student has not completed onboarding');
+    // Check if onboarding is required
+    if (requiresOnboarding) {
+      console.log('[OnboardingGuard] User requires onboarding completion');
       router.push('/onboarding');
       return;
     }
@@ -49,7 +49,7 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
     // All checks passed, allow access
     console.log('[OnboardingGuard] All checks passed, allowing access');
     setIsChecking(false);
-  }, [user, loading, isRegistered, backendUser, router]);
+  }, [user, loading, session, requiresOnboarding, router]);
   
   if (loading || isChecking) {
     return (

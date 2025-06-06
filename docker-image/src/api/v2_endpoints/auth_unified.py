@@ -2,16 +2,13 @@
 Unified Authentication API v2 - Streamlined Supabase Authentication
 Single endpoints that handle complete authentication flow
 """
-from flask import Blueprint, request, g
-from datetime import datetime
+from flask import Blueprint, request
 import logging
 
-from core.auth.decorators import require_auth
-from core.exceptions import ValidationError, NotFoundError, UnauthorizedError, AuthenticationError
+from core.exceptions import ValidationError, AuthenticationError
 from services.auth.supabase_auth_service import SupabaseAuthService
 from repositories.user_repository import UserRepository
 from core.database_supabase import db_manager
-from db.schema import User, StudentProfile
 
 from ..utils import success_response, error_response
 
