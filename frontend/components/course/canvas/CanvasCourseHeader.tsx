@@ -79,31 +79,68 @@ export function CanvasCourseHeader({ course, className }: CanvasCourseHeaderProp
 
       {/* Course Banner */}
       <div 
-        className="relative h-48 w-full overflow-hidden"
-        style={{ backgroundColor: courseColor?.bg || '#1A73E8' }}
+        className="relative h-56 w-full overflow-hidden"
+        style={{ 
+          background: `linear-gradient(135deg, ${courseColor?.bg || '#1A73E8'}dd, ${courseColor?.bg || '#1A73E8'}88, ${courseColor?.bg || '#1A73E8'}aa)`
+        }}
       >
         {/* Pattern overlay */}
         <div 
-          className="absolute inset-0 opacity-30"
+          className="absolute inset-0 opacity-20"
           style={{
             backgroundImage: `url("${getPatternSVG(courseColor?.pattern || 'dots', courseColor?.name || 'blue')}")`,
             backgroundRepeat: 'repeat',
           }}
         />
         
+        {/* Decorative Elements */}
+        <div className="absolute top-6 right-6 opacity-20">
+          <div className="w-32 h-32 rounded-full border-4 border-white/30 animate-pulse"></div>
+        </div>
+        <div className="absolute bottom-8 right-16 opacity-15">
+          <div className="w-20 h-20 rounded-full bg-white/20"></div>
+        </div>
+        <div className="absolute top-1/2 left-6 opacity-10">
+          <div className="w-16 h-16 rotate-45 bg-white/20"></div>
+        </div>
+        
         {/* Course Info Overlay */}
-        <div className="absolute inset-0 flex items-end">
-          <div className="w-full px-6 pb-6">
+        <div className="absolute inset-0 flex flex-col justify-between">
+          {/* Top section with category badge */}
+          <div className="w-full px-6 pt-6">
             <div className="max-w-7xl mx-auto">
-              <span className="inline-block text-white/90 text-sm font-medium bg-black/20 px-3 py-1 rounded mb-3">
+              {course.category && (
+                <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2">
+                  <Award className="w-4 h-4 text-white" />
+                  <span className="text-sm font-medium text-white">
+                    {course.category}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Bottom section with course info */}
+          <div className="w-full px-6 pb-8">
+            <div className="max-w-7xl mx-auto">
+              <span className="inline-block text-white/90 text-sm font-semibold bg-black/30 backdrop-blur-sm px-4 py-2 rounded-full mb-4">
                 {course.code}
               </span>
-              <h1 className="text-3xl font-bold text-white mb-2 drop-shadow-sm">
+              <h1 className="text-4xl font-bold text-white mb-3 drop-shadow-lg leading-tight">
                 {course.title}
               </h1>
-              <p className="text-white/90 text-lg">
-                {course.instructor?.name || 'No instructor assigned'}
-              </p>
+              <div className="flex items-center gap-6 text-white/90">
+                {course.instructor && (
+                  <span className="text-lg font-medium">
+                    with {course.instructor.name}
+                  </span>
+                )}
+                {course.term && (
+                  <span className="text-lg">
+                    {course.term}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>

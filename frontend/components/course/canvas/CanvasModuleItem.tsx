@@ -128,8 +128,9 @@ export function CanvasModuleItem({
   return (
     <div 
       className={cn(
-        "flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors",
+        "flex items-center gap-3 px-5 py-4 hover:bg-blue-50 transition-all duration-200 group border-l-4 border-transparent hover:border-blue-400",
         available ? "cursor-pointer" : "cursor-not-allowed opacity-60",
+        material.completed && "bg-green-50 border-green-400",
         className
       )}
       onClick={handleClick}
