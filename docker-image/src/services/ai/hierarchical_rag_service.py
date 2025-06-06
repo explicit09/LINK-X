@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import re
 
 from services.ai.hybrid_search_service import HybridSearchService, SearchResult
-from services.ai.utils.embeddings import EmbeddingsService
+# Note: EmbeddingsService removed - Supabase handles embeddings automatically
 from core.query_router import QueryRouter
 
 logger = logging.getLogger(__name__)

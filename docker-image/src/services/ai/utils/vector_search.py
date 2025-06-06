@@ -104,18 +104,26 @@ def retrieve_chunks_pgvector(db_session, query_embedding, course_id=None, file_i
 
 
 class VectorSearchService:
-    """Service for vector-based content search"""
+    """Service for vector-based content search
     
-    def __init__(self, embeddings_service):
-        self.embeddings_service = embeddings_service
+    Note: This service now expects pre-computed embeddings from Supabase.
+    Embeddings are generated automatically via database triggers.
+    """
     
-    def search_similar_content(self, query: str, db_session, **filters) -> List[Dict]:
-        """Search for similar content using vector similarity"""
+    def __init__(self):
+        # No longer needs embeddings_service - Supabase handles it
+        pass
+    
+    def search_similar_content(self, query_embedding: List[float], db_session, **filters) -> List[Dict]:
+        """Search for similar content using vector similarity
+        
+        Args:
+            query_embedding: Pre-computed embedding vector (from Supabase)
+            db_session: Database session
+            **filters: Additional filters (course_id, file_id, etc.)
+        """
         try:
-            # Generate embedding for query
-            query_embedding = self.embeddings_service.generate_embeddings(query)
-            
-            # Perform vector search
+            # Perform vector search with pre-computed embedding
             results = retrieve_chunks_pgvector(
                 db_session=db_session,
                 query_embedding=query_embedding,

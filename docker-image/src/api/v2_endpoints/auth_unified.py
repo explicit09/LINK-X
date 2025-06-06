@@ -10,7 +10,7 @@ from services.auth.supabase_auth_service import SupabaseAuthService
 from repositories.user_repository import UserRepository
 from core.database_supabase import db_manager
 
-from ..utils import success_response, error_response
+from .utils import success_response, error_response
 
 logger = logging.getLogger(__name__)
 

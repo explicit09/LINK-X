@@ -9,7 +9,7 @@ from .clients.openai_client import OpenAIClient
 from .generators.content_generator import ContentGenerator
 from .generators.quiz_generator import QuizGenerator
 from .chat.chat_service import ChatService
-from .utils.embeddings import EmbeddingsService
+# Note: EmbeddingsService removed - Supabase handles embeddings automatically
 from .utils.personalization import PersonalizationService
 from .utils.vector_search import VectorSearchService, retrieve_chunks_pgvector
 
@@ -34,9 +34,9 @@ class AIService:
         self.content_generator = ContentGenerator(self.client)
         self.quiz_generator = QuizGenerator(self.client)
         self.chat_service = ChatService(self.client)
-        self.embeddings_service = EmbeddingsService(self.client)
+        # Note: EmbeddingsService removed - Supabase handles embeddings automatically
         self.personalization_service = PersonalizationService(self.client)
-        self.vector_search_service = VectorSearchService(self.embeddings_service)
+        self.vector_search_service = VectorSearchService()
     
     # Content Generation Methods
     def generate_outline(self, content: str) -> Dict:
