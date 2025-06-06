@@ -24,7 +24,6 @@ from .context_managers import (
     monitor_db_query,
     monitor_file_processing,
     monitor_search_operation,
-    monitor_embedding_generation,
     PerformanceProfiler
 )
 

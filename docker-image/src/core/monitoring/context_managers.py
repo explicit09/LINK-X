@@ -6,7 +6,7 @@ import logging
 from typing import Dict
 from .metrics_definitions import (
     db_query_duration, file_processing_duration, search_latency,
-    retrieval_accuracy, embedding_generation_duration
+    retrieval_accuracy
 )
 from .trackers import (
     track_chunk_creation, track_file_processing_error, track_file_upload,
@@ -149,28 +149,8 @@ def monitor_search_operation(course_id: str, query_type: str, user_type: str):
     
     return SearchMonitor()
 
-def monitor_embedding_generation(model: str, chunk_size: str):
-    """Context manager to monitor embedding generation"""
-    class EmbeddingMonitor:
-        def __enter__(self):
-            self.start_time = time.time()
-            return self
-        
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            duration = time.time() - self.start_time
-            embedding_generation_duration.labels(
-                model=model,
-                chunk_size=chunk_size
-            ).observe(duration)
-            
-            # Log slow embedding generation
-            if duration > 5.0:
-                logger.warning(
-                    f"Slow embedding generation: {model}/{chunk_size} "
-                    f"took {duration:.2f}s"
-                )
-    
-    return EmbeddingMonitor()
+# Note: Embedding generation is now handled automatically by Supabase
+# The monitor_embedding_generation function has been deprecated
 
 class PerformanceProfiler:
     """Context manager for detailed performance profiling"""

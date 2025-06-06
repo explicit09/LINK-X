@@ -91,6 +91,9 @@ ai_api_latency = Histogram(
     ['model', 'operation']
 )
 
+# Note: Embedding generation is now handled automatically by Supabase
+# The embedding_generation_duration metric has been deprecated
+
 
 # User activity metrics
 user_sessions_active = Gauge(
