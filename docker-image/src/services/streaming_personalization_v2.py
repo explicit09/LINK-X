@@ -16,7 +16,7 @@ import tiktoken
 from core.config import get_settings
 from redis import Redis
 from services.ai.ai_service import AIService
-from services.file_service import FileService
+from services.file_service_supabase import FileService
 from repositories.user_repository import UserRepository
 from repositories.file_repository import FileRepository
 from services.ai.hybrid_search_service import HybridSearchService

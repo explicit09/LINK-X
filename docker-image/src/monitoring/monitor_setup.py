@@ -18,7 +18,7 @@ from core.monitoring import (
     track_user_session,
     security_monitor
 )
-from monitoring.distributed_tracing import tracer, apm_collector
+# Distributed tracing removed - using basic monitoring only
 from monitoring.task_monitor import TaskMonitor
 
 logger = logging.getLogger(__name__)

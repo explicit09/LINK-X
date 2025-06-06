@@ -23,7 +23,7 @@ def get_streaming_service():
     try:
         # Import here to avoid circular imports
         from services.ai_service import AIService
-        from services.file_service import FileService
+        from services.file_service_supabase import FileService
         from repositories.user_repository import UserRepository
         from repositories.file_repository import FileRepository
         import redis

@@ -10,7 +10,7 @@ from core.config import get_config
 from core.database_supabase import db
 from core.file_validation import file_validator
 from core.rate_limiter_v2 import rate_limit_decorator, RateLimitConfig
-from services.file_service import FileService
+from services.file_service_supabase import FileService
 from services.s3_signed_urls import s3_signed_urls
 from db.queries import (
     get_module_by_id, get_course_by_id, create_file, get_file_by_id,

@@ -34,12 +34,12 @@ from api.session import session_bp
 from api.health import bp as health_bp
 from api.v2_endpoints import api_v2
 from monitoring.api_version_monitor import monitoring_bp, create_api_usage_table
-from api.circuit_breaker_monitor import bp as circuit_breaker_bp
+# Circuit breaker monitor removed
 # from api.docs import bp as docs_bp  # Temporarily disabled until flask-restx is installed
 
 # Import streaming and personalization blueprints
 from api.streaming import bp as streaming_bp
-# from api.personalization import bp as personalization_bp  # File doesn't exist
+# Personalization integrated into v2 endpoints
 from api.test_sse import bp as test_sse_bp
 
 def create_app():
@@ -132,7 +132,7 @@ def create_app():
     app.register_blueprint(monitoring_bp)
     
     # Circuit breaker monitoring - under /api/circuit-breakers
-    app.register_blueprint(circuit_breaker_bp, url_prefix='/api/circuit-breakers')
+    # Circuit breaker monitor removed
     
     # API Documentation (Swagger/OpenAPI)
     # if app.config.get('FLASK_ENV') != 'production' or app.config.get('ENABLE_API_DOCS', False):

@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, g
 from core.auth.decorators import require_auth
 from core.exceptions import NotFoundError, ValidationError, AuthorizationError
-from services.course_service import CourseService
+from services.course_service_optimized import OptimizedCourseService as CourseService
 from repositories.course_repository import CourseRepository
 
 bp = Blueprint('courses', __name__)
