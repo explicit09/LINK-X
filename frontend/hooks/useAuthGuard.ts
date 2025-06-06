@@ -23,6 +23,9 @@ export function useAuthGuard(requireRegistration: boolean = true) {
 
   // Check for existing session on mount
   useEffect(() => {
+    // Skip if already initialized to prevent loops
+    if (isInitialized) return;
+    
     const checkInitialAuth = async () => {
       try {
         console.log('[useAuthGuard] Checking initial auth state...');
@@ -41,7 +44,7 @@ export function useAuthGuard(requireRegistration: boolean = true) {
           
           // Handle routing based on state
           if (authState.needsOnboarding && requireRegistration) {
-            router.push('/onboarding');
+            router.replace('/onboarding'); // Use replace to prevent loops
           }
         } else {
           // No existing session
@@ -53,7 +56,7 @@ export function useAuthGuard(requireRegistration: boolean = true) {
           });
           
           if (requireRegistration) {
-            router.push('/login');
+            router.replace('/login'); // Use replace to prevent loops
           }
         }
       } catch (error) {
@@ -66,7 +69,7 @@ export function useAuthGuard(requireRegistration: boolean = true) {
         });
         
         if (requireRegistration) {
-          router.push('/login');
+          router.replace('/login'); // Use replace to prevent loops
         }
       } finally {
         setIsInitialized(true);
@@ -74,7 +77,7 @@ export function useAuthGuard(requireRegistration: boolean = true) {
     };
 
     checkInitialAuth();
-  }, []);
+  }, [isInitialized]); // Add isInitialized to deps to prevent re-runs
 
   // Listen for auth state changes after initialization
   useEffect(() => {
@@ -92,7 +95,7 @@ export function useAuthGuard(requireRegistration: boolean = true) {
         });
         
         if (requireRegistration) {
-          router.push('/login');
+          router.replace('/login'); // Use replace to prevent loops
         }
         return;
       }
@@ -126,10 +129,10 @@ export function useAuthGuard(requireRegistration: boolean = true) {
           });
           
           if (requireRegistration) {
-            router.push('/onboarding');
+            router.replace('/onboarding'); // Use replace to prevent loops
           }
         } else {
-          // User needs to complete registration
+          // User is not registered - needs onboarding
           setState({
             isLoading: false,
             isAuthenticated: true,
@@ -138,36 +141,23 @@ export function useAuthGuard(requireRegistration: boolean = true) {
           });
           
           if (requireRegistration) {
-            router.push('/onboarding');
+            router.replace('/onboarding'); // Use replace to prevent loops
           }
         }
       } catch (error: any) {
         console.error('Auth check error:', error);
         
-        // If check-registration returns 404, user needs onboarding
-        if (error?.status === 404 || error?.response?.status === 404) {
-          setState({
-            isLoading: false,
-            isAuthenticated: true,
-            isRegistered: false,
-            needsOnboarding: true
-          });
-          
-          if (requireRegistration) {
-            router.push('/onboarding');
-          }
-        } else {
-          // Other errors - assume not authenticated
-          setState({
-            isLoading: false,
-            isAuthenticated: false,
-            isRegistered: false,
-            needsOnboarding: false
-          });
-          
-          if (requireRegistration) {
-            router.push('/login');
-          }
+        // Any error means we couldn't verify registration status
+        // Assume not authenticated to be safe
+        setState({
+          isLoading: false,
+          isAuthenticated: false,
+          isRegistered: false,
+          needsOnboarding: false
+        });
+        
+        if (requireRegistration) {
+          router.replace('/login'); // Use replace to prevent loops
         }
       }
     };

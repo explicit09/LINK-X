@@ -20,7 +20,7 @@ export function useOnboardingCheck() {
         // Check registration status with backend
         const response = await authAPI.v2.checkRegistration();
         
-        if (response.registered && !response.has_completed_onboarding) {
+        if (response.isRegistered && !response.has_completed_onboarding) {
           // User is registered but hasn't completed onboarding
           setNeedsOnboarding(true);
           if (response.user?.role === 'student') {

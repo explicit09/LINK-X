@@ -9,15 +9,13 @@ import { DashboardSidebar } from '@/components/dashboard/sections/DashboardSideb
 import { ProgressiveDashboard } from '@/components/dashboard/sections/ProgressiveDashboard';
 import { FirstTimeUserGuide } from '@/components/dashboard/FirstTimeUserGuide';
 import { useUserJourneyStage, UserJourneyStage } from '@/hooks/useUserJourneyStage';
-import { useAuthUser } from '@/hooks/useAuthUser';
-import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { useDashboardOverview, useAIRecommendations } from '@/hooks/useDashboardData';
 import { useUnifiedAuth } from '@/hooks/useUnifiedAuth';
 
 function DashboardContent() {
   const router = useRouter();
   
-  // Use unified auth system
+  // Use ONLY unified auth system - removed duplicate auth hooks
   const { 
     user: currentUser, 
     session, 
@@ -29,16 +27,6 @@ function DashboardContent() {
   
   // Extract role from session data
   const role = (session?.user?.role as 'student' | 'instructor' | 'admin') || 'student';
-  
-  // Simple auth check
-  const [authCheckComplete, setAuthCheckComplete] = useState(false);
-  const [shouldRedirect, setShouldRedirect] = useState<string | null>(null);
-  
-  // Use auth guard to ensure user is authenticated and registered
-  const authState = useAuthGuard(true);
-  
-  // Use centralized auth user hook for backward compatibility (if still needed)
-  const { user: legacyUser, isLoading: userLoading, error: userError } = useAuthUser();
   
   // New hooks for progressive dashboard
   const { stage, isLoading: journeyLoading } = useUserJourneyStage();
@@ -59,41 +47,23 @@ function DashboardContent() {
       user: session?.user?.email
     });
 
-    // If all conditions are met, allow access
-    if (isAuthenticated && isRegistered && !needsOnboarding) {
-      console.log('[Dashboard] All auth conditions met, allowing access');
-      setAuthCheckComplete(true);
-      return;
-    }
-
     // If not authenticated, redirect to login
     if (!isAuthenticated) {
       console.log('[Dashboard] Not authenticated, redirecting to login');
-      setShouldRedirect('/login');
+      router.replace('/login');
       return;
     }
 
     // If not registered or onboarding needed, redirect to onboarding
     if (!isRegistered || needsOnboarding) {
       console.log('[Dashboard] Not registered or onboarding incomplete, redirecting to onboarding');
-      setShouldRedirect('/onboarding');
+      router.replace('/onboarding');
       return;
     }
-  }, [authLoading, isAuthenticated, isRegistered, needsOnboarding, session]);
 
-  // Handle redirects
-  useEffect(() => {
-    if (shouldRedirect) {
-      router.push(shouldRedirect);
-    }
-  }, [shouldRedirect, router]);
-
-  // Handle user not registered case
-  useEffect(() => {
-    if (userError && userError.includes('404')) {
-      router.push('/onboarding');
-    }
-  }, [userError, router]);
+    // If we reach here, user is authenticated, registered, and onboarded
+    console.log('[Dashboard] All auth conditions met, allowing access');
+  }, [authLoading, isAuthenticated, isRegistered, needsOnboarding, router, session]);
 
   // Unified handler functions for narrative flow
   const handleActionClick = (action: any) => {
@@ -131,26 +101,13 @@ function DashboardContent() {
   };
 
   // Show loading while checking auth
-  if (!authCheckComplete || shouldRedirect) {
+  if (authLoading || journeyLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-600">
-            {shouldRedirect ? 'Redirecting...' : 'Verifying authentication...'}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (authState.isLoading || journeyLoading || (authState.isRegistered && role === 'unknown')) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">
-            {authState.isLoading ? 'Verifying authentication...' : 'Loading your dashboard...'}
+            {authLoading ? 'Verifying authentication...' : 'Loading your dashboard...'}
           </p>
         </div>
       </div>

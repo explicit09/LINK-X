@@ -42,7 +42,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           try {
             // Always try to create session for authenticated users
             // This ensures session persistence across page refreshes
+            console.log('[AuthContext] Creating unified session for user:', authUser.email);
             const unifiedSession = await unifiedAuthService.createSession();
+            console.log('[AuthContext] Unified session result:', unifiedSession);
             
             if (unifiedSession) {
               setSession(unifiedSession);
@@ -67,6 +69,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setIsRegistered(false);
             setBackendUser(null);
             setRequiresOnboarding(true);
+            setLoading(false); // IMPORTANT: Set loading to false on error
           }
         } else {
           // No user, clear everything

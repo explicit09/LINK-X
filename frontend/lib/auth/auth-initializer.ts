@@ -39,26 +39,23 @@ export async function initializeAuth(): Promise<AuthState> {
       const authState = {
         isAuthenticated: true,
         isRegistered: registrationCheck.isRegistered,
-        needsOnboarding: !registrationCheck.has_completed_onboarding,
+        needsOnboarding: registrationCheck.isRegistered ? !registrationCheck.has_completed_onboarding : true,
         user: registrationCheck.user
       };
       
       cachedAuthState = authState;
       return authState;
     } catch (error: any) {
-      // If check-registration returns 404, user needs registration
-      if (error?.status === 404 || error?.response?.status === 404) {
-        const authState = {
-          isAuthenticated: true,
-          isRegistered: false,
-          needsOnboarding: true,
-          user
-        };
-        cachedAuthState = authState;
-        return authState;
-      }
-      
-      throw error;
+      console.error('Error checking registration:', error);
+      // If we can't check registration, assume user needs onboarding
+      const authState = {
+        isAuthenticated: true,
+        isRegistered: false,
+        needsOnboarding: true,
+        user
+      };
+      cachedAuthState = authState;
+      return authState;
     }
   } catch (error) {
     console.error('Error initializing auth:', error);

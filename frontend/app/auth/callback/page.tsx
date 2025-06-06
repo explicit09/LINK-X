@@ -71,6 +71,9 @@ export default function AuthCallbackPage() {
         const unifiedSession = await unifiedAuthService.createSession();
         
         if (unifiedSession) {
+          // Clear any cached session to prevent stale data
+          unifiedAuthService.clearCache();
+          
           if (mode === 'login') {
             if (!unifiedSession.registered) {
               toast.error('Account not found. Please sign up first.');
@@ -87,17 +90,18 @@ export default function AuthCallbackPage() {
               toast.success('Successfully signed in with Google!');
             }
             
-            router.push(redirectPath);
+            // Use replace instead of push to prevent back button loops
+            router.replace(redirectPath);
           } else {
             // Register mode
             if (unifiedSession.registered && !unifiedSession.requires_onboarding) {
               // User already exists and is fully set up
               toast.error('Account already exists. Please sign in instead.');
-              router.push('/login');
+              router.replace('/login');
             } else {
               // New user or needs to complete onboarding
               toast.success('Account created successfully! Complete your profile.');
-              router.push('/onboarding');
+              router.replace('/onboarding');
             }
           }
         } else {

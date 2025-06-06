@@ -98,45 +98,44 @@ export interface RegistrationCheckResponse {
 
 /**
  * Check user registration status with backend
- * Updated to use Supabase tokens
+ * Updated to use Supabase tokens and /me endpoint
  */
 export async function checkRegistrationStatus(): Promise<RegistrationCheckResponse> {
   try {
-    // This endpoint specifically requires Supabase token, not backend JWT
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
-      throw new Error('No Supabase user found');
+    // Use the /me endpoint since check-registration is disabled
+    const profileResponse = await apiClient.get<any>('/api/v2/auth/me');
+    console.log('[Auth] Profile response for registration check:', profileResponse);
+    
+    // Extract the actual user data from the response
+    let userData;
+    if (profileResponse.data !== undefined) {
+      // Response is wrapped in { success: true, data: {...} } format
+      userData = profileResponse.data;
+    } else {
+      // Response is unwrapped
+      userData = profileResponse;
     }
-
-    const supabaseToken = session.access_token;
-
-    const response = await fetch(`${API_URL}/api/v2/auth/check-registration`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseToken}`
-      }
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        return { isRegistered: false };
-      }
-      throw new Error(`Registration check failed: ${response.statusText}`);
+    
+    // If we got user data, they are registered
+    if (userData && userData.id) {
+      const result = { 
+        isRegistered: true,
+        user: userData,
+        has_completed_onboarding: userData.has_completed_onboarding ?? true
+      };
+      console.log('[Auth] Check registration parsed result:', result);
+      return result;
+    } else {
+      // No user data means not registered
+      return { isRegistered: false };
     }
-
-    const data = await response.json();
-    console.log('[Auth] Check registration raw response:', data);
-    // The API returns { success: true, data: { registered: boolean, has_completed_onboarding: boolean, user: {...} } }
-    const result = { 
-      isRegistered: data.data?.registered || false,
-      user: data.data?.user || null,
-      has_completed_onboarding: data.data?.has_completed_onboarding ?? true
-    };
-    console.log('[Auth] Check registration parsed result:', result);
-    return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to check registration status:', error);
+    // If the /me endpoint returns 404, user is not registered
+    if (error?.status === 404 || error?.response?.status === 404) {
+      return { isRegistered: false };
+    }
+    // For other errors, assume not registered
     return { isRegistered: false };
   }
 }
