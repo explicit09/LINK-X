@@ -8,7 +8,7 @@ from typing import Dict, Any
 from flask import Blueprint, jsonify, request
 
 from core.database_supabase import db_manager
-from core.decorators_unified import firebase_auth_required
+from core.auth.decorators import require_auth
 from core.monitoring import monitor_request
 from monitoring.task_monitor import TaskMonitor
 

@@ -4,7 +4,7 @@ import time
 from queue import Queue
 import threading
 
-from core.decorators_unified import firebase_auth_required
+from core.auth.decorators import require_auth
 from core.exceptions import NotFoundError
 from services.streaming_service import StreamingService
 from services.ai_service import AIService
@@ -12,7 +12,7 @@ from services.ai_service import AIService
 bp = Blueprint('streaming', __name__)
 
 @bp.route('/learn/<file_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def stream_learning_content(file_id):
     """Stream personalized learning content"""
     streaming_service = StreamingService()
@@ -47,7 +47,7 @@ def stream_learning_content(file_id):
     )
 
 @bp.route('/chat', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def stream_chat_response():
     """Stream AI chat responses"""
     data = request.get_json()
@@ -95,7 +95,7 @@ def stream_chat_response():
     )
 
 @bp.route('/outline/<file_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_document_outline(file_id):
     """Get document outline for streaming"""
     streaming_service = StreamingService()
@@ -114,7 +114,7 @@ def get_document_outline(file_id):
         return jsonify({'error': 'File not found'}), 404
 
 @bp.route('/section', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def stream_section_content():
     """Stream specific section content"""
     data = request.get_json()
@@ -170,7 +170,7 @@ def stream_section_content():
     )
 
 @bp.route('/quiz/<file_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def stream_quiz_questions(file_id):
     """Stream quiz questions based on content"""
     streaming_service = StreamingService()
@@ -198,7 +198,7 @@ def stream_quiz_questions(file_id):
     )
 
 @bp.route('/summary/<file_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def stream_content_summary(file_id):
     """Stream content summary"""
     streaming_service = StreamingService()
@@ -225,7 +225,7 @@ def stream_content_summary(file_id):
     )
 
 @bp.route('/check/<file_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def check_existing_content(file_id):
     """Check if personalized content exists for this file"""
     try:
@@ -239,7 +239,7 @@ def check_existing_content(file_id):
         return jsonify({'error': 'Failed to check content'}), 500
 
 @bp.route('/progress', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def update_learning_progress():
     """Update user's learning progress"""
     data = request.get_json()

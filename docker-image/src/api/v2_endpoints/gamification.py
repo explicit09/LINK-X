@@ -6,7 +6,7 @@ from flask import Blueprint, request, g
 from datetime import datetime, timedelta
 import logging
 
-from core.decorators_unified import firebase_auth_required
+from core.auth.decorators import require_auth
 from core.exceptions import ValidationError, NotFoundError
 from core.database_supabase import db_manager
 from db.schema import UserStats, UserActivity, UserAchievement, ApiUsageLog
@@ -27,7 +27,7 @@ def get_session():
 
 
 @gamification_bp.route('/stats', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_user_stats_v2():
     """Get current user's gamification stats"""
     try:
@@ -90,7 +90,7 @@ def get_user_stats_v2():
 
 
 @gamification_bp.route('/award-xp', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def award_xp_v2():
     """Award XP to user for an activity"""
     try:
@@ -149,7 +149,7 @@ def award_xp_v2():
 
 
 @gamification_bp.route('/achievements', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_user_achievements_v2():
     """Get user's achievements"""
     try:
@@ -183,7 +183,7 @@ def get_user_achievements_v2():
 
 
 @gamification_bp.route('/leaderboard', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_leaderboard_v2():
     """Get user leaderboard"""
     try:
@@ -242,7 +242,7 @@ def get_leaderboard_v2():
 
 
 @gamification_bp.route('/activity-history', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_activity_history_v2():
     """Get user's recent activity history"""
     try:

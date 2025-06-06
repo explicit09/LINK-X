@@ -8,7 +8,7 @@ from datetime import datetime, date, timedelta
 from uuid import UUID
 import logging
 
-from core.decorators_unified import firebase_auth_required
+from core.auth.decorators import require_auth
 from core.database_supabase import db_manager
 from repositories.study_plan_repository import (
     StudyPlanRepository, StudyGoalRepository, 
@@ -37,7 +37,7 @@ def get_repositories():
 # ===== STUDY PLAN ENDPOINTS =====
 
 @study_plans_bp.route('', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def list_study_plans():
     """Get user's study plans"""
     try:
@@ -81,7 +81,7 @@ def list_study_plans():
 
 
 @study_plans_bp.route('', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def create_study_plan():
     """Create a new study plan"""
     try:
@@ -134,7 +134,7 @@ def create_study_plan():
 
 
 @study_plans_bp.route('/<plan_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_study_plan(plan_id):
     """Get specific study plan with analytics"""
     try:
@@ -197,7 +197,7 @@ def get_study_plan(plan_id):
 
 
 @study_plans_bp.route('/<plan_id>', methods=['PATCH'])
-@firebase_auth_required
+@require_auth
 def update_study_plan(plan_id):
     """Update study plan preferences"""
     try:
@@ -236,7 +236,7 @@ def update_study_plan(plan_id):
 
 
 @study_plans_bp.route('/active', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_active_plan():
     """Get user's active study plan"""
     try:
@@ -280,7 +280,7 @@ def get_active_plan():
 # ===== STUDY GOAL ENDPOINTS =====
 
 @study_plans_bp.route('/goals', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def list_goals():
     """Get user's study goals with filtering"""
     try:
@@ -326,7 +326,7 @@ def list_goals():
 
 
 @study_plans_bp.route('/goals', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def create_goal():
     """Create a new study goal"""
     try:
@@ -380,7 +380,7 @@ def create_goal():
 
 
 @study_plans_bp.route('/goals/<goal_id>', methods=['PATCH'])
-@firebase_auth_required
+@require_auth
 def update_goal(goal_id):
     """Update a study goal"""
     try:
@@ -419,7 +419,7 @@ def update_goal(goal_id):
 
 
 @study_plans_bp.route('/goals/<goal_id>/progress', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def log_goal_progress(goal_id):
     """Log progress for a specific goal"""
     try:
@@ -468,7 +468,7 @@ def log_goal_progress(goal_id):
 # ===== STUDY SESSION ENDPOINTS =====
 
 @study_plans_bp.route('/sessions', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def list_sessions():
     """Get user's study sessions"""
     try:
@@ -512,7 +512,7 @@ def list_sessions():
 
 
 @study_plans_bp.route('/sessions', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def start_session():
     """Start a new study session"""
     try:
@@ -553,7 +553,7 @@ def start_session():
 
 
 @study_plans_bp.route('/sessions/<session_id>/end', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def end_session(session_id):
     """End a study session"""
     try:
@@ -602,7 +602,7 @@ def end_session(session_id):
 # ===== RECOMMENDATION ENDPOINTS =====
 
 @study_plans_bp.route('/recommendations', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def list_recommendations():
     """Get active study recommendations"""
     try:
@@ -640,7 +640,7 @@ def list_recommendations():
 
 
 @study_plans_bp.route('/recommendations/<rec_id>/apply', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def apply_recommendation(rec_id):
     """Apply a study recommendation"""
     try:
@@ -668,7 +668,7 @@ def apply_recommendation(rec_id):
 # ===== ANALYTICS ENDPOINTS =====
 
 @study_plans_bp.route('/analytics', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_study_analytics():
     """Get comprehensive study analytics"""
     try:

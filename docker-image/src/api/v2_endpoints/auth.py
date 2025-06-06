@@ -5,7 +5,7 @@ from flask import Blueprint, request, g
 from datetime import datetime
 import logging
 
-from core.decorators_unified import firebase_auth_required, firebase_token_required
+from core.decorators_unified import firebase_token_required
 from core.auth.decorators import require_auth  # Add Supabase auth decorator
 from core.exceptions import ValidationError, NotFoundError, UnauthorizedError, AuthenticationError
 from services.auth_service_unified import UnifiedAuthService as AuthService
@@ -22,6 +22,26 @@ logger = logging.getLogger(__name__)
 # Create auth blueprint
 auth_bp = Blueprint('api_v2_auth', __name__)
 
+
+def handle_cors_preflight(f):
+    """Decorator to handle CORS preflight requests"""
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Handle OPTIONS request for CORS
+        if request.method == 'OPTIONS':
+            from flask import make_response
+            response = make_response('', 200)
+            response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
+            return response
+        # For other methods, apply auth and call original function
+        return require_auth(f)(*args, **kwargs)
+    return decorated_function
+
+
 # Initialize services with proper session factory
 def get_auth_service():
     """Get auth service instance with proper session factory"""
@@ -29,9 +49,19 @@ def get_auth_service():
     return AuthService(user_repo=user_repo)
 
 
-@auth_bp.route('/login', methods=['POST'])
+@auth_bp.route('/login', methods=['POST', 'OPTIONS'])
 def login_v2():
     """Enhanced login with better error handling and response structure"""
+    # Handle OPTIONS request for CORS
+    if request.method == 'OPTIONS':
+        from flask import make_response
+        response = make_response('', 200)
+        response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        return response
+        
     try:
         data = request.get_json()
         if not data:
@@ -134,9 +164,9 @@ def logout_v2():
         return error_response("An error occurred during logout", status_code=500)
 
 
-@auth_bp.route('/check-registration', methods=['GET'])
-@require_auth
-def check_registration_v2():
+# @auth_bp.route('/check-registration', methods=['GET', 'OPTIONS'])
+# @handle_cors_preflight
+def check_registration_v2_disabled():
     """Check if a Firebase-authenticated user is registered in the system"""
     try:
         # g.current_user is an AuthUser from Supabase
@@ -259,8 +289,8 @@ def register_v2():
         return error_response("An error occurred during registration", status_code=500)
 
 
-@auth_bp.route('/me', methods=['GET'])
-@require_auth
+@auth_bp.route('/me', methods=['GET', 'OPTIONS'])
+@handle_cors_preflight
 def get_profile_v2():
     """Get current user profile with enhanced data"""
     try:

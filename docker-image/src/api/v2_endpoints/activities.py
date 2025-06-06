@@ -5,7 +5,7 @@ from flask import Blueprint, request, g
 from datetime import datetime
 import logging
 
-from core.decorators_unified import firebase_auth_required
+from core.auth.decorators import require_auth
 from core.database_supabase import db
 from db.schema import Enrollment, Course, PersonalizedFile, File, Module
 
@@ -18,7 +18,7 @@ activities_bp = Blueprint('api_v2_activities', __name__)
 
 
 @activities_bp.route('/recent', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_recent_activities():
     """Get recent user activities"""
     try:
@@ -75,7 +75,7 @@ def get_recent_activities():
 
 
 @activities_bp.route('/stats', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_activity_stats():
     """Get user activity statistics"""
     try:
@@ -132,7 +132,7 @@ def get_activity_stats():
 
 
 @activities_bp.route('/log', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def log_activity():
     """Log a user activity"""
     try:

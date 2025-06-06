@@ -8,7 +8,7 @@ from datetime import datetime
 import logging
 import json
 
-from core.decorators_unified import firebase_auth_required
+from core.auth.decorators import require_auth
 from core.exceptions import ValidationError, NotFoundError, UnauthorizedError
 from services.file_service import FileService
 from repositories.module_repository import ModuleRepository
@@ -68,7 +68,7 @@ def allowed_file(filename):
 
 
 @files_bp.route('/upload', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def upload_file_v2():
     """Upload a file to a module with enhanced validation"""
     logger = logging.getLogger(__name__)
@@ -440,7 +440,7 @@ def upload_file_v2():
 
 
 @files_bp.route('/<file_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_file_v2(file_id):
     """Get file metadata"""
     try:
@@ -475,7 +475,7 @@ def get_file_v2(file_id):
 
 
 @files_bp.route('/<file_id>/content', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_file_content_v2(file_id):
     """Get file content (download or presigned URL)"""
     try:
@@ -536,7 +536,7 @@ def get_file_content_v2(file_id):
 
 
 @files_bp.route('/<file_id>', methods=['PATCH'])
-@firebase_auth_required
+@require_auth
 def update_file_v2(file_id):
     """Update file metadata"""
     try:
@@ -568,7 +568,7 @@ def update_file_v2(file_id):
 
 
 @files_bp.route('/<file_id>', methods=['DELETE'])
-@firebase_auth_required
+@require_auth
 def delete_file_v2(file_id):
     """Delete a file"""
     try:
@@ -602,7 +602,7 @@ def delete_file_v2(file_id):
 
 
 @files_bp.route('/<file_id>/existing-content', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_existing_content_v2(file_id):
     """Get existing personalized content for a file"""
     try:
@@ -682,7 +682,7 @@ def get_existing_content_v2(file_id):
 
 
 @files_bp.route('/<file_id>/outline', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_file_outline_v2(file_id):
     """Generate outline for a file"""
     try:
@@ -755,7 +755,7 @@ def get_file_outline_v2(file_id):
 
 
 @files_bp.route('/<file_id>/stream-section', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def stream_section_v2(file_id):
     """Stream personalized content for a specific section"""
     try:

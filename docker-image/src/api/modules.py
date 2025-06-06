@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, g
 import os
 
-from core.decorators_unified import firebase_auth_required
+from core.auth.decorators import require_auth
 from core.exceptions import NotFoundError, ValidationError, AuthorizationError
 from core.database_supabase import db_manager
 from db.queries import (
@@ -12,7 +12,7 @@ from db.queries import (
 bp = Blueprint('modules', __name__)
 
 @bp.route('/<module_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_module(module_id):
     """Get module details"""
     db_session = db_manager.get_session()
@@ -65,7 +65,7 @@ def get_module(module_id):
         db_session.close()
 
 @bp.route('/<module_id>/files', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_module_files(module_id):
     """Get all files in a module"""
     db_session = db_manager.get_session()
@@ -112,7 +112,7 @@ def get_module_files(module_id):
         db_session.close()
 
 @bp.route('/<module_id>', methods=['PATCH'])
-@firebase_auth_required
+@require_auth
 def update_module_endpoint(module_id):
     """Update module details"""
     db_session = db_manager.get_session()
@@ -171,7 +171,7 @@ def update_module_endpoint(module_id):
         db_session.close()
 
 @bp.route('/<module_id>', methods=['DELETE'])
-@firebase_auth_required
+@require_auth
 def delete_module_endpoint(module_id):
     """Delete a module"""
     db_session = db_manager.get_session()

@@ -7,7 +7,7 @@ from flask import Blueprint, request, jsonify, g
 from uuid import UUID
 from typing import Dict, Any, List
 
-from core.decorators_unified import firebase_auth_required
+from core.auth.decorators import require_auth
 from core.exceptions import ValidationError, NotFoundError, AuthorizationError
 from services.collaboration_service import CollaborationService
 
@@ -17,7 +17,7 @@ collaboration_service = CollaborationService()
 # Study Group Endpoints
 
 @bp.route('/study-groups', methods=['POST'])
-@firebase_auth_required
+@require_auth
 # Rate limiting disabled for now
 def create_study_group():
     """Create a new study group"""
@@ -53,7 +53,7 @@ def create_study_group():
         return jsonify({'error': 'Failed to create study group'}), 500
 
 @bp.route('/study-groups/<group_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_study_group(group_id):
     """Get study group details"""
     try:
@@ -75,7 +75,7 @@ def get_study_group(group_id):
         return jsonify({'error': 'Failed to get study group'}), 500
 
 @bp.route('/study-groups', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_user_study_groups():
     """Get user's study groups"""
     try:
@@ -96,7 +96,7 @@ def get_user_study_groups():
         return jsonify({'error': 'Failed to get study groups'}), 500
 
 @bp.route('/courses/<course_id>/study-groups', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_course_study_groups(course_id):
     """Get public study groups for a course"""
     try:
@@ -116,7 +116,7 @@ def get_course_study_groups(course_id):
         return jsonify({'error': 'Failed to get course study groups'}), 500
 
 @bp.route('/study-groups/join', methods=['POST'])
-@firebase_auth_required
+@require_auth
 # Rate limiting disabled for now
 def join_study_group():
     """Join a study group by ID or invite code"""
@@ -151,7 +151,7 @@ def join_study_group():
         return jsonify({'error': 'Failed to join study group'}), 500
 
 @bp.route('/study-groups/<group_id>/leave', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def leave_study_group(group_id):
     """Leave a study group"""
     try:
@@ -169,7 +169,7 @@ def leave_study_group(group_id):
         return jsonify({'error': 'Failed to leave study group'}), 500
 
 @bp.route('/study-groups/<group_id>', methods=['PUT'])
-@firebase_auth_required
+@require_auth
 def update_study_group(group_id):
     """Update study group (admin only)"""
     try:
@@ -195,7 +195,7 @@ def update_study_group(group_id):
 # Annotation Endpoints
 
 @bp.route('/annotations', methods=['POST'])
-@firebase_auth_required
+@require_auth
 # Rate limiting disabled  # 50 annotations per 5 minutes
 def create_annotation():
     """Create a shared annotation"""
@@ -233,7 +233,7 @@ def create_annotation():
         return jsonify({'error': 'Failed to create annotation'}), 500
 
 @bp.route('/files/<file_id>/annotations', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_file_annotations(file_id):
     """Get annotations for a file"""
     try:
@@ -257,7 +257,7 @@ def get_file_annotations(file_id):
         return jsonify({'error': 'Failed to get annotations'}), 500
 
 @bp.route('/annotations/<annotation_id>/reactions', methods=['POST'])
-@firebase_auth_required
+@require_auth
 # Rate limiting disabled  # 100 reactions per 5 minutes
 def add_annotation_reaction(annotation_id):
     """Add reaction to annotation"""
@@ -289,7 +289,7 @@ def add_annotation_reaction(annotation_id):
 # Discussion Endpoints
 
 @bp.route('/discussions', methods=['POST'])
-@firebase_auth_required
+@require_auth
 # Rate limiting disabled  # 20 discussions per 5 minutes
 def create_discussion():
     """Create a peer discussion"""
@@ -328,7 +328,7 @@ def create_discussion():
         return jsonify({'error': 'Failed to create discussion'}), 500
 
 @bp.route('/courses/<course_id>/discussions', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_course_discussions(course_id):
     """Get discussions for a course"""
     try:
@@ -354,7 +354,7 @@ def get_course_discussions(course_id):
         return jsonify({'error': 'Failed to get discussions'}), 500
 
 @bp.route('/discussions/<discussion_id>/replies', methods=['POST'])
-@firebase_auth_required
+@require_auth
 # Rate limiting disabled  # 50 replies per 5 minutes
 def add_discussion_reply(discussion_id):
     """Add reply to discussion"""
@@ -387,7 +387,7 @@ def add_discussion_reply(discussion_id):
         return jsonify({'error': 'Failed to add reply'}), 500
 
 @bp.route('/discussions/<discussion_id>/vote', methods=['POST'])
-@firebase_auth_required
+@require_auth
 # Rate limiting disabled  # 100 votes per 5 minutes
 def vote_on_discussion(discussion_id):
     """Vote on discussion"""
@@ -420,7 +420,7 @@ def vote_on_discussion(discussion_id):
 # Collaborative Notes Endpoints
 
 @bp.route('/collaborative-notes', methods=['POST'])
-@firebase_auth_required
+@require_auth
 # Rate limiting disabled  # 20 notes per 5 minutes
 def create_collaborative_note():
     """Create a collaborative note"""
@@ -457,7 +457,7 @@ def create_collaborative_note():
         return jsonify({'error': 'Failed to create collaborative note'}), 500
 
 @bp.route('/collaborative-notes/<note_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_collaborative_note(note_id):
     """Get collaborative note"""
     try:
@@ -479,7 +479,7 @@ def get_collaborative_note(note_id):
         return jsonify({'error': 'Failed to get collaborative note'}), 500
 
 @bp.route('/files/<file_id>/collaborative-notes', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_file_collaborative_notes(file_id):
     """Get collaborative notes for a file"""
     try:
@@ -501,7 +501,7 @@ def get_file_collaborative_notes(file_id):
 # User Preferences Endpoints
 
 @bp.route('/preferences', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_collaboration_preferences():
     """Get user's collaboration preferences"""
     try:
@@ -518,7 +518,7 @@ def get_collaboration_preferences():
         return jsonify({'error': 'Failed to get preferences'}), 500
 
 @bp.route('/preferences', methods=['PUT'])
-@firebase_auth_required
+@require_auth
 def update_collaboration_preferences():
     """Update user's collaboration preferences"""
     try:
@@ -541,7 +541,7 @@ def update_collaboration_preferences():
         return jsonify({'error': 'Failed to update preferences'}), 500
 
 @bp.route('/stats', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_collaboration_stats():
     """Get collaboration statistics for user"""
     try:

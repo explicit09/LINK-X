@@ -6,7 +6,7 @@ from flask import Blueprint, request, jsonify, g
 from datetime import datetime, date, timedelta
 from typing import Dict, List, Any, Optional
 import uuid
-from core.decorators_unified import firebase_auth_required
+from core.auth.decorators import require_auth
 from core.exceptions import ValidationError, NotFoundError
 from core.database_supabase import db_manager
 from repositories.schedule_repository import (
@@ -41,7 +41,7 @@ ai_service = AIService()
 # ===============================
 
 @schedule_bp.route('/sessions', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_user_sessions():
     """Get user's study sessions with filtering and pagination"""
     try:
@@ -86,7 +86,7 @@ def get_user_sessions():
         }), 500
 
 @schedule_bp.route('/sessions', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def create_session():
     """Create a new study session"""
     try:
@@ -158,7 +158,7 @@ def create_session():
         }), 500
 
 @schedule_bp.route('/sessions/<session_id>', methods=['PUT'])
-@firebase_auth_required
+@require_auth
 def update_session(session_id):
     """Update an existing study session"""
     try:
@@ -240,7 +240,7 @@ def update_session(session_id):
         }), 500
 
 @schedule_bp.route('/sessions/<session_id>', methods=['DELETE'])
-@firebase_auth_required
+@require_auth
 def delete_session(session_id):
     """Delete a study session"""
     try:
@@ -287,7 +287,7 @@ def delete_session(session_id):
         }), 500
 
 @schedule_bp.route('/sessions/bulk', methods=['PUT'])
-@firebase_auth_required
+@require_auth
 def bulk_update_sessions():
     """Update multiple sessions (for drag-and-drop operations)"""
     try:
@@ -350,7 +350,7 @@ def bulk_update_sessions():
         }), 500
 
 @schedule_bp.route('/sessions/<session_id>/start', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def start_session(session_id):
     """Start a study session"""
     try:
@@ -400,7 +400,7 @@ def start_session(session_id):
         }), 500
 
 @schedule_bp.route('/sessions/<session_id>/complete', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def complete_session(session_id):
     """Complete a study session"""
     try:
@@ -472,7 +472,7 @@ def complete_session(session_id):
 # ===============================
 
 @schedule_bp.route('/preferences', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_user_preferences():
     """Get user's schedule preferences"""
     try:
@@ -494,7 +494,7 @@ def get_user_preferences():
         }), 500
 
 @schedule_bp.route('/preferences', methods=['PUT'])
-@firebase_auth_required
+@require_auth
 def update_user_preferences():
     """Update user's schedule preferences"""
     try:
@@ -535,7 +535,7 @@ def update_user_preferences():
 # ===============================
 
 @schedule_bp.route('/ai/optimize', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def optimize_schedule():
     """AI-powered schedule optimization"""
     try:
@@ -596,7 +596,7 @@ def optimize_schedule():
         }), 500
 
 @schedule_bp.route('/ai/suggestions', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_ai_suggestions():
     """Get AI-generated schedule suggestions"""
     try:
@@ -627,7 +627,7 @@ def get_ai_suggestions():
         }), 500
 
 @schedule_bp.route('/ai/suggestions/<suggestion_id>/apply', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def apply_ai_suggestion(suggestion_id):
     """Apply an AI suggestion to create/modify sessions"""
     try:
@@ -699,7 +699,7 @@ def apply_ai_suggestion(suggestion_id):
 # ===============================
 
 @schedule_bp.route('/analytics/dashboard', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_schedule_analytics():
     """Get comprehensive schedule analytics for dashboard"""
     try:
@@ -723,7 +723,7 @@ def get_schedule_analytics():
         }), 500
 
 @schedule_bp.route('/analytics/insights', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_schedule_insights():
     """Get AI-powered schedule insights and recommendations"""
     try:

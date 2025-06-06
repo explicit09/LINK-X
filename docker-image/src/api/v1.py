@@ -8,7 +8,7 @@ import uuid
 import logging
 from functools import wraps
 
-from core.decorators_unified import firebase_auth_required
+from core.auth.decorators import require_auth
 from core.database_supabase import db
 from core.api_versioning import version_aware_route
 from db.schema import Enrollment, Course, PersonalizedFile, File, Module
@@ -116,7 +116,7 @@ def session_logout():
     return logout()
 
 @api_v1.route('/auth/me', methods=['GET', 'PATCH', 'DELETE'])
-@firebase_auth_required
+@require_auth
 def user_profile():
     """Get, update, or delete user profile"""
     logger.info(f"v1.user_profile called, method: {request.method}")
@@ -145,7 +145,7 @@ def register_student():
 
 # ===== COURSES ENDPOINTS =====
 @api_v1.route('/courses', methods=['GET', 'POST'])
-@firebase_auth_required
+@require_auth
 def handle_courses():
     """List courses or create new course"""
     user_id = g.current_user.id
@@ -216,14 +216,14 @@ def handle_courses():
         return create_course()
 
 @api_v1.route('/courses/<course_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def course_details(course_id):
     """Get course details"""
     from api.courses import get_course
     return get_course(course_id)
 
 @api_v1.route('/courses/<course_id>/modules', methods=['GET', 'POST'])
-@firebase_auth_required
+@require_auth
 def course_modules(course_id):
     """Get or create course modules"""
     if request.method == 'GET':
@@ -234,7 +234,7 @@ def course_modules(course_id):
         return create_module(course_id)
 
 @api_v1.route('/courses/<course_id>/moduleswithfiles', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def course_modules_with_files(course_id):
     """Get course modules with files included"""
     user_id = g.current_user.id
@@ -285,14 +285,14 @@ def course_modules_with_files(course_id):
     return jsonify(modules_with_files), 200
 
 @api_v1.route('/courses/<course_id>/files', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def course_files(course_id):
     """Get all files in a course"""
     from api.files import list_course_files
     return list_course_files(course_id)
 
 @api_v1.route('/courses/<course_id>/stats', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def course_stats(course_id):
     """Get course statistics"""
     user_id = g.current_user.id
@@ -353,7 +353,7 @@ def course_stats(course_id):
         }), 200
 
 @api_v1.route('/courses/<course_id>/progress', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def course_progress(course_id):
     """Get student's course progress"""
     user_id = g.current_user.id
@@ -414,7 +414,7 @@ def course_progress(course_id):
     }), 200
 
 @api_v1.route('/courses/<course_id>/discussions', methods=['GET', 'POST'])
-@firebase_auth_required
+@require_auth
 def course_discussions(course_id):
     """Get or create course discussions"""
     user_id = g.current_user.id
@@ -473,7 +473,7 @@ def course_discussions(course_id):
 
 # ===== TODO ENDPOINTS =====
 @api_v1.route('/todo-items', methods=['GET', 'POST'])
-@firebase_auth_required
+@require_auth
 def todo_items():
     """List or create todo items"""
     from api.todos import list_todos, create_todo
@@ -484,7 +484,7 @@ def todo_items():
         return create_todo()
 
 @api_v1.route('/todo-items/<todo_id>', methods=['GET', 'PATCH', 'DELETE'])
-@firebase_auth_required
+@require_auth
 def todo_item(todo_id):
     """Get, update, or delete a todo item"""
     from api.todos import get_todo, update_todo, delete_todo
@@ -498,21 +498,21 @@ def todo_item(todo_id):
 
 # ===== ACTIVITIES ENDPOINTS =====
 @api_v1.route('/activities/recent', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def activities_recent():
     """Get recent activities"""
     from api.activities import get_recent_activities
     return get_recent_activities()
 
 @api_v1.route('/activities/stats', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def activities_stats():
     """Get activity statistics"""
     from api.activities import get_activity_stats
     return get_activity_stats()
 
 @api_v1.route('/activities/log', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def activities_log():
     """Log an activity"""
     from api.activities import log_activity
@@ -520,14 +520,14 @@ def activities_log():
 
 # ===== FILE ENDPOINTS =====
 @api_v1.route('/files/upload', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def upload_file():
     """Upload a file to a module"""
     from api.files import upload_file
     return upload_file()
 
 @api_v1.route('/files/<file_id>', methods=['GET', 'PATCH', 'DELETE'])
-@firebase_auth_required
+@require_auth
 def file_details(file_id):
     """Get, update, or delete file"""
     if request.method == 'GET':
@@ -541,14 +541,14 @@ def file_details(file_id):
         return delete_file_endpoint(file_id)
 
 @api_v1.route('/files/<file_id>/content', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def file_content(file_id):
     """Get file content or presigned URL"""
     from api.files import get_file_content
     return get_file_content(file_id)
 
 @api_v1.route('/files/module/<module_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def module_files(module_id):
     """Get all files in a module"""
     from api.files import get_module_files
@@ -556,7 +556,7 @@ def module_files(module_id):
 
 # ===== MODULE ENDPOINTS =====
 @api_v1.route('/modules/<module_id>', methods=['GET', 'PATCH', 'DELETE'])
-@firebase_auth_required
+@require_auth
 def module_details(module_id):
     """Get, update, or delete module"""
     if request.method == 'GET':
@@ -570,7 +570,7 @@ def module_details(module_id):
         return delete_module_endpoint(module_id)
 
 @api_v1.route('/modules/<module_id>/files', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def module_files_list(module_id):
     """Get all files in a module"""
     from api.modules import get_module_files
@@ -578,7 +578,7 @@ def module_files_list(module_id):
 
 # ===== ENROLLMENT ENDPOINTS =====
 @api_v1.route('/enrollments', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def enrollments():
     """Get user enrollments"""
     user_id = g.current_user.id
@@ -603,7 +603,7 @@ def enrollments():
 
 # ===== PERSONALIZATION ENDPOINTS =====
 @api_v1.route('/personalize/check/<file_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def check_personalized(file_id):
     """Check if personalized version exists"""
     # Deprecated - redirect to v2
@@ -616,7 +616,7 @@ def check_personalized(file_id):
     }), 410
 
 @api_v1.route('/personalize/outline/<file_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def personalize_outline(file_id):
     """Get personalized outline"""
     # Deprecated - redirect to v2
@@ -629,7 +629,7 @@ def personalize_outline(file_id):
     }), 410
 
 @api_v1.route('/personalize/save/<file_id>', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def personalize_save(file_id):
     """Save personalized content"""
     # Deprecated - redirect to v2
@@ -642,7 +642,7 @@ def personalize_save(file_id):
     }), 410
 
 @api_v1.route('/personalize/stream/<file_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def personalize_stream(file_id):
     """Stream personalized content"""
     # Deprecated - redirect to v2

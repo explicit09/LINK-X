@@ -5,7 +5,7 @@ from flask import Blueprint, request, g
 from datetime import datetime
 import logging
 
-from core.decorators_unified import firebase_auth_required
+from core.auth.decorators import require_auth
 from core.exceptions import ValidationError, NotFoundError
 from repositories.todo_repository import TodoRepository
 
@@ -28,7 +28,7 @@ def get_todo_repo():
 
 
 @todos_bp.route('', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def list_todos_v2():
     """List todos with pagination and filtering"""
     try:
@@ -93,7 +93,7 @@ def list_todos_v2():
 
 
 @todos_bp.route('', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def create_todo_v2():
     """Create a new todo item"""
     try:
@@ -142,7 +142,7 @@ def create_todo_v2():
 
 
 @todos_bp.route('/<todo_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_todo_v2(todo_id):
     """Get a specific todo item"""
     try:
@@ -178,7 +178,7 @@ def get_todo_v2(todo_id):
 
 
 @todos_bp.route('/<todo_id>', methods=['PATCH'])
-@firebase_auth_required
+@require_auth
 def update_todo_v2(todo_id):
     """Update a todo item"""
     try:
@@ -222,7 +222,7 @@ def update_todo_v2(todo_id):
 
 
 @todos_bp.route('/<todo_id>', methods=['DELETE'])
-@firebase_auth_required
+@require_auth
 def delete_todo_v2(todo_id):
     """Delete a todo item"""
     try:

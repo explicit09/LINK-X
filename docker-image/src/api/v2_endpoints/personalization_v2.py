@@ -9,7 +9,7 @@ from flask import Blueprint, Response, request, jsonify, stream_with_context, g
 from typing import Dict, Any
 
 from core.dependencies import container
-from core.decorators_unified import firebase_auth_required
+from core.auth.decorators import require_auth
 from services.streaming_personalization_v2 import OptimizedStreamingPersonalizationService
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ def get_streaming_service():
         raise
 
 @personalization_v2_bp.route('/outline', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def generate_outline():
     """
     Generate content outline for personalization
@@ -245,7 +245,7 @@ def stream_personalized_content():
     )
 
 @personalization_v2_bp.route('/save', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def save_personalized_content():
     """
     Save personalized content for later access
@@ -299,7 +299,7 @@ def save_personalized_content():
         }), 500
 
 @personalization_v2_bp.route('/status/<file_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_personalization_status(file_id: str):
     """
     Check if personalized content exists for a file

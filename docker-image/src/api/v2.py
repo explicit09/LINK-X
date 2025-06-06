@@ -129,7 +129,7 @@ def login_v2():
 
 
 @api_v2.route('/auth/logout', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def logout_v2():
     """Enhanced logout with token invalidation"""
     try:
@@ -152,7 +152,7 @@ def logout_v2():
 
 
 @api_v2.route('/auth/me', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_profile_v2():
     """Get current user profile with enhanced details"""
     try:
@@ -207,7 +207,7 @@ def get_profile_v2():
 
 
 @api_v2.route('/auth/me', methods=['PATCH'])
-@firebase_auth_required
+@require_auth
 def update_profile_v2():
     """Update current user profile with validation"""
     try:
@@ -242,7 +242,7 @@ def update_profile_v2():
 
 # ===== COURSES ENDPOINTS =====
 @api_v2.route('/courses', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def list_courses_v2():
     """List courses with pagination and filtering"""
     try:
@@ -306,7 +306,7 @@ def list_courses_v2():
 
 
 @api_v2.route('/courses', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def create_course_v2():
     """Create a new course with enhanced validation"""
     try:
@@ -367,7 +367,7 @@ def create_course_v2():
 
 
 @api_v2.route('/courses/<course_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_course_v2(course_id):
     """Get course details with enhanced information"""
     try:
@@ -426,7 +426,7 @@ def get_course_v2(course_id):
 
 
 @api_v2.route('/courses/<course_id>', methods=['PUT', 'PATCH'])
-@firebase_auth_required
+@require_auth
 def update_course_v2(course_id):
     """Update course with validation"""
     try:
@@ -467,7 +467,7 @@ def update_course_v2(course_id):
 
 
 @api_v2.route('/courses/<course_id>', methods=['DELETE'])
-@firebase_auth_required
+@require_auth
 def delete_course_v2(course_id):
     """Delete course with proper authorization"""
     try:
@@ -496,7 +496,7 @@ def delete_course_v2(course_id):
 
 # ===== MODULES ENDPOINTS =====
 @api_v2.route('/courses/<course_id>/modules', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def list_modules_v2(course_id):
     """List course modules with enhanced details"""
     try:
@@ -537,7 +537,7 @@ def list_modules_v2(course_id):
 
 
 @api_v2.route('/courses/<course_id>/modules', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def create_module_v2(course_id):
     """Create a new module with validation"""
     try:
@@ -589,7 +589,7 @@ def create_module_v2(course_id):
 
 # ===== FILES ENDPOINTS =====
 @api_v2.route('/files/upload', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def upload_file_v2():
     """Upload file with enhanced validation and progress tracking"""
     try:
@@ -647,7 +647,7 @@ def upload_file_v2():
 
 
 @api_v2.route('/files/<file_id>/content', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_file_content_v2(file_id):
     """Get file content with signed URL"""
     try:
@@ -686,7 +686,7 @@ def get_file_content_v2(file_id):
 
 # ===== TODO ENDPOINTS =====
 @api_v2.route('/todos', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def list_todos_v2():
     """List todos with pagination and filtering"""
     try:
@@ -740,7 +740,7 @@ def list_todos_v2():
 
 
 @api_v2.route('/todos', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def create_todo_v2():
     """Create a new todo with validation"""
     try:

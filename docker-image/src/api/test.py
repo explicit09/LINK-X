@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, g
-from core.decorators import firebase_auth_required
+from core.decorators import supabase_auth_required
 
 bp = Blueprint('test', __name__)
 
@@ -17,7 +17,7 @@ def check_session():
     }), 200
 
 @bp.route('/auth-check', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def check_auth():
     """Check if authentication is working"""
     return jsonify({
@@ -27,7 +27,7 @@ def check_auth():
     }), 200
 
 @bp.route('/course-debug/<course_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def debug_course(course_id):
     """Debug course data"""
     from db.connection import get_db_session

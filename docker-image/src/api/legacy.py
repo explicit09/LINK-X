@@ -1,12 +1,12 @@
 from flask import Blueprint, request, jsonify, g
-from core.decorators import firebase_auth_required
+from core.decorators import supabase_auth_required
 from core.exceptions import NotFoundError, AuthorizationError
 from services.course_service import CourseService
 
 bp = Blueprint('legacy', __name__)
 
 @bp.route('/courses/<course_id>/moduleswithfiles', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_modules_with_files_legacy(course_id):
     """Get all modules for a course with their files (legacy endpoint)"""
     
@@ -43,7 +43,7 @@ def get_modules_with_files_legacy(course_id):
         return jsonify({'error': 'Access denied'}), 403
 
 @bp.route('/student/courses/<course_id>/discussions', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_course_discussions_legacy(course_id):
     """Get course discussions (legacy endpoint)"""
         

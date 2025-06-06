@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, g
-from core.decorators_unified import firebase_auth_required
+from core.auth.decorators import require_auth
 from core.exceptions import NotFoundError, ValidationError, AuthorizationError
 from services.course_service import CourseService
 from repositories.course_repository import CourseRepository
@@ -7,7 +7,7 @@ from repositories.course_repository import CourseRepository
 bp = Blueprint('courses', __name__)
 
 @bp.route('', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def list_courses():
     """List courses based on user role"""
     user = g.current_user
@@ -67,7 +67,7 @@ def list_courses():
     }), 200
 
 @bp.route('/<course_id>', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_course(course_id):
     """Get course details"""
     course_service = CourseService()
@@ -88,7 +88,7 @@ def get_course(course_id):
         return jsonify({'error': 'Access denied'}), 403
 
 @bp.route('', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def create_course():
     """Create a new course"""
     # Check role
@@ -127,7 +127,7 @@ def create_course():
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<course_id>', methods=['PUT', 'PATCH'])
-@firebase_auth_required
+@require_auth
 def update_course(course_id):
     """Update course details"""
     # Check role
@@ -162,7 +162,7 @@ def update_course(course_id):
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<course_id>', methods=['DELETE'])
-@firebase_auth_required
+@require_auth
 def delete_course(course_id):
     """Delete a course"""
     # Check role
@@ -189,7 +189,7 @@ def delete_course(course_id):
         return jsonify({'error': 'Not authorized to delete this course'}), 403
 
 @bp.route('/<course_id>/publish', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def publish_course(course_id):
     """Publish a course"""
     # Check role
@@ -219,7 +219,7 @@ def publish_course(course_id):
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<course_id>/modules', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_course_modules(course_id):
     """Get all modules for a course"""
     course_service = CourseService()
@@ -246,7 +246,7 @@ def get_course_modules(course_id):
         return jsonify({'error': 'Access denied'}), 403
 
 @bp.route('/<course_id>/modules', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def create_module(course_id):
     """Create a new module in a course"""
     # Check role
@@ -287,7 +287,7 @@ def create_module(course_id):
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<course_id>/enroll', methods=['POST'])
-@firebase_auth_required
+@require_auth
 def enroll_in_course(course_id):
     """Enroll in a course using access code"""
     # Check role
@@ -324,7 +324,7 @@ def enroll_in_course(course_id):
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<course_id>/stats', methods=['GET'])
-@firebase_auth_required
+@require_auth
 def get_course_stats(course_id):
     """Get course statistics"""
     # Check role
@@ -351,7 +351,7 @@ def get_course_stats(course_id):
         return jsonify({'error': 'Not authorized to view course statistics'}), 403
 
 @bp.route('/<course_id>/progress', methods=['GET', 'OPTIONS'])
-@firebase_auth_required
+@require_auth
 def get_course_progress(course_id):
     """Get course progress for current user"""
     try:
@@ -371,7 +371,7 @@ def get_course_progress(course_id):
         return jsonify({'error': 'Failed to get course progress'}), 500
 
 @bp.route('/<course_id>/discussions', methods=['GET', 'OPTIONS'])
-@firebase_auth_required
+@require_auth
 def get_course_discussions(course_id):
     """Get course discussions"""
     try:
@@ -383,7 +383,7 @@ def get_course_discussions(course_id):
         return jsonify({'error': 'Failed to get discussions'}), 500
 
 @bp.route('/<course_id>/moduleswithfiles', methods=['GET', 'OPTIONS'])
-@firebase_auth_required
+@require_auth
 def get_modules_with_files(course_id):
     """Get all modules for a course with their files"""
     course_service = CourseService()
