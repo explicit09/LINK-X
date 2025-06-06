@@ -1,29 +1,32 @@
-# Core Dependencies
+# Core Web Framework
 Flask==2.3.2
 Flask-Cors==4.0.0
 Flask-JWT-Extended==4.5.2
 Flask-SQLAlchemy==3.0.5
-Flask-SocketIO==5.3.4  # For real-time collaboration
+Flask-SocketIO==5.3.4
 gunicorn==21.2.0
-gevent==23.9.1  # For WebSocket support
-eventlet==0.33.3  # Alternative async support for SocketIO
+gevent==23.9.1
+eventlet==0.33.3
 
-# Database
+# Database & Storage (Supabase optimized)
 psycopg2-binary==2.9.7
-SQLAlchemy==1.4.50  # Downgraded to be compatible with langchain
+SQLAlchemy==1.4.50
 alembic==1.12.0
 pgvector==0.2.3
-redis==4.6.0  # For real-time collaboration state
+supabase==2.3.4
+postgrest==0.13.2
 
-# Authentication & Cloud
+# Caching & Session Management
+redis==4.6.0
+hiredis==2.2.3
+
+# Authentication (Firebase for auth, Supabase for data)
 firebase-admin==6.2.0
-boto3==1.28.57
-botocore==1.31.57
 
 # AI/ML Core
-openai>=1.6.1,<2.0.0  # Updated to be compatible with langchain-openai
+openai>=1.6.1,<2.0.0
 transformers==4.35.2
-tiktoken>=0.5.2,<0.6.0  # Updated to be compatible with langchain-openai
+tiktoken>=0.5.2,<0.6.0
 numpy==1.24.4
 scipy==1.11.3
 
@@ -34,44 +37,34 @@ python-pptx==0.6.21
 unstructured[pdf,docx,pptx]==0.10.19
 
 # Vector Search & RAG
-langchain>=0.1.0  # Updated to a version that supports pydantic v2
-langchain-community>=0.0.10  # Updated to match langchain version
-langchain-openai>=0.0.5  # Keep the updated version
+langchain>=0.1.0
+langchain-community>=0.0.10
+langchain-openai>=0.0.5
 
-# Task Queue
+# Task Queue (for non-embedding tasks)
 celery[redis]==5.3.4
-redis==4.6.0  # Downgraded to be compatible with celery[redis]
-hiredis==2.2.3  # Faster Redis client
 flower==2.0.1
 
 # Performance & Optimization
-ujson==5.8.0  # Faster JSON
-orjson==3.9.7  # Even faster JSON
-msgpack==1.0.7  # Binary serialization
-lz4==4.3.2  # Compression
+ujson==5.8.0
+orjson==3.9.7
+msgpack==1.0.7
+lz4==4.3.2
 
-# API & Streaming
+# API & HTTP
 httpx==0.25.0
 aiofiles==23.2.1
 
-# Utilities
+# Configuration & Utilities
 python-dotenv==1.0.0
 python-multipart==0.0.6
-pydantic==2.5.3  # Updated to be compatible with pydantic-settings
-pydantic-settings==2.0.3  # Updated to a version that works with pydantic>=2.0.1
+pydantic==2.5.3
+pydantic-settings==2.0.3
 
-# Monitoring
+# Monitoring & Observability
 prometheus-client==0.18.0
 python-json-logger==2.0.7
 sentry-sdk[flask]==1.38.0
 
-# Development & Testing
-pytest==7.4.3
-pytest-cov==4.1.0
-pytest-mock==3.12.0
-pytest-asyncio==0.21.1
-black==23.11.0
-flake8==6.1.0
-mypy==1.7.1
-
-# Additional ML/Data Processing
+# Production essentials only (dev tools removed for production)
+# pytest, black, flake8, mypy moved to requirements-dev.txt

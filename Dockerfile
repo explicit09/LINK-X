@@ -1,36 +1,56 @@
-# Production Dockerfile for Railway
+# Optimized Production Dockerfile for LINK-X
+# Supabase Storage + Automatic Embeddings + Clean Dependencies
 FROM python:3.11-slim
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    g++ \
-    postgresql-client \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Build arguments
+ARG BUILD_ENV=production
+ARG WORKERS=4
+ARG THREADS=2
 
-# Set working directory
+# Install minimal system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create non-root user for security
+RUN groupadd -r linkx && useradd -r -g linkx -d /app -s /bin/bash linkx
+
 WORKDIR /app
 
-# Copy and install requirements
+# Copy and install Python requirements
 COPY docker-image/src/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir gunicorn
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip cache purge
 
 # Copy application code
-COPY docker-image/src/ ./src/
-COPY docker-image/scripts/ ./scripts/
+COPY --chown=linkx:linkx docker-image/src/ ./src/
+COPY --chown=linkx:linkx docker-image/scripts/ ./scripts/
 
-# Create necessary directories
-RUN mkdir -p logs data/uploads data/cache
+# Create necessary directories and set permissions
+RUN mkdir -p logs \
+    && chown -R linkx:linkx /app \
+    && find /app -type f -exec chmod 644 {} \; \
+    && find /app -type d -exec chmod 755 {} \; \
+    && find /app/scripts -name "*.py" -exec chmod 755 {} \;
 
-# Set Python path
-ENV PYTHONPATH=/app/src:$PYTHONPATH
-ENV PYTHONUNBUFFERED=1
+# Switch to non-root user
+USER linkx
 
-# Railway provides PORT env variable
-ENV PORT=8000
+# Environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app/src \
+    PORT=8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/api/v2/health || exit 1
+
 EXPOSE ${PORT}
 
-# Start command using Railway's PORT
-CMD gunicorn --bind 0.0.0.0:${PORT} --workers 2 --threads 2 --timeout 120 --chdir src app:app
+# Production command
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "--chdir", "src", "wsgi:app"]
