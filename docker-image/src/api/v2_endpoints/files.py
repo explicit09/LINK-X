@@ -10,7 +10,7 @@ import json
 
 from core.auth.decorators import require_auth
 from core.exceptions import ValidationError, NotFoundError, UnauthorizedError
-from services.file_service import FileService
+from services.file_service_supabase import FileService
 from repositories.module_repository import ModuleRepository
 from core.prompts import prompt_generate_personalized_file_content, prompt3_generate_module_content
 
@@ -119,7 +119,7 @@ def upload_file_v2():
         
         # Check course access through module
         try:
-            from services.course_service import CourseService
+            from services.course_service_optimized import OptimizedCourseService as CourseService
             course_service = CourseService()
             if not course_service.check_course_access(module.course_id, user.id):
                 logger.warning("Course access denied")

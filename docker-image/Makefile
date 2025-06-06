@@ -1,4 +1,4 @@
-.PHONY: help install install-dev test test-unit test-integration lint format check security clean docker-build docker-run setup
+.PHONY: help install install-dev test test-unit test-integration lint format check security clean docker-build docker-build-prod docker-build-opt docker-run docker-logs docker-stop setup
 
 # Default target
 help: ## Show this help message
@@ -66,17 +66,20 @@ db-reset: ## Reset database (WARNING: destructive)
 docker-build: ## Build Docker image for development
 	docker build -f docker/Dockerfile.dev -t linkx:dev .
 
-docker-build-prod: ## Build Docker image for production
-	docker build -f docker/Dockerfile.multistage -t linkx:prod .
+docker-build-prod: ## Build optimized Docker image for production
+	docker build -f ../Dockerfile -t linkx:prod ..
+
+docker-build-opt: ## Build optimized Docker image (same as prod)
+	docker build -f ../Dockerfile -t linkx:optimized ..
 
 docker-run: ## Run development environment with Docker Compose
-	docker-compose --profile dev up -d
+	cd .. && docker-compose --profile dev up -d
 
 docker-logs: ## View Docker logs
-	docker-compose logs -f backend
+	cd .. && docker-compose logs -f backend
 
 docker-stop: ## Stop Docker services
-	docker-compose down
+	cd .. && docker-compose down
 
 # Utilities
 clean: ## Clean up temporary files
@@ -87,7 +90,7 @@ clean: ## Clean up temporary files
 	find . -name "*.log" -delete
 
 clean-all: clean ## Clean everything including Docker
-	docker-compose down -v
+	cd .. && docker-compose down -v
 	docker system prune -f
 
 # Development

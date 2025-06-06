@@ -1,1 +1,0 @@
-console.log('🧹 Clearing schedule onboarding flag for testing...'); localStorage.removeItem('schedule-onboarding-completed'); console.log('✅ Flag cleared - onboarding will show on next visit with 0 sessions');

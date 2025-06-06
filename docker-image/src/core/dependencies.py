@@ -25,7 +25,7 @@ from repositories.todo_repository import TodoRepository
 
 from services.auth_service_unified import UnifiedAuthService
 from services.course_service_optimized import OptimizedCourseService as CourseService
-from services.file_service import FileService
+from services.file_service_supabase import FileService
 from services.module_service import ModuleService
 from services.admin_service import AdminService
 from services.ai_service import AIService
