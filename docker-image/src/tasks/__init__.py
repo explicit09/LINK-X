@@ -36,7 +36,6 @@ try:
 
     # Import tasks
     from .file_processing import process_file_async, personalize_file_async
-    from .embedding import generate_embeddings_async, update_embeddings_async
     from .maintenance import cleanup_old_files_async, reindex_all_content
     
     CELERY_AVAILABLE = True

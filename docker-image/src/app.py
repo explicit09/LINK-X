@@ -7,6 +7,11 @@ from flask import Flask, request
 # from core.firebase_config import initialize_firebase  # Migrated to Supabase
 import logging
 
+# Load environment variables first
+from dotenv import load_dotenv
+# Load from docker-image/.env
+load_dotenv('../.env')
+
 # Configure logging
 logging.basicConfig(
     level=logging.DEBUG,
@@ -27,7 +32,6 @@ from api.session import session_bp
 
 # Import blueprints - using the new unified structure
 from api.health import bp as health_bp
-from api.auth_unified import bp as auth_bp
 from api.v2_endpoints import api_v2
 from monitoring.api_version_monitor import monitoring_bp, create_api_usage_table
 from api.circuit_breaker_monitor import bp as circuit_breaker_bp
@@ -106,10 +110,8 @@ def create_app():
     # Root-level session endpoint for compatibility
     app.register_blueprint(session_bp)
     
-    # New unified auth endpoints (v2 style) - mounted at /auth for new frontend
-    app.register_blueprint(auth_bp, url_prefix='/auth')
-    
     # API v2 endpoints (current version) - all under /api/v2
+    # Note: auth endpoints are included in api_v2 at /api/v2/auth
     app.register_blueprint(api_v2)
     
     # Streaming endpoints - under /api/streaming
@@ -124,9 +126,7 @@ def create_app():
     # Test SSE endpoint - under /api/test
     app.register_blueprint(test_sse_bp, url_prefix='/api/test')
     
-    # Test auth endpoint
-    from api.test_auth import test_auth_bp
-    app.register_blueprint(test_auth_bp)
+    # Test auth endpoint removed during cleanup
     
     # API monitoring endpoints - all under /api/monitoring
     app.register_blueprint(monitoring_bp)
