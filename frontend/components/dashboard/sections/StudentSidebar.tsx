@@ -13,7 +13,8 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  User
+  User,
+  Target
 } from 'lucide-react';
 
 interface StudentSidebarProps {
@@ -33,6 +34,7 @@ export function StudentSidebar({ currentUser, isCollapsed, onToggleCollapse }: S
   const navigationItems = [
     { icon: Home, label: 'Dashboard', path: '/dashboard' },
     { icon: BookOpen, label: 'My Courses', path: '/my-courses' },
+    { icon: Target, label: 'Study Plan', path: '/study-plan' },
     { icon: Calendar, label: 'Schedule', path: '/schedule' },
     { icon: Trophy, label: 'Progress', path: '/progress' },
     { icon: MessageSquare, label: 'Messages', path: '/messages' },
