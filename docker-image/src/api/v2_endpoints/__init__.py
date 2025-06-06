@@ -9,7 +9,12 @@ import logging
 # Import all sub-blueprints
 from .auth import auth_bp
 from .courses import courses_bp
-from .files import files_bp
+# Import files blueprint based on feature flag
+import os
+if os.getenv('USE_SUPABASE_STORAGE', 'false').lower() == 'true':
+    from .files_supabase import files_bp
+else:
+    from .files import files_bp
 from .activities import activities_bp
 from .todos import todos_bp
 from .dashboard import dashboard_bp
