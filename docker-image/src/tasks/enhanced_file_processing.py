@@ -122,6 +122,11 @@ def process_file_with_semantic_chunking(self, file_id: str, force: bool = False)
             
             logger.info(f"Successfully processed file {file_id} with semantic chunking")
             
+            # Queue embedding generation for new chunks
+            from .embedding_generation import process_file_embeddings
+            embedding_task = process_file_embeddings.apply_async(args=[file_id])
+            logger.info(f"Queued embedding generation task: {embedding_task.id}")
+            
             # Extract style if it's a professor's material
             if module.creator_id:  # Professor's course
                 extract_teaching_style.delay(course_id)

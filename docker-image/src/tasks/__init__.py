@@ -37,6 +37,12 @@ try:
     # Import tasks
     from .enhanced_file_processing import process_file_async, personalize_file_async
     from .maintenance import cleanup_old_files_async, reindex_all_content
+    from .embedding_generation import (
+        generate_embeddings_batch,
+        process_file_embeddings,
+        scan_missing_embeddings,
+        generate_query_embedding
+    )
     
     CELERY_AVAILABLE = True
     
@@ -70,8 +76,10 @@ __all__ = [
     'celery',
     'process_file_async',
     'personalize_file_async',
-    'generate_embeddings_async',
-    'update_embeddings_async',
+    'generate_embeddings_batch',
+    'process_file_embeddings', 
+    'scan_missing_embeddings',
+    'generate_query_embedding',
     'cleanup_old_files_async',
     'reindex_all_content',
     'CELERY_AVAILABLE'

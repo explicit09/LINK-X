@@ -99,21 +99,22 @@ class AIService:
     
     # Embeddings and Search Methods
     def generate_embeddings(self, text: str) -> List[float]:
-        """Generate embeddings for text using Supabase native AI"""
-        # EmbeddingsService removed - Use Supabase native AI directly
-        from core.supabase_config import get_supabase_client
-        supabase = get_supabase_client()
+        """Generate embeddings for text using worker-based approach"""
+        # Use the new worker-based embedding generation
+        from tasks.embedding_generation import generate_query_embedding
         
-        embedding_response = supabase.rpc('ai.embed', {
-            'model': 'text-embedding-3-small',
-            'text': text
-        })
+        # For queries, we want synchronous results
+        task = generate_query_embedding.apply(args=[text, True])
         
-        return embedding_response.data if embedding_response.data else []
+        if task.successful():
+            return task.result
+        else:
+            logger.error(f"Failed to generate embeddings: {task.info}")
+            return []
     
     def generate_batch_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings for multiple texts efficiently using Supabase native AI"""
-        # EmbeddingsService removed - Use Supabase native AI for batch processing
+        """Generate embeddings for multiple texts efficiently using worker tasks"""
+        # Use the worker-based approach for batch processing
         embeddings = []
         for text in texts:
             embedding = self.generate_embeddings(text)

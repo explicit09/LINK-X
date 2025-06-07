@@ -90,7 +90,12 @@ app.conf.update(
             'schedule': timedelta(days=7),  # Weekly
             'options': {'queue': 'low'}
         },
-        # Embeddings now handled by Supabase - removed cleanup task
+        # Embedding generation
+        'scan-missing-embeddings': {
+            'task': 'tasks.embedding_generation.scan_missing_embeddings',
+            'schedule': timedelta(minutes=5),  # Every 5 minutes
+            'options': {'queue': 'embeddings'}
+        },
         # Database maintenance
         'vacuum-database': {
             'task': 'tasks.maintenance.vacuum_database',
