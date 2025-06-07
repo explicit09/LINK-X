@@ -164,12 +164,12 @@ export const useEnhancedPersonalization = (fileId: string) => {
 
     const connectWithRetry = async () => {
       try {
-        // Get Firebase token for SSE (backend expects Firebase token)
-        const { auth } = await import('@/firebaseconfig');
-        const currentUser = auth.currentUser;
+        // Get Supabase token for SSE
+        const { supabase } = await import('@/lib/supabase');
+        const { data: { session } } = await supabase.auth.getSession();
         
-        if (!currentUser) {
-          console.error('No Firebase user found');
+        if (!session) {
+          console.error('No Supabase session found');
           setState(prev => ({
             ...prev,
             error: 'Authentication required. Please sign in.',
@@ -178,8 +178,8 @@ export const useEnhancedPersonalization = (fileId: string) => {
           return;
         }
         
-        const token = await currentUser.getIdToken();
-        console.log('🔐 Enhanced Personalization: Got Firebase token:', token ? `${token.substring(0, 20)}...` : 'null');
+        const token = session.access_token;
+        console.log('🔐 Enhanced Personalization: Got Supabase token:', token ? `${token.substring(0, 20)}...` : 'null');
         
         // For EventSource, we need to pass token as URL parameter since headers aren't universally supported
         const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';

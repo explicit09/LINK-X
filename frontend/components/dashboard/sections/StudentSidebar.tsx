@@ -429,7 +429,6 @@ export function StudentSidebar({ currentUser, isCollapsed, onToggleCollapse, cou
               </div>
             );
           })}
-        });
       </nav>
 
       {/* Bottom Navigation - stays at absolute bottom */}

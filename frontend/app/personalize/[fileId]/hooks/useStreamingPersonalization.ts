@@ -138,10 +138,10 @@ export function useStreamingPersonalization(
     isPausedRef.current = false;
 
     try {
-      // Get the current user's Firebase token for SSE
-      const firebaseAuth = await import('@/firebaseconfig').then(m => m.auth);
-      const currentUser = firebaseAuth.currentUser;
-      const token = currentUser ? await currentUser.getIdToken() : '';
+      // Get the current user's Supabase token for SSE
+      const { supabase } = await import('@/lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
 
       // Create EventSource with auth token
       const url = new URL(`${API_BASE_URL}/api/v2/personalization/stream`);

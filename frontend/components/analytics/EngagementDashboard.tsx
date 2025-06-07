@@ -88,9 +88,10 @@ export function EngagementDashboard({ userId, className }: EngagementDashboardPr
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
+        const authToken = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : '';
         const response = await fetch(`/api/v2/analytics/student/dashboard?days=${selectedPeriod}`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+            'Authorization': `Bearer ${authToken}`,
             'Content-Type': 'application/json'
           }
         });

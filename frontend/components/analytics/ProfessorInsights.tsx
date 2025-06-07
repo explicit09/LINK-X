@@ -88,9 +88,10 @@ export function ProfessorInsights({ courseId, className }: ProfessorInsightsProp
   const fetchInsights = async () => {
     try {
       setLoading(true);
+      const authToken = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : '';
       const response = await fetch(`/api/v2/analytics/professor/course/${courseId}/insights`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
         }
       });

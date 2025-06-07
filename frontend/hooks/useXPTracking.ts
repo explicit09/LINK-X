@@ -123,3 +123,39 @@ export function useHelpPeerXP(helpId: string, rating: number, metadata?: Record<
 
   return { awardIfHighRating };
 }
+
+export function useFileViewXP(fileId: string, metadata?: Record<string, any>) {
+  return useXPTracking({
+    action: 'CONTENT_VIEW', // Using CONTENT_VIEW for file views
+    metadata: { fileId, type: 'file', ...metadata },
+    autoTrigger: true,
+    triggerDelay: 2000, // Award after 2 seconds
+    requireInteraction: true
+  });
+}
+
+export function useChatMessageXP(messageId: string, metadata?: Record<string, any>) {
+  return useXPTracking({
+    action: 'HELP_PEER', // Using HELP_PEER for chat messages that help others
+    metadata: { messageId, type: 'chat', ...metadata },
+    autoTrigger: false // Manual trigger when message sent
+  });
+}
+
+export function useTodoCompleteXP(todoId: string, metadata?: Record<string, any>) {
+  return useXPTracking({
+    action: 'CONTENT_VIEW', // Using CONTENT_VIEW for todo completion
+    metadata: { todoId, type: 'todo', ...metadata },
+    autoTrigger: false // Manual trigger when todo completed
+  });
+}
+
+export function useVideoWatchXP(videoId: string, duration: number, metadata?: Record<string, any>) {
+  return useXPTracking({
+    action: 'CONTENT_VIEW', // Using CONTENT_VIEW for video watching
+    metadata: { videoId, duration, type: 'video', ...metadata },
+    autoTrigger: true,
+    triggerDelay: 10000, // Award after 10 seconds of watching
+    requireInteraction: false
+  });
+}

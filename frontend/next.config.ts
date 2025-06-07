@@ -9,6 +9,17 @@ const nextConfig: NextConfig = {
   // Essential settings
   reactStrictMode: true,
   
+  // Output configuration
+  output: 'standalone',
+  
+  // Asset prefix configuration
+  assetPrefix: process.env.ASSET_PREFIX || '',
+  
+  // Public runtime config
+  publicRuntimeConfig: {
+    staticFolder: '/_next/static',
+  },
+  
   // Basic experimental features
   experimental: {
     ppr: true,
@@ -38,7 +49,20 @@ const nextConfig: NextConfig = {
         { key: 'X-Content-Type-Options', value: 'nosniff' },
       ],
     },
+    {
+      source: '/fonts/(.*)',
+      headers: [
+        { key: 'Cache-Control', value: 'public, immutable, max-age=31536000' },
+      ],
+    },
   ],
+  
+  // Rewrites for better asset handling
+  rewrites: async () => ({
+    beforeFiles: [],
+    afterFiles: [],
+    fallback: [],
+  }),
   
   // Webpack configuration for development stability
   webpack: (config, { isServer }) => {

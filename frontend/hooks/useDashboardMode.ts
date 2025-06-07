@@ -109,7 +109,9 @@ export function useDashboardMode() {
 
   // Setup missions progress tracking
   const setupMissions = useMemo(() => {
-    const completedMissions = JSON.parse(localStorage.getItem('completedSetupMissions') || '[]');
+    const completedMissions = typeof window !== 'undefined' 
+      ? JSON.parse(localStorage.getItem('completedSetupMissions') || '[]')
+      : [];
     
     return [
       {

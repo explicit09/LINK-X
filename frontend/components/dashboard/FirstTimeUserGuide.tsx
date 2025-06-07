@@ -27,9 +27,11 @@ export function FirstTimeUserGuide({ onGuideComplete }: FirstTimeUserGuideProps)
 
   useEffect(() => {
     // Show welcome card for first-time users
-    const hasSeenWelcome = localStorage.getItem('has_seen_welcome');
-    if (!hasSeenWelcome && stage === UserJourneyStage.FIRST_VISIT) {
-      setShowWelcomeCard(true);
+    if (typeof window !== 'undefined') {
+      const hasSeenWelcome = localStorage.getItem('has_seen_welcome');
+      if (!hasSeenWelcome && stage === UserJourneyStage.FIRST_VISIT) {
+        setShowWelcomeCard(true);
+      }
     }
   }, [stage]);
 
@@ -115,7 +117,9 @@ export function FirstTimeUserGuide({ onGuideComplete }: FirstTimeUserGuideProps)
   ];
 
   const handleWelcomeComplete = () => {
-    localStorage.setItem('has_seen_welcome', 'true');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('has_seen_welcome', 'true');
+    }
     setShowWelcomeCard(false);
   };
 

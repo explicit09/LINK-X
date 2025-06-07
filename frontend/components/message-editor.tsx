@@ -47,11 +47,12 @@ export function MessageEditor({
 
   const handleDeleteTrailingMessages = async () => {
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
       const response = await fetch('/api/messages/delete_trailing', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           messageId: userMessageIdFromServer ?? message.id,
@@ -83,11 +84,12 @@ export function MessageEditor({
       await handleDeleteTrailingMessages();
 
       // Send the update to the server
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
       const response = await fetch('/api/messages/update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           messageId,

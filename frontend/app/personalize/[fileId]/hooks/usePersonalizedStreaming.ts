@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api/client';
-import { auth } from '@/firebaseconfig';
+import { supabase } from '@/lib/supabase';
 
 interface Section {
   id: string;
@@ -37,13 +37,12 @@ export function usePersonalizedStreaming(fileId: string) {
   // Helper to get auth headers
   const getAuthHeaders = async () => {
     const headers: Record<string, string> = {};
-    const user = auth.currentUser;
-    if (user) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
       try {
-        const token = await user.getIdToken();
-        headers['X-Firebase-Token'] = token;
+        headers['Authorization'] = `Bearer ${session.access_token}`;
       } catch (error) {
-        console.error('Failed to get Firebase token:', error);
+        console.error('Failed to get Supabase token:', error);
       }
     }
     return headers;

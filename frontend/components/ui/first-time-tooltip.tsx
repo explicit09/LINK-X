@@ -19,6 +19,8 @@ export function FirstTimeTooltip({
 
   useEffect(() => {
     // Check if we've shown this before
+    if (typeof window === 'undefined') return;
+    
     const hasShown = localStorage.getItem(storageKey);
     if (hasShown) return;
 

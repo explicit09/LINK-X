@@ -98,19 +98,23 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
 
   // Load cooldowns from local storage
   useEffect(() => {
-    const stored = localStorage.getItem(COOLDOWN_STORAGE_KEY);
-    if (stored) {
-      try {
-        setCooldowns(JSON.parse(stored));
-      } catch (e) {
-        console.error('Failed to load cooldowns:', e);
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(COOLDOWN_STORAGE_KEY);
+      if (stored) {
+        try {
+          setCooldowns(JSON.parse(stored));
+        } catch (e) {
+          console.error('Failed to load cooldowns:', e);
+        }
       }
     }
   }, []);
 
   // Save cooldowns to local storage
   useEffect(() => {
-    localStorage.setItem(COOLDOWN_STORAGE_KEY, JSON.stringify(cooldowns));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(COOLDOWN_STORAGE_KEY, JSON.stringify(cooldowns));
+    }
   }, [cooldowns]);
 
   // Check if action is on cooldown

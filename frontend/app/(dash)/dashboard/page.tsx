@@ -6,7 +6,6 @@ import { toast as sonnerToast } from 'sonner';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
 import { DashboardMainContent } from '@/components/dashboard/sections/DashboardMainContent';
 import { DashboardSidebar } from '@/components/dashboard/sections/DashboardSidebar';
-import { ProgressiveDashboard } from '@/components/dashboard/sections/ProgressiveDashboard';
 import { FirstTimeUserGuide } from '@/components/dashboard/FirstTimeUserGuide';
 import { useUserJourneyStage, UserJourneyStage } from '@/hooks/useUserJourneyStage';
 import { useDashboardOverview, useAIRecommendations } from '@/hooks/useDashboardData';
@@ -14,7 +13,6 @@ import { useUnifiedAuth } from '@/hooks/useUnifiedAuth';
 import { useDashboardMode, DashboardMode } from '@/hooks/useDashboardMode';
 // import { DashboardTransition, useDashboardTransition } from '@/components/dashboard/transitions/DashboardTransition'; // TODO: Re-enable after framer-motion is installed
 import { FadeInCard } from '@/components/dashboard/animations/CSSAnimations';
-import { useEffect, useRef } from 'react';
 import { 
   WelcomeDashboard, 
   GuidedDashboard, 
@@ -289,23 +287,25 @@ export default function Dashboard() {
 }
 
 // Monitor all navigation events
-const originalPushState = history.pushState;
-const originalReplaceState = history.replaceState;
+if (typeof window !== 'undefined') {
+  const originalPushState = history.pushState;
+  const originalReplaceState = history.replaceState;
 
-history.pushState = function(...args) {
-  console.log('[Navigation] pushState to:', args[2]);
-  return originalPushState.apply(this, args);
-};
+  history.pushState = function(...args) {
+    console.log('[Navigation] pushState to:', args[2]);
+    return originalPushState.apply(this, args);
+  };
 
-history.replaceState = function(...args) {
-  console.log('[Navigation] replaceState to:', args[2]);
-  return originalReplaceState.apply(this, args);
-};
+  history.replaceState = function(...args) {
+    console.log('[Navigation] replaceState to:', args[2]);
+    return originalReplaceState.apply(this, args);
+  };
 
-window.addEventListener('beforeunload', () => {
-  console.log('[Navigation] Page unloading');
-});
-
-window.addEventListener('popstate', () => {
-  console.log('[Navigation] popstate event');
-});
+  window.addEventListener('beforeunload', () => {
+    console.log('[Navigation] Page unloading');
+  });
+  
+  window.addEventListener('popstate', () => {
+    console.log('[Navigation] popstate event');
+  });
+}

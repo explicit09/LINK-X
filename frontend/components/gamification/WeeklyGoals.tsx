@@ -134,7 +134,7 @@ export function WeeklyGoals({
 
   // Award bonus XP for completing all goals
   useEffect(() => {
-    if (completedGoals === totalGoals && totalGoals > 0) {
+    if (completedGoals === totalGoals && totalGoals > 0 && typeof window !== 'undefined') {
       const hasClaimedBonus = localStorage.getItem('weekly-goals-bonus-claimed');
       const weekNumber = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
       

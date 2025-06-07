@@ -113,15 +113,17 @@ export function OriginalSchedulePage() {
 
   // Auto-launch onboarding modal on first visit
   useEffect(() => {
-    const hasSeenOnboarding = localStorage.getItem('schedule-onboarding-completed');
-    
-    // Show modal if: no sessions AND not loading AND user has courses AND hasn't seen onboarding
-    if (!hasSeenOnboarding && !isLoading && filteredSessions.length === 0 && userCourses.length > 0) {
-      const timer = setTimeout(() => {
-        setShowOnboardingModal(true);
-      }, 1000); // Delay 1 second to let page load
+    if (typeof window !== 'undefined') {
+      const hasSeenOnboarding = localStorage.getItem('schedule-onboarding-completed');
       
-      return () => clearTimeout(timer);
+      // Show modal if: no sessions AND not loading AND user has courses AND hasn't seen onboarding
+      if (!hasSeenOnboarding && !isLoading && filteredSessions.length === 0 && userCourses.length > 0) {
+        const timer = setTimeout(() => {
+          setShowOnboardingModal(true);
+        }, 1000); // Delay 1 second to let page load
+        
+        return () => clearTimeout(timer);
+      }
     }
   }, [isLoading, filteredSessions.length, userCourses.length]);
 
@@ -132,8 +134,10 @@ export function OriginalSchedulePage() {
 
   // Debug function to reset onboarding for testing
   const resetOnboarding = () => {
-    localStorage.removeItem('schedule-onboarding-completed');
-    console.log('Onboarding reset - modal will show on next empty state');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('schedule-onboarding-completed');
+      console.log('Onboarding reset - modal will show on next empty state');
+    }
   };
 
   const handleBrowseCourses = () => {
@@ -215,7 +219,9 @@ export function OriginalSchedulePage() {
       }
       
       // Mark onboarding as completed
-      localStorage.setItem('schedule-onboarding-completed', 'true');
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('schedule-onboarding-completed', 'true');
+      }
       
       // Close modal  
       setShowOnboardingModal(false);
@@ -224,7 +230,9 @@ export function OriginalSchedulePage() {
       console.error('❌ Complete failure in session creation:', error);
       
       // Still mark onboarding as completed to prevent loop
-      localStorage.setItem('schedule-onboarding-completed', 'true');
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('schedule-onboarding-completed', 'true');
+      }
       setShowOnboardingModal(false);
       
       // Show user-friendly error

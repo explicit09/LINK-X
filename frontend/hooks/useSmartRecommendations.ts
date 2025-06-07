@@ -452,12 +452,14 @@ export function useSmartRecommendations() {
 
   // Load dismissed recommendations from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('dismissedRecommendations');
-    if (saved) {
-      try {
-        setDismissedRecommendations(JSON.parse(saved));
-      } catch (error) {
-        console.error('Failed to load dismissed recommendations:', error);
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('dismissedRecommendations');
+      if (saved) {
+        try {
+          setDismissedRecommendations(JSON.parse(saved));
+        } catch (error) {
+          console.error('Failed to load dismissed recommendations:', error);
+        }
       }
     }
   }, []);
@@ -465,12 +467,16 @@ export function useSmartRecommendations() {
   const dismissRecommendation = (id: string) => {
     const updated = [...dismissedRecommendations, id];
     setDismissedRecommendations(updated);
-    localStorage.setItem('dismissedRecommendations', JSON.stringify(updated));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dismissedRecommendations', JSON.stringify(updated));
+    }
   };
 
   const resetDismissed = () => {
     setDismissedRecommendations([]);
-    localStorage.removeItem('dismissedRecommendations');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('dismissedRecommendations');
+    }
   };
 
   return {

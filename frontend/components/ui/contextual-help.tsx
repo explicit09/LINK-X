@@ -43,7 +43,7 @@ export function HelpTooltip({
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    if (helpId) {
+    if (helpId && typeof window !== 'undefined') {
       const seenHelps = JSON.parse(localStorage.getItem('seen_help_tips') || '[]');
       if (seenHelps.includes(helpId)) {
         setHasBeenSeen(true);
@@ -57,7 +57,7 @@ export function HelpTooltip({
   }, [helpId, showOnFirstVisit]);
 
   const markAsSeen = () => {
-    if (helpId && !hasBeenSeen) {
+    if (helpId && !hasBeenSeen && typeof window !== 'undefined') {
       const seenHelps = JSON.parse(localStorage.getItem('seen_help_tips') || '[]');
       seenHelps.push(helpId);
       localStorage.setItem('seen_help_tips', JSON.stringify(seenHelps));
@@ -104,9 +104,11 @@ export function InteractiveGuide({ steps, onComplete, guideId }: InteractiveGuid
 
   useEffect(() => {
     // Check if guide has been completed
-    const completedGuides = JSON.parse(localStorage.getItem('completed_guides') || '[]');
-    if (!completedGuides.includes(guideId)) {
-      setIsActive(true);
+    if (typeof window !== 'undefined') {
+      const completedGuides = JSON.parse(localStorage.getItem('completed_guides') || '[]');
+      if (!completedGuides.includes(guideId)) {
+        setIsActive(true);
+      }
     }
   }, [guideId]);
 
@@ -143,9 +145,11 @@ export function InteractiveGuide({ steps, onComplete, guideId }: InteractiveGuid
   };
 
   const completeGuide = () => {
-    const completedGuides = JSON.parse(localStorage.getItem('completed_guides') || '[]');
-    completedGuides.push(guideId);
-    localStorage.setItem('completed_guides', JSON.stringify(completedGuides));
+    if (typeof window !== 'undefined') {
+      const completedGuides = JSON.parse(localStorage.getItem('completed_guides') || '[]');
+      completedGuides.push(guideId);
+      localStorage.setItem('completed_guides', JSON.stringify(completedGuides));
+    }
     setIsActive(false);
     onComplete?.();
   };
@@ -241,10 +245,12 @@ export function SmartTip({
   const [isDismissed, setIsDismissed] = useState(false);
 
   useEffect(() => {
-    const dismissedTips = JSON.parse(localStorage.getItem('dismissed_tips') || '[]');
-    if (dismissedTips.includes(tipId)) {
-      setIsDismissed(true);
-      return;
+    if (typeof window !== 'undefined') {
+      const dismissedTips = JSON.parse(localStorage.getItem('dismissed_tips') || '[]');
+      if (dismissedTips.includes(tipId)) {
+        setIsDismissed(true);
+        return;
+      }
     }
 
     if (trigger === 'auto') {
@@ -254,9 +260,11 @@ export function SmartTip({
   }, [tipId, trigger, delay]);
 
   const handleDismiss = () => {
-    const dismissedTips = JSON.parse(localStorage.getItem('dismissed_tips') || '[]');
-    dismissedTips.push(tipId);
-    localStorage.setItem('dismissed_tips', JSON.stringify(dismissedTips));
+    if (typeof window !== 'undefined') {
+      const dismissedTips = JSON.parse(localStorage.getItem('dismissed_tips') || '[]');
+      dismissedTips.push(tipId);
+      localStorage.setItem('dismissed_tips', JSON.stringify(dismissedTips));
+    }
     setIsDismissed(true);
     setIsOpen(false);
   };
@@ -339,16 +347,20 @@ export function FeatureHighlight({
   const [showHighlight, setShowHighlight] = useState(false);
 
   useEffect(() => {
-    const seenFeatures = JSON.parse(localStorage.getItem('seen_features') || '[]');
-    if (!seenFeatures.includes(featureId) && isNew) {
-      setShowHighlight(true);
+    if (typeof window !== 'undefined') {
+      const seenFeatures = JSON.parse(localStorage.getItem('seen_features') || '[]');
+      if (!seenFeatures.includes(featureId) && isNew) {
+        setShowHighlight(true);
+      }
     }
   }, [featureId, isNew]);
 
   const markAsSeen = () => {
-    const seenFeatures = JSON.parse(localStorage.getItem('seen_features') || '[]');
-    seenFeatures.push(featureId);
-    localStorage.setItem('seen_features', JSON.stringify(seenFeatures));
+    if (typeof window !== 'undefined') {
+      const seenFeatures = JSON.parse(localStorage.getItem('seen_features') || '[]');
+      seenFeatures.push(featureId);
+      localStorage.setItem('seen_features', JSON.stringify(seenFeatures));
+    }
     setShowHighlight(false);
   };
 
