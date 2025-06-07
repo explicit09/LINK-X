@@ -40,11 +40,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     // Set a timeout to ensure loading doesn't hang forever
     timeoutId = setTimeout(() => {
-      if (isMounted) {
+      if (isMounted && loading) {
         console.error('[AuthProvider] Auth initialization timeout - forcing loading to false');
         setLoading(false);
+        // Also try to get current auth state one more time
+        authService.getCurrentUser().then(user => {
+          if (user && isMounted) {
+            console.log('[AuthProvider] Late auth state recovery:', user.email);
+            setUser(user);
+          }
+        }).catch(err => {
+          console.error('[AuthProvider] Failed to recover auth state:', err);
+        });
       }
-    }, 10000); // 10 second timeout
+    }, 15000); // 15 second timeout
     
     try {
       const unsubscribe = onAuthStateChange(async (authUser) => {
@@ -83,9 +92,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 }
               });
             } else {
-              // No cache, create session normally
+              // No cache, create session normally with retry logic
               console.log('[AuthContext] No cached session, creating new session');
-              const unifiedSession = await unifiedAuthService.createSession();
+              let unifiedSession = null;
+              let retryCount = 0;
+              const maxRetries = 2;
+              
+              while (!unifiedSession && retryCount <= maxRetries) {
+                try {
+                  if (retryCount > 0) {
+                    console.log(`[AuthContext] Retry attempt ${retryCount} for session creation`);
+                    await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+                  }
+                  
+                  unifiedSession = await unifiedAuthService.createSession();
+                  if (unifiedSession) break;
+                  
+                } catch (error) {
+                  console.error(`[AuthContext] Session creation error (attempt ${retryCount + 1}):`, error);
+                  if (retryCount === maxRetries) throw error;
+                }
+                retryCount++;
+              }
+              
               console.log('[AuthContext] Unified session result:', unifiedSession);
               
               if (unifiedSession) {

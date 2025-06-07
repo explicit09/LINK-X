@@ -355,23 +355,4 @@ export function TypewriterText({
   );
 }
 
-// Add CSS animations to Tailwind
-const animationStyles = `
-  @keyframes bounce-in {
-    0% { transform: scale(0.3); opacity: 0; }
-    50% { transform: scale(1.05); }
-    70% { transform: scale(0.9); }
-    100% { transform: scale(1); opacity: 1; }
-  }
-  
-  .animate-bounce-in {
-    animation: bounce-in 0.6s ease-out;
-  }
-`;
-
-// Inject styles
-if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement('style');
-  styleSheet.textContent = animationStyles;
-  document.head.appendChild(styleSheet);
-}
+// Animation styles are now defined in tailwind.config.ts

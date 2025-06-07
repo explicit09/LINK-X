@@ -225,6 +225,7 @@ class UnifiedAuthService {
         console.log('[UnifiedAuthService] No access token available');
         throw new Error('No access token available');
       }
+      console.log('[UnifiedAuthService] Got access token:', token.substring(0, 50) + '...');
 
       // Check if token has changed (invalidate cache if so)
       const currentTokenHash = await this.hashToken(token);
@@ -244,28 +245,38 @@ class UnifiedAuthService {
       // Cache miss or invalid - fetch new session
       const url = `${this.baseUrl}/api/v2/auth/unified/session`;
       console.log('[UnifiedAuthService] Fetching session from:', url);
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          access_token: token,
-        }),
-      });
+      
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            access_token: token,
+          }),
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
 
       console.log('[UnifiedAuthService] Response status:', response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[UnifiedAuthService] Error response:', errorText);
+        console.error('[UnifiedAuthService] Error response body:', errorText);
+        console.error('[UnifiedAuthService] Error response headers:', Object.fromEntries(response.headers.entries()));
         let errorData;
         try {
           errorData = JSON.parse(errorText);
         } catch {
           errorData = { error: errorText };
         }
-        throw new Error(errorData.error || 'Session creation failed');
+        throw new Error(errorData.error || `Session creation failed with status ${response.status}`);
       }
 
       const data = await response.json();
@@ -279,11 +290,23 @@ class UnifiedAuthService {
       // Save to localStorage for persistence across page refreshes
       this.saveCacheToStorage();
       
-      return data.data;
-    } catch (error) {
+        return data.data;
+      } catch (fetchError: any) {
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Session creation timed out. Please try again.');
+        }
+        throw fetchError;
+      }
+    } catch (error: any) {
       console.error('[UnifiedAuthService] Session creation error:', error);
       // Clear cache on error
       this.clearCache();
+      
+      // Don't return null for timeout errors - throw them
+      if (error.message?.includes('timed out')) {
+        throw error;
+      }
+      
       return null;
     }
   }
