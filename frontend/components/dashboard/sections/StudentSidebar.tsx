@@ -21,6 +21,7 @@ import {
   LogOut,
   Award
 } from 'lucide-react';
+import { useDashboardMode, DashboardMode } from '@/hooks/useDashboardMode';
 
 interface CourseContext {
   id: string;
@@ -46,16 +47,66 @@ interface StudentSidebarProps {
 export function StudentSidebar({ currentUser, isCollapsed, onToggleCollapse, courseContext }: StudentSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { mode, config } = useDashboardMode();
 
-  const navigationItems = [
-    { icon: Home, label: 'Dashboard', path: '/dashboard' },
-    { icon: BookOpen, label: 'My Courses', path: '/my-courses' },
-    { icon: Target, label: 'Study Plan', path: '/study-plan' },
-    { icon: Calendar, label: 'Schedule', path: '/schedule' },
-    { icon: Trophy, label: 'Progress', path: '/progress' },
-    { icon: Award, label: 'Gamification', path: '/dashboard/gamification' },
-    { icon: MessageSquare, label: 'Messages', path: '/messages' },
-  ];
+  // Adaptive navigation based on dashboard mode
+  const getNavigationItems = () => {
+    const baseItems = [
+      { icon: Home, label: 'Dashboard', path: '/dashboard' }
+    ];
+
+    switch (mode) {
+      case DashboardMode.WELCOME:
+        return [
+          ...baseItems,
+          { icon: User, label: 'Profile Setup', path: '/onboarding' },
+          { icon: BookOpen, label: 'Add Course', path: '/my-courses' }
+        ];
+        
+      case DashboardMode.GUIDED:
+        return [
+          ...baseItems,
+          { icon: BookOpen, label: 'My Courses', path: '/my-courses' },
+          { icon: Target, label: 'Study Plan', path: '/study-plan' },
+          { icon: Trophy, label: 'Progress', path: '/progress' }
+        ];
+        
+      case DashboardMode.STANDARD:
+        return [
+          ...baseItems,
+          { icon: BookOpen, label: 'My Courses', path: '/my-courses' },
+          { icon: Target, label: 'Study Plan', path: '/study-plan' },
+          { icon: Calendar, label: 'Schedule', path: '/schedule' },
+          { icon: Trophy, label: 'Progress', path: '/progress' },
+          { icon: Award, label: 'Gamification', path: '/dashboard/gamification' }
+        ];
+        
+      case DashboardMode.ADVANCED:
+        return [
+          ...baseItems,
+          { icon: BookOpen, label: 'My Courses', path: '/my-courses' },
+          { icon: Target, label: 'Study Plan', path: '/study-plan' },
+          { icon: Calendar, label: 'Schedule', path: '/schedule' },
+          { icon: Trophy, label: 'Progress', path: '/progress' },
+          { icon: Award, label: 'Gamification', path: '/dashboard/gamification' },
+          { icon: MessageSquare, label: 'Community', path: '/community' },
+          { icon: MessageSquare, label: 'Analytics', path: '/analytics' }
+        ];
+        
+      default:
+        return [
+          ...baseItems,
+          { icon: BookOpen, label: 'My Courses', path: '/my-courses' },
+          { icon: Target, label: 'Study Plan', path: '/study-plan' },
+          { icon: Calendar, label: 'Schedule', path: '/schedule' },
+          { icon: Trophy, label: 'Progress', path: '/progress' },
+          { icon: Award, label: 'Gamification', path: '/dashboard/gamification' },
+          { icon: MessageSquare, label: 'Messages', path: '/messages' }
+        ];
+    }
+  };
+
+  const navigationItems = getNavigationItems();
 
   const bottomNavigationItems = [
     { icon: Settings, label: 'Settings', path: '/settings' },
@@ -86,7 +137,14 @@ export function StudentSidebar({ currentUser, isCollapsed, onToggleCollapse, cou
       {/* Logo/Brand */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
         {!isCollapsed && (
-          <h2 className="font-bold text-xl text-primary">LEARN-X</h2>
+          <div>
+            <h2 className="font-bold text-xl text-primary">LEARN-X</h2>
+            {mode && (
+              <p className="text-xs text-muted-foreground capitalize">
+                {mode.replace('_', ' ')} Mode
+              </p>
+            )}
+          </div>
         )}
         <Button
           variant="ghost"

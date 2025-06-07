@@ -11,6 +11,13 @@ import { FirstTimeUserGuide } from '@/components/dashboard/FirstTimeUserGuide';
 import { useUserJourneyStage, UserJourneyStage } from '@/hooks/useUserJourneyStage';
 import { useDashboardOverview, useAIRecommendations } from '@/hooks/useDashboardData';
 import { useUnifiedAuth } from '@/hooks/useUnifiedAuth';
+import { useDashboardMode, DashboardMode } from '@/hooks/useDashboardMode';
+import { 
+  WelcomeDashboard, 
+  GuidedDashboard, 
+  ProgressiveDashboard, 
+  AdvancedDashboard 
+} from '@/components/dashboard/modes';
 
 function DashboardContent() {
   const router = useRouter();
@@ -28,13 +35,14 @@ function DashboardContent() {
   // Extract role from session data
   const role = (session?.user?.role as 'student' | 'instructor' | 'admin') || 'student';
   
-  // New hooks for progressive dashboard
+  // Dashboard mode and data hooks
+  const { mode, config, isLoading: modeLoading } = useDashboardMode();
   const { stage, isLoading: journeyLoading } = useUserJourneyStage();
   const { data: dashboardData, loading: dashboardLoading } = useDashboardOverview();
   const { data: aiData } = useAIRecommendations();
   
-  // Feature flag to enable new dashboard (set to true to test)
-  const useProgressiveDashboard = true;
+  // Feature flag to enable adaptive dashboard (set to true to test)
+  const useAdaptiveDashboard = true;
 
   // SIMPLE AUTH CHECK using unified auth
   useEffect(() => {
@@ -100,14 +108,16 @@ function DashboardContent() {
     router.push('/schedule');
   };
 
-  // Show loading while checking auth
-  if (authLoading || journeyLoading) {
+  // Show loading while checking auth or determining dashboard mode
+  if (authLoading || journeyLoading || modeLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-600">
-            {authLoading ? 'Verifying authentication...' : 'Loading your dashboard...'}
+            {authLoading ? 'Verifying authentication...' : 
+             modeLoading ? 'Personalizing your dashboard...' : 
+             'Loading your dashboard...'}
           </p>
         </div>
       </div>
@@ -133,37 +143,109 @@ function DashboardContent() {
                    currentUser?.email?.split('@')[0] || 
                    'there';
 
-  // Use SharedDashboardLayout with professional structure
-  return (
-    <SharedDashboardLayout currentUser={currentUser}>
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Main Content - 3 columns */}
-        <div className="lg:col-span-3">
-          {useProgressiveDashboard ? (
-            <ProgressiveDashboard
-              userName={userName}
-              dashboardData={dashboardData}
-              aiRecommendations={aiData?.recommendations}
-              onActionClick={handleActionClick}
-            />
-          ) : (
+  // Render appropriate dashboard mode
+  const renderDashboardContent = () => {
+    if (!useAdaptiveDashboard) {
+      // Fallback to original layout
+      return (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-3">
             <DashboardMainContent
               onActionClick={handleActionClick}
               onCourseClick={handleCourseClick}
               onViewProgress={handleViewProgress}
             />
-          )}
+          </div>
+          <div className="lg:col-span-1">
+            <DashboardSidebar
+              onViewSchedule={handleViewSchedule}
+              onMaintainRank={handleMaintainRank}
+              onViewAllCourses={handleViewAllCourses}
+            />
+          </div>
         </div>
+      );
+    }
 
-        {/* Right Sidebar - 1 column (Reference & Reflection) */}
-        <div className="lg:col-span-1">
-          <DashboardSidebar
-            onViewSchedule={handleViewSchedule}
-            onMaintainRank={handleMaintainRank}
-            onViewAllCourses={handleViewAllCourses}
+    // Adaptive dashboard modes
+    switch (mode) {
+      case DashboardMode.WELCOME:
+        return (
+          <WelcomeDashboard
+            userName={userName}
+            onActionClick={handleActionClick}
           />
-        </div>
-      </div>
+        );
+
+      case DashboardMode.GUIDED:
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-3">
+              <GuidedDashboard
+                userName={userName}
+                onActionClick={handleActionClick}
+              />
+            </div>
+            <div className="lg:col-span-1">
+              <DashboardSidebar
+                onViewSchedule={handleViewSchedule}
+                onMaintainRank={handleMaintainRank}
+                onViewAllCourses={handleViewAllCourses}
+              />
+            </div>
+          </div>
+        );
+
+      case DashboardMode.STANDARD:
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-3">
+              <ProgressiveDashboard
+                userName={userName}
+                dashboardData={dashboardData}
+                aiRecommendations={aiData?.recommendations}
+                onActionClick={handleActionClick}
+              />
+            </div>
+            <div className="lg:col-span-1">
+              <DashboardSidebar
+                onViewSchedule={handleViewSchedule}
+                onMaintainRank={handleMaintainRank}
+                onViewAllCourses={handleViewAllCourses}
+              />
+            </div>
+          </div>
+        );
+
+      case DashboardMode.ADVANCED:
+        return (
+          <AdvancedDashboard
+            userName={userName}
+            dashboardData={dashboardData}
+            aiRecommendations={aiData?.recommendations}
+            onActionClick={handleActionClick}
+          />
+        );
+
+      default:
+        return (
+          <WelcomeDashboard
+            userName={userName}
+            onActionClick={handleActionClick}
+          />
+        );
+    }
+  };
+
+  // Use SharedDashboardLayout with adaptive structure
+  return (
+    <SharedDashboardLayout currentUser={currentUser}>
+      {renderDashboardContent()}
+      
+      {/* Show FirstTimeUserGuide only for WELCOME mode */}
+      {mode === DashboardMode.WELCOME && (
+        <FirstTimeUserGuide onGuideComplete={() => console.log('Guide completed')} />
+      )}
     </SharedDashboardLayout>
   );
 }
