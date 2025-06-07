@@ -26,6 +26,8 @@ import { useGamification } from '@/contexts/GamificationContext';
 import { useDashboardOverview } from '@/hooks/useDashboardData';
 import { useContextualHelp } from '@/hooks/useContextualHelp';
 import { InlineContextualHelp } from '@/components/contextual-help/ContextualHelp';
+import { SmartRecommendations } from '@/components/dashboard/SmartRecommendations';
+import { SmartDefaultsManager } from '@/components/dashboard/SmartDefaults';
 
 interface GuidedDashboardProps {
   userName: string;
@@ -391,6 +393,22 @@ export function GuidedDashboard({ userName, currentUser, onActionClick }: Guided
           </CardContent>
         </Card>
       </div>
+
+      {/* Smart Recommendations for Guided Users */}
+      <SmartRecommendations 
+        maxVisible={2} 
+        showTitle={true}
+        className="mb-6"
+      />
+      
+      {/* Smart Defaults for Easy Setup */}
+      <SmartDefaultsManager 
+        className="mb-6"
+        onApplyDefault={(def) => {
+          console.log('Applied smart default:', def);
+          // TODO: Apply the default to actual settings
+        }}
+      />
 
       {/* Contextual Help Tips */}
       {contextualTips.length > 0 && (

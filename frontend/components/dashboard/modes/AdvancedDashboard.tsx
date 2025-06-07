@@ -26,6 +26,9 @@ import { cn } from '@/lib/utils';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useStudyTime } from '@/hooks/useStudyTime';
 import { useGamification } from '@/contexts/GamificationContext';
+import { useDashboardOverview } from '@/hooks/useDashboardData';
+import { SmartRecommendations, FloatingSmartRecommendation } from '@/components/dashboard/SmartRecommendations';
+import { useUserBehavior } from '@/hooks/useUserBehavior';
 
 interface AdvancedDashboardProps {
   userName: string;
@@ -36,6 +39,7 @@ interface AdvancedDashboardProps {
 
 export function AdvancedDashboard({ 
   userName, 
+  currentUser,
   dashboardData, 
   aiRecommendations, 
   onActionClick 
@@ -43,6 +47,8 @@ export function AdvancedDashboard({
   const { metrics, userStats } = useDashboardMode();
   const { weeklyStudyHours, monthlyStudyHours } = useStudyTime('month');
   const { userStats: gamificationStats } = useGamification();
+  const { data: realDashboardData } = useDashboardOverview();
+  const { behaviorPattern, smartDefaults } = useUserBehavior();
 
   // Advanced analytics data
   const advancedMetrics = {
@@ -458,6 +464,90 @@ export function AdvancedDashboard({
           </div>
         </CardContent>
       </Card>
+      
+      {/* Data-Driven Recommendations for Power Users */}
+      <SmartRecommendations 
+        maxVisible={4} 
+        showTitle={true}
+        className="mb-6"
+      />
+      
+      {/* Behavior Pattern Insights */}
+      {behaviorPattern && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-purple-600" />
+              Your Learning Patterns
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              AI-analyzed insights from your study sessions
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-3">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Peak Performance Times
+                </h4>
+                <div className="space-y-2">
+                  {behaviorPattern.preferredStudyTimes.slice(0, 3).map((time, index) => (
+                    <div key={index} className="flex justify-between text-sm">
+                      <span>{time.hour}:00</span>
+                      <Badge variant="outline">
+                        {time.effectiveness.toFixed(1)}x effective
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <Target className="w-4 h-4" />
+                  Optimal Session
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Duration</span>
+                    <span className="font-medium">
+                      {behaviorPattern.studySessionPatterns.optimalDuration} min
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Best Days</span>
+                    <span className="font-medium">
+                      {behaviorPattern.studySessionPatterns.preferredDays.slice(0, 2).join(', ')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  Content Preferences
+                </h4>
+                <div className="space-y-2">
+                  {behaviorPattern.learningStyle.prefersPDF && (
+                    <Badge variant="secondary">📄 PDF Learner</Badge>
+                  )}
+                  {behaviorPattern.learningStyle.prefersVideo && (
+                    <Badge variant="secondary">🎥 Video Learner</Badge>
+                  )}
+                  <div className="text-sm">
+                    Top: {behaviorPattern.coursePreferences.favoriteSubjects[0] || 'General'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* Floating Smart Recommendation */}
+      <FloatingSmartRecommendation />
     </div>
   );
 }
