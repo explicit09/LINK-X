@@ -5,12 +5,21 @@ import { cn } from '@/lib/utils';
 import { StudentSidebar } from '../sections/StudentSidebar';
 import { PersonalizedHeader } from '../sections/PersonalizedHeader';
 import { CompressedProgressStrip } from '../sections/CompressedProgressStrip';
-import { FocusMode } from '../sections/FocusMode';
 import { TaskCompletionFeedback } from '../sections/TaskCompletionFeedback';
 import { MiniFooter } from '../../MiniFooter';
 import { toast as sonnerToast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { FloatingStudyButton } from '@/components/study';
+import { UnifiedStudyMode } from '@/components/study';
+
+interface CourseContext {
+  id: string;
+  title: string;
+  code: string;
+  instructor: string;
+  progress: number;
+  modules: number;
+  isOwner: boolean;
+}
 
 interface SharedDashboardLayoutProps {
   children: React.ReactNode;
@@ -24,6 +33,7 @@ interface SharedDashboardLayoutProps {
   showFocusMode?: boolean;
   className?: string;
   defaultSidebarOpen?: boolean;
+  courseContext?: CourseContext;
 }
 
 export function SharedDashboardLayout({
@@ -34,22 +44,11 @@ export function SharedDashboardLayout({
   showFocusMode = true,
   className,
   defaultSidebarOpen = true,
+  courseContext,
 }: SharedDashboardLayoutProps) {
   const router = useRouter();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(!defaultSidebarOpen);
-  const [focusModeActive, setFocusModeActive] = useState(false);
   const [taskCompletion, setTaskCompletion] = useState<any>(null);
-
-  const handleFocusMode = (active: boolean) => {
-    setFocusModeActive(active);
-    if (active) {
-      sonnerToast.success('🎯 Entering Focus Mode - eliminate distractions!');
-    }
-  };
-
-  const handleStartPomodoro = () => {
-    sonnerToast.success('⏱️ Pomodoro session started!');
-  };
 
   const handleStreakClick = () => {
     sonnerToast.success('🔥 5-day streak! Keep the momentum going!');
@@ -76,6 +75,7 @@ export function SharedDashboardLayout({
         currentUser={currentUser}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={setSidebarCollapsed}
+        courseContext={courseContext}
       />
 
       {/* Main Content Area - Absolutely positioned to avoid any layout conflicts */}
@@ -115,15 +115,6 @@ export function SharedDashboardLayout({
         </div>
       </div>
 
-      {/* Focus Mode - only show if enabled */}
-      {showFocusMode && (
-        <FocusMode
-          isActive={focusModeActive}
-          onToggle={handleFocusMode}
-          onStartPomodoro={handleStartPomodoro}
-        />
-      )}
-
       {/* Task Completion Feedback */}
       <TaskCompletionFeedback
         completion={taskCompletion}
@@ -134,8 +125,11 @@ export function SharedDashboardLayout({
       {/* Fixed Mini Footer */}
       <MiniFooter sidebarCollapsed={sidebarCollapsed} />
 
-      {/* Floating Study Button */}
-      <FloatingStudyButton />
+      {/* Unified Study Mode - replaces both Focus Mode and Floating Study Button */}
+      <UnifiedStudyMode 
+        courseId={courseContext?.id}
+        courseTitle={courseContext?.title}
+      />
     </div>
   );
 }

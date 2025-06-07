@@ -4,7 +4,6 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calendar, Trophy, BookOpen, Clock, Target } from 'lucide-react';
-import { StudySessionTracker } from '@/components/study';
 
 interface DashboardSidebarProps {
   onViewSchedule: () => void;
@@ -33,9 +32,6 @@ export function DashboardSidebar({
 
   return (
     <div className="space-y-6">
-      {/* Study Session Tracker */}
-      <StudySessionTracker />
-
       {/* Performance Overview */}
       <Card>
         <CardHeader>

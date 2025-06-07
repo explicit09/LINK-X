@@ -170,20 +170,20 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
       const data = await gamificationAPI.getUserStats();
       console.log('[GamificationContext] API Response:', data);
       
-      // Map backend response to frontend interface
+      // Map backend response to frontend interface (handle both camelCase and snake_case)
       const stats: UserStats = {
         user_id: user.id,
-        total_xp: data.totalXP || data.total_xp || 0,
-        level: data.currentLevel || data.level || 1,
-        current_streak: data.dailyStreak || data.current_streak || 0,
-        weekly_goal_progress: data.weeklyProgress || data.weekly_goal_progress || 0,
-        weekly_goal_target: data.weeklyGoal || data.weekly_goal_target || 500,
-        last_activity: new Date().toISOString(),
-        achievements_count: 0, // Will be set from achievements endpoint
+        total_xp: data.total_xp || data.totalXP || 0,
+        level: data.level || data.currentLevel || 1,
+        current_streak: data.current_streak || data.dailyStreak || 0,
+        weekly_goal_progress: data.weekly_goal_progress || data.weeklyProgress || 0,
+        weekly_goal_target: data.weekly_goal_target || data.weeklyGoal || 500,
+        last_activity: data.last_activity || new Date().toISOString(),
+        achievements_count: data.achievements_count || 0,
         rank: data.rank,
-        next_level_xp: data.xpToNextLevel || 100,
-        current_level_xp: data.currentXP || 0,
-        longest_streak: data.maxStreak || 0,
+        next_level_xp: data.next_level_xp || data.xpToNextLevel || 100,
+        current_level_xp: data.current_level_xp || data.currentXP || 0,
+        longest_streak: data.longest_streak || data.maxStreak || 0,
         // Additional stats for dashboard
         weekly_login_days: 0, // TODO: Calculate from activities
         weekly_help_given: 0, // TODO: Calculate from activities
@@ -228,7 +228,7 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
       const data = await gamificationAPI.getAchievements();
       console.log('[GamificationContext] Achievements Response:', data);
       
-      const achievementsData = data.achievements || [];
+      const achievementsData = data?.achievements || data || [];
       
       // Map backend response to frontend Achievement interface
       const mappedAchievements: Achievement[] = achievementsData.map((a: APIAchievement) => ({

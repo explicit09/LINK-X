@@ -4,6 +4,9 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useRouter, usePathname } from 'next/navigation';
+import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import {
   Home,
   BookOpen,
@@ -19,6 +22,16 @@ import {
   Award
 } from 'lucide-react';
 
+interface CourseContext {
+  id: string;
+  title: string;
+  code: string;
+  instructor: string;
+  progress: number;
+  modules: number;
+  isOwner: boolean;
+}
+
 interface StudentSidebarProps {
   currentUser?: {
     name?: string;
@@ -27,9 +40,10 @@ interface StudentSidebarProps {
   };
   isCollapsed: boolean;
   onToggleCollapse: (collapsed: boolean) => void;
+  courseContext?: CourseContext;
 }
 
-export function StudentSidebar({ currentUser, isCollapsed, onToggleCollapse }: StudentSidebarProps) {
+export function StudentSidebar({ currentUser, isCollapsed, onToggleCollapse, courseContext }: StudentSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -102,6 +116,68 @@ export function StudentSidebar({ currentUser, isCollapsed, onToggleCollapse }: S
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Course Info Card - shown when in course context */}
+      {courseContext && !isCollapsed && (
+        <div className="p-2 border-b border-gray-200">
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="p-3">
+              <div className="space-y-2">
+                <div>
+                  <p className="text-xs font-medium text-blue-700">Current Course</p>
+                  <p className="font-semibold text-sm text-gray-900 truncate">
+                    {courseContext.title}
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    {courseContext.code} • {courseContext.instructor}
+                  </p>
+                </div>
+                
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-600">Progress</span>
+                    <span className="font-medium">{courseContext.progress}%</span>
+                  </div>
+                  <Progress value={courseContext.progress} className="h-1.5" />
+                </div>
+                
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs text-gray-600">
+                    {courseContext.modules} modules
+                  </span>
+                  {courseContext.isOwner && (
+                    <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                      Owner
+                    </Badge>
+                  )}
+                </div>
+                
+                {/* Quick Navigation for Course */}
+                <div className="pt-2 mt-2 border-t border-blue-200 space-y-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start text-xs"
+                    onClick={() => router.push(`/courses/${courseContext.id}?tab=modules`)}
+                  >
+                    <BookOpen className="h-3 w-3 mr-1.5" />
+                    View Modules
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start text-xs"
+                    onClick={() => router.push(`/courses/${courseContext.id}?tab=assignments`)}
+                  >
+                    <Target className="h-3 w-3 mr-1.5" />
+                    Assignments
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 

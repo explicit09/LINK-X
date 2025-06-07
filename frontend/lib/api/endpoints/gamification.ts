@@ -94,7 +94,7 @@ export const gamificationAPI = {
    */
   async getUserStats(): Promise<UserStats> {
     const response = await apiClient.get('/api/v2/gamification/stats') as any;
-    return response.data;
+    return response; // apiClient already unwraps the data
   },
 
   /**
@@ -102,7 +102,7 @@ export const gamificationAPI = {
    */
   async awardXP(request: AwardXPRequest): Promise<AwardXPResponse> {
     const response = await apiClient.post('/api/v2/gamification/award-xp', request) as any;
-    return response.data;
+    return response; // apiClient already unwraps the data
   },
 
   /**
@@ -110,7 +110,7 @@ export const gamificationAPI = {
    */
   async getAchievements(): Promise<{ achievements: Achievement[]; total_count: number }> {
     const response = await apiClient.get('/api/v2/gamification/achievements') as any;
-    return response.data;
+    return response; // apiClient already unwraps the data
   },
 
   /**
@@ -122,7 +122,7 @@ export const gamificationAPI = {
     pagination: { limit: number; offset: number; total: number };
   }> {
     const response = await apiClient.get(`/api/v2/gamification/leaderboard?limit=${limit}&offset=${offset}`) as any;
-    return response.data;
+    return response; // apiClient already unwraps the data
   },
 
   /**
@@ -134,7 +134,7 @@ export const gamificationAPI = {
     total_activities: number;
   }> {
     const response = await apiClient.get(`/api/v2/gamification/activity-history?limit=${limit}&days=${days}`) as any;
-    return response.data;
+    return response; // apiClient already unwraps the data
   },
 
   /**
@@ -142,7 +142,7 @@ export const gamificationAPI = {
    */
   async getWeeklyGoals(): Promise<WeeklyGoalsData> {
     const response = await apiClient.get('/api/v2/gamification/weekly-goals') as any;
-    return response.data;
+    return response; // apiClient already unwraps the data
   },
 
   /**
@@ -155,6 +155,6 @@ export const gamificationAPI = {
     const response = await apiClient.put('/api/v2/gamification/weekly-goals', {
       weekly_goal_target: weeklyGoalTarget
     }) as any;
-    return response.data;
+    return response; // apiClient already unwraps the data
   }
 };

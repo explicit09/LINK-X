@@ -93,9 +93,12 @@ export function useStudyTime(period: 'week' | 'month' | 'all' = 'week'): UseStud
       });
       
       return true;
-    } catch (err) {
+    } catch (err: any) {
       console.error('[useStudyTime] Failed to start session:', err);
-      toast.error('Failed to start study session');
+      // Only show error toast if it's not the "already have active session" error
+      if (!err.message?.includes('already have an active session')) {
+        toast.error('Failed to start study session');
+      }
       return false;
     }
   }, [user]);

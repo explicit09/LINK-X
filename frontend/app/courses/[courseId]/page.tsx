@@ -5,6 +5,14 @@ import { useParams, useRouter } from 'next/navigation';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
 import { CanvasCourseHeader } from '@/components/course/canvas/CanvasCourseHeader';
 import { CanvasCourseTabs } from '@/components/course/canvas/CanvasCourseTabs';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import { CanvasModuleList } from '@/components/course/canvas/CanvasModuleList';
 import { CanvasAssignments } from '@/components/course/canvas/CanvasAssignments';
 import { CanvasGrades } from '@/components/course/canvas/CanvasGrades';
@@ -31,6 +39,7 @@ import { ModuleForm } from '@/components/course/ModuleForm';
 import { EnhancedFileUpload } from '@/components/course/EnhancedFileUpload';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { UnifiedStudyMode } from '@/components/study';
 
 // Types for better type safety
 interface CourseMetrics {
@@ -704,34 +713,85 @@ export default function CoursePage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Canvas-style Course Header */}
-      <CanvasCourseHeader
-        course={{
-          id: courseId,
-          title: course?.title || 'Loading...',
-          code: course?.code || course?.title?.split(' ')[0] || 'COURSE',
-          description: course?.description,
-          instructor: {
-            name: course?.instructor?.name || 'Unknown Instructor',
-            email: course?.instructor?.email,
-          },
-          term: course?.term || 'Fall 2024',
-          credits: course?.credits || 3,
-          enrolledCount: course?.stats?.students,
-          category: course?.category,
-        }}
-      />
-      
-      {/* Canvas-style Navigation Tabs */}
-      <CanvasCourseTabs 
-        courseId={courseId}
-        userRole={userRole}
-      />
-      
-      {/* Main Content Area */}
-      <div className="px-6 py-8">
-        <div className="max-w-7xl mx-auto space-y-6">
+    <SharedDashboardLayout
+      currentUser={currentUser}
+      pageTitle={course?.title}
+      showGamification={false} // Hide gamification strip in course view
+      className="max-w-7xl mx-auto"
+      courseContext={{
+        id: courseId,
+        title: course?.title || 'Loading...',
+        code: course?.code || '',
+        instructor: course?.instructor?.name || 'Unknown Instructor',
+        progress: metrics?.overallProgress || 0,
+        modules: modules?.length || 0,
+        isOwner: isOwner || false,
+      }}
+    >
+      {/* Breadcrumbs */}
+      <div className="mb-4">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink
+                href="/dashboard"
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.push('/dashboard');
+                }}
+              >
+                Dashboard
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink
+                href="/my-courses"
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.push('/my-courses');
+                }}
+              >
+                My Courses
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{course?.title || 'Course'}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+
+      <div className="space-y-0">
+        {/* Canvas-style Course Header */}
+        <div className="-mx-4 -mt-6">
+          <CanvasCourseHeader
+            course={{
+              id: courseId,
+              title: course?.title || 'Loading...',
+              code: course?.code || course?.title?.split(' ')[0] || 'COURSE',
+              description: course?.description,
+              instructor: {
+                name: course?.instructor?.name || 'Unknown Instructor',
+                email: course?.instructor?.email,
+              },
+              term: course?.term || 'Fall 2024',
+              credits: course?.credits || 3,
+              enrolledCount: course?.stats?.students,
+              category: course?.category,
+            }}
+          />
+          
+          {/* Canvas-style Navigation Tabs */}
+          <CanvasCourseTabs 
+            courseId={courseId}
+            userRole={userRole}
+          />
+        </div>
+        
+        {/* Main Content Area */}
+        <div className="pt-6 space-y-6">
           {/* Tab-based Content */}
           {renderTabContent()}
 
@@ -774,6 +834,6 @@ export default function CoursePage() {
           refreshCourseData();
         }}
       />
-    </div>
+    </SharedDashboardLayout>
   );
 }
