@@ -715,7 +715,7 @@ export default function CoursePage() {
   return (
     <SharedDashboardLayout
       currentUser={currentUser}
-      pageTitle={course?.title}
+      pageTitle=""
       showGamification={false} // Hide gamification strip in course view
       className="max-w-7xl mx-auto"
       courseContext={{
@@ -728,40 +728,6 @@ export default function CoursePage() {
         isOwner: isOwner || false,
       }}
     >
-      {/* Breadcrumbs */}
-      <div className="mb-4">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink
-                href="/dashboard"
-                onClick={(e) => {
-                  e.preventDefault();
-                  router.push('/dashboard');
-                }}
-              >
-                Dashboard
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbLink
-                href="/my-courses"
-                onClick={(e) => {
-                  e.preventDefault();
-                  router.push('/my-courses');
-                }}
-              >
-                My Courses
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{course?.title || 'Course'}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-      </div>
 
       <div className="space-y-0">
         {/* Canvas-style Course Header */}
