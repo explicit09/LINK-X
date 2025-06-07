@@ -37,10 +37,10 @@ class EmbeddingService:
         
         try:
             for chunk_data in chunks_data:
-                # Use the database function to ensure atomicity
+                # Use poison detection function for safer chunk creation
                 result = session.execute(
                     """
-                    SELECT create_chunk_with_embedding_job(
+                    SELECT create_chunk_with_poison_detection(
                         :file_id::uuid,
                         :chunk_index,
                         :content,
@@ -56,8 +56,13 @@ class EmbeddingService:
                         'priority': priority
                     }
                 )
-                chunk_id = result.fetchone()[0]
-                chunk_ids.append(str(chunk_id))
+                result_json = result.fetchone()[0]
+                
+                if result_json.get('status') == 'success':
+                    chunk_ids.append(str(result_json['chunk_id']))
+                elif result_json.get('status') == 'poison_detected':
+                    logger.warning(f"Poison detected for chunk {chunk_data['chunk_index']}: {result_json.get('reason')}")
+                    # Continue processing other chunks
             
             logger.info(f"Created {len(chunk_ids)} chunks with embedding jobs for file {file_id}")
             return chunk_ids
@@ -235,3 +240,108 @@ class EmbeddingService:
             logger.error(f"Failed to cleanup old jobs: {e}")
             session.rollback()
             return 0
+    
+    @staticmethod
+    def get_vector_index_health(session: Session) -> Dict:
+        """Get vector index health metrics"""
+        try:
+            results = session.execute(
+                "SELECT * FROM check_vector_index_health()"
+            ).fetchall()
+            
+            health_data = []
+            for row in results:
+                health_data.append({
+                    'partition_name': row[0],
+                    'vector_count': row[1],
+                    'index_size': row[2],
+                    'index_type': row[3],
+                    'memory_usage_mb': float(row[4]) if row[4] else 0,
+                    'recommended_action': row[5]
+                })
+            
+            return {
+                'partitions': health_data,
+                'total_partitions': len(health_data),
+                'needs_attention': len([p for p in health_data if p['recommended_action'] != 'Healthy'])
+            }
+        except Exception as e:
+            logger.error(f"Failed to get vector index health: {e}")
+            return {}
+    
+    @staticmethod
+    def get_vector_performance_recommendations(session: Session) -> List[Dict]:
+        """Get performance recommendations for vector operations"""
+        try:
+            results = session.execute(
+                "SELECT * FROM get_vector_performance_recommendations()"
+            ).fetchall()
+            
+            return [
+                {
+                    'type': row[0],
+                    'current_value': row[1],
+                    'recommended_value': row[2],
+                    'impact': row[3],
+                    'priority': row[4]
+                }
+                for row in results
+            ]
+        except Exception as e:
+            logger.error(f"Failed to get performance recommendations: {e}")
+            return []
+    
+    @staticmethod
+    def archive_old_vectors(session: Session, days: int = 90, dry_run: bool = True) -> Dict:
+        """Archive old vectors to reduce memory usage"""
+        try:
+            archive_date = session.execute(
+                "SELECT NOW() - INTERVAL '%s days'" % days
+            ).fetchone()[0]
+            
+            results = session.execute(
+                "SELECT * FROM archive_old_vectors(:archive_date, :dry_run)",
+                {'archive_date': archive_date, 'dry_run': dry_run}
+            ).fetchall()
+            
+            total_vectors = sum(row[1] for row in results)
+            
+            return {
+                'archive_date': archive_date.isoformat(),
+                'dry_run': dry_run,
+                'partitions_affected': len(results),
+                'total_vectors_to_archive': total_vectors,
+                'partitions': [
+                    {
+                        'partition': row[0],
+                        'vectors_count': row[1],
+                        'estimated_space_saved': row[2]
+                    }
+                    for row in results
+                ]
+            }
+        except Exception as e:
+            logger.error(f"Failed to archive old vectors: {e}")
+            session.rollback()
+            return {}
+    
+    @staticmethod
+    def reindex_vector_indexes(session: Session, partition_name: str = None) -> bool:
+        """Reindex vector indexes for better performance"""
+        try:
+            if partition_name:
+                session.execute(
+                    "SELECT reindex_vector_indexes_concurrent(:partition_name)",
+                    {'partition_name': partition_name}
+                )
+                logger.info(f"Reindexed partition: {partition_name}")
+            else:
+                session.execute("SELECT reindex_vector_indexes_concurrent()")
+                logger.info("Reindexed all vector indexes")
+            
+            session.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to reindex vector indexes: {e}")
+            session.rollback()
+            return False

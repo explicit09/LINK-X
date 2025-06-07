@@ -214,6 +214,93 @@ def cleanup_old_jobs():
         }), 500
 
 
+@bp.route('/vectors/health', methods=['GET'])
+@jwt_required()
+@require_role(['admin', 'professor'])
+@handle_api_errors
+def get_vector_health():
+    """Get vector index health metrics"""
+    try:
+        with db_manager.get_session() as session:
+            health = EmbeddingService.get_vector_index_health(session)
+            recommendations = EmbeddingService.get_vector_performance_recommendations(session)
+            
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'index_health': health,
+                    'recommendations': recommendations
+                }
+            })
+    except Exception as e:
+        logger.error(f"Error getting vector health: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to get vector health'
+        }), 500
+
+
+@bp.route('/vectors/archive', methods=['POST'])
+@jwt_required()
+@require_role(['admin'])
+@handle_api_errors
+def archive_old_vectors():
+    """Archive old vectors to reduce memory usage"""
+    try:
+        data = request.get_json()
+        days = data.get('days', 90)
+        dry_run = data.get('dry_run', True)
+        
+        with db_manager.get_session() as session:
+            result = EmbeddingService.archive_old_vectors(session, days, dry_run)
+            
+            return jsonify({
+                'status': 'success',
+                'data': result
+            })
+    except Exception as e:
+        logger.error(f"Error archiving vectors: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to archive vectors'
+        }), 500
+
+
+@bp.route('/vectors/reindex', methods=['POST'])
+@jwt_required()
+@require_role(['admin'])
+@handle_api_errors
+def reindex_vectors():
+    """Reindex vector indexes for better performance"""
+    try:
+        data = request.get_json() or {}
+        partition_name = data.get('partition_name')
+        
+        with db_manager.get_session() as session:
+            success = EmbeddingService.reindex_vector_indexes(session, partition_name)
+            
+            if success:
+                return jsonify({
+                    'status': 'success',
+                    'data': {
+                        'message': f"Reindex {'started' if partition_name else 'started for all partitions'}",
+                        'partition': partition_name
+                    }
+                })
+            else:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Failed to start reindex'
+                }), 500
+                
+    except Exception as e:
+        logger.error(f"Error reindexing vectors: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to reindex vectors'
+        }), 500
+
+
 @bp.route('/test', methods=['POST'])
 @jwt_required()
 @require_role(['admin'])
