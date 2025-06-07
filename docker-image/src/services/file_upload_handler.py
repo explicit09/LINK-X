@@ -108,16 +108,11 @@ class FileUploadHandler:
             task = None
             if process_immediately:
                 # Synchronous processing (not recommended for production)
-                logger.warning(f"Processing file {file_id} synchronously")
-                from indexer import store_file_embeddings
-                chunks_stored = store_file_embeddings(
-                    self.db, 
-                    file_id, 
-                    s3_content=file_content if self.use_s3 else None
-                )
+                logger.warning(f"Processing file {file_id} synchronously - this feature is deprecated")
+                # Embeddings are now handled automatically by Supabase
                 task_status = {
                     'status': 'completed',
-                    'chunks': chunks_stored
+                    'message': 'File stored, embeddings will be generated automatically'
                 }
             else:
                 # Asynchronous processing (recommended)
