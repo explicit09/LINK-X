@@ -20,10 +20,12 @@ import {
   Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useDashboardMode } from '@/hooks/useDashboardMode';
+import { useDashboardMode, DashboardMode } from '@/hooks/useDashboardMode';
 import { useStudyTime } from '@/hooks/useStudyTime';
 import { useGamification } from '@/contexts/GamificationContext';
 import { useDashboardOverview } from '@/hooks/useDashboardData';
+import { useContextualHelp } from '@/hooks/useContextualHelp';
+import { InlineContextualHelp } from '@/components/contextual-help/ContextualHelp';
 
 interface GuidedDashboardProps {
   userName: string;
@@ -36,6 +38,7 @@ export function GuidedDashboard({ userName, currentUser, onActionClick }: Guided
   const { weeklyStudyHours } = useStudyTime('week');
   const { userStats: gamificationStats } = useGamification();
   const { data: dashboardData } = useDashboardOverview();
+  const { contextualTips, dismissTip } = useContextualHelp(DashboardMode.GUIDED);
   
   // Smart greeting based on user progress and time
   const getSmartGreeting = () => {
@@ -388,6 +391,15 @@ export function GuidedDashboard({ userName, currentUser, onActionClick }: Guided
           </CardContent>
         </Card>
       </div>
+
+      {/* Contextual Help Tips */}
+      {contextualTips.length > 0 && (
+        <InlineContextualHelp
+          tips={contextualTips}
+          onDismiss={dismissTip}
+          showTitle={true}
+        />
+      )}
 
       {/* Tips for Success */}
       <Card>

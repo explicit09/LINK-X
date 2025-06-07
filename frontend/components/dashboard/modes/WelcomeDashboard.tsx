@@ -20,9 +20,11 @@ import {
   Rocket
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useDashboardMode } from '@/hooks/useDashboardMode';
+import { useDashboardMode, DashboardMode } from '@/hooks/useDashboardMode';
 import { useGamification } from '@/contexts/GamificationContext';
 import { useDashboardOverview } from '@/hooks/useDashboardData';
+import { useContextualHelp } from '@/hooks/useContextualHelp';
+import { InlineContextualHelp } from '@/components/contextual-help/ContextualHelp';
 
 interface WelcomeDashboardProps {
   userName: string;
@@ -34,6 +36,7 @@ export function WelcomeDashboard({ userName, currentUser, onActionClick }: Welco
   const { setupMissions, missionProgress, metrics } = useDashboardMode();
   const { userStats } = useGamification();
   const { data: dashboardData } = useDashboardOverview();
+  const { contextualTips, dismissTip } = useContextualHelp(DashboardMode.WELCOME);
   const [showPreview, setShowPreview] = useState(false);
   
   // Generate personalized welcome message based on time and user progress
@@ -312,6 +315,16 @@ export function WelcomeDashboard({ userName, currentUser, onActionClick }: Welco
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Contextual Help Tips */}
+      {contextualTips.length > 0 && (
+        <InlineContextualHelp
+          tips={contextualTips}
+          onDismiss={dismissTip}
+          filterTypes={['info', 'celebration']}
+          showTitle={false}
+        />
       )}
 
       {/* Completion Celebration */}
