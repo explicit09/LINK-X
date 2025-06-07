@@ -52,7 +52,7 @@ export function ChunkedDocumentViewer({
   const fetchOutline = async () => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/documents/${documentId}/outline`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/documents/${documentId}/outline`,
         { credentials: 'include' },
       );
 
@@ -84,7 +84,7 @@ export function ChunkedDocumentViewer({
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/chunks?doc_id=${documentId}&from=${chunkIndex}&limit=1`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/chunks?doc_id=${documentId}&from=${chunkIndex}&limit=1`,
         { credentials: 'include' },
       );
 

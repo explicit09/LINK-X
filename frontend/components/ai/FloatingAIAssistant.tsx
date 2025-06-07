@@ -172,7 +172,7 @@ export function FloatingAIAssistant({
     setMessages((prev) => [...prev, aiMessage]);
 
     try {
-      const response = await fetch('http://localhost:8080/ai-chat-stream', {
+      const response = await fetch('http://localhost:8000/ai-chat-stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

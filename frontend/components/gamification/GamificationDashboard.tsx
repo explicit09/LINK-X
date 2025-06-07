@@ -112,8 +112,6 @@ export function GamificationDashboard({
             )}
             {showGoals && (
               <WeeklyGoals
-                weeklyXPGoal={userStats.weekly_goal_target}
-                currentWeeklyXP={userStats.weekly_goal_progress}
                 compact
               />
             )}
@@ -215,42 +213,14 @@ export function GamificationDashboard({
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 }}
               >
-                <WeeklyGoals
-                  weeklyXPGoal={userStats.weekly_goal_target}
-                  currentWeeklyXP={userStats.weekly_goal_progress}
-                />
+                <WeeklyGoals />
               </motion.div>
             )}
           </div>
         </TabsContent>
 
         <TabsContent value="goals" className="space-y-4">
-          <WeeklyGoals
-            weeklyXPGoal={userStats.weekly_goal_target}
-            currentWeeklyXP={userStats.weekly_goal_progress}
-            customGoals={[
-              {
-                id: 'daily-login',
-                type: 'xp',
-                target: 7,
-                current: userStats.weekly_login_days || 0,
-                title: 'Daily Logins',
-                description: 'Log in every day this week',
-                icon: <Sparkles className="w-4 h-4" />,
-                reward: 50
-              },
-              {
-                id: 'help-peers',
-                type: 'chats',
-                target: 10,
-                current: userStats.weekly_help_given || 0,
-                title: 'Help Others',
-                description: 'Answer questions in chat',
-                icon: <Award className="w-4 h-4" />,
-                reward: 75
-              }
-            ]}
-          />
+          <WeeklyGoals />
         </TabsContent>
 
         <TabsContent value="stats" className="space-y-4">

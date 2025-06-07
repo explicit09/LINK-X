@@ -38,6 +38,34 @@ interface CourseData {
   lastActivity?: string;
 }
 
+export const useUserCourses = () => {
+  const [courses, setCourses] = useState<CourseData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadCourses = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const data = await courseAPI.getCourses();
+        setCourses(data || []);
+      } catch (error: any) {
+        console.error('Failed to load courses:', error);
+        setError(error.message || 'Failed to load courses');
+        setCourses([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCourses();
+  }, []);
+
+  return { courses, loading, error };
+};
+
 export const useCourseData = (courseId: string) => {
   const [course, setCourse] = useState<CourseData | null>(null);
   const [loading, setLoading] = useState(true);

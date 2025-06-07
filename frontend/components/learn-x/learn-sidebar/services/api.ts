@@ -2,7 +2,7 @@ import { OnboardingData, OnboardingResponse, Chapter } from '../types';
 
 export const fetchOnboarding = async (): Promise<OnboardingData | null> => {
   try {
-    const res = await fetch('http://localhost:8080/onboarding', {
+    const res = await fetch('http://localhost:8000/onboarding', {
       method: 'GET',
       credentials: 'include',
     });
@@ -43,9 +43,9 @@ export const fetchChapters = async (
   try {
     let url = '';
     if (pfId) {
-      url = `http://localhost:8080/student/personalized-files/${pfId}`;
+      url = `http://localhost:8000/student/personalized-files/${pfId}`;
     } else if (courseId) {
-      url = `http://localhost:8080/courses/${courseId}`;
+      url = `http://localhost:8000/courses/${courseId}`;
     } else {
       console.warn('No courseId or pfId provided.');
       return [];

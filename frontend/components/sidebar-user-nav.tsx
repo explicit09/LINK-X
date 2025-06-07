@@ -57,7 +57,7 @@ export function SidebarUserNav({ user }: { user: SupabaseUser }) {
                   try {
                     await supabase.auth.signOut();
                     await fetch(
-                      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v2/auth/logout`,
+                      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v2/auth/logout`,
                       {
                         method: 'POST',
                         credentials: 'include',

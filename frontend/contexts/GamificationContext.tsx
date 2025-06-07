@@ -224,46 +224,39 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     if (!user?.id) return;
     
     try {
-      const response = await api.get('/api/v2/gamification/achievements');
-      console.log('[GamificationContext] Achievements Response:', response);
+      console.log('[GamificationContext] Fetching achievements...');
+      const data = await gamificationAPI.getAchievements();
+      console.log('[GamificationContext] Achievements Response:', data);
       
-      // Check if response and response.data exist
-      if (!response?.data) {
-        console.error('[GamificationContext] Invalid achievements response structure:', response);
-        return;
-      }
+      const achievementsData = data.achievements || [];
       
-      if (response.data.status === 'success') {
-        const achievementsData = response.data.data.achievements || response.data.data || [];
-        
-        // Map backend response to frontend Achievement interface
-        const mappedAchievements: Achievement[] = achievementsData.map((a: any) => ({
-          id: a.id,
-          name: a.name || a.achievement_name,
-          description: a.description,
-          icon: a.icon || '🏆',
-          earned_at: a.earned_at,
-          xp_reward: a.xp_reward || 0
-        }));
-        
-        // Find new achievements
-        const newAchievements = mappedAchievements.filter(
-          (achievement: Achievement) => !achievements.find(a => a.id === achievement.id)
-        );
-        
-        // Show notifications for new achievements
-        newAchievements.forEach((achievement: Achievement) => {
-          toast.success(`🏆 Achievement Unlocked: ${achievement.name}!`, {
-            description: achievement.description,
-            duration: 5000,
-          });
+      // Map backend response to frontend Achievement interface
+      const mappedAchievements: Achievement[] = achievementsData.map((a: APIAchievement) => ({
+        id: a.id,
+        name: a.name,
+        description: a.description,
+        icon: a.icon || '🏆',
+        earned_at: a.earned_at,
+        type: a.type
+      }));
+      
+      // Find new achievements
+      const newAchievements = mappedAchievements.filter(
+        (achievement: Achievement) => !achievements.find(a => a.id === achievement.id)
+      );
+      
+      // Show notifications for new achievements
+      newAchievements.forEach((achievement: Achievement) => {
+        toast.success(`🏆 Achievement Unlocked: ${achievement.name}!`, {
+          description: achievement.description,
+          duration: 5000,
         });
-        
-        setAchievements(mappedAchievements);
-        
-        // Update achievement count in stats
-        setUserStats(prev => prev ? { ...prev, achievements_count: mappedAchievements.length } : null);
-      }
+      });
+      
+      setAchievements(mappedAchievements);
+      
+      // Update achievement count in stats
+      setUserStats(prev => prev ? { ...prev, achievements_count: mappedAchievements.length } : null);
     } catch (error) {
       console.error('Failed to fetch achievements:', error);
     }
@@ -305,67 +298,57 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
       }
       
       // Award XP via API
-      const response = await api.post('/api/v2/gamification/award-xp', {
+      const result = await gamificationAPI.awardXP({
         activity_type: action.toLowerCase(),
         xp_amount: xpAmount,
         description: actionConfig.message,
         metadata
       });
       
-      console.log('[GamificationContext] Award XP Response:', response);
+      console.log('[GamificationContext] Award XP Response:', result);
       
-      // Check if response and response.data exist
-      if (!response?.data) {
-        console.error('[GamificationContext] Invalid award XP response structure:', response);
-        // Still show the toast for user feedback even if API fails
-        toast.success(`+${xpAmount} XP - ${actionConfig.message}`, {
-          duration: 3000,
-        });
-        return;
-      }
+      // Show success toast
+      toast.success(`+${result.xp_awarded} XP - ${actionConfig.message}`, {
+        duration: 3000,
+      });
       
-      if (response.data.status === 'success') {
-        // Update stats with new values from backend
-        const result = response.data.data;
+      // Get the previous level to check for level up
+      const previousLevel = userStats?.level || 1;
+      const newLevel = result.new_level || previousLevel;
+      
+      setUserStats(prev => {
+        if (!prev) return null;
         
-        // Get the previous level to check for level up
-        const previousLevel = userStats?.level || 1;
-        const newLevel = result.new_level || previousLevel;
+        const newTotalXP = result.new_total_xp || (prev.total_xp + xpAmount);
+        const currentLevelXP = calculateCurrentLevelXP(newTotalXP, newLevel);
+        const nextLevelXP = calculateXPForLevel(newLevel + 1);
         
-        setUserStats(prev => {
-          if (!prev) return null;
-          
-          const newTotalXP = result.new_total_xp || (prev.total_xp + actionConfig.xp);
-          const currentLevelXP = calculateCurrentLevelXP(newTotalXP, newLevel);
-          const nextLevelXP = calculateXPForLevel(newLevel + 1);
-          
-          return {
-            ...prev,
-            total_xp: newTotalXP,
-            level: newLevel,
-            current_level_xp: currentLevelXP,
-            next_level_xp: nextLevelXP,
-            current_streak: result.new_streak || prev.current_streak,
-            weekly_goal_progress: Math.min(
-              (prev.weekly_goal_progress || 0) + actionConfig.xp,
-              prev.weekly_goal_target
-            )
-          };
+        return {
+          ...prev,
+          total_xp: newTotalXP,
+          level: newLevel,
+          current_level_xp: currentLevelXP,
+          next_level_xp: nextLevelXP,
+          current_streak: result.new_streak || prev.current_streak,
+          weekly_goal_progress: Math.min(
+            (prev.weekly_goal_progress || 0) + xpAmount,
+            prev.weekly_goal_target
+          )
+        };
+      });
+      
+      // Check for level up
+      if (newLevel > previousLevel) {
+        toast.success(`🎉 Level Up! You're now Level ${newLevel}!`, {
+          duration: 5000,
         });
-        
-        // Check for level up
-        if (newLevel > previousLevel) {
-          toast.success(`🎉 Level Up! You're now Level ${newLevel}!`, {
-            duration: 5000,
-          });
-          // Refresh achievements as level ups create new achievements
-          checkAchievements();
-        }
+        // Refresh achievements as level ups create new achievements
+        checkAchievements();
       }
     } catch (error) {
       console.error('Failed to award XP:', error);
       // Remove animation on error
-      setPendingAnimations(prev => prev.filter(a => a.id !== animation.id));
+      setPendingAnimations(prev => prev.filter(a => a.id !== animation?.id));
       toast.error('Failed to record XP');
     }
   }, [user?.id, isOnCooldown, getRemainingCooldown, checkAchievements]);

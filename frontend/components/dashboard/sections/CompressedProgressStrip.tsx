@@ -4,6 +4,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { Flame, Trophy, Target, TrendingUp } from 'lucide-react';
 import { useGamification } from '@/contexts/GamificationContext';
+import { StudySessionTracker } from '@/components/study';
 
 interface CompressedProgressStripProps {
   onStreakClick?: () => void;
@@ -99,6 +100,9 @@ export function CompressedProgressStrip({
             <p className="text-sm font-semibold">#{userStats.rank || '—'}</p>
           </div>
         </div>
+
+        {/* Study Session Tracker - Compact */}
+        <StudySessionTracker compact className="ml-auto" />
       </div>
     </div>
   );

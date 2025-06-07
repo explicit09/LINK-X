@@ -598,3 +598,305 @@ def get_personalized_recommendations():
     except Exception as e:
         logger.error(f"Error getting recommendations: {str(e)}")
         return error_response(str(e), 500)
+
+
+# ===== STUDY TIME TRACKING ENDPOINTS =====
+
+@analytics_bp.route('/study-time', methods=['GET'])
+@auth_required()
+def get_study_time():
+    """Get user's study time analytics"""
+    try:
+        user = g.current_user
+        user_id = str(user.id)
+        
+        # Get query parameters
+        period = request.args.get('period', 'week')  # week, month, all
+        course_id = request.args.get('course_id')
+        
+        with db_manager.session_factory() as session:
+            from db.schema import StudySession
+            from sqlalchemy import func, and_
+            
+            # Base query for completed study sessions
+            query = session.query(StudySession).filter(
+                StudySession.user_id == user_id,
+                StudySession.status == 'completed',
+                StudySession.actual_start.isnot(None),
+                StudySession.actual_end.isnot(None),
+                StudySession.actual_duration_minutes.isnot(None)
+            )
+            
+            # Filter by course if specified
+            if course_id:
+                query = query.filter(StudySession.course_id == course_id)
+            
+            # Calculate date range based on period
+            now = datetime.utcnow()
+            if period == 'week':
+                # Current week (Monday to Sunday)
+                days_since_monday = now.weekday()
+                week_start = (now - timedelta(days=days_since_monday)).replace(hour=0, minute=0, second=0, microsecond=0)
+                query = query.filter(StudySession.actual_start >= week_start)
+                period_label = "This Week"
+            elif period == 'month':
+                # Current month
+                month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+                query = query.filter(StudySession.actual_start >= month_start)
+                period_label = "This Month"
+            else:
+                period_label = "All Time"
+            
+            # Get all sessions for detailed analysis
+            sessions = query.order_by(StudySession.actual_start.desc()).all()
+            
+            # Calculate analytics
+            total_sessions = len(sessions)
+            total_minutes = sum(s.actual_duration_minutes or 0 for s in sessions)
+            total_hours = round(total_minutes / 60, 1)
+            
+            # Average session length
+            avg_session_minutes = round(total_minutes / total_sessions, 1) if total_sessions > 0 else 0
+            avg_session_hours = round(avg_session_minutes / 60, 1)
+            
+            # Sessions by course
+            course_breakdown = {}
+            for session in sessions:
+                course_id_key = str(session.course_id) if session.course_id else 'uncategorized'
+                if course_id_key not in course_breakdown:
+                    course_breakdown[course_id_key] = {
+                        'sessions': 0,
+                        'total_minutes': 0,
+                        'course_title': 'Uncategorized'
+                    }
+                course_breakdown[course_id_key]['sessions'] += 1
+                course_breakdown[course_id_key]['total_minutes'] += session.actual_duration_minutes or 0
+                
+                # Get course title (you might want to join this in the query for efficiency)
+                if session.course_id:
+                    from db.schema import Course
+                    course = session.query(Course).filter(Course.id == session.course_id).first()
+                    if course:
+                        course_breakdown[course_id_key]['course_title'] = course.title
+            
+            # Daily breakdown for the period
+            daily_stats = {}
+            for session in sessions:
+                date_key = session.actual_start.date().isoformat()
+                if date_key not in daily_stats:
+                    daily_stats[date_key] = {
+                        'date': date_key,
+                        'sessions': 0,
+                        'total_minutes': 0
+                    }
+                daily_stats[date_key]['sessions'] += 1
+                daily_stats[date_key]['total_minutes'] += session.actual_duration_minutes or 0
+            
+            # Convert to sorted list
+            daily_breakdown = sorted(daily_stats.values(), key=lambda x: x['date'])
+            
+            # Study streaks
+            study_days = set(s.actual_start.date() for s in sessions)
+            current_streak = 0
+            date_check = now.date()
+            
+            # Calculate current streak
+            while date_check in study_days:
+                current_streak += 1
+                date_check -= timedelta(days=1)
+                if current_streak > 365:  # Safety limit
+                    break
+            
+            # If today isn't a study day, check if yesterday was
+            if now.date() not in study_days and current_streak == 0:
+                yesterday = now.date() - timedelta(days=1)
+                if yesterday in study_days:
+                    current_streak = 1
+                    date_check = yesterday - timedelta(days=1)
+                    while date_check in study_days:
+                        current_streak += 1
+                        date_check -= timedelta(days=1)
+                        if current_streak > 365:
+                            break
+            
+            # Recent session analysis
+            recent_sessions = sessions[:10]  # Last 10 sessions
+            focus_scores = [s.focus_score for s in recent_sessions if s.focus_score is not None]
+            avg_focus = round(sum(focus_scores) / len(focus_scores), 1) if focus_scores else None
+            
+            effectiveness_ratings = [s.effectiveness_rating for s in recent_sessions if s.effectiveness_rating is not None]
+            avg_effectiveness = round(sum(effectiveness_ratings) / len(effectiveness_ratings), 1) if effectiveness_ratings else None
+            
+            response_data = {
+                'period': period_label,
+                'summary': {
+                    'total_sessions': total_sessions,
+                    'total_hours': total_hours,
+                    'total_minutes': total_minutes,
+                    'avg_session_hours': avg_session_hours,
+                    'avg_session_minutes': avg_session_minutes,
+                    'study_streak_days': current_streak
+                },
+                'quality_metrics': {
+                    'avg_focus_score': avg_focus,
+                    'avg_effectiveness': avg_effectiveness,
+                    'total_ratings': len(effectiveness_ratings)
+                },
+                'course_breakdown': course_breakdown,
+                'daily_breakdown': daily_breakdown,
+                'recent_sessions': [
+                    {
+                        'id': str(s.id),
+                        'title': s.title,
+                        'date': s.actual_start.isoformat(),
+                        'duration_minutes': s.actual_duration_minutes,
+                        'focus_score': s.focus_score,
+                        'effectiveness_rating': s.effectiveness_rating,
+                        'course_id': str(s.course_id) if s.course_id else None
+                    }
+                    for s in recent_sessions
+                ]
+            }
+            
+            return success_response(response_data)
+            
+    except Exception as e:
+        logger.error(f"Error getting study time analytics: {str(e)}")
+        return error_response("An error occurred fetching study time data", status_code=500)
+
+
+@analytics_bp.route('/study-time/session', methods=['POST'])
+@auth_required()  
+def start_study_session():
+    """Start a new study session"""
+    try:
+        user = g.current_user
+        user_id = str(user.id)
+        data = request.get_json()
+        
+        if not data:
+            return error_response("Request body required")
+        
+        title = data.get('title', 'Study Session')
+        course_id = data.get('course_id')
+        session_type = data.get('session_type', 'study')
+        
+        with db_manager.session_factory() as session:
+            from db.schema import StudySession
+            
+            # Check if user has an active session
+            active_session = session.query(StudySession).filter(
+                StudySession.user_id == user_id,
+                StudySession.status == 'active'
+            ).first()
+            
+            if active_session:
+                return error_response("You already have an active study session", status_code=400)
+            
+            # Create new session
+            now = datetime.utcnow()
+            new_session = StudySession(
+                user_id=user_id,
+                course_id=course_id,
+                title=title,
+                session_type=session_type,
+                scheduled_start=now,
+                scheduled_end=now + timedelta(hours=2),  # Default 2 hour session
+                duration_minutes=120,
+                actual_start=now,
+                status='active'
+            )
+            
+            session.add(new_session)
+            session.commit()
+            session.refresh(new_session)
+            
+            return success_response({
+                'session_id': str(new_session.id),
+                'title': new_session.title,
+                'started_at': new_session.actual_start.isoformat(),
+                'status': new_session.status
+            }, message="Study session started", status_code=201)
+            
+    except Exception as e:
+        logger.error(f"Error starting study session: {str(e)}")
+        return error_response("An error occurred starting the session", status_code=500)
+
+
+@analytics_bp.route('/study-time/session/<session_id>/end', methods=['PUT'])
+@auth_required()
+def end_study_session(session_id: str):
+    """End an active study session"""
+    try:
+        user = g.current_user
+        user_id = str(user.id)
+        data = request.get_json() or {}
+        
+        with db_manager.session_factory() as session:
+            from db.schema import StudySession
+            
+            # Find the session
+            study_session = session.query(StudySession).filter(
+                StudySession.id == session_id,
+                StudySession.user_id == user_id,
+                StudySession.status == 'active'
+            ).first()
+            
+            if not study_session:
+                return error_response("Active study session not found", status_code=404)
+            
+            # End the session
+            now = datetime.utcnow()
+            study_session.actual_end = now
+            study_session.status = 'completed'
+            
+            # Calculate actual duration
+            if study_session.actual_start:
+                duration_delta = now - study_session.actual_start
+                study_session.actual_duration_minutes = int(duration_delta.total_seconds() / 60)
+            
+            # Optional quality ratings
+            focus_score = data.get('focus_score')  # 0-10
+            effectiveness_rating = data.get('effectiveness_rating')  # 1-5
+            notes = data.get('notes')
+            
+            if focus_score is not None:
+                study_session.focus_score = max(0, min(10, float(focus_score)))
+            
+            if effectiveness_rating is not None:
+                study_session.effectiveness_rating = max(1, min(5, int(effectiveness_rating)))
+            
+            if notes:
+                study_session.session_notes = notes
+            
+            # Award XP for study time
+            if study_session.actual_duration_minutes and study_session.actual_duration_minutes >= 5:
+                # Award 1 XP per minute of study time (minimum 5 minutes)
+                xp_earned = min(study_session.actual_duration_minutes, 120)  # Cap at 2 hours worth
+                study_session.xp_earned = xp_earned
+                
+                # Create XP activity record
+                from db.schema import UserActivity
+                activity = UserActivity(
+                    user_id=user_id,
+                    activity_type='study_session_complete',
+                    xp_earned=xp_earned,
+                    description=f"Completed {study_session.actual_duration_minutes} minute study session",
+                    metadata={'session_id': str(study_session.id), 'duration_minutes': study_session.actual_duration_minutes}
+                )
+                session.add(activity)
+            
+            session.commit()
+            session.refresh(study_session)
+            
+            return success_response({
+                'session_id': str(study_session.id),
+                'duration_minutes': study_session.actual_duration_minutes,
+                'xp_earned': study_session.xp_earned or 0,
+                'ended_at': study_session.actual_end.isoformat(),
+                'status': study_session.status
+            }, message="Study session completed")
+            
+    except Exception as e:
+        logger.error(f"Error ending study session: {str(e)}")
+        return error_response("An error occurred ending the session", status_code=500)

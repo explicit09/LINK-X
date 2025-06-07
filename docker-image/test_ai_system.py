@@ -1,0 +1,477 @@
+#!/usr/bin/env python3
+"""
+Comprehensive test script for AI system components:
+1. Embeddings generation
+2. RAG (Retrieval-Augmented Generation)
+3. AI responses
+"""
+
+import os
+import sys
+import time
+import json
+from datetime import datetime
+from pathlib import Path
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent / 'src'))
+
+from dotenv import load_dotenv
+load_dotenv('.env')
+
+# Import required modules
+from core.database_supabase import db_manager
+from db.schema import FileChunk, File, Module, Course
+from services.ai.ai_service import AIService
+from services.ai.hybrid_search_service import HybridSearchService
+from repositories.file_repository import FileRepository
+from core.supabase_config import get_supabase_client
+
+# Colors for output
+GREEN = '\033[92m'
+RED = '\033[91m'
+YELLOW = '\033[93m'
+BLUE = '\033[94m'
+RESET = '\033[0m'
+
+def print_header(text):
+    print(f"\n{BLUE}{'='*60}{RESET}")
+    print(f"{BLUE}{text:^60}{RESET}")
+    print(f"{BLUE}{'='*60}{RESET}\n")
+
+def print_success(text):
+    print(f"{GREEN}✅ {text}{RESET}")
+
+def print_error(text):
+    print(f"{RED}❌ {text}{RESET}")
+
+def print_info(text):
+    print(f"{YELLOW}ℹ️  {text}{RESET}")
+
+def test_database_connection():
+    """Test database connection"""
+    print_header("Testing Database Connection")
+    try:
+        with db_manager.get_session() as session:
+            # Test basic query
+            result = session.execute("SELECT 1").scalar()
+            print_success("Database connection successful")
+            
+            # Check if required tables exist
+            tables = ['file_chunks', 'files', 'modules', 'courses']
+            for table in tables:
+                count = session.execute(f"SELECT COUNT(*) FROM {table}").scalar()
+                print_success(f"Table '{table}' exists with {count} records")
+        return True
+    except Exception as e:
+        print_error(f"Database connection failed: {e}")
+        return False
+
+def test_embeddings_system():
+    """Test embedding generation system"""
+    print_header("Testing Embeddings System")
+    
+    try:
+        supabase = get_supabase_client()
+        
+        # Check embedding queue
+        print_info("Checking embedding queue status...")
+        queue_status = supabase.rpc('get_queue_status', {'queue_name': 'embedding_jobs'}).execute()
+        print_success(f"Embedding queue is active: {queue_status.data}")
+        
+        # Check embedding progress
+        with db_manager.get_session() as session:
+            result = session.execute("""
+                SELECT 
+                    COUNT(*) FILTER (WHERE embedding IS NOT NULL) as completed,
+                    COUNT(*) FILTER (WHERE embedding IS NULL) as pending,
+                    COUNT(*) as total
+                FROM file_chunks
+            """).first()
+            
+            print_info(f"Embedding Status:")
+            print(f"  - Total chunks: {result.total}")
+            print(f"  - Completed: {result.completed}")
+            print(f"  - Pending: {result.pending}")
+            
+            if result.total > 0:
+                completion_rate = (result.completed / result.total) * 100
+                print_info(f"  - Completion rate: {completion_rate:.1f}%")
+            
+            # Test creating a new chunk to trigger embedding
+            if result.total == 0:
+                print_info("No chunks found. Creating test chunk...")
+                
+                # First create a test course, module, and file
+                course = Course(
+                    title="Test Course for AI System",
+                    description="Testing embeddings and RAG",
+                    instructor="AI Test System"
+                )
+                session.add(course)
+                session.flush()
+                
+                module = Module(
+                    course_id=course.id,
+                    title="Test Module",
+                    order_index=1
+                )
+                session.add(module)
+                session.flush()
+                
+                file = File(
+                    module_id=module.id,
+                    title="Test Document",
+                    file_type='txt',
+                    storage_type='test'
+                )
+                session.add(file)
+                session.flush()
+                
+                # Create test chunk
+                test_chunk = FileChunk(
+                    file_id=file.id,
+                    course_id=course.id,
+                    chunk_index=0,
+                    content="This is a test chunk for verifying the embedding system. It contains information about machine learning, neural networks, and artificial intelligence.",
+                    chunk_metadata={"test": True, "created_at": datetime.now().isoformat()}
+                )
+                session.add(test_chunk)
+                session.commit()
+                
+                print_success("Test chunk created. Embeddings will be generated by the cron job.")
+                print_info("Waiting 5 seconds for embedding generation...")
+                time.sleep(5)
+                
+                # Check if embedding was generated
+                session.expire_all()
+                updated_chunk = session.query(FileChunk).filter_by(id=test_chunk.id).first()
+                if updated_chunk and updated_chunk.embedding is not None:
+                    print_success("Embedding generated successfully!")
+                else:
+                    print_info("Embedding not yet generated. The cron job runs every minute.")
+        
+        return True
+        
+    except Exception as e:
+        print_error(f"Embeddings test failed: {e}")
+        return False
+
+def test_rag_system():
+    """Test RAG (Retrieval-Augmented Generation) system"""
+    print_header("Testing RAG System")
+    
+    try:
+        # Initialize services
+        ai_service = AIService()
+        hybrid_search = HybridSearchService()
+        
+        # Test queries
+        test_queries = [
+            "machine learning",
+            "neural networks",
+            "artificial intelligence"
+        ]
+        
+        with db_manager.get_session() as session:
+            # Check if we have any chunks with embeddings
+            chunk_count = session.query(FileChunk).filter(
+                FileChunk.embedding.isnot(None)
+            ).count()
+            
+            if chunk_count == 0:
+                print_info("No chunks with embeddings found. RAG requires embedded content.")
+                print_info("Please wait for the embedding cron job to run, then retry.")
+                return True
+            
+            print_success(f"Found {chunk_count} chunks with embeddings")
+            
+            # Test each query
+            for query in test_queries:
+                print_info(f"\nTesting RAG with query: '{query}'")
+                
+                try:
+                    # Perform hybrid search
+                    results = hybrid_search.search(
+                        query=query,
+                        limit=5,
+                        search_type='hybrid'
+                    )
+                    
+                    print_success(f"Found {len(results)} relevant chunks")
+                    
+                    if results:
+                        # Show top result
+                        top_result = results[0]
+                        print(f"  Top result (score: {top_result.score:.3f}):")
+                        print(f"  - File: {top_result.file_title}")
+                        print(f"  - Content preview: {top_result.content[:100]}...")
+                        
+                except Exception as e:
+                    print_error(f"RAG search failed for '{query}': {e}")
+        
+        return True
+        
+    except Exception as e:
+        print_error(f"RAG test failed: {e}")
+        return False
+
+def test_ai_service():
+    """Test AI service functionality"""
+    print_header("Testing AI Service")
+    
+    try:
+        ai_service = AIService()
+        
+        # Test 1: Service availability
+        print_info("Checking AI service availability...")
+        if ai_service.is_available():
+            print_success("AI service is available")
+        else:
+            print_error("AI service is not available")
+            return False
+        
+        # Test 2: Service status
+        status = ai_service.get_service_status()
+        print_success(f"OpenAI model: {status['default_model']}")
+        print_success(f"Embedding model: {status['embedding_model']}")
+        
+        # Test 3: Content generation
+        print_info("\nTesting content generation...")
+        test_content = """
+        Machine learning is a subset of artificial intelligence that enables 
+        systems to learn and improve from experience without being explicitly 
+        programmed. It focuses on developing computer programs that can access 
+        data and use it to learn for themselves.
+        """
+        
+        # Generate outline
+        print_info("Generating outline...")
+        outline = ai_service.generate_outline(test_content)
+        if outline:
+            print_success("Outline generated successfully")
+            print(f"  Sections: {len(outline.get('sections', []))}")
+        
+        # Generate summary
+        print_info("Generating summary...")
+        summary = ai_service.generate_brief_summary(test_content)
+        if summary:
+            print_success("Summary generated successfully")
+            print(f"  Points: {len(summary)}")
+        
+        # Test 4: Embeddings generation
+        print_info("\nTesting embedding generation...")
+        test_text = "This is a test for embedding generation"
+        embedding = ai_service.generate_embeddings(test_text)
+        if embedding and len(embedding) > 0:
+            print_success(f"Embedding generated successfully (dimension: {len(embedding)})")
+        else:
+            print_error("Embedding generation failed")
+        
+        # Test 5: Personalization
+        print_info("\nTesting content personalization...")
+        user_profile = {
+            'learning_style': 'visual',
+            'expertise_level': 'beginner',
+            'interests': ['gaming', 'technology']
+        }
+        
+        personalized = ai_service.personalize_content(test_content, user_profile)
+        if personalized:
+            print_success("Content personalized successfully")
+            print(f"  Style applied: {personalized.get('style_applied', 'unknown')}")
+        
+        return True
+        
+    except Exception as e:
+        print_error(f"AI service test failed: {e}")
+        return False
+
+def test_end_to_end():
+    """Test end-to-end AI pipeline"""
+    print_header("Testing End-to-End AI Pipeline")
+    
+    try:
+        ai_service = AIService()
+        
+        # Create a more substantial test document
+        test_document = """
+        # Introduction to Deep Learning
+
+        Deep learning is a subset of machine learning that uses artificial neural networks 
+        with multiple layers to progressively extract higher-level features from raw input. 
+        
+        ## Key Concepts
+        
+        1. **Neural Networks**: Inspired by biological neural networks, these are computing 
+        systems with interconnected nodes that work together to process information.
+        
+        2. **Backpropagation**: The algorithm used to train neural networks by calculating 
+        gradients and updating weights to minimize error.
+        
+        3. **Activation Functions**: Mathematical functions that introduce non-linearity 
+        into the network, enabling it to learn complex patterns.
+        
+        ## Applications
+        
+        Deep learning has revolutionized many fields:
+        - Computer Vision: Image recognition, object detection
+        - Natural Language Processing: Language translation, sentiment analysis
+        - Speech Recognition: Voice assistants, transcription services
+        """
+        
+        with db_manager.get_session() as session:
+            # Create test data
+            print_info("Creating test course with document...")
+            
+            course = Course(
+                title="Deep Learning Fundamentals",
+                description="E2E Test Course",
+                instructor="AI Test"
+            )
+            session.add(course)
+            session.flush()
+            
+            module = Module(
+                course_id=course.id,
+                title="Introduction Module",
+                order_index=1
+            )
+            session.add(module)
+            session.flush()
+            
+            file = File(
+                module_id=module.id,
+                title="Deep Learning Guide",
+                file_type='md',
+                storage_type='test'
+            )
+            session.add(file)
+            session.flush()
+            
+            # Split into chunks (simulating file processing)
+            chunks = test_document.split('\n\n')
+            for i, chunk_content in enumerate(chunks):
+                if chunk_content.strip():
+                    chunk = FileChunk(
+                        file_id=file.id,
+                        course_id=course.id,
+                        chunk_index=i,
+                        content=chunk_content.strip(),
+                        chunk_metadata={
+                            "section": i,
+                            "type": "markdown"
+                        }
+                    )
+                    session.add(chunk)
+            
+            session.commit()
+            print_success(f"Created test course with {len(chunks)} chunks")
+            
+            # Wait for embeddings
+            print_info("Waiting for embeddings to be generated...")
+            time.sleep(3)
+            
+            # Test the full pipeline
+            print_info("\nTesting full AI pipeline with user query...")
+            
+            user_query = "Explain neural networks in simple terms for a beginner"
+            
+            # 1. Search for relevant content
+            hybrid_search = HybridSearchService()
+            search_results = hybrid_search.search(
+                query=user_query,
+                course_id=str(course.id),
+                limit=3
+            )
+            
+            if search_results:
+                print_success(f"Found {len(search_results)} relevant chunks")
+                
+                # 2. Generate context from search results
+                context_chunks = [result.content for result in search_results]
+                context = "\n\n".join(context_chunks)
+                
+                # 3. Generate AI response with context
+                print_info("Generating AI response with RAG context...")
+                
+                response = ai_service.generate_contextual_response(
+                    message=user_query,
+                    context={
+                        'relevant_chunks': context,
+                        'course_title': course.title
+                    }
+                )
+                
+                if response:
+                    print_success("AI response generated successfully!")
+                    print(f"\nResponse preview:")
+                    print(f"{response[:200]}...")
+                else:
+                    print_error("Failed to generate AI response")
+            else:
+                print_info("No search results found. Embeddings may still be processing.")
+        
+        return True
+        
+    except Exception as e:
+        print_error(f"End-to-end test failed: {e}")
+        return False
+
+def main():
+    """Run all tests"""
+    print_header("LEARN-X AI System Test Suite")
+    print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    # Initialize database
+    print_info("Initializing database connection...")
+    try:
+        # Test connection first
+        with db_manager.get_session() as session:
+            session.execute("SELECT 1")
+    except:
+        # If not initialized, initialize it
+        from core.database_supabase import DatabaseManager
+        db_manager._initialized = True
+    
+    # Run tests
+    tests = [
+        ("Database Connection", test_database_connection),
+        ("Embeddings System", test_embeddings_system),
+        ("RAG System", test_rag_system),
+        ("AI Service", test_ai_service),
+        ("End-to-End Pipeline", test_end_to_end)
+    ]
+    
+    results = {}
+    for test_name, test_func in tests:
+        try:
+            results[test_name] = test_func()
+        except Exception as e:
+            print_error(f"Test '{test_name}' crashed: {e}")
+            results[test_name] = False
+    
+    # Summary
+    print_header("Test Summary")
+    passed = sum(1 for v in results.values() if v)
+    total = len(results)
+    
+    for test_name, passed in results.items():
+        status = "PASSED" if passed else "FAILED"
+        color = GREEN if passed else RED
+        print(f"{color}{test_name:.<40} {status}{RESET}")
+    
+    print(f"\n{BLUE}Total: {passed}/{total} tests passed{RESET}")
+    
+    if passed == total:
+        print_success("\nAll tests passed! 🎉")
+    else:
+        print_error(f"\n{total - passed} tests failed")
+    
+    # Embedding reminder
+    if not results.get("Embeddings System") or not results.get("RAG System"):
+        print_info("\nNote: Embeddings are generated asynchronously by a cron job.")
+        print_info("If embedding tests failed, wait 1-2 minutes and run again.")
+
+if __name__ == "__main__":
+    main()

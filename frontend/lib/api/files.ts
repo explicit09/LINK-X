@@ -86,7 +86,7 @@ class FileAPI {
 
   // Streaming
   createFileStream(fileId: string): EventSource {
-    const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     return new EventSource(`${baseURL}/api/v2/files/${fileId}/stream`, {
       withCredentials: true,
     });

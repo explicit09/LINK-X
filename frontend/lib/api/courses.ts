@@ -16,6 +16,9 @@ export interface Course {
     name: string;
     email: string;
   };
+  code?: string; // Course access code
+  deadline?: string; // Course deadline
+  last_updated?: string; // Last update timestamp
 }
 
 export interface Module {

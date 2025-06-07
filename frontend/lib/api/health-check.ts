@@ -4,7 +4,7 @@
 
 export async function checkAPIHealth() {
   try {
-    const response = await fetch('http://localhost:8080/api/health', {
+    const response = await fetch('http://localhost:8000/api/health', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -47,7 +47,7 @@ export async function checkStudyPlansEndpoint() {
       };
     }
     
-    const response = await fetch('http://localhost:8080/api/v2/study-plans/active', {
+    const response = await fetch('http://localhost:8000/api/v2/study-plans/active', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

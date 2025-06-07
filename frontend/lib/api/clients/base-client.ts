@@ -28,7 +28,7 @@ export class BaseAPIClient {
   protected retryDelay: number;
 
   constructor() {
-    this.baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    this.baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     this.defaultTimeout = 30000; // 30 seconds
     this.maxRetries = 2;
     this.retryDelay = 500;

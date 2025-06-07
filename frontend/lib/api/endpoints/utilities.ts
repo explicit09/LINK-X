@@ -6,7 +6,7 @@ import { apiClient } from '../client';
 import type { GenerateTitleRequest } from '../../../types/api';
 
 // API configuration
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export const utilityAPI = {
   // Title generation

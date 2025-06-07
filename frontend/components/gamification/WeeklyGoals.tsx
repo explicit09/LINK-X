@@ -13,6 +13,7 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useGamification } from '@/contexts/GamificationContext';
+import { gamificationAPI, type WeeklyGoalsData } from '@/lib/api/endpoints/gamification';
 import { toast } from 'sonner';
 
 interface Goal {
@@ -27,37 +28,61 @@ interface Goal {
 }
 
 interface WeeklyGoalsProps {
-  weeklyXPGoal: number;
-  currentWeeklyXP: number;
-  customGoals?: Goal[];
-  onUpdateGoal?: (goalType: string, newTarget: number) => void;
   compact?: boolean;
   className?: string;
 }
 
 export function WeeklyGoals({
-  weeklyXPGoal,
-  currentWeeklyXP,
-  customGoals = [],
-  onUpdateGoal,
   compact = false,
   className
 }: WeeklyGoalsProps) {
   const { userStats, awardXP } = useGamification();
   const [editingGoal, setEditingGoal] = useState<string | null>(null);
   const [showAllGoals, setShowAllGoals] = useState(!compact);
-  
-  // Calculate days remaining in week
-  const getDaysRemaining = () => {
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const daysUntilSunday = dayOfWeek === 0 ? 7 : 7 - dayOfWeek;
-    return daysUntilSunday;
-  };
+  const [weeklyData, setWeeklyData] = useState<WeeklyGoalsData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const daysRemaining = getDaysRemaining();
-  const weeklyProgress = (currentWeeklyXP / weeklyXPGoal) * 100;
-  const dailyTarget = Math.ceil((weeklyXPGoal - currentWeeklyXP) / Math.max(daysRemaining, 1));
+  // Load weekly goals data
+  useEffect(() => {
+    const fetchWeeklyGoals = async () => {
+      try {
+        console.log('[WeeklyGoals] Fetching weekly goals data...');
+        const data = await gamificationAPI.getWeeklyGoals();
+        console.log('[WeeklyGoals] Weekly goals data:', data);
+        setWeeklyData(data);
+      } catch (error) {
+        console.error('[WeeklyGoals] Failed to fetch weekly goals:', error);
+        // Provide fallback data
+        setWeeklyData({
+          weekly_goal_target: userStats?.weekly_goal_target || 500,
+          weekly_goal_progress: userStats?.weekly_goal_progress || 0,
+          progress_percentage: 0,
+          days_remaining: 7,
+          daily_target: 71,
+          week_start: new Date().toISOString(),
+          week_end: new Date().toISOString(),
+          daily_progress: [],
+          is_goal_achieved: false
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (userStats) {
+      fetchWeeklyGoals();
+    }
+  }, [userStats]);
+
+  if (loading || !weeklyData) {
+    return <div className="animate-pulse bg-gray-200 rounded-lg h-48"></div>;
+  }
+
+  const daysRemaining = weeklyData.days_remaining;
+  const weeklyProgress = weeklyData.progress_percentage;
+  const dailyTarget = weeklyData.daily_target;
+  const weeklyXPGoal = weeklyData.weekly_goal_target;
+  const currentWeeklyXP = weeklyData.weekly_goal_progress;
 
   // Default goals if none provided
   const defaultGoals: Goal[] = [
@@ -95,7 +120,7 @@ export function WeeklyGoals({
       id: 'modules',
       type: 'modules',
       target: 3,
-      current: userStats?.weekly_modules_completed || 0,
+      current: 0, // TODO: Implement weekly_modules_completed in UserStats
       title: 'Complete Modules',
       description: 'Finish course modules',
       icon: <BookOpen className="w-4 h-4" />,
@@ -103,8 +128,8 @@ export function WeeklyGoals({
     }
   ];
 
-  const goals = customGoals.length > 0 ? customGoals : defaultGoals;
-  const completedGoals = goals.filter(g => g.current >= g.target).length;
+  const goals = defaultGoals;
+  const completedGoals = goals.filter((g: Goal) => g.current >= g.target).length;
   const totalGoals = goals.length;
 
   // Award bonus XP for completing all goals
@@ -121,12 +146,22 @@ export function WeeklyGoals({
     }
   }, [completedGoals, totalGoals, awardXP]);
 
-  const adjustGoal = (goalId: string, adjustment: number) => {
-    const goal = goals.find(g => g.id === goalId);
-    if (goal && onUpdateGoal) {
-      const newTarget = Math.max(1, goal.target + adjustment);
-      onUpdateGoal(goal.type, newTarget);
+  const adjustGoal = async (goalId: string, adjustment: number) => {
+    if (goalId === 'xp') {
+      // Update weekly XP goal
+      const newTarget = Math.max(100, weeklyXPGoal + adjustment);
+      try {
+        await gamificationAPI.updateWeeklyGoal(newTarget);
+        // Refresh the data
+        const updatedData = await gamificationAPI.getWeeklyGoals();
+        setWeeklyData(updatedData);
+        toast.success(`Weekly XP goal updated to ${newTarget}`);
+      } catch (error) {
+        console.error('Failed to update weekly goal:', error);
+        toast.error('Failed to update goal');
+      }
     }
+    // Other goals are placeholders for now
   };
 
   if (compact) {
@@ -194,7 +229,7 @@ export function WeeklyGoals({
 
         {/* Individual Goals */}
         <div className="space-y-3">
-          {goals.map((goal) => {
+          {goals.map((goal: Goal) => {
             const progress = Math.min((goal.current / goal.target) * 100, 100);
             const isCompleted = goal.current >= goal.target;
             const isEditing = editingGoal === goal.id;
@@ -238,7 +273,7 @@ export function WeeklyGoals({
                     <span className="text-gray-600">
                       {goal.current}/{goal.target} {goal.type === 'time' ? 'min' : ''}
                     </span>
-                    {onUpdateGoal && !isCompleted && (
+                    {goal.id === 'xp' && !isCompleted && (
                       <Button
                         variant="ghost"
                         size="sm"

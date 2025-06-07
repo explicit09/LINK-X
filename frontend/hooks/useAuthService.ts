@@ -34,7 +34,7 @@ export function useAuthService() {
     try {
       const url = endpoint.startsWith('http')
         ? endpoint
-        : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${endpoint}`;
+        : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${endpoint}`;
 
       return await authService.makeAuthenticatedRequest(url, options);
     } catch (error) {

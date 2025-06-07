@@ -88,7 +88,7 @@ export class PersonalizationErrorBoundary extends Component<Props, State> {
       };
       
       try {
-        const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+        const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
         window.navigator.sendBeacon(
           `${baseURL}/api/personalization/v2/analytics`,
           JSON.stringify({

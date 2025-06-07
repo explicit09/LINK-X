@@ -27,7 +27,7 @@ const LearnPrompt = () => {
         formData.append('file', file);
       }
 
-      const res = await fetch('http://localhost:8080/create-course', {
+      const res = await fetch('http://localhost:8000/create-course', {
         method: 'POST',
         body: formData,
         credentials: 'include',

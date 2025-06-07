@@ -39,7 +39,7 @@ const GoogleAuthButton = dynamic(
 
 export default function Page() {
   const router = useRouter();
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'student' | 'instructor'>('student');

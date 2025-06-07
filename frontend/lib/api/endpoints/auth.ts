@@ -18,7 +18,7 @@ interface UserProfileResponse {
 }
 import { apiClient } from '../client';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 // Create a single auth client instance
 const authClient = new AuthAPIClient();

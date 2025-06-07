@@ -63,7 +63,7 @@ class StreamingAPI {
     const params = new URLSearchParams();
     if (options.style) params.append('style', options.style);
 
-    const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const url = `${baseURL}/api/v2/streaming/learn/${fileId}?${params}`;
 
     const eventSource = new EventSource(url, { withCredentials: true });
@@ -124,7 +124,7 @@ class StreamingAPI {
     context: Record<string, unknown>,
     onMessage: (message: StreamingMessage) => void,
   ): () => void {
-    const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     const eventSource = new EventSource(`${baseURL}/api/v2/streaming/chat`, {
       withCredentials: true,
     });

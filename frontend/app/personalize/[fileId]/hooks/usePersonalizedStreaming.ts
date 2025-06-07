@@ -73,7 +73,7 @@ export function usePersonalizedStreaming(fileId: string) {
       abortControllerRef.current = abortController;
       
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/personalization/stream/${fileId}`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/personalization/stream/${fileId}`,
         {
           method: 'GET',
           credentials: 'include',
@@ -297,7 +297,7 @@ export function usePersonalizedStreaming(fileId: string) {
     
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/personalization/regenerate`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/personalization/regenerate`,
         {
           method: 'POST',
           headers: { 

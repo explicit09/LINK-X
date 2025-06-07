@@ -99,12 +99,26 @@ class AIService:
     
     # Embeddings and Search Methods
     def generate_embeddings(self, text: str) -> List[float]:
-        """Generate embeddings for text"""
-        return self.embeddings_service.generate_embeddings(text)
+        """Generate embeddings for text using Supabase native AI"""
+        # EmbeddingsService removed - Use Supabase native AI directly
+        from core.supabase_config import get_supabase_client
+        supabase = get_supabase_client()
+        
+        embedding_response = supabase.rpc('ai.embed', {
+            'model': 'text-embedding-3-small',
+            'text': text
+        })
+        
+        return embedding_response.data if embedding_response.data else []
     
     def generate_batch_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings for multiple texts efficiently"""
-        return self.embeddings_service.generate_batch_embeddings(texts)
+        """Generate embeddings for multiple texts efficiently using Supabase native AI"""
+        # EmbeddingsService removed - Use Supabase native AI for batch processing
+        embeddings = []
+        for text in texts:
+            embedding = self.generate_embeddings(text)
+            embeddings.append(embedding)
+        return embeddings
     
     def search_similar_content(self, query: str, db_session, **filters) -> List[Dict]:
         """Search for similar content using vector similarity"""

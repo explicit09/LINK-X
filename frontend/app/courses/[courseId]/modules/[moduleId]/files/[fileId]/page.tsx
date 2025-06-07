@@ -121,7 +121,7 @@ export default function FilePreviewPage() {
         downloadUrl = data.url;
       } else {
         // Fallback: try to get the file directly
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v2/files/${fileId}/download`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v2/files/${fileId}/download`, {
           credentials: 'include'
         });
         

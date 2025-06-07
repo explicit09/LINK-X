@@ -15,6 +15,8 @@ import {
   BookOpen,
   Trophy
 } from 'lucide-react';
+import { useStudyTime } from '@/hooks/useStudyTime';
+import { useGamification } from '@/contexts/GamificationContext';
 
 interface AIRecommendation {
   id: string;
@@ -63,12 +65,26 @@ export function ProgressiveDashboard({
   aiRecommendations,
   onActionClick
 }: ProgressiveDashboardProps) {
-  // Default data if none provided
+  // Get real study time data
+  const { weeklyStudyHours, isLoading: studyTimeLoading } = useStudyTime('week');
+  const { userStats, isLoading: gamificationLoading } = useGamification();
+  
+  // Calculate weekly progress from real data
+  const weeklyXPTarget = userStats?.weekly_goal || 2000;
+  const weeklyXPCurrent = userStats?.weekly_progress || 0;
+  const weeklyStudyTarget = 20; // Could be made configurable
+  
+  // Calculate overall weekly progress (average of XP and study time progress)
+  const xpProgress = weeklyXPTarget > 0 ? (weeklyXPCurrent / weeklyXPTarget) * 100 : 0;
+  const studyProgress = weeklyStudyTarget > 0 ? (weeklyStudyHours / weeklyStudyTarget) * 100 : 0;
+  const overallProgress = Math.round((xpProgress + studyProgress) / 2);
+  
+  // Use real data when available, fallback to defaults
   const weeklyProgress = dashboardData?.weekly_progress || {
-    overall: 65,
-    xp: { current: 1250, target: 2000 },
-    tasks: { completed: 8, total: 12 },
-    study_time: { current: 12.5, target: 20 }
+    overall: overallProgress,
+    xp: { current: weeklyXPCurrent, target: weeklyXPTarget },
+    tasks: { completed: 8, total: 12 }, // TODO: Replace with real task data
+    study_time: { current: weeklyStudyHours, target: weeklyStudyTarget }
   };
 
   const priorityActions = dashboardData?.priority_actions || [
@@ -154,7 +170,11 @@ export function ProgressiveDashboard({
                 Weekly Progress
               </h3>
               <span className="text-2xl font-bold text-primary">
-                {weeklyProgress.overall}%
+                {(studyTimeLoading || gamificationLoading) ? (
+                  <span className="animate-pulse">--%</span>
+                ) : (
+                  `${weeklyProgress.overall}%`
+                )}
               </span>
             </div>
             <Progress value={weeklyProgress.overall} className="h-3 mb-4" />
@@ -163,7 +183,11 @@ export function ProgressiveDashboard({
               <div>
                 <p className="text-sm text-muted-foreground">XP Earned</p>
                 <p className="font-semibold">
-                  {weeklyProgress.xp.current}/{weeklyProgress.xp.target}
+                  {gamificationLoading ? (
+                    <span className="animate-pulse">--/--</span>
+                  ) : (
+                    `${weeklyProgress.xp.current}/${weeklyProgress.xp.target}`
+                  )}
                 </p>
               </div>
               <div>
@@ -175,7 +199,11 @@ export function ProgressiveDashboard({
               <div>
                 <p className="text-sm text-muted-foreground">Study Time</p>
                 <p className="font-semibold">
-                  {weeklyProgress.study_time.current}h
+                  {studyTimeLoading ? (
+                    <span className="animate-pulse">--</span>
+                  ) : (
+                    `${weeklyProgress.study_time.current.toFixed(1)}h`
+                  )}
                 </p>
               </div>
             </div>

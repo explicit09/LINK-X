@@ -190,7 +190,7 @@ export const usePersonalizationAnalytics = (fileId: string) => {
           screen_resolution: `${window.screen.width}x${window.screen.height}`,
         });
         
-        const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+        const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
         navigator.sendBeacon(`${baseURL}/api/personalization/v2/analytics`, data);
       }
     };

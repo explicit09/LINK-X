@@ -96,6 +96,80 @@ export interface LearningPattern {
   recommendations: string[];
 }
 
+// Study Time Analytics Types
+export interface StudyTimeAnalytics {
+  period: string;
+  summary: StudyTimeSummary;
+  quality_metrics: StudyQualityMetrics;
+  course_breakdown: Record<string, CourseStudyTime>;
+  daily_breakdown: DailyStudyTime[];
+  recent_sessions: StudySessionSummary[];
+}
+
+export interface StudyTimeSummary {
+  total_sessions: number;
+  total_hours: number;
+  total_minutes: number;
+  avg_session_hours: number;
+  avg_session_minutes: number;
+  study_streak_days: number;
+}
+
+export interface StudyQualityMetrics {
+  avg_focus_score: number | null;
+  avg_effectiveness: number | null;
+  total_ratings: number;
+}
+
+export interface CourseStudyTime {
+  sessions: number;
+  total_minutes: number;
+  course_title: string;
+}
+
+export interface DailyStudyTime {
+  date: string;
+  sessions: number;
+  total_minutes: number;
+}
+
+export interface StudySessionSummary {
+  id: string;
+  title: string;
+  date: string;
+  duration_minutes: number;
+  focus_score: number | null;
+  effectiveness_rating: number | null;
+  course_id: string | null;
+}
+
+export interface StudySessionRequest {
+  title?: string;
+  course_id?: string;
+  session_type?: string;
+}
+
+export interface StudySessionResponse {
+  session_id: string;
+  title: string;
+  started_at: string;
+  status: string;
+}
+
+export interface EndSessionRequest {
+  focus_score?: number; // 0-10
+  effectiveness_rating?: number; // 1-5
+  notes?: string;
+}
+
+export interface EndSessionResponse {
+  session_id: string;
+  duration_minutes: number;
+  xp_earned: number;
+  ended_at: string;
+  status: string;
+}
+
 export const analyticsAPI = {
   /**
    * Track user engagement events
@@ -177,6 +251,35 @@ export const analyticsAPI = {
       params: { format },
       responseType: 'blob'
     });
+    return response.data;
+  },
+
+  // Study Time Analytics Methods
+
+  /**
+   * Get study time analytics for the user
+   */
+  async getStudyTime(period: 'week' | 'month' | 'all' = 'week', courseId?: string): Promise<StudyTimeAnalytics> {
+    const params: any = { period };
+    if (courseId) params.course_id = courseId;
+    
+    const response = await apiClient.get('/api/v2/analytics/study-time', { params }) as any;
+    return response.data;
+  },
+
+  /**
+   * Start a new study session
+   */
+  async startStudySession(data: StudySessionRequest): Promise<StudySessionResponse> {
+    const response = await apiClient.post('/api/v2/analytics/study-time/session', data) as any;
+    return response.data;
+  },
+
+  /**
+   * End an active study session
+   */
+  async endStudySession(sessionId: string, data?: EndSessionRequest): Promise<EndSessionResponse> {
+    const response = await apiClient.put(`/api/v2/analytics/study-time/session/${sessionId}/end`, data || {}) as any;
     return response.data;
   }
 };

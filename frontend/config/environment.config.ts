@@ -32,7 +32,7 @@ export interface EnvironmentConfig {
 export const getEnvironmentConfig = (): EnvironmentConfig => {
   const config: EnvironmentConfig = {
     // API Configuration
-    API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+    API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
     
     // Firebase Configuration
     FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',

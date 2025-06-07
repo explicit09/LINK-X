@@ -48,7 +48,7 @@ export default function CoursesPage() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const res = await fetch('http://localhost:8080/api/v2/courses', {
+        const res = await fetch('http://localhost:8000/api/v2/courses', {
           method: 'GET',
           credentials: 'include',
         });

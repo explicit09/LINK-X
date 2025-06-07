@@ -4,7 +4,7 @@ import { studentAPI, instructorAPI } from '@/lib/api';
 import { useCourseContext, courseActions } from '../context/CourseContext';
 import { Module } from '../types/course.types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export const useModuleManager = (courseId: string) => {
   const { state, dispatch } = useCourseContext();

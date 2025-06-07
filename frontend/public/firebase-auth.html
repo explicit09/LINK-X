@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Firebase Auth Helper</title>
+</head>
+<body>
+  <script>
+    // This file helps with Firebase authentication in development environments
+    // It establishes that this domain is allowed for Firebase auth operations
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'firebase-auth-request') {
+        // Respond to the parent window
+        window.parent.postMessage({
+          type: 'firebase-auth-response',
+          status: 'success'
+        }, '*');
+      }
+    });
+
+    // Notify parent that we're ready
+    window.parent.postMessage({
+      type: 'firebase-auth-helper-ready'
+    }, '*');
+  </script>
+</body>
+</html>

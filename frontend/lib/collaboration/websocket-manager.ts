@@ -49,7 +49,7 @@ class CollaborationWebSocketManager {
         return;
       }
 
-      const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+      const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       
       this.socket = io(baseURL, {
         auth: { token },

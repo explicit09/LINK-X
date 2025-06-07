@@ -40,7 +40,7 @@ export interface OnboardingData {
 }
 
 class UnifiedAuthService {
-  private baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  private baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   private sessionCache: string | null = null; // Now stores encrypted session
   private cacheExpiry: number = 0;
   private tokenHash: string | null = null; // Track current token for invalidation

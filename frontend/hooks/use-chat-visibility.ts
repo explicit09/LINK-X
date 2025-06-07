@@ -15,7 +15,7 @@ export function useChatVisibility({
   useEffect(() => {
     // Fetch the chat data from the backend to get the visibility status
     async function fetchVisibility() {
-      const response = await fetch(`http://localhost:8080/chat/${chatId}`);
+      const response = await fetch(`http://localhost:8000/chat/${chatId}`);
       if (response.ok) {
         const data = await response.json();
         setVisibilityType(data.visibility); // assuming the response includes visibility
@@ -32,7 +32,7 @@ export function useChatVisibility({
     setVisibilityType(newVisibility);
 
     const response = await fetch(
-      'http://localhost:8080/update-chat-visibility',
+      'http://localhost:8000/update-chat-visibility',
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

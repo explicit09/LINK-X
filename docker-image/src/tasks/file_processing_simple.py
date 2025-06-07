@@ -79,12 +79,12 @@ def process_file_content(file_id: str) -> bool:
         logger.info(f"Created {len(chunks)} chunks for file {file_id}")
         
         # Store chunks in database
-        # The database trigger will automatically queue embedding generation
+        # Embeddings will be generated automatically by Supabase native AI trigger
         for idx, chunk_text in enumerate(chunks):
             chunk = FileChunk(
                 file_id=file_id,
                 chunk_index=idx,
-                content=chunk_text,  # This will trigger automatic embedding!
+                content=chunk_text,  # Supabase native AI will automatically generate embeddings
                 chunk_metadata={
                     'file_type': file_record.file_type,
                     'chunk_number': idx + 1,

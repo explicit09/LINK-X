@@ -10,7 +10,7 @@ import tiktoken
 from sqlalchemy.orm import Session
 
 from .vector_search import retrieve_chunks_pgvector
-from ..utils.embeddings import EmbeddingsService
+# EmbeddingsService removed - Supabase handles embeddings natively now
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +50,6 @@ class OptimizedRAG:
         
         # Initialize token encoder for accurate counting
         self.encoder = tiktoken.encoding_for_model("gpt-4")
-        # Note: EmbeddingsService will be initialized when needed with proper client
-        self.embeddings_service = None
     
     def retrieve_optimized(
         self,
@@ -77,15 +75,19 @@ class OptimizedRAG:
         import time
         start_time = time.time()
         
-        # Generate query embedding
+        # Generate query embedding using Supabase native AI
         embedding_start = time.time()
-        if self.embeddings_service is None:
-            from ..utils.embeddings import EmbeddingsService
-            from ..clients.openai_client import OpenAIClient
-            client = OpenAIClient()
-            self.embeddings_service = EmbeddingsService(client)
+        from core.supabase_config import get_supabase_client
         
-        query_embedding = self.embeddings_service.generate_embeddings(query)
+        supabase = get_supabase_client()
+        
+        # Use Supabase native AI to generate query embedding
+        embedding_response = supabase.rpc('ai.embed', {
+            'model': 'text-embedding-3-small',
+            'text': query
+        })
+        
+        query_embedding = embedding_response.data if embedding_response.data else []
         query_embedding_time = time.time() - embedding_start
         
         # Retrieve candidate chunks (more than we need for selection)

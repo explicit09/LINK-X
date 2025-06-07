@@ -349,19 +349,22 @@ export default function CoursePage() {
         loading={modulesLoading}
       />
       
-      {/* File Upload Section */}
+      {/* Canvas-style File Upload Section */}
       {uploadingToModule && (
-        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-medium text-gray-900">Upload Study Materials</h4>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Adding Content to Module
+            </h3>
             <Button
+              variant="outline"
               size="sm"
-              variant="ghost"
               onClick={() => setUploadingToModule(null)}
             >
-              Cancel
+              Cancel Upload
             </Button>
           </div>
+          
           <EnhancedFileUpload
             courseId={courseId}
             moduleId={uploadingToModule}

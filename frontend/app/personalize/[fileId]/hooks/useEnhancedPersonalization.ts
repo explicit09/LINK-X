@@ -182,7 +182,7 @@ export const useEnhancedPersonalization = (fileId: string) => {
         console.log('🔐 Enhanced Personalization: Got Firebase token:', token ? `${token.substring(0, 20)}...` : 'null');
         
         // For EventSource, we need to pass token as URL parameter since headers aren't universally supported
-        const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+        const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
         const url = new URL(`/api/v2/personalization/stream`, baseURL);
         url.searchParams.append('file_id', fileId);
         url.searchParams.append('token', token);

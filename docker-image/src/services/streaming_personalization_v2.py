@@ -73,9 +73,9 @@ class OptimizedStreamingPersonalizationService:
         self.encoder = tiktoken.get_encoding("cl100k_base")
         
         # Initialize enhanced services
-        embeddings_service = EmbeddingsService(ai_service.client)
-        self.hybrid_search = HybridSearchService(embeddings_service)
-        self.hierarchical_rag = HierarchicalRAGService(embeddings_service)
+        # EmbeddingsService removed - Supabase handles embeddings natively now
+        self.hybrid_search = HybridSearchService()
+        self.hierarchical_rag = HierarchicalRAGService()
         self.adaptive_context = AdaptiveContextService(self.hierarchical_rag)
         self.prompt_manager = PromptManager()
         self.memory_service = PersonalizationMemoryService(cache)

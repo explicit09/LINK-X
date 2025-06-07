@@ -32,7 +32,7 @@ export const fileAPI = {
     try {
       const token = await getAuthToken();
       const rawResponse = await fetch(
-        `http://localhost:8080/api/v2/files/${fileId}/content`,
+        `http://localhost:8000/api/v2/files/${fileId}/content`,
         {
           method: 'GET',
           credentials: 'include',
@@ -61,7 +61,7 @@ export const fileAPI = {
 
       // Traditional file storage with auth token
       return {
-        url: `http://localhost:8080/api/v2/files/${fileId}/content${token ? `?token=${token}` : ''}`,
+        url: `http://localhost:8000/api/v2/files/${fileId}/content${token ? `?token=${token}` : ''}`,
       };
     } catch (error) {
       console.error('Failed to access file:', error);

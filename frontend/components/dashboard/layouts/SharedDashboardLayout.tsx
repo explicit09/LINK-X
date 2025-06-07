@@ -10,6 +10,7 @@ import { TaskCompletionFeedback } from '../sections/TaskCompletionFeedback';
 import { MiniFooter } from '../../MiniFooter';
 import { toast as sonnerToast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { FloatingStudyButton } from '@/components/study';
 
 interface SharedDashboardLayoutProps {
   children: React.ReactNode;
@@ -132,6 +133,9 @@ export function SharedDashboardLayout({
 
       {/* Fixed Mini Footer */}
       <MiniFooter sidebarCollapsed={sidebarCollapsed} />
+
+      {/* Floating Study Button */}
+      <FloatingStudyButton />
     </div>
   );
 }
