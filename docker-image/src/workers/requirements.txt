@@ -1,0 +1,8 @@
+# Requirements for PGMQ embedding worker
+asyncpg>=0.28.0
+asyncio-mqtt>=0.11.0
+aiohttp>=3.8.0
+openai>=1.0.0
+backoff>=2.2.0
+numpy>=1.21.0
+python-dotenv>=1.0.0
