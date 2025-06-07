@@ -22,8 +22,8 @@ settings = get_settings()
 # Initialize OpenAI client
 openai.api_key = settings.openai_api_key
 
-# Initialize cache for embeddings
-embedding_cache = QueryEmbeddingCache()
+# Initialize cache for embeddings (initialized in function to avoid circular imports)
+embedding_cache = None
 
 @shared_task(
     bind=True,
@@ -220,6 +220,16 @@ def scan_missing_embeddings(self) -> Dict:
         }
 
 
+def _get_embedding_cache():
+    """Get or create embedding cache instance"""
+    global embedding_cache
+    if embedding_cache is None:
+        from core.cache import get_redis_client
+        redis_client = get_redis_client()
+        embedding_cache = QueryEmbeddingCache(redis_client)
+    return embedding_cache
+
+
 @shared_task(
     bind=True,
     queue='embeddings'
@@ -232,7 +242,8 @@ def generate_query_embedding(self, query: str, use_cache: bool = True) -> List[f
     try:
         # Check cache first
         if use_cache:
-            cached_embedding = embedding_cache.get_embedding(query)
+            cache = _get_embedding_cache()
+            cached_embedding = cache.get_embedding(query)
             if cached_embedding:
                 logger.debug(f"Using cached embedding for query: {query[:50]}...")
                 return cached_embedding
@@ -247,7 +258,8 @@ def generate_query_embedding(self, query: str, use_cache: bool = True) -> List[f
         
         # Cache the result
         if use_cache:
-            embedding_cache.cache_embedding(query, embedding)
+            cache = _get_embedding_cache()
+            cache.cache_embedding(query, embedding)
         
         return embedding
         

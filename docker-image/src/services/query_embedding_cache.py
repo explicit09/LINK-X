@@ -22,10 +22,11 @@ class QueryEmbeddingCache:
     - Improves user experience
     """
     
-    def __init__(self, redis_client: redis.Redis, ttl_hours: int = 24):
+    def __init__(self, redis_client: redis.Redis = None, ttl_hours: int = 24):
         self.redis = redis_client
         self.ttl = timedelta(hours=ttl_hours)
         self.openai = OpenAI()
+        self._cache_enabled = redis_client is not None
         
     def _get_cache_key(self, query: str, model: str = "text-embedding-3-small") -> str:
         """Generate deterministic cache key for query"""
@@ -43,6 +44,10 @@ class QueryEmbeddingCache:
         - Cache hit: <10ms
         - Cache miss: 200-500ms (OpenAI API call)
         """
+        # Skip cache if not enabled
+        if not self._cache_enabled:
+            return self._generate_embedding(query, model)
+            
         cache_key = self._get_cache_key(query, model)
         
         # Try cache first
@@ -71,6 +76,26 @@ class QueryEmbeddingCache:
         
         return embedding
     
+    def _generate_embedding(self, query: str, model: str) -> List[float]:
+        """Generate embedding using OpenAI API"""
+        response = self.openai.embeddings.create(
+            model=model,
+            input=query
+        )
+        return response.data[0].embedding
+    
+    def cache_embedding(self, query: str, embedding: List[float], model: str = "text-embedding-3-small"):
+        """Cache an embedding"""
+        if not self._cache_enabled:
+            return
+            
+        cache_key = self._get_cache_key(query, model)
+        self.redis.setex(
+            cache_key,
+            self.ttl,
+            json.dumps(embedding)
+        )
+    
     def get_batch_embeddings(self, queries: List[str], model: str = "text-embedding-3-small") -> List[List[float]]:
         """
         Get embeddings for multiple queries efficiently
@@ -84,13 +109,16 @@ class QueryEmbeddingCache:
         uncached_queries = []
         
         # Check cache for all queries
-        for query in queries:
-            cache_key = self._get_cache_key(query, model)
-            cached = self.redis.get(cache_key)
-            if cached:
-                embeddings[query] = json.loads(cached)
-            else:
-                uncached_queries.append(query)
+        if self._cache_enabled:
+            for query in queries:
+                cache_key = self._get_cache_key(query, model)
+                cached = self.redis.get(cache_key)
+                if cached:
+                    embeddings[query] = json.loads(cached)
+                else:
+                    uncached_queries.append(query)
+        else:
+            uncached_queries = queries
         
         # Batch generate uncached embeddings
         if uncached_queries:
@@ -105,8 +133,9 @@ class QueryEmbeddingCache:
                 embedding = embedding_data.embedding
                 embeddings[query] = embedding
                 
-                cache_key = self._get_cache_key(query, model)
-                self.redis.setex(cache_key, self.ttl, json.dumps(embedding))
+                if self._cache_enabled:
+                    cache_key = self._get_cache_key(query, model)
+                    self.redis.setex(cache_key, self.ttl, json.dumps(embedding))
         
         # Return in original order
         return [embeddings[query] for query in queries]
@@ -126,6 +155,9 @@ class QueryEmbeddingCache:
     
     def get_cache_stats(self) -> dict:
         """Get cache performance statistics"""
+        if not self._cache_enabled:
+            return {"cache_enabled": False}
+            
         hits = int(self.redis.get("embedding:metrics:cache_hit") or 0)
         misses = int(self.redis.get("embedding:metrics:cache_miss") or 0)
         total = hits + misses
@@ -141,6 +173,8 @@ class QueryEmbeddingCache:
     
     def _increment_metric(self, metric: str):
         """Track cache metrics"""
+        if not self._cache_enabled:
+            return
         key = f"embedding:metrics:{metric}"
         self.redis.incr(key)
         
