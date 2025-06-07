@@ -66,6 +66,7 @@ interface Course {
   lastActivity?: string;
   progress?: number;
   color?: string;
+  deadline?: string; // Add deadline field
   instructor?: {
     id: string;
     name: string;
@@ -76,6 +77,16 @@ interface Course {
     students: number;
   };
   credits?: number;
+  // Additional fields from API
+  enrollments?: any[];
+  students_count?: number;
+  materials_count?: number;
+  completion_percentage?: number;
+  modules?: Array<{
+    progress?: number;
+    materials_list?: any[];
+  }>;
+  last_updated?: string;
 }
 
 export default function MyCoursesPage() {
@@ -125,32 +136,58 @@ export default function MyCoursesPage() {
         return;
       }
 
-      // Transform API data with enhanced course info
+      // Transform API data with real calculations
       const transformedCourses = coursesData.map(
-        (course: any, index: number) => ({
-          id: course.id,
-          title: course.title,
-          code: course.code || 'N/A',
-          term: course.term || 'Current',
-          description: course.description || '',
-          published: course.published,
-          studentsCount:
-            course.students || Math.floor(Math.random() * 50) + 5,
-          materialsCount:
-            course.modules?.length || Math.floor(Math.random() * 20) + 3,
-          accessCode: course.accessCode,
-          lastActivity: course.last_updated
-            ? formatRelativeTime(course.last_updated)
-            : 'Recently',
-          progress: Math.floor(Math.random() * 100),
-          color: [
-            'bg-blue-500',
-            'bg-green-500',
-            'bg-purple-500',
-            'bg-orange-500',
-            'bg-red-500',
-          ][index % 5],
-        }),
+        (course: any, index: number) => {
+          // Calculate real student count from enrollments
+          const realStudentCount = course.enrollments?.length || 
+            course.students_count || 
+            course.students || 0;
+          
+          // Calculate real materials count from modules and files
+          const realMaterialsCount = course.modules?.reduce((total: number, module: any) => {
+            return total + (module.materials_list?.length || 0);
+          }, 0) || course.materials_count || 0;
+          
+          // Calculate real progress from completion data
+          const calculateProgress = () => {
+            if (course.completion_percentage !== undefined) {
+              return Math.round(course.completion_percentage);
+            }
+            
+            if (course.modules && course.modules.length > 0) {
+              const totalProgress = course.modules.reduce((sum: number, module: any) => {
+                return sum + (module.progress || 0);
+              }, 0);
+              return Math.round(totalProgress / course.modules.length);
+            }
+            
+            return 0; // No data available
+          };
+          
+          return {
+            id: course.id,
+            title: course.title,
+            code: course.code || 'N/A',
+            term: course.term || 'Current',
+            description: course.description || '',
+            published: course.published,
+            studentsCount: realStudentCount,
+            materialsCount: realMaterialsCount,
+            accessCode: course.accessCode,
+            lastActivity: course.last_updated
+              ? formatRelativeTime(course.last_updated)
+              : 'Recently',
+            progress: calculateProgress(),
+            color: [
+              'bg-blue-500',
+              'bg-green-500',
+              'bg-purple-500',
+              'bg-orange-500',
+              'bg-red-500',
+            ][index % 5],
+          };
+        },
       );
 
       setCourses(transformedCourses);
@@ -291,15 +328,28 @@ export default function MyCoursesPage() {
   const publishedCount = courses.filter((c) => c.published).length;
   const draftCount = courses.filter((c) => !c.published).length;
 
-  // Mock upcoming deadlines - in real app, this would come from API
+  // Calculate real upcoming deadlines from courses
   const getUpcomingDeadlines = () => {
-    // Simulate course-related deadlines
-    const deadlines = [
-      { course: 'CS229', task: 'Assignment 3 grading', dueIn: '2 days' },
-      { course: 'CS224n', task: 'Quiz review', dueIn: '3 days' },
-      { course: 'CS231n', task: 'Project submissions', dueIn: '5 days' },
-    ];
-    return deadlines.length;
+    let deadlineCount = 0;
+    
+    courses.forEach(course => {
+      // Check course deadline
+      if (course.deadline) {
+        const deadline = new Date(course.deadline);
+        const now = new Date();
+        const daysUntilDeadline = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Count deadlines within next 7 days
+        if (daysUntilDeadline > 0 && daysUntilDeadline <= 7) {
+          deadlineCount++;
+        }
+      }
+      
+      // TODO: Add assignment/module deadline checking when available
+      // This would require additional API data for assignments
+    });
+    
+    return deadlineCount;
   };
 
   const upcomingDeadlines = getUpcomingDeadlines();

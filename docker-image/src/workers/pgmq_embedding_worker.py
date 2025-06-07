@@ -17,6 +17,8 @@ from contextlib import asynccontextmanager
 import asyncpg
 import numpy as np
 from openai import AsyncOpenAI
+from services.openai_rate_limiter import get_rate_limiter
+from services.poison_message_detector import get_poison_detector
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +53,8 @@ class EmbeddingWorker:
     
     def __init__(self, config: WorkerConfig):
         self.config = config
-        self.openai = AsyncOpenAI(api_key=config.openai_api_key)
+        self.rate_limiter = get_rate_limiter()
+        self.poison_detector = get_poison_detector()
         self.pool: Optional[asyncpg.Pool] = None
         self.running = False
         self.metrics = {
@@ -153,19 +156,38 @@ class EmbeddingWorker:
             # Create mapping
             chunk_map = {str(chunk['id']): chunk['content'] for chunk in chunks}
             
-            # Prepare texts for embedding
+            # Prepare texts for embedding with poison detection
             texts = []
             job_chunk_pairs = []
+            poison_jobs = []
             
             for job in jobs:
                 chunk_id = str(job['chunk_id'])
                 if chunk_id in chunk_map:
-                    texts.append(chunk_map[chunk_id])
-                    job_chunk_pairs.append((job['job_id'], job['chunk_id']))
+                    content = chunk_map[chunk_id]
+                    
+                    # Check for poison messages
+                    poison_result = self.poison_detector.detect_poison(content)
+                    
+                    if poison_result.is_poison:
+                        logger.warning(
+                            f"Poison message detected in chunk {chunk_id}: "
+                            f"{poison_result.reason}"
+                        )
+                        poison_jobs.append((job['job_id'], chunk_id, poison_result))
+                    else:
+                        texts.append(content)
+                        job_chunk_pairs.append((job['job_id'], job['chunk_id']))
+            
+            # Handle poison messages
+            for job_id, chunk_id, poison_result in poison_jobs:
+                await self._handle_poison_message(
+                    conn, job_id, chunk_id, poison_result
+                )
             
             if not texts:
-                logger.warning("No texts to process")
-                return 0
+                logger.warning("No safe texts to process after poison detection")
+                return len(poison_jobs)  # Count poison handling as "processed"
             
             # Generate embeddings in batches
             all_embeddings = await self._generate_embeddings_batch(texts)
@@ -204,44 +226,56 @@ class EmbeddingWorker:
             
             return success_count
     
-    @backoff.on_exception(
-        backoff.expo,
-        (aiohttp.ClientError, asyncio.TimeoutError),
-        max_tries=3
-    )
     async def _generate_embeddings_batch(
         self, texts: List[str]
     ) -> Optional[List[List[float]]]:
-        """Generate embeddings with retry logic"""
+        """Generate embeddings with adaptive rate limiting"""
         start_time = time.time()
         
         try:
-            # OpenAI supports up to 2048 inputs, we use 100 for safety
-            batch_size = min(100, len(texts))
-            all_embeddings = []
+            # Use adaptive rate limiter instead of direct OpenAI calls
+            embeddings = await self.rate_limiter.generate_embeddings_adaptive(
+                texts, self.config.embedding_model
+            )
             
-            for i in range(0, len(texts), batch_size):
-                batch = texts[i:i + batch_size]
-                
-                response = await self.openai.embeddings.create(
-                    model=self.config.embedding_model,
-                    input=batch
-                )
-                
-                embeddings = [item.embedding for item in response.data]
-                all_embeddings.extend(embeddings)
-                
+            if embeddings:
                 self.metrics['api_calls'] += 1
-            
-            # Update metrics
-            self.metrics['api_duration'] += time.time() - start_time
-            
-            return all_embeddings
+                self.metrics['api_duration'] += time.time() - start_time
+                return embeddings
+            else:
+                logger.error("Rate limiter returned None - all keys exhausted")
+                self.metrics['errors'] += 1
+                return None
             
         except Exception as e:
-            logger.error(f"OpenAI API error: {e}")
+            logger.error(f"Embedding generation error: {e}")
             self.metrics['errors'] += 1
             return None
+    
+    async def _handle_poison_message(
+        self, conn: asyncpg.Connection,
+        job_id: str, chunk_id: str, 
+        poison_result
+    ):
+        """Handle poison message by sending to DLQ"""
+        try:
+            await conn.execute(
+                """
+                SELECT send_to_dlq($1, $2, $3, $4, $5)
+                """,
+                chunk_id,
+                job_id,
+                poison_result.poison_type.value if poison_result.poison_type else 'unknown',
+                poison_result.reason,
+                poison_result.suggested_action
+            )
+            
+            logger.info(f"Sent poison message to DLQ: {job_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to send poison message to DLQ: {e}")
+            # Fallback: mark job as failed
+            await self._mark_job_failed(conn, job_id, f"Poison message: {poison_result.reason}")
     
     async def _store_embedding(
         self, conn: asyncpg.Connection, 
@@ -300,6 +334,9 @@ class EmbeddingWorker:
                 else:
                     throughput = 0
                 
+                # Get rate limiter status
+                rate_limit_status = self.rate_limiter.get_rate_limit_status()
+                
                 logger.info(
                     f"Worker metrics - "
                     f"Processed: {self.metrics['processed']}, "
@@ -308,7 +345,9 @@ class EmbeddingWorker:
                     f"Queue - Pending: {stats['pending']}, "
                     f"Processing: {stats['processing']}, "
                     f"Completed: {stats['completed']}, "
-                    f"Errors: {stats['errors']}"
+                    f"Errors: {stats['errors']}, "
+                    f"Available Keys: {rate_limit_status['total_available_keys']}, "
+                    f"Adaptive Batch: {rate_limit_status['adaptive_batch_size']}"
                 )
                 
                 # Store metrics in database
