@@ -345,3 +345,65 @@ class EmbeddingService:
             logger.error(f"Failed to reindex vector indexes: {e}")
             session.rollback()
             return False
+    
+    @staticmethod
+    def validate_schema_integrity(session: Session) -> Dict:
+        """Validate that outbox functions match table schemas"""
+        try:
+            result = session.execute(
+                "SELECT validate_all_outbox_functions()"
+            ).fetchone()[0]
+            
+            return result
+        except Exception as e:
+            logger.error(f"Failed to validate schema integrity: {e}")
+            return {'overall_valid': False, 'error': str(e)}
+    
+    @staticmethod
+    def check_schema_drift(session: Session) -> List[Dict]:
+        """Check for schema drift between stored and current schemas"""
+        try:
+            results = session.execute(
+                "SELECT * FROM check_schema_drift()"
+            ).fetchall()
+            
+            return [
+                {
+                    'table_name': row[0],
+                    'stored_hash': row[1],
+                    'current_hash': row[2],
+                    'has_drifted': row[3],
+                    'column_count_changed': row[4],
+                    'last_validated': row[5].isoformat() if row[5] else None
+                }
+                for row in results
+            ]
+        except Exception as e:
+            logger.error(f"Failed to check schema drift: {e}")
+            return []
+    
+    @staticmethod
+    def get_schema_validation_status(session: Session) -> List[Dict]:
+        """Get current schema validation status"""
+        try:
+            results = session.execute(
+                "SELECT * FROM schema_validation_status"
+            ).fetchall()
+            
+            return [
+                {
+                    'function_name': row[0],
+                    'table_name': row[1],
+                    'validation_passed': row[2],
+                    'schema_drifted': row[3],
+                    'issues': row[4],
+                    'warnings': row[5],
+                    'last_validation': row[6].isoformat() if row[6] else None,
+                    'last_drift_check': row[7].isoformat() if row[7] else None,
+                    'status': row[8]
+                }
+                for row in results
+            ]
+        except Exception as e:
+            logger.error(f"Failed to get schema validation status: {e}")
+            return []

@@ -301,6 +301,59 @@ def reindex_vectors():
         }), 500
 
 
+@bp.route('/schema/validate', methods=['POST'])
+@jwt_required()
+@require_role(['admin'])
+@handle_api_errors
+def validate_schema():
+    """Validate schema integrity between outbox functions and tables"""
+    try:
+        with db_manager.get_session() as session:
+            validation_result = EmbeddingService.validate_schema_integrity(session)
+            drift_check = EmbeddingService.check_schema_drift(session)
+            validation_status = EmbeddingService.get_schema_validation_status(session)
+            
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'validation_result': validation_result,
+                    'schema_drift': drift_check,
+                    'validation_status': validation_status
+                }
+            })
+    except Exception as e:
+        logger.error(f"Error validating schema: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to validate schema'
+        }), 500
+
+
+@bp.route('/schema/status', methods=['GET'])
+@jwt_required()
+@require_role(['admin', 'professor'])
+@handle_api_errors
+def get_schema_status():
+    """Get current schema validation status"""
+    try:
+        with db_manager.get_session() as session:
+            validation_status = EmbeddingService.get_schema_validation_status(session)
+            
+            return jsonify({
+                'status': 'success',
+                'data': {
+                    'validation_status': validation_status,
+                    'overall_health': all(v['validation_passed'] for v in validation_status)
+                }
+            })
+    except Exception as e:
+        logger.error(f"Error getting schema status: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to get schema status'
+        }), 500
+
+
 @bp.route('/test', methods=['POST'])
 @jwt_required()
 @require_role(['admin'])
