@@ -21,15 +21,49 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
+import { useGamification } from '@/contexts/GamificationContext';
+import { useDashboardOverview } from '@/hooks/useDashboardData';
 
 interface WelcomeDashboardProps {
   userName: string;
+  currentUser?: any;
   onActionClick?: (action: any) => void;
 }
 
-export function WelcomeDashboard({ userName, onActionClick }: WelcomeDashboardProps) {
+export function WelcomeDashboard({ userName, currentUser, onActionClick }: WelcomeDashboardProps) {
   const { setupMissions, missionProgress, metrics } = useDashboardMode();
+  const { userStats } = useGamification();
+  const { data: dashboardData } = useDashboardOverview();
   const [showPreview, setShowPreview] = useState(false);
+  
+  // Generate personalized welcome message based on time and user progress
+  const getPersonalizedGreeting = () => {
+    const hour = new Date().getHours();
+    const timeGreeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    
+    if (missionProgress.percentage === 0) {
+      return `${timeGreeting}, ${userName}! Ready to begin your learning adventure? 🚀`;
+    } else if (missionProgress.percentage < 50) {
+      return `${timeGreeting}, ${userName}! You're off to a great start! 💪`;
+    } else {
+      return `${timeGreeting}, ${userName}! Almost there - let's finish your setup! ⭐`;
+    }
+  };
+  
+  // Generate smart motivation based on user state
+  const getMotivationalMessage = () => {
+    const totalXP = userStats?.total_xp || 0;
+    const courseCount = dashboardData?.totalCourses || 0;
+    
+    if (totalXP === 0 && courseCount === 0) {
+      return "Every expert was once a beginner. Your learning journey starts here!";
+    } else if (totalXP > 0) {
+      return `You've already earned ${totalXP} XP! Let's keep that momentum going.`;
+    } else if (courseCount > 0) {
+      return `Great! You have ${courseCount} course${courseCount > 1 ? 's' : ''} ready. Time to start learning!`;
+    }
+    return "Welcome to your personalized learning experience!";
+  };
 
   const getIconComponent = (iconName: string) => {
     const icons = {
@@ -89,10 +123,10 @@ export function WelcomeDashboard({ userName, onActionClick }: WelcomeDashboardPr
             </div>
             
             <h1 className="text-3xl font-bold mb-2">
-              Welcome to Your Learning Adventure, {userName}! 🚀
+              {getPersonalizedGreeting()}
             </h1>
             <p className="text-lg text-muted-foreground mb-6">
-              Let's set up your personalized learning experience in just a few steps
+              {getMotivationalMessage()}
             </p>
 
             {/* Quick Stats Preview */}
@@ -221,7 +255,12 @@ export function WelcomeDashboard({ userName, onActionClick }: WelcomeDashboardPr
               </div>
 
               <div className="text-center text-sm text-muted-foreground mb-4">
-                Complete your setup to see real data here! 👆
+                {missionProgress.percentage === 0 
+                  ? "Complete your first mission to see real data here! 👆"
+                  : missionProgress.percentage < 100
+                  ? `${100 - missionProgress.percentage}% left to unlock your full dashboard! 👆`
+                  : "Your personalized dashboard is ready! 🎉"
+                }
               </div>
 
               {/* Feature Preview */}

@@ -23,16 +23,52 @@ import { cn } from '@/lib/utils';
 import { useDashboardMode } from '@/hooks/useDashboardMode';
 import { useStudyTime } from '@/hooks/useStudyTime';
 import { useGamification } from '@/contexts/GamificationContext';
+import { useDashboardOverview } from '@/hooks/useDashboardData';
 
 interface GuidedDashboardProps {
   userName: string;
+  currentUser?: any;
   onActionClick?: (action: any) => void;
 }
 
-export function GuidedDashboard({ userName, onActionClick }: GuidedDashboardProps) {
+export function GuidedDashboard({ userName, currentUser, onActionClick }: GuidedDashboardProps) {
   const { metrics, userStats } = useDashboardMode();
   const { weeklyStudyHours } = useStudyTime('week');
   const { userStats: gamificationStats } = useGamification();
+  const { data: dashboardData } = useDashboardOverview();
+  
+  // Smart greeting based on user progress and time
+  const getSmartGreeting = () => {
+    const hour = new Date().getHours();
+    const timeGreeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    const totalXP = userStats?.total_xp || 0;
+    const streak = gamificationStats?.current_streak || 0;
+    
+    if (streak >= 3) {
+      return `${timeGreeting}, ${userName}! Your ${streak}-day streak is impressive! 🔥`;
+    } else if (totalXP >= 50) {
+      return `${timeGreeting}, ${userName}! You're gaining momentum! 💪`;
+    } else {
+      return `${timeGreeting}, ${userName}! Ready to make progress today? ⭐`;
+    }
+  };
+  
+  // Generate personalized tip based on user behavior
+  const getPersonalizedTip = () => {
+    const totalXP = userStats?.total_xp || 0;
+    const courseCount = metrics.coursesCount;
+    const studyTime = weeklyStudyHours;
+    
+    if (courseCount === 0) {
+      return "Start by adding your first course - it unlocks AI-powered content suggestions!";
+    } else if (studyTime < 1) {
+      return "Try a 15-minute focused study session - small steps lead to big achievements!";
+    } else if (totalXP < 25) {
+      return "Each study session earns XP - aim for 25 XP to unlock personalized recommendations!";
+    } else {
+      return "You're building great habits! Consistency is the key to mastering any subject.";
+    }
+  };
 
   // Calculate progress toward next milestone
   const nextMilestones = [
@@ -124,10 +160,10 @@ export function GuidedDashboard({ userName, onActionClick }: GuidedDashboardProp
             </div>
             
             <h1 className="text-3xl font-bold mb-2">
-              Great start, {userName}! 🎉
+              {getSmartGreeting()}
             </h1>
             <p className="text-lg text-muted-foreground mb-4">
-              {getRandomEncouragement()}
+              {getPersonalizedTip()}
             </p>
 
             {/* Progress to Next Stage */}
@@ -311,10 +347,18 @@ export function GuidedDashboard({ userName, onActionClick }: GuidedDashboardProp
               </div>
               <div>
                 <h3 className="font-semibold text-green-900 mb-1">
-                  You're Building Great Habits! 🌱
+                  {(gamificationStats?.current_streak || 0) >= 3 
+                    ? `Amazing ${gamificationStats.current_streak}-day streak! 🔥`
+                    : (userStats?.total_xp || 0) >= 25
+                    ? 'You\'re Building Great Habits! 🌱'
+                    : 'Every Start is Special! ✨'
+                  }
                 </h3>
                 <p className="text-sm text-green-700">
-                  Every session counts toward your learning goals. Keep up the momentum!
+                  {(userStats?.total_xp || 0) >= 25
+                    ? 'Every session counts toward your learning goals. Keep up the momentum!'
+                    : 'Your learning journey starts with the first step. You\'ve got this!'
+                  }
                 </p>
               </div>
             </div>

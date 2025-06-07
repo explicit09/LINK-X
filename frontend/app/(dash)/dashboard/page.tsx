@@ -173,6 +173,7 @@ function DashboardContent() {
         return (
           <WelcomeDashboard
             userName={userName}
+            currentUser={currentUser}
             onActionClick={handleActionClick}
           />
         );
@@ -183,6 +184,7 @@ function DashboardContent() {
             <div className="lg:col-span-3">
               <GuidedDashboard
                 userName={userName}
+                currentUser={currentUser}
                 onActionClick={handleActionClick}
               />
             </div>
@@ -221,6 +223,7 @@ function DashboardContent() {
         return (
           <AdvancedDashboard
             userName={userName}
+            currentUser={currentUser}
             dashboardData={dashboardData}
             aiRecommendations={aiData?.recommendations}
             onActionClick={handleActionClick}
@@ -231,6 +234,7 @@ function DashboardContent() {
         return (
           <WelcomeDashboard
             userName={userName}
+            currentUser={currentUser}
             onActionClick={handleActionClick}
           />
         );

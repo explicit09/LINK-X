@@ -132,7 +132,12 @@ export function AdvancedDashboard({
               <div className="text-3xl font-bold text-purple-600 mb-1">
                 Level {Math.floor((userStats?.total_xp || 0) / 100)}
               </div>
-              <div className="text-sm text-muted-foreground">Master Learner</div>
+              <div className="text-sm text-muted-foreground">
+                {Math.floor((userStats?.total_xp || 0) / 100) >= 10 ? 'Master Learner' :
+                 Math.floor((userStats?.total_xp || 0) / 100) >= 5 ? 'Advanced Scholar' :
+                 Math.floor((userStats?.total_xp || 0) / 100) >= 2 ? 'Dedicated Student' :
+                 'Learning Expert'}
+              </div>
             </div>
           </div>
         </CardContent>
@@ -415,24 +420,41 @@ export function AdvancedDashboard({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 border rounded-lg bg-purple-50">
-              <h4 className="font-semibold mb-2">Optimal Study Time</h4>
-              <p className="text-sm text-muted-foreground mb-3">
-                Based on your performance data, you learn best between 2-4 PM and 7-9 PM.
-              </p>
-              <Button size="sm" variant="outline">
-                Schedule Sessions
-              </Button>
-            </div>
-            <div className="p-4 border rounded-lg bg-blue-50">
-              <h4 className="font-semibold mb-2">Knowledge Gap Analysis</h4>
-              <p className="text-sm text-muted-foreground mb-3">
-                AI detected areas for review in Linear Algebra and Data Structures.
-              </p>
-              <Button size="sm" variant="outline">
-                Review Topics
-              </Button>
-            </div>
+            {getSmartRecommendations().length > 0 ? (
+              getSmartRecommendations().map((rec, index) => (
+                <div key={index} className="p-4 border rounded-lg bg-purple-50">
+                  <h4 className="font-semibold mb-2">{rec.title}</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {rec.description}
+                  </p>
+                  <Button size="sm" variant="outline">
+                    {rec.type === 'celebration' ? 'Celebrate' : 
+                     rec.type === 'schedule' ? 'Optimize Schedule' : 'Improve Focus'}
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <>
+                <div className="p-4 border rounded-lg bg-purple-50">
+                  <h4 className="font-semibold mb-2">Performance Excellence</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Your learning patterns are optimized! Keep maintaining this high performance.
+                  </p>
+                  <Button size="sm" variant="outline">
+                    View Insights
+                  </Button>
+                </div>
+                <div className="p-4 border rounded-lg bg-blue-50">
+                  <h4 className="font-semibold mb-2">Knowledge Mastery</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    You're excelling across subjects. Consider exploring advanced topics.
+                  </p>
+                  <Button size="sm" variant="outline">
+                    Explore Advanced
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
