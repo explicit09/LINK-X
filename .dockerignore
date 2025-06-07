@@ -77,6 +77,18 @@ node_modules/
 data/
 !data/learning_pdfs/.gitkeep
 
+# Node modules (very large)
+**/node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Virtual environments (very large)
+**/venv/
+**/env/
+docker-image/src/venv/
+**/site-packages/
+
 # Scripts not needed in production
 scripts/
 migrations/test_*

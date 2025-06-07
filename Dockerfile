@@ -18,9 +18,9 @@ WORKDIR /build
 # Copy only requirements first for better caching
 COPY docker-image/src/requirements.txt .
 
-# Install Python dependencies with pip cache mount
+# Install Python dependencies with pip cache mount to a shared location
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --user -r requirements.txt
+    pip install --prefix=/usr/local -r requirements.txt
 
 # Runtime stage
 FROM python:${PYTHON_VERSION}-slim
@@ -39,7 +39,7 @@ RUN groupadd -r linkx && useradd -r -g linkx -d /home/linkx -m linkx
 WORKDIR /app
 
 # Copy Python dependencies from builder
-COPY --from=builder /root/.local /root/.local
+COPY --from=builder /usr/local /usr/local
 
 # Copy application code with proper ownership
 COPY --chown=linkx:linkx docker-image/src/ ./src/
@@ -51,7 +51,7 @@ RUN chmod +x /app/docker/*.sh && \
     chown -R linkx:linkx /app
 
 # Environment setup
-ENV PATH=/root/.local/bin:$PATH \
+ENV PATH=/usr/local/bin:$PATH \
     PYTHONPATH=/app/src:$PYTHONPATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1

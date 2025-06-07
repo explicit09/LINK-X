@@ -1,0 +1,209 @@
+# API Versioning Deployment Configuration
+# This file configures the API versioning strategy for different environments
+
+api_versioning:
+  # Current version configuration
+  current_version: "v2"
+  default_version: "v2"
+  
+  # Supported versions
+  supported_versions:
+    - "v1"
+    - "v2"
+  
+  # Version-specific settings
+  versions:
+    v1:
+      deprecated: true
+      sunset_date: "2025-12-31T23:59:59Z"
+      deprecation_message: "API v1 is deprecated and will be sunset on December 31, 2025. Please migrate to API v2."
+      documentation_url: "https://api.learn-x.com/docs/v2/migration"
+      rate_limit_factor: 0.8  # Reduce rate limits to encourage migration
+      monitoring_level: "enhanced"  # Extra monitoring for deprecated version
+      
+    v2:
+      deprecated: false
+      current: true
+      documentation_url: "https://api.learn-x.com/docs/v2"
+      rate_limit_factor: 1.0
+      monitoring_level: "standard"
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  log_all_requests: true
+  cache_metrics_ttl: 300  # 5 minutes
+  metrics_retention_days: 90
+  
+  # Alert thresholds
+  alerts:
+    v1_usage_threshold: 20  # Alert if v1 usage > 20%
+    migration_warning_days: 30  # Days before sunset to increase warnings
+    
+  # Dashboard endpoints
+  dashboard:
+    enabled: true
+    admin_only: true
+    endpoints:
+      - "/api/monitoring/version-usage"
+      - "/api/monitoring/migration-status"
+      - "/api/monitoring/deprecation-report"
+
+# Environment-specific overrides
+environments:
+  development:
+    versions:
+      v1:
+        sunset_date: "2025-06-30T23:59:59Z"  # Earlier sunset in dev
+      v2:
+        rate_limit_factor: 2.0  # More generous in dev
+    
+    monitoring:
+      log_all_requests: false  # Reduce log noise in dev
+      
+  staging:
+    versions:
+      v1:
+        sunset_date: "2025-09-30T23:59:59Z"  # Earlier sunset in staging
+    
+    monitoring:
+      alerts:
+        v1_usage_threshold: 10  # Stricter threshold in staging
+        
+  production:
+    versions:
+      v1:
+        rate_limit_factor: 0.6  # More aggressive rate limiting in prod
+    
+    monitoring:
+      alerts:
+        v1_usage_threshold: 25  # More lenient initially in prod
+
+# Migration strategy
+migration:
+  # Gradual sunset strategy
+  phases:
+    - name: "announcement"
+      start_date: "2025-05-29"
+      end_date: "2025-08-31"
+      actions:
+        - "add_deprecation_headers"
+        - "log_usage"
+        - "send_migration_emails"
+      
+    - name: "warning"
+      start_date: "2025-09-01"
+      end_date: "2025-11-30"
+      actions:
+        - "increase_deprecation_warnings"
+        - "reduce_rate_limits"
+        - "personal_migration_assistance"
+      
+    - name: "final_notice"
+      start_date: "2025-12-01"
+      end_date: "2025-12-30"
+      actions:
+        - "daily_deprecation_emails"
+        - "api_response_warnings"
+        - "forced_migration_support"
+      
+    - name: "sunset"
+      start_date: "2025-12-31"
+      actions:
+        - "disable_v1_endpoints"
+        - "return_410_gone"
+        - "redirect_to_v2_docs"
+
+  # Communication strategy
+  communication:
+    channels:
+      - email
+      - api_headers
+      - api_response_body
+      - dashboard_notifications
+      - documentation_banners
+    
+    templates:
+      deprecation_email: "templates/deprecation_email.html"
+      migration_guide: "docs/v2_migration_guide.md"
+      api_sunset_notice: "templates/sunset_notice.html"
+
+# Feature flags for gradual rollout
+feature_flags:
+  enable_v2_endpoints: true
+  enable_v1_deprecation_warnings: true
+  enable_monitoring_dashboard: true
+  enable_automatic_migration_suggestions: true
+  enable_v1_rate_limiting: true
+  enable_sunset_countdown: true
+
+# Security considerations for API versioning
+security:
+  # Version-specific security policies
+  v1:
+    additional_headers:
+      - "X-API-Legacy: true"
+      - "X-Content-Security-Policy: upgrade-insecure-requests"
+    
+  v2:
+    additional_headers:
+      - "X-API-Current: true"
+      - "X-Frame-Options: DENY"
+    
+  # Rate limiting per version
+  rate_limits:
+    v1:
+      requests_per_minute: 100  # Reduced for deprecated version
+      burst_limit: 150
+    
+    v2:
+      requests_per_minute: 150
+      burst_limit: 200
+
+# Documentation configuration
+documentation:
+  v1:
+    deprecated_notice: true
+    redirect_to_v2: true
+    show_migration_examples: true
+    
+  v2:
+    featured: true
+    show_new_features: true
+    include_migration_path: true
+
+# Metrics and analytics
+analytics:
+  track_version_usage: true
+  track_endpoint_popularity: true
+  track_user_migration_patterns: true
+  track_error_rates_by_version: true
+  
+  export_to:
+    - prometheus
+    - datadog
+    - custom_dashboard
+
+# Load balancer configuration for version routing
+load_balancer:
+  # Route v2 traffic to newer servers if available
+  version_routing:
+    v1:
+      weight: 70  # Gradually reduce traffic to v1 endpoints
+      servers: ["legacy-server-1", "legacy-server-2"]
+    
+    v2:
+      weight: 100
+      servers: ["api-server-1", "api-server-2", "api-server-3"]
+  
+  # Health checks per version
+  health_checks:
+    v1:
+      path: "/api/v1/health"
+      interval: 30
+      timeout: 10
+    
+    v2:
+      path: "/api/v2/health"
+      interval: 15
+      timeout: 5
