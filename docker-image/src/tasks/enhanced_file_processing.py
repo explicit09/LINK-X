@@ -256,3 +256,8 @@ def reprocess_course_with_enhancements(course_id: str):
             
     except Exception as e:
         logger.error(f"Error reprocessing course: {e}", exc_info=True)
+
+
+# Main task functions for compatibility
+process_file_async = process_file_with_semantic_chunking
+personalize_file_async = process_file_with_semantic_chunking  # Personalization happens at query time now

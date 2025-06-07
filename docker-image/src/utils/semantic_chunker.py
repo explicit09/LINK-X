@@ -8,6 +8,7 @@ from dataclasses import dataclass
 import logging
 
 from utils.textUtils import clean_extracted_text
+from core.chunking_config import ChunkingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -349,22 +350,53 @@ class SemanticChunker:
         return processed
 
 
-def create_enhanced_chunks(file_id: str, content: str, file_type: str = 'pdf') -> List[Dict]:
+def create_enhanced_chunks(text: str, file_type: str = None, 
+                         chunk_size: int = None, chunk_overlap: int = None) -> List[Dict]:
     """
-    Wrapper function to create enhanced chunks compatible with existing system.
-    Returns list of dicts ready for FileChunk table.
+    Main entry point for semantic chunking that respects configuration.
+    Falls back to basic chunking if semantic is disabled.
     """
-    chunker = SemanticChunker()
-    semantic_chunks = chunker.chunk_document(content, file_type)
+    # Get configuration
+    config = ChunkingConfig()
     
-    # Convert to format expected by existing system
-    chunks_data = []
-    for idx, chunk in enumerate(semantic_chunks):
-        chunks_data.append({
-            'chunk_index': idx,
+    # Check if we should use semantic chunking
+    if not config.should_use_semantic(file_type):
+        # Fall back to basic chunking
+        from utils.textUtils import split_text
+        basic_chunks = split_text(text, 
+                                chunk_size or config.BASIC_CHUNK_SIZE,
+                                chunk_overlap or config.BASIC_CHUNK_OVERLAP)
+        
+        # Convert to expected format
+        return [
+            {
+                'content': chunk,
+                'chunk_index': i,
+                'chunk_type': 'basic',
+                'metadata': {}
+            }
+            for i, chunk in enumerate(basic_chunks)
+        ]
+    
+    # Use semantic chunking
+    params = config.get_chunking_params('semantic')
+    chunker = SemanticChunker(
+        max_chunk_size=chunk_size or params['chunk_size'],
+        overlap_sentences=2  # Calculate overlap based on sentences
+    )
+    
+    semantic_chunks = chunker.chunk_document(text)
+    
+    # Convert to expected format
+    return [
+        {
             'content': chunk.content,
-            'chunk_metadata': chunk.to_metadata()  # Uses existing JSONB field!
-        })
-    
-    logger.info(f"Created {len(chunks_data)} semantic chunks for file {file_id}")
-    return chunks_data
+            'chunk_index': i,
+            'chunk_type': chunk.chunk_type,
+            'metadata': chunk.to_metadata() if params['extract_metadata'] else {}
+        }
+        for i, chunk in enumerate(semantic_chunks)
+    ]
+
+
+# Keep the previous create_enhanced_chunks function as the main entry point
