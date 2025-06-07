@@ -27,13 +27,18 @@ if [ ! -f "docker-image/.env" ]; then
     echo -e "${YELLOW}⚠️  Warning: docker-image/.env file not found!${NC}"
     echo "Creating from .env.production template..."
     
-    if [ -f ".env.production" ]; then
-        cp .env.production docker-image/.env
+    if [ -f ".env.production.template" ]; then
+        cp .env.production.template docker-image/.env
         echo -e "${GREEN}✅ Created .env file from template${NC}"
-        echo -e "${YELLOW}Please edit docker-image/.env with your actual values before proceeding.${NC}"
+        echo -e "${YELLOW}Please edit docker-image/.env with your actual Supabase values before proceeding.${NC}"
+        exit 1
+    elif [ -f "docker-image/.env.template" ]; then
+        cp docker-image/.env.template docker-image/.env
+        echo -e "${GREEN}✅ Created .env file from template${NC}"
+        echo -e "${YELLOW}Please edit docker-image/.env with your actual Supabase values before proceeding.${NC}"
         exit 1
     else
-        echo -e "${RED}❌ No .env.production template found!${NC}"
+        echo -e "${RED}❌ No .env template found!${NC}"
         exit 1
     fi
 fi
