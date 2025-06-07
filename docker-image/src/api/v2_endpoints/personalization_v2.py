@@ -151,55 +151,37 @@ def stream_personalized_content():
     # Verify token and get user
     user = None
     try:
-        # Try Firebase token first
-        from firebase_admin import auth as firebase_auth
-        decoded_token = firebase_auth.verify_id_token(token)
-        firebase_uid = decoded_token['uid']
+        # Use backend JWT token
+        from flask_jwt_extended import decode_token
+        payload = decode_token(token)
+        user_id = payload.get('sub') or payload.get('identity')
         
-        # Get user from database
-        from db.schema import User
-        from core.database_supabase import db
-        user = db.session.query(User).filter_by(firebase_uid=firebase_uid).first()
-        
-        if not user:
-            logger.error(f"User not found for Firebase UID: {firebase_uid}")
-            raise Exception("User not found")
+        if user_id:
+            from db.schema import User
+            from core.database_supabase import db
+            user = db.session.query(User).filter_by(id=user_id).first()
+            if user:
+                g.current_user = user
+            else:
+                raise Exception(f"User not found for ID: {user_id}")
+        else:
+            raise Exception("No user ID in token")
             
-        # Set current user in g
-        g.current_user = user
-        
     except Exception as e:
         logger.error(f"Token verification failed: {e}")
         
-        # Try backend JWT token
-        try:
-            from flask_jwt_extended import decode_token
-            payload = decode_token(token)
-            user_id = payload.get('sub') or payload.get('identity')
-            
-            if user_id:
-                from db.schema import User
-                from core.database_supabase import db
-                user = db.session.query(User).filter_by(id=user_id).first()
-                if user:
-                    g.current_user = user
-                else:
-                    raise Exception(f"User not found for ID: {user_id}")
-        except Exception as jwt_error:
-            logger.error(f"JWT verification also failed: {jwt_error}")
-            
-            def error_generator():
-                yield f"data: {json.dumps({'type': 'error', 'message': 'Invalid token'})}\n\n"
-            
-            return Response(
-                stream_with_context(error_generator()),
-                mimetype='text/event-stream',
-                headers={
-                    'Cache-Control': 'no-cache',
-                    'X-Accel-Buffering': 'no',
-                    'Connection': 'keep-alive'
-                }
-            ), 401
+        def error_generator():
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Invalid token'})}\n\n"
+        
+        return Response(
+            stream_with_context(error_generator()),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no',
+                'Connection': 'keep-alive'
+            }
+        ), 401
     
     file_id = request.args.get('file_id')
     

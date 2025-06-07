@@ -364,17 +364,19 @@ def create_database_health_check():
     return HealthCheck("database", check, timeout_seconds=5.0)
 
 
-def create_s3_health_check():
-    """Create S3 health check"""
+def create_storage_health_check():
+    """Create Supabase storage health check"""
     def check():
         try:
-            from services.s3_storage_resilient import s3_storage
-            s3_storage.s3_client.head_bucket(Bucket=s3_storage.bucket_name)
+            from core.supabase_config import get_supabase_client
+            supabase = get_supabase_client()
+            # Try to list files in the bucket (limit 1 to make it fast)
+            supabase.storage.from_('course-files').list(limit=1)
             return True
         except:
             return False
     
-    return HealthCheck("s3", check, timeout_seconds=5.0)
+    return HealthCheck("storage", check, timeout_seconds=5.0)
 
 
 # Resilience utilities

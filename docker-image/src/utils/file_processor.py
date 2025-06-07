@@ -3,7 +3,6 @@
 
 import argparse
 from typing import Optional
-from .reprocess_all_files_s3 import main as reprocess_s3
 from .reprocess_all_files import main as reprocess_local
 
 
@@ -11,35 +10,29 @@ class FileProcessor:
     """Centralized file processing utilities."""
     
     @staticmethod
-    def reprocess_all(use_s3: bool = True) -> None:
-        """Reprocess all files."""
-        if use_s3:
-            print("Reprocessing all files from S3...")
-            reprocess_s3()
-        else:
-            print("Reprocessing all local files...")
-            reprocess_local()
+    def reprocess_all() -> None:
+        """Reprocess all files from Supabase storage."""
+        print("Reprocessing all files...")
+        reprocess_local()
     
     @staticmethod
-    def cleanup_s3() -> None:
-        """Clean up S3 test files."""
-        from .cleanup_s3_test_files import cleanup_test_files
-        print("Cleaning up S3 test files...")
-        cleanup_test_files()
-    
-    @staticmethod
-    def check_s3_access() -> None:
-        """Check S3 access."""
-        from .check_s3_access import main as check_access
-        print("Checking S3 access...")
-        check_access()
+    def check_storage_access() -> None:
+        """Check Supabase storage access."""
+        from core.supabase_config import get_supabase_client
+        try:
+            supabase = get_supabase_client()
+            # Try to list files in the bucket
+            supabase.storage.from_('course-files').list(limit=1)
+            print("✓ Supabase storage is accessible")
+        except Exception as e:
+            print(f"✗ Supabase storage check failed: {e}")
 
 
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description='File processing utility')
     parser.add_argument('command', choices=[
-        'reprocess', 'reprocess-local', 'cleanup-s3', 'check-s3'
+        'reprocess', 'check-storage'
     ], help='Command to execute')
     
     args = parser.parse_args()
@@ -47,13 +40,9 @@ def main():
     processor = FileProcessor()
     
     if args.command == 'reprocess':
-        processor.reprocess_all(use_s3=True)
-    elif args.command == 'reprocess-local':
-        processor.reprocess_all(use_s3=False)
-    elif args.command == 'cleanup-s3':
-        processor.cleanup_s3()
-    elif args.command == 'check-s3':
-        processor.check_s3_access()
+        processor.reprocess_all()
+    elif args.command == 'check-storage':
+        processor.check_storage_access()
 
 
 if __name__ == '__main__':

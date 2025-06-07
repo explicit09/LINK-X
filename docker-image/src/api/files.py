@@ -11,13 +11,13 @@ from core.database_supabase import db
 from core.file_validation import file_validator
 from core.rate_limiter_v2 import rate_limit_decorator, RateLimitConfig
 from services.file_service_supabase import FileService
-from services.s3_signed_urls import s3_signed_urls
+# S3 signed URLs removed - using Supabase Storage
 from db.queries import (
     get_module_by_id, get_course_by_id, create_file, get_file_by_id,
     get_modules_by_course, create_module, get_enrollment_by_student_course,
     update_file, delete_file, get_files_by_module
 )
-from ..s3_storage import s3_storage
+# S3 storage removed - using Supabase Storage
 
 bp = Blueprint('files', __name__)
 
@@ -72,47 +72,18 @@ def upload_file():
         else:
             return jsonify({'error': 'Module ID is required'}), 400
         
-        # Read file content
-        file_content = file.read()
-        file_size = len(file_content)
-        use_s3 = os.getenv('USE_S3_STORAGE', 'false').lower() == 'true'
-        
-        if use_s3:
-            # Upload to S3
-            file_id = str(uuid.uuid4())
-            s3_result = s3_storage.upload_file(
-                file_obj=BytesIO(file_content),
-                course_id=str(target_module.course_id),
+        # Use Supabase file service for upload
+        file_service = FileService()
+        try:
+            upload_result = file_service.upload_file(
+                file=file,
                 module_id=str(target_module.id),
-                file_id=file_id,
-                filename=file.filename,
-                content_type=file.mimetype
+                user_id=str(user_id),
+                title=title
             )
-            
-            # Create file record with S3 info
-            new_file = create_file(
-                db=db_session,
-                module_id=str(target_module.id),
-                title=title,
-                filename=file.filename,
-                file_type=file.mimetype or 'application/octet-stream',
-                file_size=file_size,
-                s3_key=s3_result['s3_key'],
-                s3_bucket=s3_result['s3_bucket'],
-                storage_type='s3'
-            )
-        else:
-            # Traditional database storage
-            new_file = create_file(
-                db=db_session,
-                module_id=str(target_module.id),
-                title=title,
-                filename=file.filename,
-                file_type=file.mimetype or 'application/octet-stream',
-                file_size=file_size,
-                file_data=file_content,
-                storage_type='database'
-            )
+            new_file = upload_result  # The service returns the file object
+        except Exception as upload_error:
+            raise Exception(f"Failed to upload file: {str(upload_error)}")
         
         # Return the created file info in the format expected by the frontend
         return jsonify({
@@ -463,7 +434,7 @@ def search_files():
 @require_auth
 def get_file_content_v2(file_id):
     """Get file content or presigned URL (v2)"""
-    from ..s3_storage import s3_storage
+    # S3 storage removed - using Supabase Storage
     
     file_service = FileService()
     

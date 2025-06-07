@@ -74,32 +74,12 @@ class FlaskConfig:
     def REDIS_URL(self):
         return str(self.settings.redis_url)
     
-    # AWS
-    @property
-    def AWS_ACCESS_KEY_ID(self):
-        return self.settings.aws_access_key_id
-    
-    @property
-    def AWS_SECRET_ACCESS_KEY(self):
-        return self.settings.aws_secret_access_key
-    
-    @property
-    def AWS_REGION(self):
-        return self.settings.aws_region
-    
-    @property
-    def S3_BUCKET_NAME(self):
-        return self.settings.s3_bucket_name
+    # AWS/S3 properties removed - using Supabase Storage
     
     # OpenAI
     @property
     def OPENAI_API_KEY(self):
         return self.settings.openai_api_key
-    
-    # Firebase
-    @property
-    def FIREBASE_CREDENTIALS_PATH(self):
-        return self.settings.firebase_credentials_path
     
     # CORS
     @property

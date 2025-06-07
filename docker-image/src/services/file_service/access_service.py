@@ -26,20 +26,17 @@ class FileAccessService(BaseFileService):
         # Check access
         file = self.get_file_with_access_check(file_id, user_id)
         
-        # If file is stored in S3, generate presigned URL
-        if file.storage_type == 's3' and file.s3_key:
+        # If file is stored in Supabase, generate public URL
+        if file.storage_type in ['supabase', 's3'] and file.storage_path:
             try:
-                presigned_url = self.s3_client.generate_presigned_url(
-                    'get_object',
-                    Params={
-                        'Bucket': file.s3_bucket,
-                        'Key': file.s3_key
-                    },
-                    ExpiresIn=3600  # 1 hour
+                # Generate a signed URL for private files
+                response = self.supabase.storage.from_(self.bucket_name).create_signed_url(
+                    path=file.storage_path,
+                    expires_in=3600  # 1 hour
                 )
                 return {
                     'type': 'presigned',
-                    'url': presigned_url
+                    'url': response['signedURL']
                 }
             except Exception as e:
                 raise FileProcessingError(f"Failed to generate file URL: {str(e)}")
@@ -58,20 +55,15 @@ class FileAccessService(BaseFileService):
         """Get file for download"""
         file = self.get_file_with_access_check(file_id, user_id)
         
-        # Generate presigned URL for S3 download
+        # Generate signed URL for Supabase download
         try:
-            presigned_url = self.s3_client.generate_presigned_url(
-                'get_object',
-                Params={
-                    'Bucket': file.s3_bucket,
-                    'Key': file.s3_key
-                },
-                ExpiresIn=3600  # 1 hour
+            response = self.supabase.storage.from_(self.bucket_name).create_signed_url(
+                path=file.storage_path,
+                expires_in=3600  # 1 hour
             )
             
-            # For now, return the URL and filename
-            # In production, you might want to stream the file through your server
-            return presigned_url, file.filename
+            # Return the URL and filename
+            return response['signedURL'], file.filename
             
         except Exception as e:
             raise FileProcessingError(f"Failed to generate download URL: {str(e)}")
@@ -85,19 +77,14 @@ class FileAccessService(BaseFileService):
         if file.file_type not in preview_types:
             raise ValidationError("File type does not support preview")
         
-        # Generate presigned URL for preview
+        # Generate signed URL for preview
         try:
-            presigned_url = self.s3_client.generate_presigned_url(
-                'get_object',
-                Params={
-                    'Bucket': file.s3_bucket,
-                    'Key': file.s3_key,
-                    'ResponseContentDisposition': 'inline'
-                },
-                ExpiresIn=1800  # 30 minutes
+            response = self.supabase.storage.from_(self.bucket_name).create_signed_url(
+                path=file.storage_path,
+                expires_in=1800  # 30 minutes
             )
             
-            return presigned_url
+            return response['signedURL']
             
         except Exception as e:
             raise FileProcessingError(f"Failed to generate preview URL: {str(e)}")

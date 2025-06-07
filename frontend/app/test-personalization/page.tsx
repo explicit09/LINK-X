@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { apiClient } from '@/lib/api/client';
-import { auth } from '@/firebaseconfig';
+import { supabase } from '@/supabaseconfig';
 
 export default function TestPersonalizationPage() {
   const [logs, setLogs] = useState<string[]>([]);
@@ -20,28 +20,29 @@ export default function TestPersonalizationPage() {
     addLog('Testing auth token retrieval...');
     
     try {
-      // Test Firebase auth
-      const currentUser = auth.currentUser;
-      addLog(`Firebase user: ${currentUser ? currentUser.email : 'Not logged in'}`);
+      // Test Supabase auth
+      const { data: { session } } = await supabase.auth.getSession();
+      const currentUser = session?.user;
+      addLog(`Supabase user: ${currentUser ? currentUser.email : 'Not logged in'}`);
       
-      if (currentUser) {
-        const firebaseToken = await currentUser.getIdToken();
-        addLog(`Firebase token: ${firebaseToken.substring(0, 50)}...`);
+      if (session) {
+        const supabaseToken = session.access_token;
+        addLog(`Supabase token: ${supabaseToken.substring(0, 50)}...`);
       }
       
       // Test API client token
       const apiToken = await apiClient.getAuthToken();
       addLog(`API client token: ${apiToken ? apiToken.substring(0, 50) + '...' : 'null'}`);
       
-      // Use Firebase token for SSE since backend expects it
-      if (currentUser) {
-        const firebaseToken = await currentUser.getIdToken();
-        setToken(firebaseToken);
-        addLog('Using Firebase token for SSE connection');
+      // Use Supabase token for SSE since backend expects it
+      if (session) {
+        const supabaseToken = session.access_token;
+        setToken(supabaseToken);
+        addLog('Using Supabase token for SSE connection');
         
         // Decode token header to see type
         try {
-          const parts = firebaseToken.split('.');
+          const parts = supabaseToken.split('.');
           if (parts.length === 3) {
             const header = JSON.parse(atob(parts[0]));
             addLog(`Token algorithm: ${header.alg}`);

@@ -2,7 +2,7 @@ import { toast as sonnerToast } from 'sonner';
 import { UploadFile } from '../types';
 import { formatFileSize, getFileTypeFromMime } from '../utils';
 import { authService } from '@/lib/auth-service';
-import { auth } from '@/firebaseconfig';
+import { supabase } from '@/supabaseconfig';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -66,30 +66,27 @@ export class UploadService {
               authHeaders['Authorization'] = `Bearer ${backendToken}`;
             }
           } catch (authError: any) {
-            console.warn('Backend auth failed, trying Firebase fallback:', authError);
-            // If backend auth fails, try Firebase
+            console.warn('Backend auth failed, trying Supabase fallback:', authError);
+            // If backend auth fails, try Supabase
             throw authError;
           }
         } else {
-          // Force Firebase fallback
+          // Force Supabase fallback
           throw new Error('Not authenticated with backend');
         }
       } catch (error: any) {
-        console.log('Falling back to Firebase auth due to:', error.message);
-        // Fallback to Firebase with IndexedDB error handling
+        console.log('Falling back to Supabase auth due to:', error.message);
+        // Fallback to Supabase
         try {
-          const user = auth.currentUser;
-          if (user) {
-            const firebaseToken = await user.getIdToken(true); // Force refresh
-            authHeaders['X-Firebase-Token'] = firebaseToken;
-            console.log('Using Firebase token for upload');
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            const supabaseToken = session.access_token;
+            authHeaders['Authorization'] = `Bearer ${supabaseToken}`;
+            console.log('Using Supabase token for upload');
           }
-        } catch (firebaseError: any) {
-          console.error('Firebase auth also failed:', firebaseError);
+        } catch (supabaseError: any) {
+          console.error('Supabase auth also failed:', supabaseError);
           // Continue without auth headers - let the server handle it
-          if (firebaseError.message?.includes('IndexedDB') || firebaseError.message?.includes('transaction')) {
-            console.warn('IndexedDB error detected, proceeding without auth (server will handle)');
-          }
         }
       }
 
@@ -157,26 +154,23 @@ export class UploadService {
               authHeaders['Authorization'] = `Bearer ${backendToken}`;
             }
           } catch (authError: any) {
-            console.warn('Backend auth failed, trying Firebase fallback:', authError);
+            console.warn('Backend auth failed, trying Supabase fallback:', authError);
             throw authError;
           }
         } else {
           throw new Error('Not authenticated with backend');
         }
       } catch (error: any) {
-        console.log('Falling back to Firebase auth due to:', error.message);
+        console.log('Falling back to Supabase auth due to:', error.message);
         try {
-          const user = auth.currentUser;
-          if (user) {
-            const firebaseToken = await user.getIdToken(true); // Force refresh
-            authHeaders['X-Firebase-Token'] = firebaseToken;
-            console.log('Using Firebase token for instructor upload');
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            const supabaseToken = session.access_token;
+            authHeaders['Authorization'] = `Bearer ${supabaseToken}`;
+            console.log('Using Supabase token for instructor upload');
           }
-        } catch (firebaseError: any) {
-          console.error('Firebase auth also failed:', firebaseError);
-          if (firebaseError.message?.includes('IndexedDB') || firebaseError.message?.includes('transaction')) {
-            console.warn('IndexedDB error detected, proceeding without auth (server will handle)');
-          }
+        } catch (supabaseError: any) {
+          console.error('Supabase auth also failed:', supabaseError);
         }
       }
 

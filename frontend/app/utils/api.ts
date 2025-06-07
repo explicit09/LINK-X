@@ -1,12 +1,12 @@
-import { auth } from '../../firebaseconfig';
+import { getCurrentUser, supabase } from '@/supabaseconfig';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export async function getAuthToken() {
-  const user = auth.currentUser;
-  if (!user) return null;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return null;
   try {
-    return await user.getIdToken();
+    return session.access_token;
   } catch (error) {
     console.error('Error getting auth token:', error);
     return null;

@@ -2,8 +2,7 @@
 
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/firebaseconfig';
+import { signOut } from '@/supabaseconfig';
 import { useRouter } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { TooltipProvider } from '@/components/ui/tooltip';

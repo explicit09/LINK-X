@@ -493,6 +493,3 @@ def supabase_token_required(allow_unregistered: bool = False):
                 
         return decorated_function
     return decorator
-
-# Backward compatibility - redirect Firebase calls to Supabase
-firebase_token_required = supabase_token_required

@@ -142,8 +142,7 @@ class Container(containers.DeclarativeContainer):
         FileService,
         file_repo=file_repository,
         course_repo=course_repository,
-        redis_client=redis_client,
-        s3_bucket=providers.Configuration().s3_bucket_name
+        redis_client=redis_client
     )
     
     module_service = providers.Factory(
@@ -211,7 +210,7 @@ def init_container(app: Flask) -> Container:
         'redis_url': app.config.get('REDIS_URL', 'redis://localhost:6379/0'),
         'debug': app.config.get('DEBUG', False),
         # Firebase credentials no longer needed - using Supabase
-        's3_bucket_name': app.config.get('S3_BUCKET_NAME'),
+        # S3 configuration removed - using Supabase Storage
         'openai_api_key': app.config.get('OPENAI_API_KEY')
     })
     

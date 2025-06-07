@@ -13,7 +13,7 @@ from flask import jsonify
 from sqlalchemy.orm import Session
 
 from db.queries import create_file, get_module_by_id
-from .s3_storage import S3Storage
+from core.supabase_config import get_supabase_client
 from tasks import index_file
 
 logger = logging.getLogger(__name__)
@@ -23,8 +23,8 @@ class FileUploadHandler:
     
     def __init__(self, db_session: Session):
         self.db = db_session
-        self.use_s3 = os.getenv('USE_S3_STORAGE', 'false').lower() == 'true'
-        self.s3_storage = S3Storage() if self.use_s3 else None
+        self.supabase = get_supabase_client()
+        self.bucket_name = 'course-files'
     
     def process_upload(
         self,
@@ -66,43 +66,32 @@ class FileUploadHandler:
             # Generate file ID
             file_id = str(uuid.uuid4())
             
-            # Store file
-            if self.use_s3:
-                # Upload to S3
-                s3_result = self.s3_storage.upload_file(
-                    file_obj=BytesIO(file_content),
-                    course_id=str(module.course_id),
-                    module_id=str(module_id),
-                    file_id=file_id,
-                    filename=filename,
-                    content_type=content_type
-                )
-                
-                # Create database record
-                db_file = create_file(
-                    db=self.db,
-                    module_id=module_id,
-                    title=title,
-                    filename=filename,
-                    file_type=content_type,
-                    file_size=file_size,
-                    s3_key=s3_result['s3_key'],
-                    s3_bucket=s3_result['s3_bucket'],
-                    storage_type='s3',
-                    file_id=file_id  # Use the same file_id for both S3 and database
-                )
-            else:
-                # Store in database
-                db_file = create_file(
-                    db=self.db,
-                    module_id=module_id,
-                    title=title,
-                    filename=filename,
-                    file_type=content_type,
-                    file_size=file_size,
-                    file_data=file_content,
-                    storage_type='database'
-                )
+            # Store file in Supabase Storage
+            storage_path = f"courses/{module.course_id}/modules/{module_id}/{file_id}_{filename}"
+            
+            # Upload to Supabase Storage
+            self.supabase.storage.from_(self.bucket_name).upload(
+                path=storage_path,
+                file=BytesIO(file_content),
+                file_options={
+                    "content-type": content_type,
+                    "x-upsert": "false"
+                }
+            )
+            
+            # Create database record
+            db_file = create_file(
+                db=self.db,
+                module_id=module_id,
+                title=title,
+                filename=filename,
+                file_type=content_type,
+                file_size=file_size,
+                storage_path=storage_path,
+                storage_bucket=self.bucket_name,
+                storage_type='supabase',
+                file_id=file_id
+            )
             
             # Trigger background indexing
             task = None

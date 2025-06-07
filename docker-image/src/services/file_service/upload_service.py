@@ -40,21 +40,21 @@ class FileUploadService(BaseFileService):
         file_id = str(uuid.uuid4())
         storage_filename = f"{file_id}.{file_extension}"
         
-        # Upload to S3
+        # Upload to Supabase Storage
         try:
-            s3_key = f"files/{module_id}/{storage_filename}"
+            storage_path = f"courses/{module.course_id}/modules/{module_id}/{storage_filename}"
             
-            # Upload file to S3
-            self.s3_client.upload_fileobj(
-                file,
-                self.config.S3_BUCKET_NAME,
-                s3_key,
-                ExtraArgs={
-                    'ContentType': file.content_type or 'application/octet-stream',
-                    'Metadata': {
-                        'original_filename': original_filename,
-                        'uploaded_by': str(user_id)
-                    }
+            # Read file content
+            file_content = file.read()
+            file_size = len(file_content)
+            
+            # Upload file to Supabase Storage
+            self.supabase.storage.from_(self.bucket_name).upload(
+                path=storage_path,
+                file=file_content,
+                file_options={
+                    'content-type': file.content_type or 'application/octet-stream',
+                    'x-upsert': 'false'
                 }
             )
             
@@ -65,10 +65,10 @@ class FileUploadService(BaseFileService):
                 title=title or original_filename,
                 description=description,
                 filename=original_filename,
-                s3_key=s3_key,
-                s3_bucket=self.config.S3_BUCKET_NAME,
+                storage_path=storage_path,
+                storage_bucket=self.bucket_name,
                 file_type=file_extension,
-                file_size=file.content_length or 0,
+                file_size=file_size,
                 uploaded_by=user_id
             )
             
@@ -81,9 +81,9 @@ class FileUploadService(BaseFileService):
             return file_record
             
         except Exception as e:
-            # Clean up S3 if database creation fails
+            # Clean up Supabase Storage if database creation fails
             try:
-                self.s3_client.delete_object(Bucket=self.config.S3_BUCKET_NAME, Key=s3_key)
+                self.supabase.storage.from_(self.bucket_name).remove([storage_path])
             except:
                 pass
             raise FileProcessingError(f"Failed to upload file: {str(e)}")

@@ -1,6 +1,6 @@
 'use client';
 
-import type { User } from 'firebase/auth';
+import type { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 
 import { PlusIcon } from '@/components/icons';

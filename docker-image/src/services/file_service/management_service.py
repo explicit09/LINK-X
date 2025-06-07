@@ -13,12 +13,9 @@ class FileManagementService(BaseFileService):
         file = self._get_file_with_access_check(file_id, user_id)
         
         try:
-            # Delete from S3 if stored there
-            if file.storage_type == 's3' and file.s3_key:
-                self.s3_client.delete_object(
-                    Bucket=file.s3_bucket,
-                    Key=file.s3_key
-                )
+            # Delete from Supabase Storage if stored there
+            if file.storage_type in ['supabase', 's3'] and file.storage_path:
+                self.supabase.storage.from_(self.bucket_name).remove([file.storage_path])
             
             # Delete from database
             self.file_repo.delete(file_id)

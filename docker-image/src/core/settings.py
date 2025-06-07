@@ -81,28 +81,13 @@ class Settings(BaseSettings):
     redis_max_connections: int = Field(default=10)
     redis_decode_responses: bool = Field(default=True)
     
-    # AWS
-    aws_access_key_id: Optional[str] = Field(None, env="AWS_ACCESS_KEY_ID")
-    aws_secret_access_key: Optional[str] = Field(None, env="AWS_SECRET_ACCESS_KEY")
-    aws_region: str = Field(default="us-east-2", env="AWS_REGION")
-    s3_bucket_name: Optional[str] = Field(None, env="S3_BUCKET_NAME")
-    s3_endpoint_url: Optional[str] = Field(None, env="S3_ENDPOINT_URL")
+    # AWS/S3 settings removed - using Supabase Storage
     
     # OpenAI
     openai_api_key: Optional[str] = Field(None, env="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4", env="OPENAI_MODEL")
     openai_max_tokens: int = Field(default=2000)
     openai_temperature: float = Field(default=0.7)
-    
-    # Firebase
-    firebase_credentials_path: Optional[str] = Field(
-        default=None, 
-        env="FIREBASE_CREDENTIALS_PATH",
-        description="Path to Firebase credentials JSON file"
-    )
-    firebase_project_id: Optional[str] = Field(None, env="FIREBASE_PROJECT_ID")
-    firebase_private_key: Optional[str] = Field(None, env="FIREBASE_PRIVATE_KEY") 
-    firebase_client_email: Optional[str] = Field(None, env="FIREBASE_CLIENT_EMAIL")
     
     # CORS
     cors_origins: List[str] = Field(default_factory=list, alias="CORS_ORIGINS")

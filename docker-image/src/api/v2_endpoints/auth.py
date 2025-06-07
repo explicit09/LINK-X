@@ -7,7 +7,7 @@ from flask import Blueprint, request, g
 from datetime import datetime
 import logging
 
-from core.decorators_unified import firebase_token_required
+from core.decorators_unified import supabase_token_required
 from core.auth.decorators import require_auth  # Add Supabase auth decorator
 from core.exceptions import ValidationError, NotFoundError, UnauthorizedError, AuthenticationError
 from services.auth_service_unified import UnifiedAuthService as AuthService
@@ -145,7 +145,7 @@ def logout_v2():
 # @auth_bp.route('/check-registration', methods=['GET', 'OPTIONS'])
 # @handle_cors_preflight
 def check_registration_v2_disabled():
-    """Check if a Firebase-authenticated user is registered in the system"""
+    """Check if a Supabase-authenticated user is registered in the system"""
     try:
         # g.current_user is an AuthUser from Supabase
         auth_user = g.current_user
@@ -397,9 +397,9 @@ def update_profile_v2():
         if not user:
             return error_response("User not found", status_code=404)
         
-        # Update user email if provided (requires Firebase update too)
+        # Update user email if provided (requires Supabase update too)
         if 'email' in data and data['email'] != user.email:
-            # TODO: Implement Firebase email update
+            # TODO: Implement Supabase email update
             return error_response("Email update not yet implemented")
         
         # Update role-specific profile

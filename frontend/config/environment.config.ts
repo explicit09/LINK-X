@@ -7,14 +7,9 @@ export interface EnvironmentConfig {
   // API Configuration
   API_URL: string;
   
-  // Firebase Configuration
-  FIREBASE_API_KEY: string;
-  FIREBASE_AUTH_DOMAIN: string;
-  FIREBASE_PROJECT_ID: string;
-  FIREBASE_STORAGE_BUCKET: string;
-  FIREBASE_MESSAGING_SENDER_ID: string;
-  FIREBASE_APP_ID: string;
-  FIREBASE_MEASUREMENT_ID?: string;
+  // Supabase Configuration
+  SUPABASE_URL: string;
+  SUPABASE_ANON_KEY: string;
   
   // Feature Flags
   ENABLE_ANALYTICS: boolean;
@@ -34,14 +29,9 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
     // API Configuration
     API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
     
-    // Firebase Configuration
-    FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
-    FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '',
-    FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '',
-    FIREBASE_STORAGE_BUCKET: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || '',
-    FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
-    FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '',
-    FIREBASE_MEASUREMENT_ID: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+    // Supabase Configuration
+    SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
     
     // Feature Flags
     ENABLE_ANALYTICS: process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true',
@@ -65,9 +55,8 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
 export const validateEnvironmentConfig = (config: EnvironmentConfig): void => {
   const requiredFields: (keyof EnvironmentConfig)[] = [
     'API_URL',
-    'FIREBASE_API_KEY',
-    'FIREBASE_AUTH_DOMAIN',
-    'FIREBASE_PROJECT_ID',
+    'SUPABASE_URL',
+    'SUPABASE_ANON_KEY',
   ];
 
   const missingFields = requiredFields.filter(
@@ -84,9 +73,9 @@ export const validateEnvironmentConfig = (config: EnvironmentConfig): void => {
     }
   }
 
-  // Validate Firebase configuration
-  if (config.FIREBASE_API_KEY && !config.FIREBASE_PROJECT_ID) {
-    throw new Error('Firebase API key provided but project ID is missing');
+  // Validate Supabase configuration
+  if (config.SUPABASE_URL && !config.SUPABASE_ANON_KEY) {
+    throw new Error('Supabase URL provided but anon key is missing');
   }
 
   // Validate API URL format
@@ -128,15 +117,10 @@ export const getEnvironmentSpecificConfig = () => {
       health: `${config.API_URL}/api/health`,
     },
     
-    // Firebase config object
-    firebaseConfig: {
-      apiKey: config.FIREBASE_API_KEY,
-      authDomain: config.FIREBASE_AUTH_DOMAIN,
-      projectId: config.FIREBASE_PROJECT_ID,
-      storageBucket: config.FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: config.FIREBASE_MESSAGING_SENDER_ID,
-      appId: config.FIREBASE_APP_ID,
-      measurementId: config.FIREBASE_MEASUREMENT_ID,
+    // Supabase config object
+    supabaseConfig: {
+      url: config.SUPABASE_URL,
+      anonKey: config.SUPABASE_ANON_KEY,
     },
     
     // Feature flags

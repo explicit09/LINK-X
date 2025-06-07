@@ -70,17 +70,18 @@ def detailed_health_check():
             'message': 'Redis module not installed'
         }
     
-    # Check S3 (optional, don't fail health check)
+    # Check Supabase Storage (optional, don't fail health check)
     try:
-        import boto3
-        s3 = boto3.client('s3')
-        s3.head_bucket(Bucket=config.S3_BUCKET_NAME)
-        health_status['components']['s3'] = {
+        from core.supabase_config import get_supabase_client
+        supabase = get_supabase_client()
+        # Try to list files in the bucket (limit 1 to make it fast)
+        supabase.storage.from_('course-files').list(limit=1)
+        health_status['components']['storage'] = {
             'status': 'healthy',
-            'message': 'S3 bucket accessible'
+            'message': 'Supabase storage accessible'
         }
     except Exception as e:
-        health_status['components']['s3'] = {
+        health_status['components']['storage'] = {
             'status': 'degraded',
             'message': str(e)
         }

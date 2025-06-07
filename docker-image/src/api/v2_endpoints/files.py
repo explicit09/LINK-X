@@ -28,19 +28,8 @@ except ImportError as e:
     ai_service = None
     streaming_handler = None
 
-# Import s3_storage with error handling
-try:
-    from services.s3_storage_resilient import s3_storage
-    logger = logging.getLogger(__name__)
-    logger.info(f"S3 storage imported successfully: {type(s3_storage)}")
-except ImportError as e:
-    logger = logging.getLogger(__name__)
-    logger.error(f"Failed to import s3_storage: {e}")
-    s3_storage = None
-except Exception as e:
-    logger = logging.getLogger(__name__)
-    logger.error(f"Error initializing s3_storage: {e}")
-    s3_storage = None
+# S3 storage removed - using Supabase Storage
+logger = logging.getLogger(__name__)
 
 from .utils import success_response, error_response
 
@@ -178,38 +167,41 @@ def upload_file_v2():
                 import time
                 time.sleep(0.5)
         
-        # Check if S3 is configured
-        use_s3 = os.getenv('USE_S3_STORAGE', 'false').lower() == 'true'
-        logger.info(f"S3 Configuration: USE_S3_STORAGE={use_s3}, s3_storage={s3_storage is not None}")
+        # Use Supabase storage for file upload
+        use_supabase_storage = True
+        logger.info(f"Using Supabase storage for file upload")
         
-        if use_s3 and s3_storage:
-            # Upload to S3
+        if use_supabase_storage:
+            # Upload to Supabase Storage
             try:
-                logger.info(f"Attempting S3 upload for file {file_record.id}: {filename}")
+                from core.supabase_config import get_supabase_client
+                supabase = get_supabase_client()
+                bucket_name = 'course-files'
+                
+                logger.info(f"Attempting Supabase upload for file {file_record.id}: {filename}")
                 # Reset file pointer to beginning
                 file.seek(0)
                 
-                # Call S3 service with correct parameters
-                s3_result = s3_storage.upload_file(
-                    file_obj=file,
-                    course_id=str(module.course_id),
-                    module_id=str(module_id),
-                    file_id=str(file_record.id),
-                    filename=filename
+                # Generate storage path
+                storage_path = f"courses/{module.course_id}/modules/{module_id}/{file_record.id}_{filename}"
+                
+                # Upload to Supabase
+                file_content = file.read()
+                supabase.storage.from_(bucket_name).upload(
+                    path=storage_path,
+                    file=file_content,
+                    file_options={
+                        'content-type': file.content_type or 'application/octet-stream',
+                        'x-upsert': 'false'
+                    }
                 )
                 
-                logger.info(f"S3 upload result: {s3_result}")
+                logger.info(f"Supabase upload successful: {storage_path}")
                 
-                # Check if upload was successful
-                if 'error' in s3_result or s3_result.get('fallback', False):
-                    logger.error(f"S3 upload failed or fell back: {s3_result}")
-                    # Don't set S3 fields, will fall through to local storage
-                    use_s3 = False
-                else:
-                    # Update file record with S3 info
-                    file_record.s3_key = s3_result['s3_key']
-                    file_record.s3_bucket = s3_result['s3_bucket']
-                    file_record.storage_type = 's3'
+                # Update file record with Supabase info
+                file_record.storage_path = storage_path
+                file_record.storage_bucket = bucket_name
+                file_record.storage_type = 'supabase'
                     # Get actual file size - seek to end and get position
                     try:
                         file.seek(0, 2)  # Seek to end
@@ -252,7 +244,6 @@ def upload_file_v2():
                         logger.info(f"⚡ SYNC: Processing file {file_record.id} synchronously (fallback)")
                         # Direct processing without Celery
                         from services.ai_service import AIService
-                        from services.s3_storage_resilient import s3_storage as s3_svc
                         from utils.textUtils import extract_text, clean_extracted_text
                         
                         ai_service_sync = AIService()
@@ -260,10 +251,12 @@ def upload_file_v2():
                         # Extract text based on file type
                         text_content = None
                         if file_record.file_type == 'pdf':
-                            # Download from S3
-                            file_content = s3_svc.download_file(file_record.s3_key)
-                            if file_content:
-                                text_content = extract_text(file_content, 'pdf')
+                            # Download from Supabase
+                            from core.supabase_config import get_supabase_client
+                            supabase_sync = get_supabase_client()
+                            response = supabase_sync.storage.from_(file_record.storage_bucket).download(file_record.storage_path)
+                            if response:
+                                text_content = extract_text(response, 'pdf')
                         
                         if text_content:
                             # Clean and save text

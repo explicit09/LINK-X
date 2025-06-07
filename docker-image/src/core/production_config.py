@@ -23,9 +23,8 @@ class ProductionConfig:
         required_vars = [
             'DATABASE_URL',
             'JWT_SECRET_KEY',
-            'AWS_ACCESS_KEY_ID',
-            'AWS_SECRET_ACCESS_KEY',
-            'S3_BUCKET_NAME'
+            'SUPABASE_URL',
+            'SUPABASE_ANON_KEY'
         ]
         
         missing = []
@@ -45,48 +44,13 @@ class ProductionConfig:
         return os.getenv('DATABASE_URL') or os.getenv('POSTGRES_URL', '')
     
     @property
-    def firebase_config(self) -> Optional[Dict[str, Any]]:
-        """Get Firebase configuration from environment"""
-        # Check if Firebase is disabled
-        if os.getenv('FIREBASE_DISABLED', 'false').lower() == 'true':
-            return None
-        
-        # Try to load from service account file path
-        firebase_creds_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-        if firebase_creds_path and Path(firebase_creds_path).exists():
-            with open(firebase_creds_path, 'r') as f:
-                return json.load(f)
-        
-        # Build from individual environment variables
-        project_id = os.getenv('FIREBASE_PROJECT_ID')
-        private_key = os.getenv('FIREBASE_PRIVATE_KEY')
-        client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
-        
-        if not all([project_id, private_key, client_email]):
-            logger.warning("Firebase configuration incomplete, disabling Firebase auth")
-            return None
-        
+    def supabase_config(self) -> Dict[str, str]:
+        """Get Supabase configuration"""
         return {
-            "type": "service_account",
-            "project_id": project_id,
-            "private_key_id": os.getenv('FIREBASE_PRIVATE_KEY_ID', ''),
-            "private_key": private_key.replace('\\n', '\n'),
-            "client_email": client_email,
-            "client_id": os.getenv('FIREBASE_CLIENT_ID', ''),
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-            "client_x509_cert_url": os.getenv('FIREBASE_CLIENT_CERT_URL', '')
-        }
-    
-    @property
-    def aws_config(self) -> Dict[str, str]:
-        """Get AWS configuration"""
-        return {
-            'access_key_id': os.getenv('AWS_ACCESS_KEY_ID', ''),
-            'secret_access_key': os.getenv('AWS_SECRET_ACCESS_KEY', ''),
-            'region': os.getenv('AWS_REGION', 'us-east-2'),
-            's3_bucket': os.getenv('S3_BUCKET_NAME', '')
+            'url': os.getenv('SUPABASE_URL', ''),
+            'anon_key': os.getenv('SUPABASE_ANON_KEY', ''),
+            'service_role_key': os.getenv('SUPABASE_SERVICE_ROLE_KEY', ''),
+            'storage_bucket': 'course-files'
         }
     
     @property
