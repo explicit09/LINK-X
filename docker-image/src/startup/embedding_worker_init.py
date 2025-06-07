@@ -8,8 +8,10 @@ import sys
 import time
 import logging
 import psycopg2
+import subprocess
 from typing import Dict, Tuple
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -276,13 +278,20 @@ def main():
     
     # Run all checks
     if initializer.run_all_checks():
-        logger.info("✅ All checks passed! Worker can start processing.")
-        sys.exit(0)
+        logger.info("✅ All checks passed! Starting embedding worker...")
+        # Start the actual worker process
+        worker_command = ["python", "-m", "workers.pgmq_embedding_worker"]
+        logger.info(f"Executing: {' '.join(worker_command)}")
+        
+        try:
+            # Replace current process with worker
+            os.execvp(worker_command[0], worker_command)
+        except Exception as e:
+            logger.error(f"Failed to start worker: {e}")
+            sys.exit(1)
     else:
-        logger.error("❌ Some checks failed. Worker may not function properly.")
-        # You can choose to exit with error or continue
-        # sys.exit(1)  # Uncomment to prevent worker start on failure
-        sys.exit(0)  # Continue anyway for now
+        logger.error("❌ Some checks failed. Worker cannot start.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -1,56 +1,67 @@
-# Optimized multi-stage Dockerfile for LINK-X backend
-FROM python:3.11-slim as builder
+# syntax=docker/dockerfile:1.4
+# Optimized Dockerfile for LINK-X with BuildKit cache mounts
+ARG PYTHON_VERSION=3.11
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Build stage
+FROM python:${PYTHON_VERSION}-slim as builder
+
+# Install build dependencies with cache mount
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+    libpq-dev
 
-# Set working directory
 WORKDIR /build
 
-# Copy requirements
+# Copy only requirements first for better caching
 COPY docker-image/src/requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --user -r requirements.txt
+# Install Python dependencies with pip cache mount
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --user -r requirements.txt
 
 # Runtime stage
-FROM python:3.11-slim
+FROM python:${PYTHON_VERSION}-slim
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install runtime dependencies with cache mount
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN groupadd -r linkx && useradd -r -g linkx linkx
+# Create non-root user with home directory
+RUN groupadd -r linkx && useradd -r -g linkx -d /home/linkx -m linkx
 
-# Set working directory
 WORKDIR /app
 
 # Copy Python dependencies from builder
 COPY --from=builder /root/.local /root/.local
 
-# Copy application code
+# Copy application code with proper ownership
 COPY --chown=linkx:linkx docker-image/src/ ./src/
 COPY --chown=linkx:linkx docker-image/docker/ ./docker/
 
-# Make scripts executable
-RUN chmod +x /app/docker/*.sh
+# Set permissions and create necessary directories
+RUN chmod +x /app/docker/*.sh && \
+    mkdir -p /app/logs /app/data && \
+    chown -R linkx:linkx /app
 
-# Ensure Python can find the packages
-ENV PATH=/root/.local/bin:$PATH
-ENV PYTHONPATH=/app/src:$PYTHONPATH
+# Environment setup
+ENV PATH=/root/.local/bin:$PATH \
+    PYTHONPATH=/app/src:$PYTHONPATH \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-# Switch to non-root user
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8000/api/v2/health || exit 1
+
 USER linkx
-
-# Expose port
 EXPOSE 8000
 
-# Default command
+# Use exec form for better signal handling
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "300", "--chdir", "/app/src", "app:create_app()"]

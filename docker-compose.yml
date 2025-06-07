@@ -1,3 +1,10 @@
+# Enable BuildKit by default
+x-build: &default-build
+  context: .
+  dockerfile: Dockerfile
+  args:
+    BUILDKIT_INLINE_CACHE: 1
+
 services:
   redis:
     image: redis:7-alpine
@@ -15,8 +22,7 @@ services:
 
   backend:
     build:
-      context: .
-      dockerfile: Dockerfile
+      <<: *default-build
     image: learnx:optimized
     restart: always
     env_file:
@@ -52,8 +58,7 @@ services:
 
   celery-worker:
     build:
-      context: .
-      dockerfile: Dockerfile
+      <<: *default-build
     image: learnx:optimized
     restart: always
     entrypoint: ["/app/docker/celery-entrypoint.sh"]
@@ -74,16 +79,20 @@ services:
       - ./docker-image/src:/app/src:cached  # Dev only
       - ./data/learning_pdfs:/app/src/learning_pdfs
     depends_on:
-      - redis
-      - backend
-    profiles:
-      - workers
-      - prod
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "celery", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # Removed profiles - worker runs automatically
 
   celery-beat:
     build:
-      context: .
-      dockerfile: Dockerfile
+      <<: *default-build
     image: learnx:optimized
     restart: always
     entrypoint: ["/app/docker/celery-entrypoint.sh"]
@@ -94,21 +103,20 @@ services:
       - FLASK_ENV=${FLASK_ENV:-development}
       - REDIS_URL=redis://redis:6379/0
     depends_on:
-      - redis
-      - backend
-    profiles:
-      - prod
-      - workers
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    # Removed profiles - scheduler runs automatically
 
   # PGMQ Embedding Worker - Processes embeddings using PostgreSQL Message Queue
   pgmq-worker:
     build:
-      context: .
-      dockerfile: Dockerfile
+      <<: *default-build
     image: learnx:optimized
     restart: always
-    # Wait 30 seconds for backend to initialize database before starting workers
-    command: ["sh", "-c", "sleep 30 && python /app/src/startup/embedding_worker_init.py && python -m workers.pgmq_embedding_worker"]
+    # Use proper startup script instead of hardcoded sleep
+    command: ["python", "/app/src/startup/embedding_worker_init.py"]
     env_file:
       - ./docker-image/.env
     environment:
@@ -130,20 +138,21 @@ services:
     volumes:
       - ./docker-image/src:/app/src:cached
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import psycopg2; conn = psycopg2.connect('${DATABASE_URL}'); conn.close()"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 60s
     # No profiles - always runs automatically
     deploy:
-      replicas: 3  # Run 3 worker instances in production
+      replicas: ${EMBEDDING_WORKERS:-3}  # Configurable worker count
 
   flower:
     build:
-      context: .
-      dockerfile: Dockerfile
+      <<: *default-build
     image: learnx:optimized
     restart: always
     entrypoint: ["/app/docker/celery-entrypoint.sh"]
