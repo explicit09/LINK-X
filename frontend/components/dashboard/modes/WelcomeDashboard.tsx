@@ -25,6 +25,15 @@ import { useGamification } from '@/contexts/GamificationContext';
 import { useDashboardOverview } from '@/hooks/useDashboardData';
 import { useContextualHelp } from '@/hooks/useContextualHelp';
 import { InlineContextualHelp } from '@/components/contextual-help/ContextualHelp';
+import { 
+  FadeInCard, 
+  StaggerContainer, 
+  StaggerItem, 
+  AnimatedNumber,
+  AnimatedProgress,
+  BounceIn,
+  TypewriterText
+} from '@/components/dashboard/animations/CSSAnimations';
 
 interface WelcomeDashboardProps {
   userName: string;
@@ -107,53 +116,75 @@ export function WelcomeDashboard({ userName, currentUser, onActionClick }: Welco
   return (
     <div className="space-y-6">
       {/* Hero Welcome Section */}
-      <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-0 shadow-lg">
-        <CardContent className="p-8">
-          <div className="text-center space-y-4">
-            <div className="relative inline-block">
-              <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Rocket className="w-10 h-10 text-white" />
-              </div>
-              {missionProgress.percentage > 0 && (
-                <div className="absolute -top-2 -right-2">
-                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">
-                      {missionProgress.percentage}%
-                    </span>
+      <FadeInCard delay={0.1}>
+        <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-0 shadow-lg">
+          <CardContent className="p-8">
+            <div className="text-center space-y-4">
+              <BounceIn delay={0.3}>
+                <div className="relative inline-block">
+                  <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Rocket className="w-10 h-10 text-white" />
                   </div>
+                  {missionProgress.percentage > 0 && (
+                    <div className="absolute -top-2 -right-2">
+                      <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">
+                          <AnimatedNumber value={missionProgress.percentage} />%
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            
-            <h1 className="text-3xl font-bold mb-2">
-              {getPersonalizedGreeting()}
-            </h1>
-            <p className="text-lg text-muted-foreground mb-6">
-              {getMotivationalMessage()}
-            </p>
+              </BounceIn>
+              
+              <FadeInCard delay={0.5}>
+                <h1 className="text-3xl font-bold mb-2">
+                  <TypewriterText text={getPersonalizedGreeting()} delay={0.7} speed={30} />
+                </h1>
+              </FadeInCard>
+              
+              <FadeInCard delay={0.9}>
+                <p className="text-lg text-muted-foreground mb-6">
+                  {getMotivationalMessage()}
+                </p>
+              </FadeInCard>
 
-            {/* Quick Stats Preview */}
-            <div className="grid grid-cols-3 gap-4 max-w-md mx-auto">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{metrics.coursesCount}</div>
-                <div className="text-xs text-muted-foreground">Courses</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{missionProgress.earnedXP}</div>
-                <div className="text-xs text-muted-foreground">XP Earned</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">{missionProgress.completed}/3</div>
-                <div className="text-xs text-muted-foreground">Setup Done</div>
-              </div>
+              {/* Quick Stats Preview */}
+              <StaggerContainer staggerDelay={0.15} className="grid grid-cols-3 gap-4 max-w-md mx-auto">
+                <StaggerItem>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">
+                      <AnimatedNumber value={metrics.coursesCount} duration={1.2} />
+                    </div>
+                    <div className="text-xs text-muted-foreground">Courses</div>
+                  </div>
+                </StaggerItem>
+                <StaggerItem>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      <AnimatedNumber value={missionProgress.earnedXP} duration={1.4} />
+                    </div>
+                    <div className="text-xs text-muted-foreground">XP Earned</div>
+                  </div>
+                </StaggerItem>
+                <StaggerItem>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600">
+                      <AnimatedNumber value={missionProgress.completed} duration={1.6} />/3
+                    </div>
+                    <div className="text-xs text-muted-foreground">Setup Done</div>
+                  </div>
+                </StaggerItem>
+              </StaggerContainer>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </FadeInCard>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Setup Missions */}
-        <Card>
+        <FadeInCard delay={0.3}>
+          <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5 text-blue-600" />
@@ -161,7 +192,7 @@ export function WelcomeDashboard({ userName, currentUser, onActionClick }: Welco
               <Badge variant="secondary">{missionProgress.completed}/{missionProgress.total}</Badge>
             </CardTitle>
             <div className="space-y-2">
-              <Progress value={missionProgress.percentage} className="h-2" />
+              <AnimatedProgress value={missionProgress.percentage} delay={0.5} className="h-2" />
               <p className="text-sm text-muted-foreground">
                 Complete these missions to unlock your full dashboard • {missionProgress.earnedXP}/{missionProgress.totalXP} XP
               </p>
@@ -219,10 +250,12 @@ export function WelcomeDashboard({ userName, currentUser, onActionClick }: Welco
               );
             })}
           </CardContent>
-        </Card>
+          </Card>
+        </FadeInCard>
 
         {/* Preview Dashboard */}
-        <Card>
+        <FadeInCard delay={0.5}>
+          <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-600" />
@@ -289,7 +322,8 @@ export function WelcomeDashboard({ userName, currentUser, onActionClick }: Welco
               </Button>
             </div>
           </CardContent>
-        </Card>
+          </Card>
+        </FadeInCard>
       </div>
 
       {/* Next Steps CTA */}
@@ -319,34 +353,38 @@ export function WelcomeDashboard({ userName, currentUser, onActionClick }: Welco
 
       {/* Contextual Help Tips */}
       {contextualTips.length > 0 && (
-        <InlineContextualHelp
-          tips={contextualTips}
-          onDismiss={dismissTip}
-          filterTypes={['info', 'celebration']}
-          showTitle={false}
-        />
+        <FadeInCard delay={0.7}>
+          <InlineContextualHelp
+            tips={contextualTips}
+            onDismiss={dismissTip}
+            filterTypes={['info', 'celebration']}
+            showTitle={false}
+          />
+        </FadeInCard>
       )}
 
       {/* Completion Celebration */}
       {missionProgress.percentage === 100 && (
-        <Card className="border-green-200 bg-green-50">
-          <CardContent className="p-6 text-center">
-            <Trophy className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-            <h3 className="text-xl font-bold text-green-900 mb-2">
-              🎉 Setup Complete! Welcome to LEARN-X!
-            </h3>
-            <p className="text-green-700 mb-4">
-              You've earned {missionProgress.totalXP} XP and unlocked your personalized dashboard
-            </p>
-            <Button
-              onClick={() => window.location.reload()}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              Explore Your Dashboard
-              <Sparkles className="w-4 h-4 ml-2" />
-            </Button>
-          </CardContent>
-        </Card>
+        <BounceIn delay={1.0}>
+          <Card className="border-green-200 bg-green-50">
+            <CardContent className="p-6 text-center">
+              <Trophy className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-green-900 mb-2">
+                🎉 Setup Complete! Welcome to LEARN-X!
+              </h3>
+              <p className="text-green-700 mb-4">
+                You've earned <AnimatedNumber value={missionProgress.totalXP} /> XP and unlocked your personalized dashboard
+              </p>
+              <Button
+                onClick={() => window.location.reload()}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                Explore Your Dashboard
+                <Sparkles className="w-4 h-4 ml-2" />
+              </Button>
+            </CardContent>
+          </Card>
+        </BounceIn>
       )}
     </div>
   );

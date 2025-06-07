@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast as sonnerToast } from 'sonner';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
@@ -12,6 +12,9 @@ import { useUserJourneyStage, UserJourneyStage } from '@/hooks/useUserJourneySta
 import { useDashboardOverview, useAIRecommendations } from '@/hooks/useDashboardData';
 import { useUnifiedAuth } from '@/hooks/useUnifiedAuth';
 import { useDashboardMode, DashboardMode } from '@/hooks/useDashboardMode';
+// import { DashboardTransition, useDashboardTransition } from '@/components/dashboard/transitions/DashboardTransition'; // TODO: Re-enable after framer-motion is installed
+import { FadeInCard } from '@/components/dashboard/animations/CSSAnimations';
+import { useEffect, useRef } from 'react';
 import { 
   WelcomeDashboard, 
   GuidedDashboard, 
@@ -36,13 +39,26 @@ function DashboardContent() {
   const role = (session?.user?.role as 'student' | 'instructor' | 'admin') || 'student';
   
   // Dashboard mode and data hooks
-  const { mode, config, isLoading: modeLoading } = useDashboardMode();
+  const { mode, config, isLoading: modeLoading, userStats } = useDashboardMode();
   const { stage, isLoading: journeyLoading } = useUserJourneyStage();
   const { data: dashboardData, loading: dashboardLoading } = useDashboardOverview();
   const { data: aiData } = useAIRecommendations();
   
+  // Transition management - simplified for now
+  // const { isTransitioning, transitionData, triggerTransition, completeTransition } = useDashboardTransition();
+  const previousMode = useRef<DashboardMode | null>(null);
+  const [dashboardKey, setDashboardKey] = useState(0);
+  
   // Feature flag to enable adaptive dashboard (set to true to test)
   const useAdaptiveDashboard = true;
+  
+  // Track mode changes and trigger re-render for smooth transitions
+  useEffect(() => {
+    if (previousMode.current !== null && previousMode.current !== mode && useAdaptiveDashboard) {
+      setDashboardKey(prev => prev + 1); // Force re-render with new key
+    }
+    previousMode.current = mode;
+  }, [mode, useAdaptiveDashboard]);
 
   // SIMPLE AUTH CHECK using unified auth
   useEffect(() => {
@@ -167,6 +183,15 @@ function DashboardContent() {
       );
     }
 
+    // Simple fade transition between modes
+    return (
+      <FadeInCard key={dashboardKey} delay={0.1}>
+        {renderModeContent()}
+      </FadeInCard>
+    );
+  };
+  
+  const renderModeContent = () => {
     // Adaptive dashboard modes
     switch (mode) {
       case DashboardMode.WELCOME:
@@ -244,12 +269,16 @@ function DashboardContent() {
   // Use SharedDashboardLayout with adaptive structure
   return (
     <SharedDashboardLayout currentUser={currentUser}>
-      {renderDashboardContent()}
-      
-      {/* Show FirstTimeUserGuide only for WELCOME mode */}
-      {mode === DashboardMode.WELCOME && (
-        <FirstTimeUserGuide onGuideComplete={() => console.log('Guide completed')} />
-      )}
+      <div className="transition-all duration-500 ease-in-out">
+        {renderDashboardContent()}
+        
+        {/* Show FirstTimeUserGuide only for WELCOME mode */}
+        {mode === DashboardMode.WELCOME && (
+          <FadeInCard delay={0.5}>
+            <FirstTimeUserGuide onGuideComplete={() => console.log('Guide completed')} />
+          </FadeInCard>
+        )}
+      </div>
     </SharedDashboardLayout>
   );
 }
