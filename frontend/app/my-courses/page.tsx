@@ -50,7 +50,7 @@ import {
   Key,
 } from 'lucide-react';
 import { toast as sonnerToast } from 'sonner';
-import { courseAPI } from '@/lib/api';
+import { courseOperations, enrollmentOperations } from '@/lib/db/operations';
 import { useAuth } from '@/hooks/useAuth';
 import { toComponentUser } from '@/types/auth';
 
@@ -127,7 +127,8 @@ export default function MyCoursesPage() {
     try {
       setLoading(true);
       console.log('🏫 MyCoursesPage: Starting to load courses...');
-      const coursesData = await courseAPI.getCourses();
+      const coursesResponse = await courseOperations.getUserCourses();
+      const coursesData = coursesResponse.courses;
       console.log('🎯 MyCoursesPage: Received courses data:', coursesData);
       console.log('📊 MyCoursesPage: Data type:', typeof coursesData, 'Length:', coursesData?.length);
 
@@ -138,7 +139,7 @@ export default function MyCoursesPage() {
         return;
       }
 
-      // Transform API data with real calculations
+      // Transform Supabase data with real calculations
       const transformedCourses = coursesData.map(
         (course: any, index: number) => {
           // Calculate real student count from enrollments
@@ -232,7 +233,7 @@ export default function MyCoursesPage() {
     if (!editingCourse) return;
 
     try {
-      await courseAPI.updateCourse(editingCourse.id, courseData);
+      await courseOperations.updateCourse(editingCourse.id, courseData);
       setCourses((prev) =>
         prev.map((course) =>
           course.id === editingCourse.id
@@ -252,7 +253,7 @@ export default function MyCoursesPage() {
     if (!deletingCourse) return;
 
     try {
-      await courseAPI.deleteCourse(deletingCourse.id);
+      await courseOperations.deleteCourse(deletingCourse.id);
       setCourses((prev) =>
         prev.filter((course) => course.id !== deletingCourse.id),
       );
@@ -273,20 +274,27 @@ export default function MyCoursesPage() {
     try {
       setJoiningCourse(true);
       
-      // API call to join course with access code
-      const response = await courseAPI.joinCourseByCode(accessCode.trim());
+      // Use enrollment operations to join course with access code
+      const enrollment = await enrollmentOperations.enrollWithAccessCode(accessCode.trim());
+      
+      // Get the course details after enrollment
+      const courseDetails = await courseOperations.getCourseDetails(enrollment.course_id);
+      
+      if (!courseDetails) {
+        throw new Error('Failed to load course details after enrollment');
+      }
       
       // Transform the joined course data to match our interface
       const joinedCourse: Course = {
-        id: response.id,
-        title: response.title,
-        code: response.code || 'N/A',
-        term: response.term || 'Current',
-        description: response.description || '',
-        published: response.published ?? true,
-        studentsCount: response.students_count || response.studentsCount || 1,
-        materialsCount: response.modules?.length || response.materialsCount || 0,
-        accessCode: response.access_code || response.accessCode,
+        id: courseDetails.id,
+        title: courseDetails.title,
+        code: courseDetails.code || 'N/A',
+        term: courseDetails.term || 'Current',
+        description: courseDetails.description || '',
+        published: courseDetails.published ?? true,
+        studentsCount: courseDetails.enrollments?.length || 1,
+        materialsCount: courseDetails.modules?.length || 0,
+        accessCode: courseDetails.access_codes?.[0]?.code || '',
         lastActivity: 'Just joined',
         progress: 0,
         color: 'bg-green-500',

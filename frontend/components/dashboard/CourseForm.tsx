@@ -82,6 +82,7 @@ export default function CourseForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submission started', { formData, formInstanceId });
 
     if (!formData.title.trim()) {
       sonnerToast.error('Course title is required');
@@ -110,13 +111,22 @@ export default function CourseForm({
       
       if (course?.id) {
         // ✅ NEW: Use direct Supabase operations for updating
+        console.log('Updating course:', course.id);
         result = await courseOperations.updateCourse(course.id, formData);
+        console.log('Course update result:', result);
         sonnerToast.success('Course updated successfully!');
       } else {
         // ✅ NEW: Use direct Supabase operations for creating
         console.log('Creating course from form instance:', formInstanceId);
-        result = await courseOperations.createCourse(formData);
-        console.log('Course creation result:', result);
+        console.log('Course data being sent:', formData);
+        
+        try {
+          result = await courseOperations.createCourse(formData);
+          console.log('Course creation result:', result);
+        } catch (createError) {
+          console.error('Course creation error details:', createError);
+          throw createError;
+        }
         
         // TODO: Generate access code - could be enhanced
         accessCode = 'AUTO' + Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -126,18 +136,31 @@ export default function CourseForm({
         );
       }
 
+      console.log('Calling onSave with result:', result);
       onSave({
         id: result.id || course?.id || '',
         ...formData,
         accessCode: accessCode,
       });
     } catch (error) {
-      console.error('Failed to save course:', error);
-      sonnerToast.error('Failed to save course. Please try again.');
+      console.error('Failed to save course - Full error:', error);
+      console.error('Error type:', error?.constructor?.name);
+      console.error('Error message:', error?.message);
+      console.error('Error stack:', error?.stack);
+      
+      // More specific error messages
+      if (error?.message?.includes('auth')) {
+        sonnerToast.error('Authentication error. Please log in again.');
+      } else if (error?.message?.includes('network')) {
+        sonnerToast.error('Network error. Please check your connection.');
+      } else {
+        sonnerToast.error(`Failed to save course: ${error?.message || 'Unknown error'}`);
+      }
     } finally {
       setIsSubmitting(false);
       // Clear the active request for this form instance
       activeRequests.delete(formInstanceId);
+      console.log('Form submission completed');
     }
   };
   

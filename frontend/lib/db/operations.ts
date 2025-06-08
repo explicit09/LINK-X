@@ -28,14 +28,15 @@ export const courseOperations = {
     const { query, category, tags, published, page = 1, limit = 20 } = params
     const offset = (page - 1) * limit
 
+    const user = await supabase.auth.getUser()
+    if (!user.data.user) throw new Error('User not authenticated')
+
+    // Query courses directly - RLS policies will handle access control
     let queryBuilder = supabase
       .from('courses')
       .select(`
-        *,
-        modules(count),
-        enrollments!inner(user_id, role)
+        *
       `)
-      .eq('enrollments.user_id', (await supabase.auth.getUser()).data.user?.id)
 
     // Apply filters
     if (query) {
@@ -98,20 +99,63 @@ export const courseOperations = {
 
   // Create new course
   async createCourse(courseData: CreateCourseData): Promise<Course> {
-    const user = await supabase.auth.getUser()
-    if (!user.data.user) throw new Error('User not authenticated')
+    console.log('[courseOperations.createCourse] Starting course creation with data:', courseData);
+    
+    const userResponse = await supabase.auth.getUser()
+    console.log('[courseOperations.createCourse] Auth response:', userResponse);
+    
+    if (!userResponse.data.user) {
+      console.error('[courseOperations.createCourse] No authenticated user found');
+      throw new Error('User not authenticated')
+    }
+    
+    const userId = userResponse.data.user.id;
+    console.log('[courseOperations.createCourse] User ID:', userId);
+
+    // Start with basic course data
+    const insertData: any = {
+      title: courseData.title,
+      description: courseData.description,
+      code: courseData.code,
+      term: courseData.term,
+      published: courseData.published || false,
+      creator_id: userId,
+      // Set instructor_id to null initially - can be updated later if user has instructor profile
+      instructor_id: null
+    };
+    
+    console.log('[courseOperations.createCourse] Insert data:', insertData);
 
     const { data, error } = await supabase
       .from('courses')
-      .insert({
-        ...courseData,
-        instructor_id: user.data.user.id,
-        creator_id: user.data.user.id,
-      })
+      .insert(insertData)
       .select()
       .single()
+    
+    console.log('[courseOperations.createCourse] Supabase response:', { data, error });
 
-    if (error) throw error
+    if (error) {
+      console.error('[courseOperations.createCourse] Supabase error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      
+      // Check for RLS infinite recursion error
+      if (error.message?.includes('infinite recursion')) {
+        throw new Error('There is a database configuration issue. Please run the SQL fix provided in fix-course-rls-immediate.sql in your Supabase dashboard.');
+      }
+      
+      // Check if it's a foreign key constraint error
+      if (error.code === '23503' && error.message.includes('instructor_id')) {
+        throw new Error('You need an instructor profile to create courses. Please contact support.');
+      }
+      
+      throw error
+    }
+    
+    console.log('[courseOperations.createCourse] Course created successfully:', data);
     return data
   },
 
