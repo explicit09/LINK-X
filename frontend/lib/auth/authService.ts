@@ -496,6 +496,7 @@ class AuthService {
     try {
       debugLog('Completing onboarding', { userId, onboardingData })
 
+      // 1. Complete onboarding in Supabase
       const { error } = await this.supabase.rpc('complete_onboarding', {
         user_id: userId,
         onboarding_data: onboardingData
@@ -503,6 +504,19 @@ class AuthService {
 
       if (error) {
         throw error
+      }
+
+      // 2. Sync onboarding data to backend (Docker system)
+      try {
+        const session = await this.supabase.auth.getSession()
+        if (session.data.session?.access_token) {
+          const { syncOnboardingToBackend } = await import('@/lib/api/endpoints/auth')
+          await syncOnboardingToBackend(onboardingData, session.data.session.access_token)
+          debugLog('Onboarding synced to backend successfully')
+        }
+      } catch (syncError) {
+        // Don't fail the entire operation if backend sync fails
+        errorLog('Backend onboarding sync failed (non-critical)', syncError)
       }
 
       debugLog('Onboarding completed successfully')

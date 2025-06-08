@@ -108,8 +108,3 @@ export default function AuthCallbackPage() {
     </div>
   );
 }
-
-
-Can you check the consistency of my login and if it has been properly done along with the authentication system as a whole? use context7 MCP to look for supabase auth as well to see if we properly did it 
-
-@https://supabase.com/docs/guides/auth @https://supabase.com/docs/guides/auth/social-login/auth-google @https://supabase.com/docs/guides/auth/sessions @https://supabase.com/docs/guides/auth/auth-helpers/auth-ui 

@@ -1,8 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Supabase configuration from environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://torsffahnivnzcnjnxgc.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnNmZmFobml2bnpjbmpueGdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxMzc3MzcsImV4cCI6MjA2NDcxMzczN30.RSplRmOfX5noj_MDpRIRRgUbUYSvlaCXyUGc8PUiySA';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jfutbxgkplrkyyucxhjn.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmdXRieGdrcGxya3l5dWN4aGpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzNjAxMDgsImV4cCI6MjA2NDkzNjEwOH0.zgYKW0X_-OJ_XBcuMVsXZRSkdIJ-gMIAnKgJe0AszwM';
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
@@ -21,7 +21,7 @@ export const supabase = (() => {
           persistSession: true,
           detectSessionInUrl: true,
           storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-          storageKey: 'sb-torsffahnivnzcnjnxgc-auth-token', // Use Supabase default key format
+          storageKey: 'sb-jfutbxgkplrkyyucxhjn-auth-token', // Use Supabase default key format
           flowType: 'implicit', // Use implicit flow for OAuth
         },
         global: {

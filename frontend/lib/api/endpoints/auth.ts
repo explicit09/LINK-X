@@ -61,6 +61,38 @@ export async function checkRegistrationStatus(): Promise<{
 }
 
 /**
+ * Sync onboarding data from Supabase to Docker backend
+ * This bridges the two onboarding systems
+ */
+export async function syncOnboardingToBackend(onboardingData: Record<string, any>, accessToken: string): Promise<boolean> {
+  try {
+    console.log('Syncing onboarding data to backend:', onboardingData);
+    
+    // Transform Supabase onboarding_data to backend onboard_answers format
+    const backendData = {
+      access_token: accessToken,
+      onboard_answers: {
+        // Map new Supabase fields to old backend format
+        name: onboardingData.profile?.name || '',
+        interests: onboardingData.profile?.interests?.join(', ') || '',
+        learning_goals: onboardingData.profile?.learning_goals?.join(', ') || '',
+        preferences: onboardingData.preferences || {},
+        settings: onboardingData.settings || {}
+      },
+      want_quizzes: onboardingData.preferences?.want_quizzes || false
+    };
+    
+    const response = await apiClient.post('/api/v2/auth/onboarding', backendData);
+    console.log('Backend onboarding sync successful:', response);
+    return true;
+  } catch (error) {
+    console.error('Failed to sync onboarding to backend:', error);
+    // Don't throw - this is a non-critical sync operation
+    return false;
+  }
+}
+
+/**
  * DEPRECATED: getAuthToken is no longer needed with modern Supabase auth
  * Tokens are handled automatically by Supabase client
  */
@@ -77,6 +109,7 @@ export const authAPI = {
   getCurrentUser,
   updateUserProfile,
   checkRegistrationStatus,
+  syncOnboardingToBackend,
   getAuthToken,
   
   // V2 endpoints for profile management

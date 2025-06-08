@@ -93,7 +93,7 @@ const Hero = () => {
                   className="bg-blue-600 hover:bg-blue-700 text-white text-base h-12 px-6"
                   asChild
                 >
-                  <Link href="/register">
+                  <Link href="/signup">
                     Get Started
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
