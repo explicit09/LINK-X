@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { courseAPI } from '@/lib/api/courses';
+import { courseOperations } from '@/lib/db/operations';
 import { toast } from 'sonner';
 
 interface Instructor {
@@ -49,8 +49,8 @@ export const useUserCourses = () => {
         setLoading(true);
         setError(null);
         
-        const data = await courseAPI.getCourses();
-        setCourses(data || []);
+        const response = await courseOperations.getUserCourses();
+        setCourses(response.courses || []);
       } catch (error: any) {
         console.error('Failed to load courses:', error);
         setError(error.message || 'Failed to load courses');
@@ -79,8 +79,12 @@ export const useCourseData = (courseId: string) => {
         setLoading(true);
         setError(null);
 
-        // Fetch real course data
-        const courseData = await courseAPI.getCourse(courseId);
+        // Fetch course data directly from Supabase
+        const courseData = await courseOperations.getCourseDetails(courseId);
+        
+        if (!courseData) {
+          throw new Error('Course not found');
+        }
         
         // Ensure we have the necessary fields
         setCourse({
@@ -90,13 +94,16 @@ export const useCourseData = (courseId: string) => {
           title: courseData.title || 'Untitled Course',
           description: courseData.description,
           code: courseData.code,
-          instructor: courseData.instructor,
+          instructor: courseData.instructor_id ? { 
+            id: courseData.instructor_id, 
+            name: 'Instructor' 
+          } : undefined,
           instructor_id: courseData.instructor_id,
           creator_id: courseData.creator_id,
           deadline: courseData.deadline,
           published: courseData.published,
           created_at: courseData.created_at,
-          last_updated: courseData.last_updated,
+          last_updated: courseData.updated_at,
           
           // Add default values for legacy fields
           progress: 0,
@@ -109,14 +116,14 @@ export const useCourseData = (courseId: string) => {
 
       } catch (error: any) {
         console.error('Failed to load course data:', error);
-        const errorMessage = error.response?.data?.message || error.message || 'Failed to load course information';
+        const errorMessage = error.message || 'Failed to load course information';
         setError(errorMessage);
         setCourse(null);
         
         // Show user-friendly error
-        if (error.response?.status === 404) {
+        if (error.message?.includes('not found')) {
           toast.error('Course not found');
-        } else if (error.response?.status === 403) {
+        } else if (error.message?.includes('access')) {
           toast.error('You do not have access to this course');
         }
       } finally {

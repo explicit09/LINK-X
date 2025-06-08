@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { courseAPI } from '@/lib/api/courses';
+import { courseOperations, moduleOperations } from '@/lib/db/operations';
 
 export interface CourseProgress {
   course_id: string;
@@ -25,14 +25,40 @@ export const useCourseProgress = (courseId: string) => {
         setLoading(true);
         setError(null);
 
-        // Fetch progress from backend
-        const backendProgress = await courseAPI.getCourseProgress(courseId);
+        // Get modules to calculate progress
+        const modules = await moduleOperations.getCourseModules(courseId);
         
-        // Enhance with calculated metrics
+        // Calculate progress based on module files and engagement
+        let totalFiles = 0;
+        let viewedFiles = 0;
+        
+        modules.forEach((module: any) => {
+          if (module.files) {
+            totalFiles += module.files.length;
+            module.files.forEach((file: any) => {
+              if (file.view_count_raw > 0 || file.chat_count > 0) {
+                viewedFiles++;
+              }
+            });
+          }
+        });
+        
+        const completionPercentage = totalFiles > 0 ? Math.round((viewedFiles / totalFiles) * 100) : 0;
+        
+        // Create progress object
         const enhancedProgress: CourseProgress = {
-          ...backendProgress,
-          weekly_progress_change: Math.floor(Math.random() * 15) + 1, // TODO: Real calculation
-          trend: 'improving' as const // TODO: Real trend analysis
+          course_id: courseId,
+          user_id: 'current-user', // This will be replaced by actual user ID from auth
+          completion_percentage: completionPercentage,
+          modules_completed: modules.filter((m: any) => {
+            // Consider a module completed if all its files have been viewed
+            if (!m.files || m.files.length === 0) return false;
+            return m.files.every((f: any) => f.view_count_raw > 0);
+          }).length,
+          total_modules: modules.length,
+          last_accessed: new Date().toISOString(),
+          weekly_progress_change: Math.floor(Math.random() * 15) + 1, // Placeholder
+          trend: 'improving' as const // Placeholder
         };
 
         setProgress(enhancedProgress);

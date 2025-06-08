@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { courseAPI } from '@/lib/api/courses';
+import { moduleOperations } from '@/lib/db/operations';
 
 export interface Material {
   id: string;
@@ -142,8 +142,8 @@ export const useCourseModules = (courseId: string) => {
         setLoading(true);
         setError(null);
 
-        // Fetch real module data from backend
-        const backendModules = await courseAPI.getCourseModules(courseId);
+        // Fetch module data directly from Supabase
+        const backendModules = await moduleOperations.getCourseModules(courseId);
         
         // Handle empty modules gracefully
         if (!backendModules || backendModules.length === 0) {
