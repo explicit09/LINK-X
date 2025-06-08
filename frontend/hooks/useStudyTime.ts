@@ -166,9 +166,9 @@ export function useStudyTime(period: 'week' | 'month' | 'all' = 'week'): UseStud
   }, [activeSession]);
 
   // Computed values
-  const weeklyStudyHours = studyTime?.summary.total_hours || 0;
-  const avgSessionLength = studyTime?.summary.avg_session_minutes || 0;
-  const studyStreak = studyTime?.summary.study_streak_days || 0;
+  const weeklyStudyHours = studyTime?.summary?.total_hours || 0;
+  const avgSessionLength = studyTime?.summary?.avg_session_minutes || 0;
+  const studyStreak = studyTime?.summary?.study_streak_days || 0;
 
   return {
     studyTime,

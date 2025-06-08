@@ -119,6 +119,88 @@ class MockAPIClient {
         status: 'success' 
       }
     }
+    
+    if (endpoint.includes('/analytics/study-time/session') && options.method === 'POST') {
+      // Start study session
+      return {
+        data: {
+          session_id: 'mock-session-' + Date.now(),
+          title: 'Study Session',
+          started_at: new Date().toISOString(),
+          status: 'active'
+        },
+        status: 'success'
+      }
+    }
+    
+    if (endpoint.includes('/analytics/study-time/session') && options.method === 'PUT') {
+      // End study session
+      return {
+        data: {
+          session_id: endpoint.split('/').slice(-2)[0],
+          duration_minutes: 45,
+          xp_earned: 25,
+          ended_at: new Date().toISOString(),
+          status: 'completed'
+        },
+        status: 'success'
+      }
+    }
+    
+    if (endpoint.includes('/analytics/study-time')) {
+      return {
+        data: {
+          period: 'This Week',
+          summary: {
+            total_sessions: 8,
+            total_hours: 12.5,
+            total_minutes: 750,
+            avg_session_hours: 1.5,
+            avg_session_minutes: 93,
+            study_streak_days: 5
+          },
+          quality_metrics: {
+            avg_focus_score: 8.2,
+            avg_effectiveness: 4.1,
+            total_ratings: 6
+          },
+          course_breakdown: {
+            '1': { sessions: 5, total_minutes: 450, course_title: 'Introduction to Machine Learning' },
+            '2': { sessions: 3, total_minutes: 300, course_title: 'Web Development Fundamentals' }
+          },
+          daily_breakdown: [
+            { date: '2025-06-02', sessions: 1, total_minutes: 90 },
+            { date: '2025-06-03', sessions: 2, total_minutes: 120 },
+            { date: '2025-06-04', sessions: 1, total_minutes: 75 },
+            { date: '2025-06-05', sessions: 2, total_minutes: 150 },
+            { date: '2025-06-06', sessions: 1, total_minutes: 105 },
+            { date: '2025-06-07', sessions: 1, total_minutes: 90 },
+            { date: '2025-06-08', sessions: 0, total_minutes: 0 }
+          ],
+          recent_sessions: [
+            {
+              id: 's1',
+              title: 'Neural Networks Study Session',
+              date: '2025-06-07',
+              duration_minutes: 90,
+              focus_score: 8.5,
+              effectiveness_rating: 4,
+              course_id: '1'
+            },
+            {
+              id: 's2',
+              title: 'JavaScript Practice',
+              date: '2025-06-06',
+              duration_minutes: 105,
+              focus_score: 7.8,
+              effectiveness_rating: 5,
+              course_id: '2'
+            }
+          ]
+        },
+        status: 'success'
+      }
+    }
 
     // Default response
     return { data: {}, status: 'success' }
