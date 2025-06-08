@@ -1,86 +1,85 @@
-# LEARN-X Documentation
+# LEARN-X Authentication System Documentation
 
-This directory contains all documentation for the LEARN-X platform, organized by purpose and audience.
+This directory contains all documentation for the unified Supabase authentication system.
 
-## Directory Structure
+## 📚 Phase 0 Documents (Planning & Design)
 
-### 📚 Development
-- **`development/`** - Developer guides and development documentation
-  - `claude-guide.md` - AI Assistant development guide for working with this codebase
-  - `frontend/icons-migration-strategy.md` - Frontend icons migration strategy
+### 🎯 Quick Start
+- **[Phase 0 Summary](./phase-0-summary.md)** - Complete overview and sign-off document
+- **[System Design](./auth-system-design.md)** - Technical architecture and requirements
 
-### 🚀 Deployment
-- **`deployment/`** - Deployment guides and scripts
-  - `production-guide.md` - Complete production deployment guide
-  - `docker-optimization.md` - Docker optimization and containerization guide
-  - `supabase-checklist.md` - Supabase deployment checklist
-  - `environment-cleanup.md` - Environment configuration cleanup summary
-  - `scripts/` - Deployment and management scripts
-    - `deploy.sh` - Main deployment script
-    - `run_frontend.sh` - Frontend startup script
+### � Core Documentation
 
-### ⚙️ Operations
-- **`operations/`** - Operations, monitoring, and troubleshooting
-  - `runbooks.md` - Operational runbooks and troubleshooting guides
-  - `monitoring/` - Monitoring and alerting configurations
-    - `prometheus.yml` - Prometheus monitoring configuration
-    - `alertmanager.yml` - Alert manager configuration
-    - `grafana-dashboard.json` - Grafana dashboard configuration
-    - `loki.yml` - Loki logging configuration
-    - `promtail.yml` - Promtail log collection configuration
-    - `blackbox.yml` - Blackbox exporter configuration
-    - `grafana/` - Additional Grafana dashboards
-    - `alerts/` - Alert rule definitions
+| Document | Purpose | Status |
+|----------|---------|--------|
+| **[auth-system-design.md](./auth-system-design.md)** | Complete technical design with ERD, user flows, security requirements | ✅ |
+| **[phase-0-summary.md](./phase-0-summary.md)** | Phase 0 completion summary and Phase 1 roadmap | ✅ |
 
-### ✨ Features
-- **`features/`** - Feature-specific documentation
-  - `gamification-setup.md` - Gamification system setup guide
-  - `embeddings-migration.md` - Supabase embeddings migration guide
+## 🗃️ Implementation Files
 
-### 🏗️ Infrastructure
-- **`infrastructure/`** - Infrastructure as code and configuration
-  - `cloudflare-cdn.tf` - Cloudflare CDN Terraform configuration
-  - `api-versioning-config.yml` - API versioning configuration
-  - `docker-compose.monitoring.yml` - Monitoring stack Docker Compose
+### Database
+- **[migrations/001_initial_auth_setup.sql](../migrations/001_initial_auth_setup.sql)** - Database schema and security setup
 
-### ⚖️ Legal
-- **`legal/`** - Legal documents and licenses
-  - `LICENSE` - Apache 2.0 License
+### Frontend Code
+- **[frontend/types/auth.ts](../frontend/types/auth.ts)** - TypeScript type definitions
+- **[frontend/services/authService.ts](../frontend/services/authService.ts)** - Core authentication service
+- **[frontend/lib/supabase/client.ts](../frontend/lib/supabase/client.ts)** - Browser Supabase client
+- **[frontend/lib/supabase/server.ts](../frontend/lib/supabase/server.ts)** - Server Supabase client
 
-## Quick Reference
+## 🚀 Getting Started
 
 ### For Developers
-Start with `development/claude-guide.md` for comprehensive development guidelines.
+1. Read the **[Phase 0 Summary](./phase-0-summary.md)** for the complete overview
+2. Review the **[System Design](./auth-system-design.md)** for technical details
+3. Check the implementation files in `frontend/` for code structure
 
-### For DevOps/Operations
-- `deployment/production-guide.md` - Production deployment
-- `operations/runbooks.md` - Troubleshooting and operations
-- `operations/monitoring/` - Monitoring setup and configuration
+### For Implementation (Phase 1)
+1. Create Supabase project
+2. Run the migration script: `migrations/001_initial_auth_setup.sql`
+3. Configure OAuth providers in Supabase dashboard
+4. Set up environment variables
+5. Implement AuthContext using the service layer
 
-### For System Administrators
-- `infrastructure/` - Infrastructure configuration files
-- `deployment/scripts/` - Automation scripts
+## 📊 Project Status
 
-## Navigation Tips
+- ✅ **Phase 0**: Planning & Design (Complete)
+- 🔄 **Phase 1**: Supabase Project Setup (Ready to start)
+- ⏳ **Phase 2**: Core Email Auth (Pending)
+- ⏳ **Phase 3**: Social OAuth (Pending)
+- ⏳ **Phase 4**: Session Management (Pending)
+- ⏳ **Phase 5**: RBAC & Hooks (Pending)
+- ⏳ **Phase 6**: Security Hardening (Pending)
+- ⏳ **Phase 7**: QA & Roll-out (Pending)
 
-1. **New to the project?** Start with `development/claude-guide.md`
-2. **Setting up production?** Follow `deployment/production-guide.md`
-3. **Need to troubleshoot?** Check `operations/runbooks.md`
-4. **Configuring monitoring?** See `operations/monitoring/`
-5. **Working with features?** Browse `features/` directory
+## 🔗 Related Files
 
-## Contributing to Documentation
+### Configuration
+- **[frontend/config/environment.config.ts](../frontend/config/environment.config.ts)** - Environment configuration (already supports Supabase)
 
-When adding new documentation:
-1. Place it in the appropriate category directory
-2. Use clear, descriptive filenames
-3. Update this README if adding new categories
-4. Follow the existing documentation style and format
+### Existing Context (Reference)
+- **[frontend/contexts/NoAuthContext.tsx](../frontend/contexts/NoAuthContext.tsx)** - Current mock auth interface
 
-## Documentation Standards
+### Migration Docs (Historical)
+- **[frontend/AUTH_MIGRATION.md](../frontend/AUTH_MIGRATION.md)** - Previous migration attempts
+- **[frontend/AUTH_UI_IMPROVEMENTS.md](../frontend/AUTH_UI_IMPROVEMENTS.md)** - UI improvement notes
 
-- Use Markdown format (`.md`)
-- Include clear headings and structure
-- Add code examples where applicable
-- Keep documentation up-to-date with code changes
-- Use relative links for internal references
+## 💡 Quick References
+
+### Environment Variables Needed
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
+```
+
+### Key Architecture Decisions
+- **Supabase-only**: No custom backend auth
+- **RLS-based security**: Database-level access control
+- **Audit logging**: All auth events tracked
+- **Type-safe**: Complete TypeScript coverage
+- **Modular**: Single authService for all operations
+
+---
+
+**Next Action**: Start Phase 1 - Supabase Project Setup
