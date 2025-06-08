@@ -1,7 +1,7 @@
 'use client';
 
 import { ThemeProvider } from '@/components/theme-provider';
-import { SimpleAuthProvider } from '@/contexts/SimpleAuth';
+import { AuthProvider } from '@/contexts/AuthProvider';
 import { GamificationProvider } from '@/contexts/GamificationContext';
 import { Toaster } from '@/components/ui/toaster';
 
@@ -17,12 +17,12 @@ export default function ClientLayout({
       enableSystem
       disableTransitionOnChange
     >
-      <SimpleAuthProvider>
+      <AuthProvider>
         <GamificationProvider>
           {children}
           <Toaster />
         </GamificationProvider>
-      </SimpleAuthProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
