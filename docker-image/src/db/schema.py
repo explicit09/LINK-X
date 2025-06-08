@@ -973,3 +973,24 @@ class DiscussionVote(Base):
     discussion = relationship('PeerDiscussion', back_populates='votes')
     reply = relationship('DiscussionReply', back_populates='votes')
     user = relationship('User')
+
+
+# Processing Queue for AI Operations
+
+class ProcessingQueue(Base):
+    __tablename__ = 'processing_queue'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    file_id = Column(UUID(as_uuid=True), ForeignKey('files.id', ondelete='CASCADE'), nullable=False)
+    status = Column(String(50), nullable=False, default='pending')
+    priority = Column(String(20), nullable=False, default='normal')
+    processing_type = Column(String(50), nullable=False, default='full')
+    attempts = Column(Integer, default=0)
+    max_attempts = Column(Integer, default=3)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)
+    error_message = Column(Text)
+    metadata = Column(JSONB)
+    
+    # Relationships
+    file = relationship('File')

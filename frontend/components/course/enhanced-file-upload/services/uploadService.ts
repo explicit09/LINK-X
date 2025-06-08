@@ -132,8 +132,38 @@ export class UploadService {
         }
       });
 
+      this.options.onProgress(fileId, 90);
+      
+      // Trigger backend processing for AI features (chunking, embeddings)
+      try {
+        this.options.onStatusChange(fileId, 'processing', 'Queuing for AI processing...');
+        
+        const token = await getAuthToken();
+        const response = await fetch(`${API_URL}/api/v2/files/${fileRecord.id}/process`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            priority: 'normal',
+            processing_type: 'full' // full processing: text extraction, chunking, embeddings
+          })
+        });
+
+        if (!response.ok) {
+          console.warn('Backend processing request failed:', response.statusText);
+          // Don't fail the upload - processing can be retried later
+        } else {
+          console.log('File processing queued successfully');
+        }
+      } catch (processError) {
+        console.warn('Could not trigger backend processing:', processError);
+        // Don't fail the upload - file is stored successfully
+      }
+
       this.options.onProgress(fileId, 100);
-      this.options.onStatusChange(fileId, 'completed', 'Upload complete!');
+      this.options.onStatusChange(fileId, 'completed', 'Upload complete! AI processing queued.');
 
       const result = {
         id: fileRecord.id,
@@ -141,11 +171,11 @@ export class UploadService {
         type: getFileTypeFromMime(fileRecord.file_type),
         size: formatFileSize(fileRecord.file_size),
         uploadedAt: 'Just now',
-        processed: true,
+        processed: false, // Will be processed by backend workers
       };
 
       this.options.onComplete(fileId, result);
-      sonnerToast.success(`${uploadFile.file.name} uploaded successfully!`);
+      sonnerToast.success(`${uploadFile.file.name} uploaded! AI processing started in background.`);
     } catch (error) {
       console.error('Student upload error:', error);
       const errorMessage =
@@ -273,8 +303,38 @@ export class UploadService {
         }
       });
 
+      this.options.onProgress(fileId, 90);
+      
+      // Trigger backend processing for AI features (chunking, embeddings)
+      try {
+        this.options.onStatusChange(fileId, 'processing', 'Queuing for AI processing...');
+        
+        const token = await getAuthToken();
+        const response = await fetch(`${API_URL}/api/v2/files/${fileRecord.id}/process`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            priority: 'high', // Instructors get higher priority
+            processing_type: 'full' // full processing: text extraction, chunking, embeddings
+          })
+        });
+
+        if (!response.ok) {
+          console.warn('Backend processing request failed:', response.statusText);
+          // Don't fail the upload - processing can be retried later
+        } else {
+          console.log('File processing queued successfully with high priority');
+        }
+      } catch (processError) {
+        console.warn('Could not trigger backend processing:', processError);
+        // Don't fail the upload - file is stored successfully
+      }
+
       this.options.onProgress(fileId, 100);
-      this.options.onStatusChange(fileId, 'completed', 'Upload complete!');
+      this.options.onStatusChange(fileId, 'completed', 'Upload complete! AI processing queued.');
 
       const result = {
         id: fileRecord.id,
@@ -282,11 +342,11 @@ export class UploadService {
         type: getFileTypeFromMime(fileRecord.file_type),
         size: formatFileSize(fileRecord.file_size),
         uploadedAt: 'Just now',
-        processed: true,
+        processed: false, // Will be processed by backend workers
       };
 
       this.options.onComplete(fileId, result);
-      sonnerToast.success(`${uploadFile.file.name} uploaded successfully!`);
+      sonnerToast.success(`${uploadFile.file.name} uploaded! AI processing started in background.`);
     } catch (error) {
       console.error('Instructor upload error:', error);
       const errorMessage =

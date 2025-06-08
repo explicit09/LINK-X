@@ -844,3 +844,134 @@ def stream_section_v2(file_id):
             "error": "Failed to stream section content",
             "message": str(e)
         }), 500
+
+
+@files_bp.route('/<file_id>/process', methods=['POST'])
+@auth_required()
+def process_file_v2(file_id):
+    """
+    Queue file for processing (text extraction, chunking, embeddings).
+    This endpoint is called by the frontend after successful file upload.
+    """
+    try:
+        user = g.current_user
+        data = request.get_json() or {}
+        
+        # Get file with access check
+        file = get_file_service().get_file_with_access_check(file_id, user.id)
+        
+        # Determine priority based on user role or request
+        priority = data.get('priority', 'normal')
+        processing_type = data.get('processing_type', 'full')
+        
+        # Add to processing queue
+        try:
+            from core.database_supabase import db
+            from db.schema import ProcessingQueue
+            import uuid
+            from datetime import datetime
+            
+            # Create processing queue entry
+            queue_entry = ProcessingQueue(
+                id=uuid.uuid4(),
+                file_id=file_id,
+                status='pending',
+                priority=priority,
+                processing_type=processing_type,
+                created_at=datetime.utcnow(),
+                metadata={
+                    'user_id': str(user.id),
+                    'requested_by': 'upload_service'
+                }
+            )
+            
+            db.session.add(queue_entry)
+            db.session.commit()
+            
+            logger.info(f"File {file_id} queued for processing with priority {priority}")
+            
+            # Try to trigger immediate processing if workers are available
+            try:
+                from tasks.enhanced_file_processing import process_file_async
+                
+                # Queue the task with appropriate priority
+                if priority == 'high':
+                    result = process_file_async.apply_async(
+                        args=[str(file_id)],
+                        priority=9  # High priority
+                    )
+                else:
+                    result = process_file_async.apply_async(
+                        args=[str(file_id)],
+                        priority=5  # Normal priority
+                    )
+                
+                logger.info(f"Async processing triggered for file {file_id}, task_id: {result.id}")
+                
+                return success_response({
+                    'queue_id': str(queue_entry.id),
+                    'task_id': result.id if hasattr(result, 'id') else None,
+                    'status': 'queued',
+                    'priority': priority,
+                    'message': 'File queued for processing'
+                })
+                
+            except Exception as async_error:
+                logger.warning(f"Could not trigger async processing: {str(async_error)}")
+                # Still return success - workers will pick it up from queue
+                return success_response({
+                    'queue_id': str(queue_entry.id),
+                    'status': 'queued',
+                    'priority': priority,
+                    'message': 'File queued for processing (workers will process when available)'
+                })
+            
+        except Exception as queue_error:
+            logger.error(f"Failed to queue file for processing: {str(queue_error)}")
+            # Try direct processing as fallback
+            try:
+                from utils.semantic_chunker import create_enhanced_chunks
+                from utils.textUtils import extract_text_from_file
+                from services.embedding_service import EmbeddingService
+                
+                # Extract text
+                text_content = extract_text_from_file(file_id)
+                if text_content:
+                    # Update file with extracted text
+                    file.transcription = text_content[:5000]  # Store first 5000 chars
+                    file.extracted_text = text_content
+                    
+                    # Create chunks
+                    chunks = create_enhanced_chunks(text_content, file.file_type)
+                    
+                    # Generate embeddings
+                    embedding_service = EmbeddingService()
+                    for chunk in chunks:
+                        embedding_service.create_embedding(
+                            file_id=file_id,
+                            chunk_text=chunk['content'],
+                            chunk_index=chunk['chunk_index'],
+                            metadata=chunk.get('metadata', {})
+                        )
+                    
+                    db.session.commit()
+                    
+                    return success_response({
+                        'status': 'processed',
+                        'message': 'File processed immediately',
+                        'chunks_created': len(chunks)
+                    })
+                else:
+                    return error_response("Could not extract text from file", status_code=422)
+                    
+            except Exception as fallback_error:
+                logger.error(f"Fallback processing also failed: {str(fallback_error)}")
+                return error_response("Failed to process file", status_code=500)
+        
+    except NotFoundError:
+        return error_response("File not found", status_code=404)
+    except UnauthorizedError:
+        return error_response("Access denied", status_code=403)
+    except Exception as e:
+        logger.error(f"Process file error: {str(e)}", exc_info=True)
+        return error_response("An error occurred processing the file", status_code=500)
