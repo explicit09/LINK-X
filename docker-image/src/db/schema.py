@@ -92,7 +92,7 @@ class Course(Base):
     code = Column(String(32), nullable=True)      
     term = Column(String(32), nullable=True)
     published = Column(Boolean, nullable=False, default=False)
-    last_updated = Column(DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     instructor_id = Column(UUID(as_uuid=True),
                            ForeignKey('instructor_profiles.user_id', ondelete='SET NULL'),
@@ -116,7 +116,8 @@ class Course(Base):
             'code': self.code,
             'term': self.term,
             'published': self.published,
-            'last_updated': self.last_updated.isoformat() if self.last_updated else None,
+            'last_updated': self.updated_at.isoformat() if self.updated_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'instructor_id': str(self.instructor_id) if self.instructor_id else None,
             'creator_id': str(self.creator_id) if self.creator_id else None
