@@ -156,6 +156,24 @@ export const courseOperations = {
     }
     
     console.log('[courseOperations.createCourse] Course created successfully:', data);
+    
+    // Award XP for creating a course (this will trigger all metric updates)
+    try {
+      await supabase.from('user_activities').insert({
+        user_id: userId,
+        activity_type: 'course_create',
+        xp_earned: 100, // 100 XP for creating a course
+        metadata: {
+          course_id: data.id,
+          course_title: data.title
+        }
+      });
+      console.log('[courseOperations.createCourse] XP awarded for course creation');
+    } catch (xpError) {
+      console.warn('[courseOperations.createCourse] Failed to award XP:', xpError);
+      // Don't fail the course creation if XP awarding fails
+    }
+    
     return data
   },
 

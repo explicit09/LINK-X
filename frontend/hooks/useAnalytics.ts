@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './useAuth';
+import { supabase } from '@/lib/supabase';
+import { courseOperations } from '@/lib/db/operations';
 
 interface AnalyticsData {
   overview: {
@@ -144,12 +146,121 @@ export function useAnalytics(): {
   const api: AnalyticsAPI = {
     // Student Analytics
     getStudentDashboard: useCallback(async (days = 30) => {
-      return handleApiCall<AnalyticsData>(`/api/v2/analytics/student/dashboard?days=${days}`);
-    }, [handleApiCall]),
+      try {
+        if (!user) throw new Error('Not authenticated');
+        
+        const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+        
+        // Fetch data from Supabase
+        const [activitiesData, statsData, sessionsData] = await Promise.all([
+          // User activities
+          supabase
+            .from('user_activities')
+            .select('*')
+            .eq('user_id', user.id)
+            .gte('created_at', startDate.toISOString()),
+          
+          // User stats
+          supabase
+            .from('user_stats')
+            .select('*')
+            .eq('user_id', user.id)
+            .single(),
+          
+          // Study sessions
+          supabase
+            .from('study_sessions')
+            .select('*')
+            .eq('user_id', user.id)
+            .gte('created_at', startDate.toISOString())
+        ]);
+        
+        // Calculate metrics
+        const activities = activitiesData.data || [];
+        const stats = statsData.data;
+        const sessions = sessionsData.data || [];
+        
+        const weekActivities = activities.filter(a => 
+          new Date(a.created_at) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+        );
+        
+        const avgDuration = sessions.length > 0 
+          ? sessions.reduce((sum, s) => sum + (s.actual_duration || 0), 0) / sessions.length
+          : 0;
+        
+        const analyticsData: AnalyticsData = {
+          overview: {
+            this_week_activities: weekActivities.length,
+            this_week_avg_duration: avgDuration,
+            this_week_engagement: 75, // Placeholder
+            monthly_activities: activities.length,
+            avg_completion_rate: 80, // Placeholder
+            avg_engagement_score: 85, // Placeholder
+            current_xp: stats?.total_xp || 0,
+            current_level: Math.floor((stats?.total_xp || 0) / 100) + 1,
+            daily_streak: stats?.daily_streak || 0
+          },
+          engagement_trends: [], // Would need more complex calculations
+          learning_patterns: {},
+          content_performance: [],
+          study_insights: {
+            avg_session_length: avgDuration,
+            avg_effectiveness: 4, // Placeholder
+            avg_focus_score: 8, // Placeholder
+            completed_sessions: sessions.filter(s => s.status === 'completed').length,
+            missed_sessions: 0, // Would need schedule data
+            total_xp_earned: stats?.total_xp || 0
+          },
+          generated_at: new Date().toISOString()
+        };
+        
+        return analyticsData;
+      } catch (error) {
+        console.error('Failed to fetch student dashboard:', error);
+        // Still try the API as fallback
+        return handleApiCall<AnalyticsData>(`/api/v2/analytics/student/dashboard?days=${days}`);
+      }
+    }, [handleApiCall, user]),
 
     getEngagementSummary: useCallback(async (days = 7) => {
-      return handleApiCall<EngagementSummary>(`/api/v2/analytics/engagement/summary?days=${days}`);
-    }, [handleApiCall]),
+      try {
+        if (!user) throw new Error('Not authenticated');
+        
+        const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+        
+        // Fetch engagement data from Supabase
+        const { data: activities } = await supabase
+          .from('user_activities')
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('created_at', startDate.toISOString());
+        
+        // Calculate summary
+        const totalSessions = activities?.length || 0;
+        const activeDays = new Set(activities?.map(a => 
+          new Date(a.created_at).toDateString()
+        ) || []).size;
+        
+        const summary: EngagementSummary = {
+          period_days: days,
+          summary: {
+            total_sessions: totalSessions,
+            avg_engagement: 85, // Placeholder
+            total_time_minutes: 0, // Would need session data
+            avg_interactions: 10, // Placeholder
+            active_days: activeDays
+          },
+          top_content: [],
+          generated_at: new Date().toISOString()
+        };
+        
+        return summary;
+      } catch (error) {
+        console.error('Failed to fetch engagement summary:', error);
+        // Fallback to API
+        return handleApiCall<EngagementSummary>(`/api/v2/analytics/engagement/summary?days=${days}`);
+      }
+    }, [handleApiCall, user]),
 
     detectPatterns: useCallback(async () => {
       return handleApiCall(`/api/v2/analytics/patterns/detect`, {
