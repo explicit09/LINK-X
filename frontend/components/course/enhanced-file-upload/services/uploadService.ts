@@ -2,6 +2,8 @@ import { toast as sonnerToast } from 'sonner';
 import { UploadFile } from '../types';
 import { formatFileSize, getFileTypeFromMime } from '../utils';
 import { supabase } from '@/supabaseconfig';
+import { v4 as uuidv4 } from 'uuid';
+import { ensureStorageBucket } from '@/lib/utils/ensureStorageBucket';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -51,74 +53,93 @@ export class UploadService {
       this.options.onStatusChange(fileId, 'uploading');
       this.options.onProgress(fileId, 0);
 
-      const formData = new FormData();
-      formData.append('file', uploadFile.file);
-      formData.append('title', uploadFile.file.name);
-
-      if (this.options.moduleId) {
-        formData.append('moduleId', this.options.moduleId);
+      // Check authentication
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Not authenticated');
       }
 
-      formData.append(
-        'description',
-        `Uploaded by student: ${uploadFile.file.name}`,
-      );
+      // Generate unique file path
+      const fileExt = uploadFile.file.name.split('.').pop() || 'pdf';
+      const fileName = `${uuidv4()}.${fileExt}`;
+      const filePath = `${this.options.courseId}/${this.options.moduleId || 'general'}/${fileName}`;
 
-      // Get auth token
-      let authHeaders: Record<string, string> = {};
+      // Upload to Supabase Storage
+      this.options.onProgress(fileId, 20);
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('course-files')
+        .upload(filePath, uploadFile.file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        // Check if it's a bucket not found error
+        if (uploadError.message?.includes('Bucket not found')) {
+          await ensureStorageBucket(); // This will show instructions
+          throw new Error(
+            'Storage not configured. Please contact your administrator to set up the file storage bucket.'
+          );
+        }
+        throw uploadError;
+      }
+
+      this.options.onProgress(fileId, 60);
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('course-files')
+        .getPublicUrl(filePath);
+
+      // Create file record in database
+      this.options.onStatusChange(fileId, 'processing', 'Creating file record...');
       
-      try {
-        if (await isAuthenticated()) {
-          const token = await getAuthToken();
-          if (token) {
-            authHeaders['Authorization'] = `Bearer ${token}`;
-          }
-        } else {
-          throw new Error('Not authenticated');
-        }
-      } catch (error: any) {
-        console.log('Auth failed:', error.message);
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            const supabaseToken = session.access_token;
-            authHeaders['Authorization'] = `Bearer ${supabaseToken}`;
-            console.log('Using Supabase token for upload');
-          }
-        } catch (supabaseError: any) {
-          console.error('Supabase auth also failed:', supabaseError);
-          // Continue without auth headers - let the server handle it
-        }
+      const { data: fileRecord, error: dbError } = await supabase
+        .from('files')
+        .insert({
+          title: uploadFile.file.name,
+          filename: uploadFile.file.name,
+          file_type: getFileTypeFromMime(uploadFile.file.type),
+          file_size: uploadFile.file.size,
+          module_id: this.options.moduleId || null,
+          storage_path: filePath,  // Add storage_path
+          s3_key: filePath,
+          s3_bucket: 'course-files',
+          storage_type: 'supabase'
+        })
+        .select()
+        .single();
+
+      if (dbError) {
+        // Try to clean up the uploaded file
+        await supabase.storage
+          .from('course-files')
+          .remove([filePath]);
+        throw dbError;
       }
 
-      const response = await fetch(`${API_URL}/api/v2/files/upload`, {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-        headers: authHeaders,
+      this.options.onProgress(fileId, 80);
+
+      // Award XP for uploading content
+      await supabase.from('user_activities').insert({
+        user_id: user.id,
+        activity_type: 'file_upload',
+        xp_earned: 10,
+        metadata: {
+          file_id: fileRecord.id,
+          file_name: uploadFile.file.name,
+          course_id: this.options.courseId
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Student upload failed: ${response.statusText}`);
-      }
-
-      // Simulate progress during upload
-      await this.simulateProgress(fileId, 'uploading');
-
-      // Update to processing
-      this.options.onStatusChange(fileId, 'processing', 'Processing file...');
-
-      // Simulate processing time
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Complete upload
+      this.options.onProgress(fileId, 100);
       this.options.onStatusChange(fileId, 'completed', 'Upload complete!');
 
       const result = {
-        id: fileId,
-        title: uploadFile.file.name,
-        type: getFileTypeFromMime(uploadFile.file.type),
-        size: formatFileSize(uploadFile.file.size),
+        id: fileRecord.id,
+        title: fileRecord.title,
+        type: getFileTypeFromMime(fileRecord.file_type),
+        size: formatFileSize(fileRecord.file_size),
         uploadedAt: 'Just now',
         processed: true,
       };
@@ -143,105 +164,123 @@ export class UploadService {
       this.options.onStatusChange(fileId, 'uploading');
       this.options.onProgress(fileId, 0);
 
-      // Get auth token
-      let authHeaders: Record<string, string> = {};
-      
-      try {
-        if (await isAuthenticated()) {
-          const token = await getAuthToken();
-          if (token) {
-            authHeaders['Authorization'] = `Bearer ${token}`;
+      // Check authentication
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Not authenticated');
+      }
+
+      // Check if we need to create a default module
+      if (!this.options.moduleId) {
+        const { data: modules } = await supabase
+          .from('modules')
+          .select('id')
+          .eq('course_id', this.options.courseId)
+          .limit(1);
+
+        if (!modules || modules.length === 0) {
+          // Create a default module
+          const { data: newModule, error: moduleError } = await supabase
+            .from('modules')
+            .insert({
+              title: 'Course Materials',
+              description: 'Default module for course materials',
+              course_id: this.options.courseId,
+              ordering: 1
+            })
+            .select()
+            .single();
+
+          if (moduleError) {
+            console.warn('Failed to create default module:', moduleError);
+          } else {
+            this.options.moduleId = newModule.id;
           }
-        } else {
-          throw new Error('Not authenticated');
-        }
-      } catch (error: any) {
-        console.log('Falling back to Supabase auth due to:', error.message);
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            const supabaseToken = session.access_token;
-            authHeaders['Authorization'] = `Bearer ${supabaseToken}`;
-            console.log('Using Supabase token for instructor upload');
-          }
-        } catch (supabaseError: any) {
-          console.error('Supabase auth also failed:', supabaseError);
         }
       }
 
-      // Get course modules
-      try {
-        const modulesResponse = await fetch(
-          `${API_URL}/api/v2/courses/${this.options.courseId}/modules`,
-          {
-            credentials: 'include',
-            headers: authHeaders,
-          },
-        );
+      // Generate unique file path
+      const fileExt = uploadFile.file.name.split('.').pop() || 'pdf';
+      const fileName = `${uuidv4()}.${fileExt}`;
+      const filePath = `${this.options.courseId}/${this.options.moduleId || 'general'}/${fileName}`;
 
-        if (!modulesResponse.ok && !this.options.moduleId) {
-          // Create a default module if none exists
-          const createModuleResponse = await fetch(
-            `${API_URL}/api/v2/courses/${this.options.courseId}/modules`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...authHeaders,
-              },
-              credentials: 'include',
-              body: JSON.stringify({
-                title: 'Course Materials',
-                description: 'Default module for course materials',
-                module_order: 1,
-              }),
-            },
+      // Upload to Supabase Storage
+      this.options.onProgress(fileId, 20);
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('course-files')
+        .upload(filePath, uploadFile.file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        // Check if it's a bucket not found error
+        if (uploadError.message?.includes('Bucket not found')) {
+          await ensureStorageBucket(); // This will show instructions
+          throw new Error(
+            'Storage not configured. Please contact your administrator to set up the file storage bucket.'
           );
-
-          if (!createModuleResponse.ok) {
-            throw new Error('Failed to create module');
-          }
         }
-      } catch (moduleError) {
-        console.warn('Module handling failed, continuing with simulation');
-        return this.simulateUpload(uploadFile);
+        throw uploadError;
       }
 
-      const formData = new FormData();
-      formData.append('file', uploadFile.file);
+      this.options.onProgress(fileId, 60);
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('course-files')
+        .getPublicUrl(filePath);
+
+      // Create file record in database
+      this.options.onStatusChange(fileId, 'processing', 'Creating file record...');
       
-      if (this.options.moduleId) {
-        formData.append('moduleId', this.options.moduleId);
+      const { data: fileRecord, error: dbError } = await supabase
+        .from('files')
+        .insert({
+          title: uploadFile.file.name,
+          filename: uploadFile.file.name,
+          file_type: getFileTypeFromMime(uploadFile.file.type),
+          file_size: uploadFile.file.size,
+          module_id: this.options.moduleId || null,
+          storage_path: filePath,  // Add storage_path
+          s3_key: filePath,
+          s3_bucket: 'course-files',
+          storage_type: 'supabase'
+        })
+        .select()
+        .single();
+
+      if (dbError) {
+        // Try to clean up the uploaded file
+        await supabase.storage
+          .from('course-files')
+          .remove([filePath]);
+        throw dbError;
       }
 
-      const response = await fetch(`${API_URL}/api/v2/files/upload`, {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-        headers: authHeaders,
+      this.options.onProgress(fileId, 80);
+
+      // Award XP for uploading content (instructor gets more XP)
+      await supabase.from('user_activities').insert({
+        user_id: user.id,
+        activity_type: 'file_upload',
+        xp_earned: 25, // Instructors get more XP for uploading course materials
+        metadata: {
+          file_id: fileRecord.id,
+          file_name: uploadFile.file.name,
+          course_id: this.options.courseId,
+          role: 'instructor'
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
-      }
-
-      // Simulate progress during upload
-      await this.simulateProgress(fileId, 'uploading');
-
-      // Update to processing
-      this.options.onStatusChange(fileId, 'processing', 'Processing file...');
-
-      // Simulate processing time
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Complete upload
+      this.options.onProgress(fileId, 100);
       this.options.onStatusChange(fileId, 'completed', 'Upload complete!');
 
       const result = {
-        id: fileId,
-        title: uploadFile.file.name,
-        type: getFileTypeFromMime(uploadFile.file.type),
-        size: formatFileSize(uploadFile.file.size),
+        id: fileRecord.id,
+        title: fileRecord.title,
+        type: getFileTypeFromMime(fileRecord.file_type),
+        size: formatFileSize(fileRecord.file_size),
         uploadedAt: 'Just now',
         processed: true,
       };

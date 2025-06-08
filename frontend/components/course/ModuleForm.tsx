@@ -72,7 +72,13 @@ export function ModuleForm({ courseId, isOpen, onClose, onSuccess }: ModuleFormP
       
       toast.success(`Module "${title}" created successfully!`);
       resetForm();
-      onSuccess();
+      
+      // Call onSuccess and wait for it if it's async
+      if (onSuccess) {
+        await Promise.resolve(onSuccess());
+      }
+      
+      // Close dialog after everything is done
       onClose();
     } catch (error) {
       console.error('Failed to create module:', error);

@@ -76,13 +76,26 @@ export default function CoursePage() {
   // Refresh data function
   const refreshCourseData = async () => {
     try {
-      await Promise.all([
-        refetchModules?.(),
-        refetchCourse?.(),
-        refetchProgress?.()
-      ]);
+      // Ensure all refetch functions exist and are called properly
+      const promises = [];
+      
+      if (refetchModules) {
+        promises.push(refetchModules());
+      }
+      if (refetchCourse) {
+        promises.push(refetchCourse());
+      }
+      if (refetchProgress) {
+        promises.push(refetchProgress());
+      }
+      
+      await Promise.all(promises);
+      
+      // Small delay to ensure state updates propagate
+      await new Promise(resolve => setTimeout(resolve, 100));
     } catch (error) {
       console.error('Failed to refresh course data:', error);
+      toast.error('Failed to refresh data. Please refresh the page.');
     }
   };
 
@@ -797,9 +810,9 @@ export default function CoursePage() {
         courseId={courseId}
         isOpen={showModuleForm}
         onClose={() => setShowModuleForm(false)}
-        onSuccess={() => {
+        onSuccess={async () => {
           // Refresh modules after creation
-          refreshCourseData();
+          await refreshCourseData();
         }}
       />
     </SharedDashboardLayout>

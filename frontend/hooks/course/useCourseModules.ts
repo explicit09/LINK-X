@@ -155,13 +155,13 @@ export const useCourseModules = (courseId: string) => {
         const transformedModules: Module[] = backendModules
           .sort((a, b) => a.ordering - b.ordering)
           .map((module, index) => {
-            const materials = module.materials || [];
+            const materials = module.files || [];
             const progress = calculateModuleProgress(materials);
             const confidenceLevel = calculateConfidenceLevel(materials, progress);
             const status = determineModuleStatus(progress, index, backendModules.length);
             
             // Transform materials
-            const materialsWithMetrics: Material[] = materials.map(material => ({
+            const materialsWithMetrics: Material[] = materials.map((material: any) => ({
               id: material.id,
               title: material.title,
               type: mapFileTypeToMaterialType(material.file_type),
@@ -208,15 +208,81 @@ export const useCourseModules = (courseId: string) => {
     loadModules();
   }, [courseId]);
 
+  const refetch = async () => {
+    if (!courseId) return;
+    
+    try {
+      // Don't clear modules while loading to prevent blank page
+      setLoading(true);
+      setError(null);
+
+      // Fetch module data directly from Supabase
+      const backendModules = await moduleOperations.getCourseModules(courseId);
+      
+      // Handle empty modules gracefully
+      if (!backendModules || backendModules.length === 0) {
+        setModules([]);
+        return;
+      }
+      
+      // Transform backend data to match our interface
+      const transformedModules: Module[] = backendModules
+        .sort((a, b) => a.ordering - b.ordering)
+        .map((module, index) => {
+          const materials = module.files || [];
+          const progress = calculateModuleProgress(materials);
+          const confidenceLevel = calculateConfidenceLevel(materials, progress);
+          const status = determineModuleStatus(progress, index, backendModules.length);
+          
+          // Transform materials
+          const materialsWithMetrics: Material[] = materials.map((material: any) => ({
+            id: material.id,
+            title: material.title,
+            type: mapFileTypeToMaterialType(material.file_type),
+            completed: (material.view_count_raw || 0) > 0,
+            urgent: status === 'urgent' && (material.view_count_raw || 0) === 0,
+            filename: material.filename,
+            file_type: material.file_type,
+            file_size: material.file_size,
+            view_count: material.view_count_raw || 0,
+            chat_count: material.chat_count || 0,
+            timeSpent: (material.view_count_raw || 0) > 0 ? '45min' : undefined,
+            estimatedTime: material.file_type === 'video' ? '60min' : '30min'
+          }));
+
+          return {
+            id: module.id,
+            title: module.title,
+            description: module.description,
+            progress: Math.round(progress),
+            materials: materials.length,
+            completed: materialsWithMetrics.filter(m => m.completed).length,
+            timeSpent: estimateTimeSpent(materials),
+            estimatedTime: estimateRemainingTime(materials, progress),
+            status,
+            weaknessScore: Math.max(0, 100 - confidenceLevel),
+            confidenceLevel,
+            materials_list: materialsWithMetrics,
+            ordering: module.ordering,
+            lastAccessed: status === 'in-progress' && progress > 0 ? '2 hours ago' : undefined
+          };
+        });
+
+      setModules(transformedModules);
+
+    } catch (error) {
+      console.error('Failed to load course modules:', error);
+      setError('Failed to load course modules');
+      setModules([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     modules,
     loading,
     error,
-    refetch: () => {
-      if (courseId) {
-        setLoading(true);
-        setModules([]);
-      }
-    }
+    refetch
   };
 };
