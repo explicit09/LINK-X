@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
-import { studentAPI } from '@/lib/api';
 import { toast as sonnerToast } from 'sonner';
 import type { TodoItem, Course } from '../types';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 
 export function useTodos(course: Course | null, userRole: string) {
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [loadingTodos, setLoadingTodos] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     const loadTodos = async () => {
-      if (userRole !== 'student') {
+      if (userRole !== 'student' || !user) {
         setLoadingTodos(false);
         return;
       }
@@ -17,20 +19,45 @@ export function useTodos(course: Course | null, userRole: string) {
       try {
         setLoadingTodos(true);
 
-        const response = await studentAPI.getTodoItems();
-        const todosData: TodoItem[] = Array.isArray(response) ? response : [];
+        // ✅ NEW: Query todos directly from Supabase
+        let query = supabase
+          .from('user_todos')
+          .select(`
+            id,
+            title,
+            course,
+            due_date,
+            type,
+            priority,
+            completed,
+            created_at
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
 
-        // Filter todos for this specific course if we have a course ID
-        const courseTodos = course?.id
-          ? todosData.filter(
-              (todo: TodoItem) =>
-                todo.course === course?.title ||
-                todo.course === 'General' ||
-                todo.course === 'This Course',
-            )
-          : todosData;
+        // Filter for specific course if provided
+        if (course?.id) {
+          query = query.or(`course.eq.${course.title},course.eq.General,course.eq.This Course`);
+        }
 
-        setTodos(courseTodos);
+        const { data: todos, error } = await query;
+
+        if (error) {
+          throw error;
+        }
+
+        // Transform to match interface
+        const transformedTodos: TodoItem[] = (todos || []).map(todo => ({
+          id: todo.id,
+          title: todo.title,
+          course: todo.course,
+          dueDate: todo.due_date,
+          type: todo.type,
+          priority: todo.priority,
+          completed: todo.completed || false,
+        }));
+
+        setTodos(transformedTodos);
       } catch (error) {
         console.error('useTodos: Failed to load todos:', error);
         setTodos([]);
@@ -42,16 +69,26 @@ export function useTodos(course: Course | null, userRole: string) {
     if (userRole === 'student') {
       loadTodos();
     }
-  }, [userRole]);
+  }, [userRole, user, course?.id, course?.title]);
 
   const toggleTodo = async (todoId: string) => {
     const todo = todos.find((t) => t.id === todoId);
-    if (!todo) return;
+    if (!todo || !user) return;
 
     try {
-      await studentAPI.updateTodoItem(todoId, {
-        completed: !todo.completed,
-      });
+      // ✅ NEW: Update todo directly in Supabase
+      const { error } = await supabase
+        .from('user_todos')
+        .update({
+          completed: !todo.completed,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', todoId)
+        .eq('user_id', user.id);
+
+      if (error) {
+        throw error;
+      }
 
       setTodos((prev) =>
         prev.map((todo) =>
@@ -69,11 +106,21 @@ export function useTodos(course: Course | null, userRole: string) {
   };
 
   const deleteTodo = async (todoId: string) => {
+    if (!user) return;
+
     try {
-      await studentAPI.deleteTodoItem(todoId);
+      // ✅ NEW: Delete todo directly from Supabase
+      const { error } = await supabase
+        .from('user_todos')
+        .delete()
+        .eq('id', todoId)
+        .eq('user_id', user.id);
+
+      if (error) {
+        throw error;
+      }
 
       setTodos((prev) => prev.filter((todo) => todo.id !== todoId));
-
       sonnerToast.success('Task deleted successfully!');
     } catch (error) {
       console.error('useTodos: Failed to delete todo:', error);

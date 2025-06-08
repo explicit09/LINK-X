@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { studentAPI } from '@/lib/api';
 import { toast as sonnerToast } from 'sonner';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 
 interface TodoItem {
   id: string;
@@ -22,18 +23,47 @@ export const useTodoItems = (userRole: string) => {
   const [newTodoType, setNewTodoType] = useState<
     'quiz' | 'assignment' | 'reading' | 'review'
   >('assignment');
+  
+  const { user } = useAuth();
 
   const loadTodoItems = async () => {
     try {
-      if (userRole === 'student') {
-        const realTodos = await studentAPI.getTodoItems();
-        const todosData: TodoItem[] = Array.isArray(realTodos) ? realTodos : [];
-        setTodoItems(todosData);
+      if (userRole === 'student' && user) {
+        // ✅ NEW: Query todo items directly from Supabase
+        const { data: todos, error } = await supabase
+          .from('user_todos')
+          .select(`
+            id,
+            title,
+            course,
+            due_date,
+            type,
+            priority,
+            created_at
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          throw error;
+        }
+
+        // Transform to match interface
+        const transformedTodos: TodoItem[] = (todos || []).map(todo => ({
+          id: todo.id,
+          title: todo.title,
+          course: todo.course,
+          dueDate: todo.due_date,
+          type: todo.type,
+          priority: todo.priority,
+        }));
+
+        setTodoItems(transformedTodos);
       } else {
         setTodoItems([]);
       }
     } catch (error) {
-      console.warn('Failed to load real todo items:', error);
+      console.warn('Failed to load todo items:', error);
       setTodoItems([]);
     }
   };
@@ -42,15 +72,36 @@ export const useTodoItems = (userRole: string) => {
     if (!newTodoTitle.trim()) return;
 
     try {
-      if (userRole === 'student') {
-        const newTodo = await studentAPI.createTodoItem({
-          title: newTodoTitle,
-          course: newTodoCourse || 'General',
-          type: newTodoType,
-          priority: newTodoPriority,
-        });
+      if (userRole === 'student' && user) {
+        // ✅ NEW: Insert todo item directly into Supabase
+        const { data: newTodo, error } = await supabase
+          .from('user_todos')
+          .insert({
+            user_id: user.id,
+            title: newTodoTitle,
+            course: newTodoCourse || 'General',
+            type: newTodoType,
+            priority: newTodoPriority,
+            created_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
 
-        setTodoItems((prev) => [...prev, newTodo]);
+        if (error) {
+          throw error;
+        }
+
+        // Add to local state
+        const todoToAdd: TodoItem = {
+          id: newTodo.id,
+          title: newTodo.title,
+          course: newTodo.course,
+          dueDate: newTodo.due_date,
+          type: newTodo.type,
+          priority: newTodo.priority,
+        };
+
+        setTodoItems((prev) => [todoToAdd, ...prev]);
       }
 
       // Clear form
@@ -67,14 +118,19 @@ export const useTodoItems = (userRole: string) => {
 
   const removeTodoItem = async (id: string) => {
     try {
-      if (userRole === 'student') {
-        await studentAPI.deleteTodoItem(id);
+      if (userRole === 'student' && user) {
+        // ✅ NEW: Delete todo item directly from Supabase
+        const { error } = await supabase
+          .from('user_todos')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id); // Ensure user can only delete their own todos
 
-        setTodoItems((prev) => {
-          const filtered = prev.filter((item) => item.id !== id);
-          return filtered;
-        });
+        if (error) {
+          throw error;
+        }
 
+        setTodoItems((prev) => prev.filter((item) => item.id !== id));
         sonnerToast.success('Todo item deleted successfully!');
       }
     } catch (error) {
@@ -100,7 +156,7 @@ export const useTodoItems = (userRole: string) => {
 
   useEffect(() => {
     loadTodoItems();
-  }, [userRole]);
+  }, [userRole, user]);
 
   return {
     todoItems,

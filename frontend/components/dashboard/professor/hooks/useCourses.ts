@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { instructorAPI } from '@/lib/api';
 import { toast } from 'sonner';
+import { useCourses as useSupabaseCourses } from '@/lib/hooks/useDatabase';
+import { courseOperations } from '@/lib/db/operations';
 
 export interface Course {
   id: string;
@@ -30,43 +31,54 @@ export interface UpdateCourseData {
 }
 
 export function useCourses() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // ✅ NEW: Use Supabase hooks instead of API calls
+  const { 
+    courses: supabaseCourses, 
+    loading, 
+    error, 
+    createCourse: createCourseFromHook,
+    updateCourse: updateCourseFromHook,
+    deleteCourse: deleteCourseFromHook,
+    refetch
+  } = useSupabaseCourses();
 
-  // Fetch courses
-  const fetchCourses = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await instructorAPI.getCourses();
-      
-      // Ensure response is an array before setting courses
-      if (!Array.isArray(response)) {
-        console.warn('Courses response is not an array:', response);
-        setCourses([]);
-        return;
-      }
-      
-      setCourses(response);
-    } catch (err) {
-      console.error('Error fetching courses:', err);
-      setError('Failed to load courses');
-      toast.error('Failed to load courses');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Transform Supabase courses to match professor interface
+  const courses: Course[] = supabaseCourses.map(course => ({
+    id: course.id,
+    title: course.title,
+    description: course.description,
+    code: course.code || '',
+    term: course.term || 'Current',
+    published: course.published,
+    lastUpdated: course.updated_at || new Date().toISOString(),
+    accessCode: 'TEMP123', // TODO: Get from access_codes table
+    students: 0, // TODO: Get from enrollments count
+  }));
 
   // Create course
   const createCourse = async (
     courseData: CreateCourseData,
   ): Promise<Course | null> => {
     try {
-      const newCourse = await instructorAPI.createCourse(courseData);
-      setCourses((prev) => [...prev, newCourse]);
+      const newCourse = await createCourseFromHook({
+        ...courseData,
+        published: false, // Default to unpublished for professors
+      });
+
       toast.success('Course created successfully');
-      return newCourse;
+      
+      // Transform to professor interface
+      return {
+        id: newCourse.id,
+        title: newCourse.title,
+        description: newCourse.description,
+        code: newCourse.code || '',
+        term: newCourse.term || 'Current',
+        published: newCourse.published,
+        lastUpdated: newCourse.updated_at || new Date().toISOString(),
+        accessCode: 'TEMP123',
+        students: 0,
+      };
     } catch (err) {
       console.error('Error creating course:', err);
       toast.error('Failed to create course');
@@ -80,17 +92,21 @@ export function useCourses() {
     updateData: UpdateCourseData,
   ): Promise<Course | null> => {
     try {
-      const updatedCourse = await instructorAPI.updateCourse(
-        courseId,
-        updateData,
-      );
-      setCourses((prev) =>
-        prev.map((course) =>
-          course.id === courseId ? { ...course, ...updatedCourse } : course,
-        ),
-      );
+      const updatedCourse = await updateCourseFromHook(courseId, updateData);
       toast.success('Course updated successfully');
-      return updatedCourse;
+      
+      // Transform to professor interface
+      return {
+        id: updatedCourse.id,
+        title: updatedCourse.title,
+        description: updatedCourse.description,
+        code: updatedCourse.code || '',
+        term: updatedCourse.term || 'Current',
+        published: updatedCourse.published,
+        lastUpdated: updatedCourse.updated_at || new Date().toISOString(),
+        accessCode: 'TEMP123',
+        students: 0,
+      };
     } catch (err) {
       console.error('Error updating course:', err);
       toast.error('Failed to update course');
@@ -101,8 +117,7 @@ export function useCourses() {
   // Delete course
   const deleteCourse = async (courseId: string): Promise<boolean> => {
     try {
-      await instructorAPI.deleteCourse(courseId);
-      setCourses((prev) => prev.filter((course) => course.id !== courseId));
+      await deleteCourseFromHook(courseId);
       toast.success('Course deleted successfully');
       return true;
     } catch (err) {
@@ -142,11 +157,6 @@ export function useCourses() {
     );
   };
 
-  // Initial load
-  useEffect(() => {
-    fetchCourses();
-  }, []);
-
   return {
     courses,
     loading,
@@ -158,6 +168,6 @@ export function useCourses() {
     getPublishedCourses,
     getUnpublishedCourses,
     searchCourses,
-    refetch: fetchCourses,
+    refetch,
   };
 }

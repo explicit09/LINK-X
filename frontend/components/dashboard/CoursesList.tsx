@@ -1,31 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { useCourses } from '@/lib/hooks/useDatabase';
 
-interface Course {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  instructor: {
-    id: string;
-    name: string;
-  };
-  stats: {
-    materials: number;
-    modules: number;
-    students: number;
-  };
-  tags: string[];
-  created_at: string | null;
-  updated_at: string | null;
-}
+// Course interface from our Supabase database (imported via hook)
 
 const CoursesList = ({
   search,
@@ -36,35 +20,16 @@ const CoursesList = ({
 }) => {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [courses, setCourses] = useState<Course[]>([]);
   const [showAll, setShowAll] = useState(false);
 
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const res = await fetch('http://localhost:8000/api/v2/courses', {
-          method: 'GET',
-          credentials: 'include',
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        console.log('CoursesList API response:', data);
-        setCourses(data.data || []);
-      } catch (err) {
-        console.error('Failed to load courses:', err);
-      }
-    };
+  // ✅ NEW: Use direct Supabase access instead of API
+  // Search filtering is now handled by the hook itself
+  const { courses, loading } = useCourses({ 
+    query: search,
+    published: true // Only show published courses
+  });
 
-    fetchCourses();
-  }, []);
-
-  const filteredCourses = courses.filter((course) =>
-    course.title.toLowerCase().includes(search.toLowerCase()),
-  );
-
-  const visibleCourses = showAll
-    ? filteredCourses
-    : filteredCourses.slice(0, 5);
+  const visibleCourses = showAll ? courses : courses.slice(0, 5);
 
   return (
     <div
@@ -111,9 +76,13 @@ const CoursesList = ({
             />
           </div>
 
-          {courses.length === 0 ? (
+          {loading ? (
             <div className="text-center text-gray-500 mt-4">
               Loading your courses...
+            </div>
+          ) : courses.length === 0 ? (
+            <div className="text-center text-gray-500 mt-4">
+              No courses found. {search && `Try searching for something else.`}
             </div>
           ) : (
             <>
@@ -128,8 +97,7 @@ const CoursesList = ({
                         {course.title}
                       </div>
                       <div className="text-sm text-gray-600">
-                        {course.category} • Instructor:{' '}
-                        {course.instructor?.name || 'Unknown'}
+                        {course.category} • Course Code: {course.code || 'N/A'}
                       </div>
                       <div className="text-xs text-gray-500">
                         {course.description || 'No description'}
@@ -145,7 +113,7 @@ const CoursesList = ({
                   </li>
                 ))}
               </ul>
-              {filteredCourses.length > 5 && (
+              {courses.length > 5 && (
                 <div className="mt-4 flex justify-center">
                   <Button
                     variant="outline"

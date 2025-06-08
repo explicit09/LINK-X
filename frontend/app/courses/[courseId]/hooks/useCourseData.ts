@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { studentAPI, instructorAPI, userAPI } from '@/lib/api';
 import { useCourseContext, courseActions } from '../context/CourseContext';
 import { createModuleStructure } from '../utils/moduleStructure';
 import {
@@ -16,33 +15,146 @@ import {
   AIConversation,
   Quiz,
 } from '../types/course.types';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { useCourse, useModules, useEnrollments } from '@/lib/hooks/useDatabase';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 
 export const useCourseData = (courseId: string) => {
   const router = useRouter();
   const { state, dispatch } = useCourseContext();
+  
+  // ✅ NEW: Use Supabase hooks instead of API calls
+  const { user } = useAuth();
+  const { course, loading: courseLoading, error: courseError } = useCourse(courseId);
+  const { modules, loading: modulesLoading } = useModules(courseId);
+  const { enrollments } = useEnrollments();
 
   useEffect(() => {
     if (!courseId) return;
-
-    toast.dismiss();
 
     const loadCourseData = async () => {
       try {
         dispatch(courseActions.setLoading(true));
 
-        // Load user data
-        let user;
-        try {
-          user = await userAPI.getMe();
-          dispatch(courseActions.setUser(user));
-        } catch (userError) {
-          console.error('Failed to load user:', userError);
-          toast.error('Authentication failed. Please log in again.');
+        // Check authentication
+        if (!user) {
+          toast.error('Authentication required. Please log in.');
           router.push('/login');
           return;
         }
+
+        // Set user data from auth context
+        dispatch(courseActions.setUser({
+          id: user.id,
+          email: user.email || '',
+          role: user.user_metadata?.role || 'student',
+          profile: {
+            name: user.user_metadata?.full_name || user.email || 'User',
+            email: user.email || ''
+          }
+        }));
+
+        // Wait for course and modules data to load
+        if (courseLoading || modulesLoading) return;
+
+        if (courseError) {
+          console.error('Course error:', courseError);
+          toast.error('Failed to load course details');
+          dispatch(courseActions.setError('Failed to load course data'));
+          return;
+        }
+
+        if (!course) {
+          console.warn('No course data found for ID:', courseId);
+          dispatch(courseActions.setError('Course not found'));
+          return;
+        }
+
+        // Transform course data
+        const transformedCourse: Course = {
+          id: course.id,
+          title: course.title,
+          code: course.code || 'N/A',
+          term: course.term || 'Current Term',
+          description: course.description || 'No description available',
+          instructor: 'Instructor', // Could be enhanced to fetch instructor name from user table
+          studentsCount: course.enrollment_count || 0,
+          materialsCount: modules.reduce((total, module) => total + (module.files?.length || 0), 0),
+          color: 'course-blue',
+          lastActivity: course.updated_at ? formatRelativeTime(course.updated_at) : 'Recently',
+        };
+
+        dispatch(courseActions.setCourse(transformedCourse));
+
+        // Transform materials data from modules
+        const transformedMaterials: Material[] = modules
+          .flatMap(module => 
+            (module.files || []).map(file => ({
+              id: file.id,
+              title: file.title,
+              type: getFileType(file.file_type),
+              size: formatFileSize(file.file_size),
+              uploadedAt: formatRelativeTime(file.created_at || new Date().toISOString()),
+              processed: file.processing_status === 'completed',
+              moduleId: module.id,
+              moduleName: module.title,
+            }))
+          );
+
+        // Create structured module layout
+        const organizedModules = createModuleStructure(
+          modules,
+          transformedMaterials,
+          courseId,
+        );
+        dispatch(courseActions.setModules(organizedModules));
+
+        // Load conversations (simplified - could be enhanced later)
+        const conversations: AIConversation[] = [];
+        dispatch(courseActions.setConversations(conversations));
+
+        // Load quizzes (placeholder for now)
+        dispatch(courseActions.setQuizzes([]));
+
+        // Calculate progress
+        const completedMaterials = transformedMaterials.filter(m => m.processed).length;
+        const totalMaterials = transformedMaterials.length;
+        
+        const realProgress = {
+          completedMaterials,
+          totalMaterials,
+          weeklyTimeMinutes: 0, // Could be enhanced with actual tracking
+          todayTimeMinutes: 0,   // Could be enhanced with actual tracking
+          progressPercentage: totalMaterials > 0 
+            ? Math.round((completedMaterials / totalMaterials) * 100) 
+            : 0,
+        };
+
+        dispatch(courseActions.updateProgress(realProgress));
+
+      } catch (error) {
+        console.error('Failed to load course:', error);
+        toast.error('Failed to load course data');
+        dispatch(courseActions.setError('Failed to load course data'));
+      } finally {
+        dispatch(courseActions.setLoading(false));
+      }
+    };
+
+    loadCourseData();
+  }, [courseId, course, modules, courseLoading, modulesLoading, courseError, user, router, dispatch]);
+
+  return {
+    course: state.course,
+    modules: state.modules,
+    courseProgress: state.courseProgress,
+    conversations: state.conversations,
+    quizzes: state.quizzes,
+    loading: state.loading || courseLoading || modulesLoading,
+    error: state.error,
+    currentUser: state.currentUser,
+  };
+};
 
         let courseData;
         let modulesData = [];

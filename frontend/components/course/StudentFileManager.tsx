@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   FileText, 
   Upload, 
@@ -32,28 +32,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast as sonnerToast } from 'sonner';
-import { studentAPI } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { StudentCourseUpload } from './StudentCourseUpload';
-
-interface FileItem {
-  id: string;
-  title: string;
-  filename: string;
-  file_type: string;
-  file_size: number;
-  module_id: string;
-  created_at: string;
-}
-
-interface Module {
-  id: string;
-  title: string;
-  description?: string;
-  course_id: string;
-  ordering: number;
-  files?: FileItem[];
-}
+import { useModules } from '@/lib/hooks/useDatabase';
+import { moduleOperations, fileOperations } from '@/lib/db/operations';
+import type { ModuleWithFiles, File } from '@/lib/db/types';
 
 interface StudentFileManagerProps {
   courseId: string;
@@ -61,48 +44,17 @@ interface StudentFileManagerProps {
 }
 
 export function StudentFileManager({ courseId, className }: StudentFileManagerProps) {
-  const [modules, setModules] = useState<Module[]>([]);
+  // ✅ NEW: Use direct Supabase operations
+  const { modules, loading: isLoading, refetch: loadModules } = useModules(courseId);
+  
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [showCreateModule, setShowCreateModule] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [moduleTitle, setModuleTitle] = useState('');
   const [moduleDescription, setModuleDescription] = useState('');
-  const [editingModule, setEditingModule] = useState<Module | null>(null);
-  const [deletingFile, setDeletingFile] = useState<FileItem | null>(null);
-  const [deletingModule, setDeletingModule] = useState<Module | null>(null);
-
-  // Load modules and files
-  const loadModules = async () => {
-    setIsLoading(true);
-    try {
-      const modulesData = await studentAPI.getCourseModules(courseId);
-      
-      // Load files for each module
-      const modulesWithFiles = await Promise.all(
-        modulesData.map(async (module: Module) => {
-          try {
-            const files = await studentAPI.getModuleFiles(module.id);
-            return { ...module, files };
-          } catch (error) {
-            console.error(`Failed to load files for module ${module.id}:`, error);
-            return { ...module, files: [] };
-          }
-        })
-      );
-      
-      setModules(modulesWithFiles);
-    } catch (error) {
-      console.error('Failed to load modules:', error);
-      sonnerToast.error('Failed to load course modules');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadModules();
-  }, [courseId]);
+  const [editingModule, setEditingModule] = useState<ModuleWithFiles | null>(null);
+  const [deletingFile, setDeletingFile] = useState<File | null>(null);
+  const [deletingModule, setDeletingModule] = useState<ModuleWithFiles | null>(null);
 
   // Create module
   const handleCreateModule = async () => {
@@ -114,22 +66,24 @@ export function StudentFileManager({ courseId, className }: StudentFileManagerPr
     try {
       console.log('Creating module with:', { courseId, title: moduleTitle, description: moduleDescription });
       
-      const newModule = await studentAPI.createModule(courseId, {
+      // ✅ NEW: Use direct Supabase operations
+      await moduleOperations.createModule(courseId, {
         title: moduleTitle,
         description: moduleDescription,
-        order: modules.length
+        ordering: modules.length
       });
       
-      console.log('Module created successfully:', newModule);
+      console.log('Module created successfully');
       
-      setModules([...modules, { ...newModule, files: [] }]);
+      // Refresh modules list (hook will update automatically)
+      loadModules();
       setShowCreateModule(false);
       setModuleTitle('');
       setModuleDescription('');
       sonnerToast.success('Module created successfully');
     } catch (error: any) {
       console.error('Failed to create module:', error);
-      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to create module';
+      const errorMessage = error?.message || 'Failed to create module';
       sonnerToast.error(errorMessage);
     }
   };
@@ -139,17 +93,14 @@ export function StudentFileManager({ courseId, className }: StudentFileManagerPr
     if (!editingModule || !moduleTitle.trim()) return;
 
     try {
-      await studentAPI.updateModule(editingModule.id, {
+      // ✅ NEW: Use direct Supabase operations
+      await moduleOperations.updateModule(editingModule.id, {
         title: moduleTitle,
         description: moduleDescription
       });
       
-      setModules(modules.map(m => 
-        m.id === editingModule.id 
-          ? { ...m, title: moduleTitle, description: moduleDescription }
-          : m
-      ));
-      
+      // Refresh modules list
+      loadModules();
       setEditingModule(null);
       setModuleTitle('');
       setModuleDescription('');
@@ -165,13 +116,11 @@ export function StudentFileManager({ courseId, className }: StudentFileManagerPr
     if (!deletingFile) return;
 
     try {
-      await studentAPI.deleteFile(deletingFile.id);
+      // ✅ NEW: Use direct Supabase operations
+      await fileOperations.deleteFile(deletingFile.id);
       
-      setModules(modules.map(m => ({
-        ...m,
-        files: m.files?.filter(f => f.id !== deletingFile.id) || []
-      })));
-      
+      // Refresh modules list
+      loadModules();
       setDeletingFile(null);
       sonnerToast.success('File deleted successfully');
     } catch (error) {
@@ -185,9 +134,11 @@ export function StudentFileManager({ courseId, className }: StudentFileManagerPr
     if (!deletingModule) return;
 
     try {
-      await studentAPI.deleteModule(deletingModule.id);
+      // ✅ NEW: Use direct Supabase operations
+      await moduleOperations.deleteModule(deletingModule.id);
       
-      setModules(modules.filter(m => m.id !== deletingModule.id));
+      // Refresh modules list
+      loadModules();
       setDeletingModule(null);
       sonnerToast.success('Module deleted successfully');
     } catch (error) {
@@ -197,9 +148,11 @@ export function StudentFileManager({ courseId, className }: StudentFileManagerPr
   };
 
   // Download file
-  const handleDownloadFile = async (file: FileItem) => {
+  const handleDownloadFile = async (file: File) => {
     try {
-      const response = await studentAPI.downloadFile(file.id);
+      // ✅ NEW: Use direct Supabase operations
+      const downloadUrl = await fileOperations.getFileUrl(file.storage_path);
+      const response = await fetch(downloadUrl);
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -498,18 +451,14 @@ export function StudentFileManager({ courseId, className }: StudentFileManagerPr
               <div className="flex justify-center gap-4">
                 <Button
                   variant="outline"
+                  onClick={() => setShowCreateModule(true)}
+                >
+                  Create Module
+                </Button>
+                <Button
                   onClick={() => setShowUpload(false)}
                 >
                   Cancel
-                </Button>
-                <Button
-                  onClick={() => {
-                    setShowUpload(false);
-                    setShowCreateModule(true);
-                  }}
-                >
-                  <FolderPlus className="h-4 w-4 mr-2" />
-                  Create Module
                 </Button>
               </div>
             </div>
@@ -517,7 +466,7 @@ export function StudentFileManager({ courseId, className }: StudentFileManagerPr
         </DialogContent>
       </Dialog>
 
-      {/* Delete File Confirmation */}
+      {/* Delete File Dialog */}
       <Dialog open={!!deletingFile} onOpenChange={(open) => !open && setDeletingFile(null)}>
         <DialogContent>
           <DialogHeader>
@@ -527,39 +476,41 @@ export function StudentFileManager({ courseId, className }: StudentFileManagerPr
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeletingFile(null)}>
+            <Button
+              variant="outline"
+              onClick={() => setDeletingFile(null)}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteFile}>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteFile}
+            >
               Delete File
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Module Confirmation */}
+      {/* Delete Module Dialog */}
       <Dialog open={!!deletingModule} onOpenChange={(open) => !open && setDeletingModule(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Module</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{deletingModule?.title}"? 
-              {deletingModule?.files && deletingModule.files.length > 0 && (
-                <span className="block mt-2 text-destructive">
-                  This module contains {deletingModule.files.length} file(s). 
-                  Please delete all files first.
-                </span>
-              )}
+              Are you sure you want to delete "{deletingModule?.title}"? All files in this module will also be deleted. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeletingModule(null)}>
+            <Button
+              variant="outline"
+              onClick={() => setDeletingModule(null)}
+            >
               Cancel
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleDeleteModule}
-              disabled={deletingModule?.files && deletingModule.files.length > 0}
             >
               Delete Module
             </Button>

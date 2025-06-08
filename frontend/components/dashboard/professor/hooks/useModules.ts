@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { instructorAPI } from '@/lib/api';
 import { toast } from 'sonner';
+import { useModules as useSupabaseModules } from '@/lib/hooks/useDatabase';
 
 export interface Module {
   id: string;
@@ -19,27 +19,27 @@ export interface CreateModuleData {
 }
 
 export function useModules(courseId: string | null) {
-  const [modules, setModules] = useState<Module[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // ✅ NEW: Use Supabase hooks instead of API calls
+  const { 
+    modules: supabaseModules, 
+    loading, 
+    error, 
+    createModule: createModuleFromHook,
+    updateModule: updateModuleFromHook,
+    deleteModule: deleteModuleFromHook,
+    refetch
+  } = useSupabaseModules(courseId || '');
 
-  // Fetch modules for a course
-  const fetchModules = async () => {
-    if (!courseId) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await instructorAPI.getModules(courseId);
-      setModules(response);
-    } catch (err) {
-      console.error('Error fetching modules:', err);
-      setError('Failed to load modules');
-      toast.error('Failed to load modules');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Transform Supabase modules to match professor interface
+  const modules: Module[] = supabaseModules.map(module => ({
+    id: module.id,
+    title: module.title,
+    files: (module.files || []).map(file => ({
+      id: file.id,
+      title: file.title,
+      filename: file.filename,
+    })),
+  }));
 
   // Create a new module
   const createModule = async (
@@ -48,10 +48,19 @@ export function useModules(courseId: string | null) {
     if (!courseId) return null;
 
     try {
-      const newModule = await instructorAPI.createModule(courseId, moduleData);
-      setModules((prev) => [...prev, newModule]);
+      const newModule = await createModuleFromHook({
+        ...moduleData,
+        ordering: modules.length, // Add to end by default
+      });
+
       toast.success('Module created successfully');
-      return newModule;
+      
+      // Transform to professor interface
+      return {
+        id: newModule.id,
+        title: newModule.title,
+        files: [],
+      };
     } catch (err) {
       console.error('Error creating module:', err);
       toast.error('Failed to create module');
@@ -65,17 +74,16 @@ export function useModules(courseId: string | null) {
     updateData: Partial<CreateModuleData>,
   ): Promise<Module | null> => {
     try {
-      const updatedModule = await instructorAPI.updateModule(
-        moduleId,
-        updateData,
-      );
-      setModules((prev) =>
-        prev.map((module) =>
-          module.id === moduleId ? { ...module, ...updatedModule } : module,
-        ),
-      );
+      const updatedModule = await updateModuleFromHook(moduleId, updateData);
       toast.success('Module updated successfully');
-      return updatedModule;
+      
+      // Find the updated module from our list
+      const moduleWithFiles = modules.find(m => m.id === moduleId);
+      return {
+        id: updatedModule.id,
+        title: updatedModule.title,
+        files: moduleWithFiles?.files || [],
+      };
     } catch (err) {
       console.error('Error updating module:', err);
       toast.error('Failed to update module');
@@ -86,8 +94,7 @@ export function useModules(courseId: string | null) {
   // Delete module
   const deleteModule = async (moduleId: string): Promise<boolean> => {
     try {
-      await instructorAPI.deleteModule(moduleId);
-      setModules((prev) => prev.filter((module) => module.id !== moduleId));
+      await deleteModuleFromHook(moduleId);
       toast.success('Module deleted successfully');
       return true;
     } catch (err) {
@@ -97,26 +104,18 @@ export function useModules(courseId: string | null) {
     }
   };
 
-  // Add file to module (update module's files list)
+  // Add file to module (optimistic update - real-time subscription will sync)
   const addFileToModule = (moduleId: string, file: File) => {
-    setModules((prev) =>
-      prev.map((module) =>
-        module.id === moduleId
-          ? { ...module, files: [...module.files, file] }
-          : module,
-      ),
-    );
+    // With real-time subscriptions, this will automatically update
+    // We could trigger a refetch here if needed
+    refetch();
   };
 
-  // Remove file from module
+  // Remove file from module (optimistic update - real-time subscription will sync)
   const removeFileFromModule = (moduleId: string, fileId: string) => {
-    setModules((prev) =>
-      prev.map((module) =>
-        module.id === moduleId
-          ? { ...module, files: module.files.filter((f) => f.id !== fileId) }
-          : module,
-      ),
-    );
+    // With real-time subscriptions, this will automatically update
+    // We could trigger a refetch here if needed
+    refetch();
   };
 
   // Get module by ID
@@ -124,25 +123,16 @@ export function useModules(courseId: string | null) {
     return modules.find((module) => module.id === moduleId);
   };
 
-  // Load modules when courseId changes
-  useEffect(() => {
-    if (courseId) {
-      fetchModules();
-    } else {
-      setModules([]);
-    }
-  }, [courseId]);
-
   return {
-    modules,
-    loading,
-    error,
+    modules: courseId ? modules : [], // Only return modules if courseId is provided
+    loading: courseId ? loading : false,
+    error: courseId ? error : null,
     createModule,
     updateModule,
     deleteModule,
     addFileToModule,
     removeFileFromModule,
     getModuleById,
-    refetch: fetchModules,
+    refetch,
   };
 }

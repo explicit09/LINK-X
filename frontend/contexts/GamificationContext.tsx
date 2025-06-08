@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { gamificationAPI, type UserStats as APIUserStats, type Achievement as APIAchievement } from '@/lib/api/endpoints/gamification';
+import { gamificationService, type UserStats as ServiceUserStats, type Achievement as ServiceAchievement } from '@/lib/services/gamificationService';
 
 // Simplified XP actions for 72-hour ship - only essential actions
 export const XP_ACTIONS = {
@@ -20,16 +20,18 @@ export type XPActionType = keyof typeof XP_ACTIONS;
 interface UserStats {
   user_id: string;
   total_xp: number;
-  level: number;
-  current_streak: number;
-  weekly_goal_progress: number;
-  weekly_goal_target: number;
-  last_activity: string;
+  current_level: number;
+  current_xp: number;
+  daily_streak: number;
+  max_streak: number;
+  weekly_goal: number;
+  weekly_progress: number;
+  last_activity_date: string;
   achievements_count: number;
   rank?: number;
-  next_level_xp: number;
-  current_level_xp: number;
-  longest_streak?: number;
+  // Additional computed fields for UI
+  next_level_xp?: number;
+  current_level_xp?: number;
   weekly_login_days?: number;
   weekly_help_given?: number;
   weekly_time_spent?: number;
@@ -39,11 +41,11 @@ interface UserStats {
 
 interface Achievement {
   id: string;
-  name: string;
+  achievement_name: string;
   description: string;
   icon: string;
   earned_at: string;
-  type?: string;
+  achievement_type: string;
 }
 
 interface XPAnimation {
@@ -182,23 +184,17 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     
     try {
       console.log('[GamificationContext] Fetching user stats...');
-      const data = await gamificationAPI.getUserStats();
-      console.log('[GamificationContext] API Response:', data);
+      const data = await gamificationService.getUserStats(user.id);
+      console.log('[GamificationContext] Service Response:', data);
       
-      // Map backend response to frontend interface (handle both camelCase and snake_case)
+      // Calculate XP values for UI
+      const currentLevelXP = calculateCurrentLevelXP(data.total_xp, data.current_level);
+      const nextLevelXP = calculateXPForLevel(data.current_level + 1);
+      
       const stats: UserStats = {
-        user_id: user.id,
-        total_xp: data.total_xp || data.totalXP || 0,
-        level: data.level || data.currentLevel || 1,
-        current_streak: data.current_streak || data.dailyStreak || 0,
-        weekly_goal_progress: data.weekly_goal_progress || data.weeklyProgress || 0,
-        weekly_goal_target: data.weekly_goal_target || data.weeklyGoal || 500,
-        last_activity: data.last_activity || new Date().toISOString(),
-        achievements_count: data.achievements_count || 0,
-        rank: data.rank,
-        next_level_xp: data.next_level_xp || data.xpToNextLevel || 100,
-        current_level_xp: data.current_level_xp || data.currentXP || 0,
-        longest_streak: data.longest_streak || data.maxStreak || 0,
+        ...data,
+        next_level_xp: nextLevelXP,
+        current_level_xp: currentLevelXP,
         // Additional stats for dashboard
         weekly_login_days: 0, // TODO: Calculate from activities
         weekly_help_given: 0, // TODO: Calculate from activities
@@ -214,16 +210,17 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
       setUserStats({
         user_id: user.id,
         total_xp: 0,
-        level: 1,
-        current_streak: 0,
-        weekly_goal_progress: 0,
-        weekly_goal_target: 500,
-        last_activity: new Date().toISOString(),
+        current_level: 1,
+        current_xp: 0,
+        daily_streak: 0,
+        max_streak: 0,
+        weekly_goal: 500,
+        weekly_progress: 0,
+        last_activity_date: new Date().toISOString().split('T')[0],
         achievements_count: 0,
         rank: undefined,
         next_level_xp: 100,
         current_level_xp: 0,
-        longest_streak: 0,
         weekly_login_days: 0,
         weekly_help_given: 0,
         weekly_time_spent: 0,
@@ -240,19 +237,17 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     
     try {
       console.log('[GamificationContext] Fetching achievements...');
-      const data = await gamificationAPI.getAchievements();
+      const data = await gamificationService.getUserAchievements(user.id);
       console.log('[GamificationContext] Achievements Response:', data);
       
-      const achievementsData = data?.achievements || data || [];
-      
-      // Map backend response to frontend Achievement interface
-      const mappedAchievements: Achievement[] = achievementsData.map((a: APIAchievement) => ({
+      // Map service response to frontend Achievement interface
+      const mappedAchievements: Achievement[] = data.map((a) => ({
         id: a.id,
-        name: a.name,
+        achievement_name: a.achievement_name,
         description: a.description,
         icon: a.icon || '🏆',
         earned_at: a.earned_at,
-        type: a.type
+        achievement_type: a.achievement_type
       }));
       
       // Find new achievements
@@ -262,7 +257,7 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
       
       // Show notifications for new achievements
       newAchievements.forEach((achievement: Achievement) => {
-        toast.success(`🏆 Achievement Unlocked: ${achievement.name}!`, {
+        toast.success(`🏆 Achievement Unlocked: ${achievement.achievement_name}!`, {
           description: achievement.description,
           duration: 5000,
         });
@@ -296,7 +291,7 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
     
     // Special handling for streak bonus
     const xpAmount = action === 'STREAK_BONUS' 
-      ? (userStats?.current_streak || 1) 
+      ? (userStats?.daily_streak || 1) 
       : actionConfig.xp;
     
     // Define animation outside try block to make it accessible in catch block
@@ -319,13 +314,14 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
         }));
       }
       
-      // Award XP via API
-      const result = await gamificationAPI.awardXP({
-        activity_type: action.toLowerCase(),
-        xp_amount: xpAmount,
-        description: actionConfig.message,
+      // Award XP via service
+      const result = await gamificationService.awardXP(
+        user.id,
+        action.toLowerCase(),
+        xpAmount,
+        actionConfig.message,
         metadata
-      });
+      );
       
       console.log('[GamificationContext] Award XP Response:', result);
       
@@ -335,7 +331,7 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
       });
       
       // Get the previous level to check for level up
-      const previousLevel = userStats?.level || 1;
+      const previousLevel = userStats?.current_level || 1;
       const newLevel = result.new_level || previousLevel;
       
       setUserStats(prev => {
@@ -348,13 +344,13 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
         return {
           ...prev,
           total_xp: newTotalXP,
-          level: newLevel,
+          current_level: newLevel,
           current_level_xp: currentLevelXP,
           next_level_xp: nextLevelXP,
-          current_streak: result.new_streak || prev.current_streak,
-          weekly_goal_progress: Math.min(
-            (prev.weekly_goal_progress || 0) + xpAmount,
-            prev.weekly_goal_target
+          daily_streak: result.new_streak || prev.daily_streak,
+          weekly_progress: Math.min(
+            (prev.weekly_progress || 0) + xpAmount,
+            prev.weekly_goal
           )
         };
       });

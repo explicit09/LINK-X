@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { studentAPI } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Material {
   id: string;
@@ -16,9 +17,36 @@ interface User {
 
 export function useMaterialHandler(courseId: string, currentUser: User | null) {
   const router = useRouter();
+  const { user } = useAuth();
   const [currentMaterial, setCurrentMaterial] = useState<
     Material | undefined
   >();
+
+  // ✅ NEW: Log activity to Supabase directly
+  const logActivity = async (activityData: {
+    type: string;
+    fileId: string;
+    courseId: string;
+  }) => {
+    try {
+      if (!user) return;
+      
+      // Log to processing_queue or create a dedicated user_activities table
+      await supabase.from('processing_queue').insert({
+        job_type: 'user_activity',
+        payload: {
+          user_id: user.id,
+          activity_type: activityData.type,
+          file_id: activityData.fileId,
+          course_id: activityData.courseId,
+          timestamp: new Date().toISOString(),
+        },
+        status: 'completed', // Activity logging is immediate
+      });
+    } catch (error: any) {
+      console.warn('Failed to log activity:', error);
+    }
+  };
 
   const handleViewMaterial = (material: Material) => {
     try {
@@ -32,15 +60,12 @@ export function useMaterialHandler(courseId: string, currentUser: User | null) {
         return;
       }
 
-      studentAPI
-        .logActivity({
-          type: 'file_view',
-          fileId: material.id,
-          courseId: courseId,
-        })
-        .catch((error) => {
-          console.warn('Failed to log file view activity:', error);
-        });
+      // ✅ NEW: Use direct Supabase logging
+      logActivity({
+        type: 'file_view',
+        fileId: material.id,
+        courseId: courseId,
+      });
 
       setCurrentMaterial(material);
     } catch (error) {
@@ -68,15 +93,12 @@ export function useMaterialHandler(courseId: string, currentUser: User | null) {
         },
       );
 
-      studentAPI
-        .logActivity({
-          type: 'personalized_view',
-          fileId: material.id,
-          courseId: courseId,
-        })
-        .catch((error) => {
-          console.warn('Failed to log AI activity:', error);
-        });
+      // ✅ NEW: Use direct Supabase logging
+      logActivity({
+        type: 'personalized_view',
+        fileId: material.id,
+        courseId: courseId,
+      });
 
       setTimeout(() => {
         toast.dismiss(loadingToast);

@@ -21,17 +21,29 @@ const LearnPrompt = () => {
 
   const handleLearn = async () => {
     try {
+      // ✅ Enhanced: Better validation and UX
+      if (!question.trim()) {
+        alert('Please enter a topic or question to learn about');
+        return;
+      }
+
       const formData = new FormData();
       formData.append('question', question);
       if (file) {
         formData.append('file', file);
       }
 
+      // ✅ Note: This AI-powered course creation should stay with Flask API
+      // as it involves complex AI processing that isn't basic CRUD
       const res = await fetch('http://localhost:8000/create-course', {
         method: 'POST',
         body: formData,
         credentials: 'include',
       });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
 
       const data = await res.json();
 
@@ -41,7 +53,8 @@ const LearnPrompt = () => {
         router.push('/learn');
       }
     } catch (err) {
-      console.error('Failed to learn:', err);
+      console.error('Failed to create AI course:', err);
+      alert('Failed to create course. Please try again.');
     }
   };
 

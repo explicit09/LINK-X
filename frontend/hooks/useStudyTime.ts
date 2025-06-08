@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { analyticsAPI, type StudyTimeAnalytics, type StudySessionResponse } from '@/lib/api/analytics';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
+import { apiCircuitBreaker } from '@/lib/utils/apiCircuitBreaker';
 
 export interface UseStudyTimeReturn {
   // Data
@@ -35,6 +36,17 @@ export function useStudyTime(period: 'week' | 'month' | 'all' = 'week'): UseStud
   const refreshStudyTime = useCallback(async () => {
     if (!user) return;
     
+    const endpoint = '/api/v2/analytics/study-time';
+    
+    // Check circuit breaker before making request
+    if (!apiCircuitBreaker.shouldAllowRequest(endpoint)) {
+      const status = apiCircuitBreaker.getStatus(endpoint);
+      console.log(`[useStudyTime] Circuit breaker is open for ${endpoint}, retry in ${status.retryIn}s`);
+      setError(`Study time service temporarily unavailable (retry in ${status.retryIn}s)`);
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       setIsLoading(true);
       setError(null);
@@ -43,13 +55,27 @@ export function useStudyTime(period: 'week' | 'month' | 'all' = 'week'): UseStud
       const data = await analyticsAPI.getStudyTime(period);
       console.log('[useStudyTime] Study time data:', data);
       setStudyTime(data);
-    } catch (err) {
-      console.error('[useStudyTime] Failed to fetch study time:', err);
-      setError('Failed to load study time data');
       
-      // Provide fallback data
+      // Record success
+      apiCircuitBreaker.recordSuccess(endpoint);
+      
+    } catch (err: any) {
+      console.warn('[useStudyTime] API temporarily unavailable, using fallback data');
+      
+      // Record failure
+      apiCircuitBreaker.recordFailure(endpoint);
+      
+      // Check if it's a server error (500) and provide user-friendly message
+      const isServerError = err.message?.includes('500') || err.message?.includes('Internal Server Error');
+      if (isServerError) {
+        setError('Study time data temporarily unavailable');
+      } else {
+        setError('Failed to load study time data');
+      }
+      
+      // Provide comprehensive fallback data
       setStudyTime({
-        period: 'This Week',
+        period: period === 'week' ? 'This Week' : period === 'month' ? 'This Month' : 'All Time',
         summary: {
           total_sessions: 0,
           total_hours: 0,

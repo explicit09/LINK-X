@@ -19,14 +19,33 @@ const Header = ({ showAuthButton = true, isLoggedIn }: HeaderProps) => {
 
   const handleSignOut = async () => {
     try {
+      console.log('Header: Starting sign out process...');
       await signOut();
-      await fetch(`${API}/sessionLogout`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      router.push('/');
+      
+      // Try to call sessionLogout, but don't block if it fails
+      try {
+        await fetch(`${API}/sessionLogout`, {
+          method: 'POST',
+          credentials: 'include',
+        });
+      } catch (sessionError) {
+        console.warn('Session logout error (continuing):', sessionError);
+      }
+      
+      // Clear all localStorage items that might be related to auth
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('sb-jfutbxgkplrkyyucxhjn-auth-token');
+        localStorage.removeItem('supabase.auth.token');
+        localStorage.removeItem('authState');
+        localStorage.removeItem('auth-storage');
+      }
+      
+      // Use window.location for a complete page refresh
+      window.location.href = '/';
     } catch (error) {
       console.error('Error signing out:', error);
+      // Still try to redirect even if there was an error
+      router.push('/');
     }
   };
 

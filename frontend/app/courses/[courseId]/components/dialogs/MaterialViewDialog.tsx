@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Download, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { instructorAPI, studentAPI } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 
 const MaterialViewer = lazy(() => import('@/components/course/MaterialViewer'));
 
@@ -38,12 +38,38 @@ export function MaterialViewDialog({
         return;
       }
 
-      const userRole = currentUser.role || 'student';
-      const api = userRole === 'instructor' ? instructorAPI : studentAPI;
-
       toast.info('Starting download...');
 
-      await api.downloadFile(currentMaterial.id);
+      // ✅ NEW: Use direct Supabase operations for file download
+      // Get file details from database
+      const { data: fileDetails, error } = await supabase
+        .from('files')
+        .select('storage_path, filename')
+        .eq('id', currentMaterial.id)
+        .single();
+
+      if (error || !fileDetails) {
+        throw new Error('File not found');
+      }
+
+      // Get download URL from Supabase Storage
+      const { data: downloadData } = await supabase.storage
+        .from('course-files')
+        .createSignedUrl(fileDetails.storage_path, 3600); // 1 hour expiry
+
+      const downloadUrl = downloadData?.signedUrl;
+      if (!downloadUrl) {
+        throw new Error('Failed to generate download URL');
+      }
+      
+      // Trigger download
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = currentMaterial.title;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
       toast.success('Download started...');
     } catch (error) {
       console.error('Download failed:', error);

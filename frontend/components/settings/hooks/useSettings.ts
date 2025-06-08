@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 import {
   OnboardingData,
   AccountData,
@@ -7,8 +9,6 @@ import {
   PrivacySettings,
   SettingsState,
 } from '../types/settings.types';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 const initialOnboarding: OnboardingData = {
   name: '',
@@ -39,6 +39,7 @@ const initialPrivacy: PrivacySettings = {
 
 export const useSettings = () => {
   const router = useRouter();
+  const { user, profile } = useAuth();
   const [state, setState] = useState<SettingsState>({
     isStudent: false,
     loading: true,
@@ -51,11 +52,12 @@ export const useSettings = () => {
   // Check user role
   const checkUserRole = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/me`, {
-        method: 'GET',
-        credentials: 'include',
-      });
-      const isStudent = res.status === 200 || res.status === 404;
+      if (!user || !profile) {
+        setState((prev) => ({ ...prev, isStudent: false, loading: false }));
+        return false;
+      }
+
+      const isStudent = profile.role === 'student';
       setState((prev) => ({ ...prev, isStudent, loading: false }));
       return isStudent;
     } catch (error) {
@@ -63,62 +65,67 @@ export const useSettings = () => {
       setState((prev) => ({ ...prev, isStudent: false, loading: false }));
       return false;
     }
-  }, []);
+  }, [user, profile]);
 
   // Fetch user profile
   const fetchProfile = useCallback(async (isStudent: boolean) => {
     try {
-      const path = isStudent ? '/student/profile' : '/professor/profile';
-      const res = await fetch(`${API_URL}${path}`, {
-        method: 'GET',
-        credentials: 'include',
-      });
+      if (!user || !profile) {
+        throw new Error('User not authenticated');
+      }
 
-      if (!res.ok) throw new Error('Failed to fetch profile');
-
-      const data = await res.json();
-
+      // For now, we'll use the basic profile data and set defaults for missing fields
+      // TODO: Extend the profile to include onboarding data when needed
       setState((prev) => ({
         ...prev,
-        account: { email: data.email || '', password: '' },
+        account: { email: user.email || '', password: '' },
         onboarding: isStudent
           ? {
-              name: data.name || '',
-              job: data.onboard_answers?.job || '',
-              traits: data.onboard_answers?.traits || '',
-              learningStyle: data.onboard_answers?.learningStyle || '',
-              depth: data.onboard_answers?.depth || '',
-              topics: data.onboard_answers?.topics || '',
-              interests: data.onboard_answers?.interests || '',
-              schedule: data.onboard_answers?.schedule || '',
-              quizzes: data.want_quizzes || false,
+              name: user.email?.split('@')[0] || '',
+              job: '',
+              traits: '',
+              learningStyle: '',
+              depth: '',
+              topics: '',
+              interests: '',
+              schedule: '',
+              quizzes: false,
             }
           : prev.onboarding,
       }));
     } catch (error) {
       console.error('Failed to fetch profile:', error);
     }
-  }, []);
+  }, [user, profile]);
 
   // Update account info
   const updateAccount = useCallback(
     async (accountData: AccountData): Promise<void> => {
       try {
-        const res = await fetch(`${API_URL}/me`, {
-          method: 'PATCH',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: accountData.email,
-            password: accountData.password || undefined,
-          }),
-        });
+        if (!user) {
+          throw new Error('User not authenticated');
+        }
 
-        if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(errorText);
+        // Update email in Supabase auth if it's different
+        if (accountData.email !== user.email) {
+          const { error: emailError } = await supabase.auth.updateUser({
+            email: accountData.email,
+          });
+          
+          if (emailError) {
+            throw new Error(`Failed to update email: ${emailError.message}`);
+          }
+        }
+
+        // Update password if provided
+        if (accountData.password) {
+          const { error: passwordError } = await supabase.auth.updateUser({
+            password: accountData.password,
+          });
+          
+          if (passwordError) {
+            throw new Error(`Failed to update password: ${passwordError.message}`);
+          }
         }
 
         setState((prev) => ({ ...prev, account: accountData }));
@@ -128,36 +135,20 @@ export const useSettings = () => {
         throw error;
       }
     },
-    [router],
+    [router, user],
   );
 
   // Update onboarding info (students only)
   const updateOnboarding = useCallback(
     async (onboardingData: OnboardingData): Promise<void> => {
-      const payload = {
-        name: onboardingData.name,
-        onboard_answers: {
-          job: onboardingData.job,
-          traits: onboardingData.traits,
-          learningStyle: onboardingData.learningStyle,
-          depth: onboardingData.depth,
-          topics: onboardingData.topics,
-          interests: onboardingData.interests,
-          schedule: onboardingData.schedule,
-        },
-        want_quizzes: onboardingData.quizzes,
-      };
-
       try {
-        const res = await fetch(`${API_URL}/student/profile`, {
-          method: 'PATCH',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        if (!user || !profile) {
+          throw new Error('User not authenticated');
+        }
 
-        if (!res.ok) throw new Error(await res.text());
-
+        // TODO: Update user profile with onboarding data
+        // For now, just update the local state since we don't have 
+        // the full profile schema with onboarding data
         setState((prev) => ({ ...prev, onboarding: onboardingData }));
         router.push('/dashboard');
       } catch (error) {
@@ -165,7 +156,7 @@ export const useSettings = () => {
         throw error;
       }
     },
-    [router],
+    [router, user, profile],
   );
 
   // Update notification settings

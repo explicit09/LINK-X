@@ -28,11 +28,13 @@ function DashboardContent() {
   const { 
     user: currentUser, 
     profile,
-    userName: displayName,
     isAuthenticated,
     needsOnboarding,
     loading: authLoading 
   } = useAuth();
+  
+  // Get display name from profile or user
+  const displayName = profile?.full_name || currentUser?.email?.split('@')[0] || 'User';
   
   // Get role from profile or default to student
   const role = profile?.role || 'student';
@@ -43,6 +45,9 @@ function DashboardContent() {
   const { data: dashboardData, loading: dashboardLoading } = useDashboardOverview();
   const { data: aiData } = useAIRecommendations();
   
+  // Add timeout to prevent infinite loading
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+  
   // Transition management - simplified for now
   // const { isTransitioning, transitionData, triggerTransition, completeTransition } = useDashboardTransition();
   const previousMode = useRef<DashboardMode | null>(null);
@@ -50,6 +55,21 @@ function DashboardContent() {
   
   // Feature flag to enable adaptive dashboard (set to true to test)
   const useAdaptiveDashboard = true;
+  
+  // Add timeout to prevent infinite loading
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      console.warn('[Dashboard] Loading timeout reached, forcing render');
+      setLoadingTimeout(true);
+    }, 10000); // 10 second timeout
+    
+    // Clear timeout if loading finishes
+    if (!authLoading && !journeyLoading && !modeLoading) {
+      clearTimeout(timeout);
+    }
+    
+    return () => clearTimeout(timeout);
+  }, [authLoading, journeyLoading, modeLoading]);
   
   // Track mode changes and trigger re-render for smooth transitions
   useEffect(() => {
@@ -67,7 +87,7 @@ function DashboardContent() {
       isAuthenticated,
       needsOnboarding,
       user: currentUser?.email,
-      profile: profile?.name
+      profile: profile?.full_name
     });
 
     // If not authenticated, redirect to login
@@ -87,6 +107,16 @@ function DashboardContent() {
     // All checks passed - user is authenticated and onboarded
     console.log('[Dashboard] All auth checks passed, allowing access');
   }, [authLoading, isAuthenticated, needsOnboarding, router, currentUser, profile]);
+
+  // Debug loading states
+  useEffect(() => {
+    console.log('[Dashboard] Loading states:', {
+      authLoading,
+      journeyLoading,
+      modeLoading,
+      loadingTimeout
+    });
+  }, [authLoading, journeyLoading, modeLoading, loadingTimeout]);
 
   // Unified handler functions for narrative flow
   const handleActionClick = (action: any) => {
@@ -123,8 +153,8 @@ function DashboardContent() {
     router.push('/schedule');
   };
 
-  // Show loading while checking auth or determining dashboard mode
-  if (authLoading || journeyLoading || modeLoading) {
+  // Show loading while checking auth or determining dashboard mode (with timeout)
+  if ((authLoading || journeyLoading || modeLoading) && !loadingTimeout) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
@@ -134,9 +164,17 @@ function DashboardContent() {
              modeLoading ? 'Personalizing your dashboard...' : 
              'Loading your dashboard...'}
           </p>
+          <p className="text-xs text-gray-400 mt-2">
+            Debug: auth={authLoading.toString()}, journey={journeyLoading.toString()}, mode={modeLoading.toString()}
+          </p>
         </div>
       </div>
     );
+  }
+
+  // Force render if timeout reached
+  if (loadingTimeout) {
+    console.warn('[Dashboard] Forcing render due to timeout');
   }
 
   // Debug user data (with profile)

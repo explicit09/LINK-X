@@ -11,8 +11,8 @@ import {
 } from '@/components/ui/dialog';
 import { FileText, Video, Mic, AlertCircle, X, Loader2 } from 'lucide-react';
 import PDFViewer from '@/components/PDFViewer';
-import { instructorAPI, studentAPI } from '@/lib/api';
 import { toast as sonnerToast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 interface MaterialViewerProps {
   materialId: string;
@@ -41,30 +41,40 @@ export default function MaterialViewer({
         setLoading(true);
         setError(null);
 
-        let fileData;
-        if (userRole === 'student') {
-          fileData = await studentAPI.getFileUrl(materialId);
-        } else {
-          fileData = await instructorAPI.getFileUrl(materialId);
+        // ✅ NEW: Use direct Supabase operations for file access
+        // Get file details from database
+        const { data: fileDetails, error: dbError } = await supabase
+          .from('files')
+          .select('storage_path, filename')
+          .eq('id', materialId)
+          .single();
+
+        if (dbError || !fileDetails) {
+          throw new Error('File not found in database');
         }
 
-        if (fileData?.url) {
-          setFileUrl(fileData.url);
-        } else {
-          throw new Error('No file URL returned from API');
+        // Get signed URL from Supabase Storage
+        const { data: urlData, error: storageError } = await supabase.storage
+          .from('course-files')
+          .createSignedUrl(fileDetails.storage_path, 3600); // 1 hour expiry
+
+        if (storageError || !urlData?.signedUrl) {
+          throw new Error('Failed to generate file access URL');
         }
+
+        setFileUrl(urlData.signedUrl);
       } catch (err: any) {
         console.error('Error fetching file:', err);
 
-        // Check if it&apos;s a 404 or access error
+        // Check if it's a 404 or access error
         if (
-          err?.message?.includes('404') ||
+          err?.message?.includes('not found') ||
           err?.message?.includes('NOT FOUND')
         ) {
           setError('File not found. It may have been moved or deleted.');
         } else if (
-          err?.message?.includes('Load failed') ||
-          err?.message?.includes('access control')
+          err?.message?.includes('access') ||
+          err?.message?.includes('permission')
         ) {
           setError('File access denied. Please check your permissions.');
         } else {
@@ -74,7 +84,7 @@ export default function MaterialViewer({
         }
 
         // Don't show toast error for common issues like 404
-        if (!err?.message?.includes('404')) {
+        if (!err?.message?.includes('not found')) {
           sonnerToast.error('Failed to load file');
         }
       } finally {
@@ -83,7 +93,7 @@ export default function MaterialViewer({
     };
 
     fetchFileContent();
-  }, [materialId, userRole]);
+  }, [materialId]);
 
   const renderContent = () => {
     if (loading) {

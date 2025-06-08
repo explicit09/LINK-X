@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
 import { CanvasCoursesGrid } from '@/components/dashboard/CanvasCoursesGrid';
@@ -17,7 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useCourses, useEnrollments } from '@/lib/hooks/useDatabase';
+import type { Course as DatabaseCourse } from '@/lib/db/types';
 
+// Adapter interface for compatibility with existing CanvasCoursesGrid component
 interface Course {
   id: string;
   title: string;
@@ -40,50 +43,61 @@ interface Course {
 export default function CoursesPage() {
   const [search, setSearch] = useState("");
   const [showPopup, setShowPopup] = useState(false);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const router = useRouter();
   const { user, profile } = useAuth();
   const currentUser = toComponentUser(profile, user);
 
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const res = await fetch('http://localhost:8000/api/v2/courses', {
-          method: 'GET',
-          credentials: 'include',
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        setCourses(data.data || []);
-      } catch (err) {
-        console.error('Failed to load courses:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // ✅ NEW: Use direct Supabase access instead of API calls
+  const { courses: databaseCourses, loading, error, refetch } = useCourses({
+    query: search,
+    published: true, // Only show published courses
+  });
+  
+  const { enrollWithCode } = useEnrollments();
 
-    fetchCourses();
-  }, []);
+  // Transform database courses to match component interface
+  const courses: Course[] = useMemo(() => {
+    return databaseCourses.map((dbCourse) => ({
+      id: dbCourse.id,
+      title: dbCourse.title,
+      code: dbCourse.code,
+      description: dbCourse.description,
+      category: dbCourse.category,
+      term: dbCourse.term,
+      instructor: {
+        id: dbCourse.instructor_id || '',
+        name: 'Instructor', // TODO: Get instructor name from profiles
+      },
+      stats: {
+        materials: 0, // TODO: Calculate from modules/files
+        modules: 0,   // TODO: Calculate from modules count
+        students: 0,  // TODO: Calculate from enrollments count
+      },
+    }));
+  }, [databaseCourses]);
 
-  const handleCourseAdded = () => {
+  const handleCourseAdded = async () => {
     setShowPopup(false);
-    router.refresh();
+    await refetch(); // Refresh the course list
   };
 
   // Filter courses based on search and filter
-  const filteredCourses = courses.filter((course) => {
-    const matchesSearch = course.title.toLowerCase().includes(search.toLowerCase()) ||
-                         course.code?.toLowerCase().includes(search.toLowerCase()) ||
-                         course.instructor?.name.toLowerCase().includes(search.toLowerCase());
-    
-    const matchesFilter = filter === "all" || 
-                         (filter === "current" && course.term === "Fall 2024") ||
-                         (filter === "past" && course.term !== "Fall 2024");
-    
-    return matchesSearch && matchesFilter;
-  });
+  const filteredCourses = useMemo(() => {
+    return courses.filter((course) => {
+      const matchesSearch = search === "" || (
+        course.title.toLowerCase().includes(search.toLowerCase()) ||
+        course.code?.toLowerCase().includes(search.toLowerCase()) ||
+        course.instructor?.name.toLowerCase().includes(search.toLowerCase())
+      );
+      
+      const matchesFilter = filter === "all" || 
+                           (filter === "current" && course.term === "Fall 2024") ||
+                           (filter === "past" && course.term !== "Fall 2024");
+      
+      return matchesSearch && matchesFilter;
+    });
+  }, [courses, search, filter]);
 
   return (
     <SharedDashboardLayout

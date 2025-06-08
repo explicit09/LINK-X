@@ -6,13 +6,29 @@ import os
 import logging
 from functools import wraps
 from typing import Optional, Dict, Any
-from flask import request, jsonify, g
+from flask import request, jsonify, g, current_app
 import jwt
 from sqlalchemy import text
+from services.auth.simple_auth_service import SimpleAuthService
+from core.exceptions import AuthenticationError
 
 from core.database_supabase import db_manager
 
 logger = logging.getLogger(__name__)
+
+
+class SimpleUser:
+    """Simple user object to maintain compatibility with existing code"""
+    def __init__(self, user_info: Dict[str, Any]):
+        self.id = user_info.get('id')
+        self.email = user_info.get('email')
+        self.role = user_info.get('role', 'authenticated')
+        self.aud = user_info.get('aud')
+        self.exp = user_info.get('exp')
+        self.iat = user_info.get('iat')
+        
+        # Set role_type for compatibility
+        self.role_type = self.role
 
 
 class SupabaseAuth:
@@ -33,14 +49,15 @@ class SupabaseAuth:
             if token.startswith('Bearer '):
                 token = token[7:]
             
-            # Decode the JWT with minimal verification for Supabase tokens
+            # Decode the JWT with Supabase-specific settings
             payload = jwt.decode(
                 token,
                 self.jwt_secret,
                 algorithms=['HS256'],
+                audience='authenticated',  # Supabase uses 'authenticated' as audience
                 options={
                     "verify_exp": True,
-                    "verify_aud": False,  # Supabase uses different audiences
+                    "verify_aud": True,   # Verify audience for Supabase
                     "verify_iss": False,  # Don't verify issuer
                 }
             )
@@ -104,47 +121,41 @@ auth = SupabaseAuth()
 
 def require_auth(f):
     """
-    Decorator to require authentication for a route
-    Usage: @require_auth
+    Decorator that requires valid JWT authentication.
+    Extracts user info from JWT token and makes it available via g.current_user
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # Get token from Authorization header
         auth_header = request.headers.get('Authorization')
+        
         if not auth_header:
-            return jsonify({
-                'status': 'error',
-                'message': 'No authorization header'
-            }), 401
+            current_app.logger.warning("No Authorization header provided")
+            return jsonify({'error': 'Authentication required', 'message': 'No authorization header'}), 401
         
-        # Verify token
-        token_data = auth.verify_token(auth_header)
-        if not token_data:
-            return jsonify({
-                'status': 'error',
-                'message': 'Invalid or expired token'
-            }), 401
-        
-        # Get user profile
-        user_profile = auth.get_user_profile(token_data['id'])
-        if not user_profile:
-            return jsonify({
-                'status': 'error',
-                'message': 'User not found'
-            }), 404
-        
-        # Check if user is active
-        if not user_profile.get('is_active'):
-            return jsonify({
-                'status': 'error',
-                'message': 'Account is disabled'
-            }), 403
-        
-        # Store user in g for access in route
-        g.user = user_profile
-        g.token = auth_header
-        
-        return f(*args, **kwargs)
+        try:
+            # Initialize auth service
+            auth_service = SimpleAuthService()
+            
+            # Verify token and get user info
+            user_info = auth_service.get_user_from_token(auth_header)
+            
+            # Create a simple user object for compatibility
+            user_obj = SimpleUser(user_info)
+            
+            # Store user object in Flask's g object for use in the request
+            g.current_user = user_obj
+            g.user_id = user_obj.id
+            
+            current_app.logger.info(f"Authentication successful for user: {g.user_id}")
+            
+            return f(*args, **kwargs)
+            
+        except AuthenticationError as e:
+            current_app.logger.warning(f"Authentication failed: {str(e)}")
+            return jsonify({'error': 'Authentication required', 'message': str(e)}), 401
+        except Exception as e:
+            current_app.logger.error(f"Unexpected authentication error: {str(e)}")
+            return jsonify({'error': 'Authentication required', 'message': 'Authentication failed'}), 401
     
     return decorated_function
 
@@ -199,3 +210,19 @@ def optional_auth(f):
         return f(*args, **kwargs)
     
     return decorated_function
+
+
+def get_user_from_token(token: str) -> Optional[Dict[str, Any]]:
+    """
+    Extract user information from JWT token.
+    This is a standalone function for cases where you need to verify a token
+    without using the decorator.
+    """
+    try:
+        auth_service = SimpleAuthService()
+        return auth_service.get_user_from_token(token)
+    except AuthenticationError:
+        return None
+    except Exception as e:
+        logger.error(f"Error extracting user from token: {str(e)}")
+        return None

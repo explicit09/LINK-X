@@ -6,7 +6,7 @@ import { X, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { courseAPI } from '@/lib/api';
+import { useEnrollments } from '@/lib/hooks/useDatabase';
 import { toast as sonnerToast } from 'sonner';
 
 interface Props {
@@ -19,6 +19,10 @@ export default function AccessCodePopup({ open, onClose, onSuccess }: Props) {
   const [accessCode, setAccessCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [show, setShow] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // ✅ NEW: Use direct Supabase enrollment
+  const { enrollWithCode } = useEnrollments();
 
   // Animate appearance with delay to trigger Tailwind transitions
   useEffect(() => {
@@ -29,8 +33,6 @@ export default function AccessCodePopup({ open, onClose, onSuccess }: Props) {
     }
   }, [open]);
 
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
   const handleSubmit = async () => {
     if (!accessCode.trim()) {
       setErrorMessage('Please enter an access code');
@@ -40,7 +42,8 @@ export default function AccessCodePopup({ open, onClose, onSuccess }: Props) {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const joinedCourse = await courseAPI.joinCourseByCode(accessCode.trim());
+      // ✅ NEW: Use direct Supabase enrollment instead of API call
+      await enrollWithCode(accessCode.trim());
       setAccessCode('');
       onClose();
       sonnerToast.success('🎉 Successfully joined the course! +15 XP earned');
@@ -51,10 +54,12 @@ export default function AccessCodePopup({ open, onClose, onSuccess }: Props) {
       
       if (err.message?.includes('Invalid access code')) {
         errorMessage = 'Invalid access code. Please check and try again.';
-      } else if (err.message?.includes('already enrolled')) {
+      } else if (err.message?.includes('Already enrolled')) {
         errorMessage = 'You are already enrolled in this course.';
-      } else if (err.message?.includes('not found')) {
-        errorMessage = 'Course not found. Please verify the access code.';
+      } else if (err.message?.includes('expired')) {
+        errorMessage = 'This access code has expired.';
+      } else if (err.message?.includes('maximum uses')) {
+        errorMessage = 'This access code has reached its usage limit.';
       }
       
       setErrorMessage(errorMessage);

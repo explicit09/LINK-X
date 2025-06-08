@@ -110,10 +110,23 @@ const ModernSidebar = ({
 
   const handleSignOut = async () => {
     try {
+      console.log('ModernSidebar: Starting sign out process...');
       await signOut();
-      router.push('/login');
+      
+      // Clear all localStorage items that might be related to auth
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('sb-jfutbxgkplrkyyucxhjn-auth-token');
+        localStorage.removeItem('supabase.auth.token');
+        localStorage.removeItem('authState');
+        localStorage.removeItem('auth-storage');
+      }
+      
+      // Use window.location for a complete page refresh
+      window.location.href = '/login';
     } catch (error) {
       console.error('Error signing out:', error);
+      // Still try to redirect even if there was an error
+      router.push('/login');
     }
   };
 

@@ -1,4 +1,4 @@
-import { api } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 
 export interface MetricEvent {
   eventType: string;
@@ -76,10 +76,24 @@ class MetricsService {
     this.eventQueue = [];
 
     try {
-      await api.post('/api/v2/metrics/batch', {
-        events,
-        sessionId: this.sessionId
-      });
+      // ✅ NEW: Store metrics directly in Supabase for better performance
+      const metricsData = events.map(event => ({
+        session_id: this.sessionId,
+        event_type: event.eventType,
+        event_data: event.eventData,
+        timestamp: event.timestamp.toISOString(),
+        context: event.context || {},
+        device_info: event.deviceInfo || {},
+        created_at: new Date().toISOString()
+      }));
+
+      const { error } = await supabase
+        .from('user_metrics')
+        .insert(metricsData);
+
+      if (error) {
+        throw error;
+      }
     } catch (error) {
       console.error('Failed to send metrics:', error);
       // Re-queue events on failure

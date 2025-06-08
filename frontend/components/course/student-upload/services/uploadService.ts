@@ -1,7 +1,7 @@
-import { studentAPI } from '@/lib/api';
 import { UploadFile, UploadStage } from '../types';
 import { formatFileSize } from '../utils/fileUtils';
 import { toast as sonnerToast } from 'sonner';
+import { fileOperations } from '@/lib/db/operations';
 
 export const uploadIndividualFile = async (
   uploadFile: UploadFile,
@@ -46,14 +46,10 @@ export const uploadIndividualFile = async (
 
     console.log('Calling uploadFile API with moduleId:', moduleId);
 
-    // Upload to student's course and parse JSON response
-    const response = await studentAPI.uploadFile(moduleId, formData);
+    // ✅ NEW: Upload using direct Supabase operations with AI processing
+    const result = await fileOperations.uploadFile(uploadFile.file, moduleId, uploadFile.file.name);
     
-    console.log('Upload API response:', response);
-    
-    const result = typeof response === 'object' ? response : await response.json();
-    
-    console.log('Parsed upload result:', result);
+    console.log('Supabase upload result:', result);
 
     // Simulate progress during upload
     let progress = 0;
@@ -74,13 +70,13 @@ export const uploadIndividualFile = async (
       // Complete upload
       onProgress(fileId, 100, 'completed', 'Upload complete!');
 
-      // Call success callback with normalized data
+      // ✅ NEW: Call success callback with Supabase data structure
       onComplete({
         id: result.id,
-        title: result.title || uploadFile.file.name,
-        filename: result.filename || uploadFile.file.name,
-        file_type: result.file_type || uploadFile.file.type,
-        file_size: result.file_size || uploadFile.file.size,
+        title: result.title,
+        filename: result.filename,
+        file_type: result.file_type,
+        file_size: result.file_size,
         type: uploadFile.file.type.includes('pdf')
           ? 'pdf'
           : uploadFile.file.type.includes('audio')
@@ -88,11 +84,11 @@ export const uploadIndividualFile = async (
             : uploadFile.file.type.includes('video')
               ? 'video'
               : 'document',
-        size: formatFileSize(result.file_size || uploadFile.file.size),
+        size: formatFileSize(result.file_size),
         uploadedAt: 'Just now',
-        processed: true,
-        moduleId: result.module_id || moduleId,
-        module_id: result.module_id || moduleId,
+        processed: result.processing_status === 'completed',
+        moduleId: result.module_id,
+        module_id: result.module_id,
       });
       sonnerToast.success(`${uploadFile.file.name} uploaded successfully!`);
     }, 2000);
@@ -123,8 +119,9 @@ export const uploadPackage = async (
     formData.append('package', uploadFile.file);
     formData.append('extractContents', 'true');
 
-    // Upload course package
-    const result = await studentAPI.uploadCoursePackage(formData);
+    // ✅ NEW: Upload course package using Supabase (simplified for now)
+    // TODO: Implement proper course package processing
+    const result = await fileOperations.uploadFile(uploadFile.file, 'temp-module', uploadFile.file.name);
 
     // Simulate progress during upload and extraction
     const stages: UploadStage[] = [

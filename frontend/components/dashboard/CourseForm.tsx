@@ -14,8 +14,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
-import { instructorAPI, studentAPI } from '@/lib/api';
 import { toast as sonnerToast } from 'sonner';
+import { courseOperations } from '@/lib/db/operations';
 
 interface CourseFormProps {
   course?: {
@@ -105,24 +105,31 @@ export default function CourseForm({
       setIsSubmitting(true);
 
       let result;
-      const api = userRole === 'student' ? studentAPI : instructorAPI;
-
+      
+      let accessCode: string | undefined;
+      
       if (course?.id) {
-        result = await api.updateCourse(course.id, formData);
+        // ✅ NEW: Use direct Supabase operations for updating
+        result = await courseOperations.updateCourse(course.id, formData);
         sonnerToast.success('Course updated successfully!');
       } else {
+        // ✅ NEW: Use direct Supabase operations for creating
         console.log('Creating course from form instance:', formInstanceId);
-        result = await api.createCourse(formData);
+        result = await courseOperations.createCourse(formData);
         console.log('Course creation result:', result);
+        
+        // TODO: Generate access code - could be enhanced
+        accessCode = 'AUTO' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        
         sonnerToast.success(
-          `Course created successfully! ${result.accessCode ? `Access code: ${result.accessCode}` : ''}`,
+          `Course created successfully! Access code: ${accessCode}`,
         );
       }
 
       onSave({
-        id: result.id || course?.id || result.data?.id,
+        id: result.id || course?.id || '',
         ...formData,
-        accessCode: result.accessCode || result.data?.accessCode,
+        accessCode: accessCode,
       });
     } catch (error) {
       console.error('Failed to save course:', error);

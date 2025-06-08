@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { instructorAPI } from '@/lib/api';
+import { courseOperations } from '@/lib/db/operations';
 
 export function useCourseDeleteHandler(courseId: string) {
   const router = useRouter();
@@ -15,7 +15,8 @@ export function useCourseDeleteHandler(courseId: string) {
   const confirmDeleteCourse = async () => {
     try {
       setIsDeletingCourse(true);
-      await instructorAPI.deleteCourse(courseId);
+      // ✅ NEW: Use direct Supabase operations for course deletion
+      await courseOperations.deleteCourse(courseId);
       toast.success('Course deleted successfully');
       router.push('/dashboard');
     } catch (error) {

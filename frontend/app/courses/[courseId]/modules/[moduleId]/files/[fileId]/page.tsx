@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Download, Sparkles, Eye, ExternalLink } from 'lucide-react';
 import { toast as sonnerToast } from 'sonner';
 import { UniversalFileViewer } from './components/UniversalFileViewer';
-import { apiClient } from '@/lib/api/client';
+import { supabase } from '@/lib/supabase';
 
 interface FileData {
   id: string;
@@ -48,35 +48,39 @@ export default function FilePreviewPage() {
         setLoading(true);
         setError(null);
 
-        // Use the API client instead of manual fetch with auth headers
+        // Fetch file from Supabase
         console.log('Fetching file data for fileId:', fileId);
         
-        // Raw API response logging (temporarily disabled)
+        const { data: fileData, error: fetchError } = await supabase
+          .from('educational_materials')
+          .select('*')
+          .eq('id', fileId)
+          .single();
         
-        const response = await apiClient.get(`/api/v2/files/${fileId}`) as any;
-        console.log('Raw API response:', response);
-        
-        // Extract the actual file data from the response wrapper
-        const fileData = response.data || response;
-        console.log('Extracted file data:', fileData);
-        
-        // Handle case where the API might return different ID field names
-        if (fileData && !fileData.id) {
-          // Check for alternative ID field names
-          if (fileData.file_id) {
-            fileData.id = fileData.file_id;
-          } else if (fileData._id) {
-            fileData.id = fileData._id;
-          } else if (fileData.material_id) {
-            fileData.id = fileData.material_id;
-          } else {
-            // If no ID field found, use the fileId from URL params
-            fileData.id = fileId;
-          }
-          console.log('Added missing ID field:', fileData.id);
+        if (fetchError) {
+          throw new Error(`Failed to fetch file: ${fetchError.message}`);
         }
         
-        setFile(fileData);
+        if (!fileData) {
+          throw new Error('File not found');
+        }
+        
+        console.log('Fetched file data:', fileData);
+        
+        // Transform to match FileData interface
+        const transformedFile: FileData = {
+          id: fileData.id,
+          title: fileData.title || fileData.filename,
+          filename: fileData.filename,
+          file_type: fileData.file_type,
+          file_size: fileData.file_size,
+          processed: fileData.processed || false,
+          uploaded_at: fileData.created_at,
+          s3_key: fileData.s3_key,
+          s3_bucket: fileData.s3_bucket
+        };
+        
+        setFile(transformedFile);
       } catch (err) {
         console.error('Error fetching file:', err);
         setError(err instanceof Error ? err.message : 'Failed to load file');
@@ -113,40 +117,31 @@ export default function FilePreviewPage() {
   // Handle download
   const handleDownload = async () => {
     try {
-      // Get the file download URL from the API
-      const data = await apiClient.get(`/api/v2/files/${fileId}/content?download=true`) as any;
+      if (!file?.s3_key || !file?.s3_bucket) {
+        throw new Error('File storage information not available');
+      }
+
+      // Get signed URL for download from Supabase Storage
+      const { data, error } = await supabase
+        .storage
+        .from('educational-materials')
+        .createSignedUrl(file.s3_key, 300); // 5 minute expiry
       
-      let downloadUrl: string;
+      if (error) {
+        throw new Error(`Failed to get download URL: ${error.message}`);
+      }
       
-      if (data?.url) {
-        // If we get a presigned URL, use it directly
-        downloadUrl = data.url;
-      } else {
-        // Fallback: try to get the file directly
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v2/files/${fileId}/download`, {
-          credentials: 'include'
-        });
-        
-        if (!response.ok) {
-          throw new Error('Download failed');
-        }
-        
-        const blob = await response.blob();
-        downloadUrl = window.URL.createObjectURL(blob);
+      if (!data?.signedUrl) {
+        throw new Error('No download URL received');
       }
       
       // Create download link
       const a = document.createElement('a');
-      a.href = downloadUrl;
+      a.href = data.signedUrl;
       a.download = file?.filename || 'download';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      
-      // Clean up blob URL if we created one
-      if (downloadUrl.startsWith('blob:')) {
-        window.URL.revokeObjectURL(downloadUrl);
-      }
       
       sonnerToast.success('File downloaded successfully');
     } catch (err) {

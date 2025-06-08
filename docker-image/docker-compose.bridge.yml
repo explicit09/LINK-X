@@ -1,0 +1,124 @@
+# Docker Compose for Phase 3: AI Processing Bridge
+# Connects Supabase-first architecture with existing AI backend
+
+services:
+  # Main AI Processing Bridge
+  supabase-bridge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python -m src.services.supabase_bridge
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - WORKER_ID=supabase-bridge-1
+      - BRIDGE_POLL_INTERVAL=5
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./src:/app/src
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # PGMQ Embedding Workers (existing)
+  embedding-worker-1:
+    build:
+      context: ./src/workers
+      dockerfile: Dockerfile
+    command: python pgmq_embedding_worker.py
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - WORKER_ID=pgmq-worker-1
+      - EMBEDDING_BATCH_SIZE=100
+      - POLL_INTERVAL=1.0
+      - EMBEDDING_MODEL=text-embedding-3-small
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  embedding-worker-2:
+    build:
+      context: ./src/workers
+      dockerfile: Dockerfile
+    command: python pgmq_embedding_worker.py
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - WORKER_ID=pgmq-worker-2
+      - EMBEDDING_BATCH_SIZE=100
+      - POLL_INTERVAL=1.0
+      - EMBEDDING_MODEL=text-embedding-3-small
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # Main Backend API (for compatibility)
+  backend-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python src/app.py
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - FLASK_ENV=production
+      - PORT=8000
+    volumes:
+      - ./src:/app/src
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # PostgreSQL (if running locally - otherwise use Supabase)
+  postgres:
+    image: pgvector/pgvector:pg15
+    environment:
+      POSTGRES_DB: learn_x
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - app-network
+    profiles:
+      - local-postgres
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  app-network:
+    driver: bridge
+
+# Health checks
+x-health-check: &health-check
+  healthcheck:
+    test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+    interval: 30s
+    timeout: 10s
+    retries: 3 
+ 

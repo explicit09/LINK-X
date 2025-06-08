@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { instructorAPI } from '@/lib/api';
 import { toast } from 'sonner';
 import { File } from './useModules';
+import { fileOperations } from '@/lib/db/operations';
+import { useFiles } from '@/lib/hooks/useDatabase';
 
 export interface FileSummary {
   id: string;
@@ -17,29 +18,27 @@ export interface UploadResult {
 
 export function useFileManagement() {
   const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
-  const [moduleFiles, setModuleFiles] = useState<Record<string, FileSummary[]>>(
-    {},
-  );
-  const [loadingFiles, setLoadingFiles] = useState<Set<string>>(new Set());
 
   // Upload file to module
   const uploadFile = async (
     moduleId: string,
-    file: File,
+    file: globalThis.File, // Use globalThis.File for DOM File API
   ): Promise<UploadResult> => {
     try {
       setUploadingFiles((prev) => new Set(prev).add(moduleId));
 
-      const result = await instructorAPI.uploadFile(moduleId, file);
-
-      // Update module files cache
-      setModuleFiles((prev) => ({
-        ...prev,
-        [moduleId]: [...(prev[moduleId] || []), result],
-      }));
+      // ✅ NEW: Use direct Supabase operations with AI processing
+      const result = await fileOperations.uploadFile(file, moduleId, file.name);
 
       toast.success('File uploaded successfully');
-      return { success: true, file: result };
+      return { 
+        success: true, 
+        file: {
+          id: result.id,
+          title: result.title,
+          filename: result.filename,
+        }
+      };
     } catch (err) {
       console.error('Error uploading file:', err);
       toast.error('Failed to upload file');
@@ -53,24 +52,26 @@ export function useFileManagement() {
     }
   };
 
-  // Upload audio file to module
+  // Upload audio file to module (same as regular file upload)
   const uploadAudioFile = async (
     moduleId: string,
-    audioFile: File,
+    audioFile: globalThis.File,
   ): Promise<UploadResult> => {
     try {
       setUploadingFiles((prev) => new Set(prev).add(`audio-${moduleId}`));
 
-      const result = await instructorAPI.uploadAudioFile(moduleId, audioFile);
-
-      // Update module files cache
-      setModuleFiles((prev) => ({
-        ...prev,
-        [moduleId]: [...(prev[moduleId] || []), result],
-      }));
+      // ✅ NEW: Use direct Supabase operations (same as regular file)
+      const result = await fileOperations.uploadFile(audioFile, moduleId, audioFile.name);
 
       toast.success('Audio file uploaded successfully');
-      return { success: true, file: result };
+      return { 
+        success: true, 
+        file: {
+          id: result.id,
+          title: result.title,
+          filename: result.filename,
+        }
+      };
     } catch (err) {
       console.error('Error uploading audio file:', err);
       toast.error('Failed to upload audio file');
@@ -90,13 +91,8 @@ export function useFileManagement() {
     moduleId: string,
   ): Promise<boolean> => {
     try {
-      await instructorAPI.deleteFile(fileId);
-
-      // Update module files cache
-      setModuleFiles((prev) => ({
-        ...prev,
-        [moduleId]: (prev[moduleId] || []).filter((file) => file.id !== fileId),
-      }));
+      // ✅ NEW: Use direct Supabase operations
+      await fileOperations.deleteFile(fileId);
 
       toast.success('File deleted successfully');
       return true;
@@ -107,35 +103,29 @@ export function useFileManagement() {
     }
   };
 
-  // Load files for a module
+  // Load files for a module (use the hook instead)
   const loadModuleFiles = async (moduleId: string): Promise<FileSummary[]> => {
     try {
-      setLoadingFiles((prev) => new Set(prev).add(moduleId));
+      // ✅ NEW: Use direct Supabase operations
+      const files = await fileOperations.getModuleFiles(moduleId);
 
-      const files = await instructorAPI.getModuleFiles(moduleId);
-
-      setModuleFiles((prev) => ({
-        ...prev,
-        [moduleId]: files,
+      return files.map(file => ({
+        id: file.id,
+        title: file.title,
+        filename: file.filename,
       }));
-
-      return files;
     } catch (err) {
       console.error('Error loading module files:', err);
       toast.error('Failed to load module files');
       return [];
-    } finally {
-      setLoadingFiles((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(moduleId);
-        return newSet;
-      });
     }
   };
 
-  // Get files for a module
+  // Get files for a module - recommend using useFiles hook instead
   const getModuleFiles = (moduleId: string): FileSummary[] => {
-    return moduleFiles[moduleId] || [];
+    // ✅ NOTE: This is deprecated - use useFiles(moduleId) hook instead
+    console.warn('getModuleFiles is deprecated - use useFiles(moduleId) hook for real-time updates');
+    return [];
   };
 
   // Check if uploading for module
@@ -147,9 +137,10 @@ export function useFileManagement() {
     return uploadingFiles.has(key);
   };
 
-  // Check if loading files for module
+  // Check if loading files for module - deprecated
   const isLoadingFiles = (moduleId: string): boolean => {
-    return loadingFiles.has(moduleId);
+    // ✅ NOTE: Use useFiles(moduleId).loading instead
+    return false;
   };
 
   return {
@@ -157,9 +148,9 @@ export function useFileManagement() {
     uploadAudioFile,
     deleteFile,
     loadModuleFiles,
-    getModuleFiles,
+    getModuleFiles, // Deprecated
     isUploading,
-    isLoadingFiles,
-    moduleFiles,
+    isLoadingFiles, // Deprecated
+    moduleFiles: {}, // Deprecated - use useFiles hook
   };
 }

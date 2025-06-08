@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { studentAPI, userAPI } from '@/lib/api';
 import { toast as sonnerToast } from 'sonner';
 import { Course } from '../types';
+import { useCourses } from '@/lib/hooks/useDatabase';
+import { useAuth } from '@/hooks/useAuth';
 
 export function useStudentData() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  // ✅ NEW: Use Supabase hooks instead of API calls
+  const { user } = useAuth();
+  const { courses: supabaseCourses, loading: coursesLoading, refetch } = useCourses({
+    published: true // Students only see published courses
+  });
+  
   const [showOnboardingPrompt, setShowOnboardingPrompt] = useState(false);
   const router = useRouter();
 
@@ -25,34 +29,31 @@ export function useStudentData() {
     return date.toLocaleDateString();
   };
 
-  const transformCourseData = (coursesData: any[]) => {
-    // Ensure coursesData is an array before mapping
-    if (!Array.isArray(coursesData)) {
-      console.warn('Courses data is not an array in transformCourseData:', coursesData);
-      return [];
-    }
-    
-    return coursesData.map((course: any, index: number) => ({
-      id: course.id,
-      title: course.title,
-      code: course.code || 'N/A',
-      term: course.term || 'Current',
-      description: course.description || '',
-      color: `course-${['blue', 'green', 'purple', 'orange', 'red', 'teal'][index % 6]}`,
-      lastActivity: course.last_updated
-        ? formatRelativeTime(course.last_updated)
-        : 'Recently',
-      materialsCount: course.modules?.length || 0,
-      studentsCount: course.students || 0,
-      unreadCount: Math.floor(Math.random() * 3), // TODO: Implement real unread count
-    }));
-  };
+  // Transform Supabase courses to match student interface
+  const courses: Course[] = supabaseCourses.map((course, index) => ({
+    id: course.id,
+    title: course.title,
+    code: course.code || 'N/A',
+    term: course.term || 'Current',
+    description: course.description || '',
+    color: `course-${['blue', 'green', 'purple', 'orange', 'red', 'teal'][index % 6]}`,
+    lastActivity: course.updated_at
+      ? formatRelativeTime(course.updated_at)
+      : 'Recently',
+    materialsCount: 0, // Could be enhanced with actual count from modules
+    studentsCount: 0,  // Could be enhanced with actual enrollment count
+    unreadCount: Math.floor(Math.random() * 3), // TODO: Implement real unread count
+  }));
 
-  const checkOnboardingStatus = (user: any) => {
-    if (user.role === 'student') {
-      if (!user.profile || !user.profile.name) {
+  const checkOnboardingStatus = (currentUser: any) => {
+    if (!currentUser) return false;
+    
+    const userRole = currentUser.user_metadata?.role || 'student';
+    if (userRole === 'student') {
+      const userName = currentUser.user_metadata?.full_name;
+      if (!userName) {
         const hasCompletedOnboarding =
-          localStorage.getItem(`onboarding_completed_${user.id}`) === 'true';
+          localStorage.getItem(`onboarding_completed_${currentUser.id}`) === 'true';
 
         if (!hasCompletedOnboarding) {
           router.push('/onboarding');
@@ -62,52 +63,22 @@ export function useStudentData() {
           return false;
         }
       } else {
-        localStorage.setItem(`onboarding_completed_${user.id}`, 'true');
+        localStorage.setItem(`onboarding_completed_${currentUser.id}`, 'true');
       }
     }
     return true;
   };
 
-  const loadStudentData = async () => {
-    try {
-      setLoading(true);
-
-      const [user, coursesData] = await Promise.all([
-        userAPI.getMe(),
-        studentAPI.getCourses(),
-      ]);
-
-      setUserProfile(user);
-
-      if (!checkOnboardingStatus(user)) {
-        return;
-      }
-
-      // Additional safety check before transforming
-      if (!Array.isArray(coursesData)) {
-        console.warn('Received non-array courses data:', coursesData);
-        setCourses([]);
-        return;
-      }
-
-      const transformedCourses = transformCourseData(coursesData);
-      setCourses(transformedCourses);
-    } catch (error) {
-      console.error('Failed to load student data:', error);
-      sonnerToast.error('Failed to load courses. Please try again.');
-      setCourses([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Check onboarding when user changes
   useEffect(() => {
-    loadStudentData();
-  }, [router]);
+    if (user) {
+      checkOnboardingStatus(user);
+    }
+  }, [user, router]);
 
   const handleOnboardingComplete = () => {
-    if (userProfile?.id) {
-      localStorage.setItem(`onboarding_completed_${userProfile.id}`, 'true');
+    if (user?.id) {
+      localStorage.setItem(`onboarding_completed_${user.id}`, 'true');
     }
     router.push('/onboarding');
   };
@@ -118,11 +89,11 @@ export function useStudentData() {
 
   return {
     courses,
-    loading,
-    userProfile,
+    loading: coursesLoading,
+    userProfile: user, // Use auth user as profile
     showOnboardingPrompt,
     handleOnboardingComplete,
     dismissOnboardingPrompt,
-    reloadData: loadStudentData,
+    reloadData: refetch, // Use refetch from hook
   };
 }

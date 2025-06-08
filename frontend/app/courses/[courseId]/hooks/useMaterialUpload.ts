@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { studentAPI, instructorAPI } from '@/lib/api';
 import { useCourseContext, courseActions } from '../context/CourseContext';
 import { createModuleStructure } from '../utils/moduleStructure';
 import {
@@ -9,12 +8,15 @@ import {
   formatFileSize,
 } from '../utils/courseHelpers';
 import { Material } from '../types/course.types';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { useFiles, useModules } from '@/lib/hooks/useDatabase';
+import { fileOperations } from '@/lib/db/operations';
 
 export const useMaterialUpload = (courseId: string) => {
   const { state, dispatch } = useCourseContext();
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // ✅ NEW: Use Supabase operations instead of API calls
+  const { modules } = useModules(courseId);
 
   const handleUploadComplete = async (newFile: any) => {
     try {
@@ -43,61 +45,8 @@ export const useMaterialUpload = (courseId: string) => {
       // Add material to the appropriate module
       dispatch(courseActions.addMaterial(moduleId, newMaterial));
 
-      // Try to refresh modules from server for consistency
-      try {
-        if (state.currentUser?.role === 'student') {
-          const modulesResponse = await fetch(
-            `${API_URL}/api/v2/courses/${courseId}/modules`,
-            {
-              method: 'GET',
-              credentials: 'include',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            },
-          );
-
-          if (modulesResponse.ok) {
-            const modulesApiResponse = await modulesResponse.json();
-            const modulesWithFiles =
-              modulesApiResponse.data || modulesApiResponse;
-
-            const filesData = modulesWithFiles.flatMap((module: any) =>
-              (module.materials || module.files || []).map((file: any) => ({
-                ...file,
-                moduleId: module.id,
-                moduleName: module.title,
-              })),
-            );
-
-            const transformedMaterials: Material[] = filesData
-              .filter((file: any) => file && file.id)
-              .map((file: any) => ({
-                id: file.id,
-                title: file.title || file.name || 'Unknown File',
-                type: getFileType(file.file_type || file.type || ''),
-                size: file.size || formatFileSize(file.file_size || 0),
-                uploadedAt: formatRelativeTime(
-                  file.uploadedAt ||
-                    file.created_at ||
-                    new Date().toISOString(),
-                ),
-                processed: file.processed !== false,
-                moduleId: file.moduleId,
-                moduleName: file.moduleName,
-              }));
-
-            const organizedModules = createModuleStructure(
-              modulesWithFiles,
-              transformedMaterials,
-              courseId,
-            );
-            dispatch(courseActions.setModules(organizedModules));
-          }
-        }
-      } catch (refreshError) {
-        console.error('Failed to refresh modules:', refreshError);
-      }
+      // ✅ NEW: Modules are automatically updated via real-time subscriptions
+      // No need for manual refresh - the useModules hook handles this
 
       toast.success(`${newMaterial.title} uploaded successfully!`);
       return true;
@@ -112,12 +61,8 @@ export const useMaterialUpload = (courseId: string) => {
     setIsDeleting(true);
 
     try {
-      // Call the appropriate API based on user role
-      if (state.currentUser?.role === 'student') {
-        await studentAPI.deleteFile(fileId);
-      } else {
-        await instructorAPI.deleteFile(fileId);
-      }
+      // ✅ NEW: Use direct Supabase operations instead of API
+      await fileOperations.deleteFile(fileId);
 
       // Remove the file from the local state
       dispatch(courseActions.deleteMaterial(moduleId, fileId));
@@ -143,13 +88,9 @@ export const useMaterialUpload = (courseId: string) => {
     }
 
     try {
-      // Delete files one by one (could be optimized with batch API)
+      // ✅ NEW: Delete files using direct Supabase operations
       for (const fileId of fileIds) {
-        if (state.currentUser?.role === 'student') {
-          await studentAPI.deleteFile(fileId);
-        } else {
-          await instructorAPI.deleteFile(fileId);
-        }
+        await fileOperations.deleteFile(fileId);
       }
 
       // Remove files from local state

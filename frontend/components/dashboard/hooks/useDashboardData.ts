@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { instructorAPI, studentAPI } from '@/lib/api';
+import { useCourses } from '@/lib/hooks/useDatabase';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 
 interface Course {
   id: string;
@@ -22,9 +24,12 @@ interface DashboardStats {
 }
 
 export const useDashboardData = (userRole: string) => {
-  const [loading, setLoading] = useState(true);
-  const [realCourses, setRealCourses] = useState<Course[]>([]);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  // ✅ NEW: Use Supabase hooks instead of API calls
+  const { user } = useAuth();
+  const { courses, loading: coursesLoading, refetch: refetchCourses } = useCourses({
+    published: userRole === 'student' ? true : undefined // Students only see published courses
+  });
+  
   const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
     aiInteractions: 0,
     weeklyHours: 0,
@@ -45,80 +50,58 @@ export const useDashboardData = (userRole: string) => {
     return date.toLocaleDateString();
   };
 
-  const loadCourses = async () => {
-    try {
-      setLoading(true);
-      
-      // Load courses based on user role
-      let coursesData = [];
-      if (userRole === "student") {
-        coursesData = await studentAPI.getCourses();
-      } else if (userRole === "instructor") {
-        coursesData = await instructorAPI.getCourses();
-      } else if (userRole === "admin") {
-        coursesData = await instructorAPI.getCourses(); // Admin uses instructor API for courses
-      }
-      
-      // Transform API data to match our interface
-      const transformedCourses = coursesData.map((course: any, index: number) => ({
-        id: course.id,
-        title: course.title,
-        code: course.code || "N/A",
-        term: course.term || "Current",
-        description: course.description || "",
-        published: course.published,
-        color: `course-${["blue", "green", "purple", "orange", "red", "teal"][index % 6]}`,
-        lastActivity: course.last_updated ? formatRelativeTime(course.last_updated) : "Recently",
-        materialsCount: course.modules?.length || 0,
-        studentsCount: course.students || 0,
-        unreadCount: Math.floor(Math.random() * 5),
-      }));
-      
-      setRealCourses(transformedCourses);
-      
-      // Load user profile
-      const user = await studentAPI.getProfile();
-      setUserProfile(user);
-      
-    } catch (error) {
-      console.error("Failed to load dashboard data:", error);
-      setRealCourses([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Transform courses data to match dashboard interface
+  const realCourses: Course[] = courses.map((course, index) => ({
+    id: course.id,
+    title: course.title,
+    code: course.code || "N/A",
+    term: course.term || "Current",
+    description: course.description || "",
+    published: course.published,
+    color: `course-${["blue", "green", "purple", "orange", "red", "teal"][index % 6]}`,
+    lastActivity: course.updated_at ? formatRelativeTime(course.updated_at) : "Recently",
+    materialsCount: 0, // Could be enhanced with actual count from modules
+    studentsCount: 0,  // Could be enhanced with actual enrollment count
+    unreadCount: Math.floor(Math.random() * 5), // Placeholder for notifications
+  }));
 
   const loadDashboardStats = async () => {
     try {
       setDashboardStats(prev => ({ ...prev, loading: true }));
       
-      if (userRole === 'student') {
+      // ✅ NEW: Query Supabase for dashboard stats
+      if (userRole === 'student' && user) {
         try {
-          const apiStats = await studentAPI.getDashboardStats();
+          // Get AI interactions count (could query processing_queue or chat logs)
+          const { count: aiInteractions } = await supabase
+            .from('processing_queue')
+            .select('*', { count: 'exact', head: true })
+            .eq('payload->user_id', user.id);
+
+          // Get weekly hours (placeholder - could be enhanced with actual time tracking)
+          const weeklyHours = 0; // Could query actual time tracking data
+
           setDashboardStats({
-            aiInteractions: apiStats.aiInteractions || 0,
-            weeklyHours: apiStats.weeklyHours || 0,
+            aiInteractions: aiInteractions || 0,
+            weeklyHours,
             loading: false
           });
-          return;
-        } catch (apiError) {
-          console.warn("Failed to load real dashboard stats:", apiError);
+        } catch (error) {
+          console.warn("Failed to load dashboard stats:", error);
           setDashboardStats({
             aiInteractions: 0,
             weeklyHours: 0,
             loading: false
           });
-          return;
         }
+      } else {
+        // For instructors/admins, show basic stats
+        setDashboardStats({
+          aiInteractions: 0,
+          weeklyHours: 0,
+          loading: false
+        });
       }
-      
-      // For instructors/admins, show basic stats
-      setDashboardStats({
-        aiInteractions: 0,
-        weeklyHours: 0,
-        loading: false
-      });
-      
     } catch (error) {
       console.error("Failed to load dashboard stats:", error);
       setDashboardStats({
@@ -130,16 +113,16 @@ export const useDashboardData = (userRole: string) => {
   };
 
   useEffect(() => {
-    loadCourses();
-  }, [userRole]);
+    loadDashboardStats();
+  }, [userRole, user]);
 
   return {
-    loading,
+    loading: coursesLoading,
     realCourses,
-    userProfile,
+    userProfile: user, // Use auth user as profile
     dashboardStats,
-    loadCourses,
+    loadCourses: refetchCourses, // Use refetch from hook
     loadDashboardStats,
-    setRealCourses
+    setRealCourses: () => {}, // Not needed with real-time updates
   };
 };

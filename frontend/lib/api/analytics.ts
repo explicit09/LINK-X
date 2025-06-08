@@ -260,11 +260,25 @@ export const analyticsAPI = {
    * Get study time analytics for the user
    */
   async getStudyTime(period: 'week' | 'month' | 'all' = 'week', courseId?: string): Promise<StudyTimeAnalytics> {
-    const params: any = { period };
-    if (courseId) params.course_id = courseId;
-    
-    const response = await apiClient.get('/api/v2/analytics/study-time', { params }) as any;
-    return response.data;
+    try {
+      const params: any = { period };
+      if (courseId) params.course_id = courseId;
+      
+      const response = await apiClient.get('/api/v2/analytics/study-time', { params }) as any;
+      return response.data;
+    } catch (error: any) {
+      // Log the error but throw a more user-friendly message
+      console.warn('Analytics API Error:', error.message);
+      
+      // Check if it's a specific type of error
+      if (error.message?.includes('500') || error.message?.includes('Internal Server Error')) {
+        throw new Error('Study time service temporarily unavailable');
+      } else if (error.message?.includes('Network Error')) {
+        throw new Error('Unable to connect to server');
+      } else {
+        throw new Error('An error occurred fetching study time data');
+      }
+    }
   },
 
   /**

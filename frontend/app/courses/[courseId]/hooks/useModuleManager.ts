@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { studentAPI, instructorAPI } from '@/lib/api';
 import { useCourseContext, courseActions } from '../context/CourseContext';
 import { Module } from '../types/course.types';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { moduleOperations } from '@/lib/db/operations';
+import { useModules } from '@/lib/hooks/useDatabase';
 
 export const useModuleManager = (courseId: string) => {
   const { state, dispatch } = useCourseContext();
   const [isCreating, setIsCreating] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // ✅ NEW: Use Supabase hook for real-time updates
+  const { refetch: refetchModules } = useModules(courseId);
 
   const createModule = async (title: string, description?: string) => {
     if (!title.trim()) {
@@ -21,45 +23,28 @@ export const useModuleManager = (courseId: string) => {
     setIsCreating(true);
 
     try {
-      const endpoint = `/api/v2/courses/${courseId}/modules`;
-
-      const response = await fetch(`${API_URL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          title: title.trim(),
-          description: description?.trim() || undefined,
-        }),
+      // ✅ NEW: Use direct Supabase operations
+      const newModule = await moduleOperations.createModule(courseId, {
+        title: title.trim(),
+        description: description?.trim() || undefined,
+        ordering: state.modules.length, // Add to end by default
       });
-
-      if (!response.ok) {
-        let errorMsg = `Failed to create module: ${response.statusText}`;
-        try {
-          const errJson = await response.json();
-          errorMsg = errJson.error || errorMsg;
-        } catch {}
-        toast.error(errorMsg);
-        return;
-      }
-
-      const responseData = await response.json();
-      const newModule = responseData.module;
 
       // Add the new module to the local state
       const moduleToAdd: Module = {
-        id: newModule.id || `temp-${Date.now()}`,
-        title: newModule.title || 'New Module',
+        id: newModule.id,
+        title: newModule.title,
         description: newModule.description || '',
         materials: [],
         isExpanded: true,
       };
 
       dispatch(courseActions.addModule(moduleToAdd));
+      
+      // Refresh modules to get latest state
+      refetchModules();
+      
       toast.success('Module created successfully');
-
       return moduleToAdd;
     } catch (error) {
       console.error('Error creating module:', error);
@@ -82,31 +67,24 @@ export const useModuleManager = (courseId: string) => {
     setIsUpdating(true);
 
     try {
-      const api =
-        state.currentUser?.role === 'instructor' ? instructorAPI : studentAPI;
-
-      const response = await api.updateModule(courseId, moduleId, {
+      // ✅ NEW: Use direct Supabase operations
+      await moduleOperations.updateModule(moduleId, {
         title: title.trim(),
         description: description?.trim() || undefined,
       });
 
-      if (response.ok) {
-        dispatch(
-          courseActions.updateModule(moduleId, {
-            title: title.trim(),
-            description: description?.trim() || undefined,
-          }),
-        );
+      dispatch(
+        courseActions.updateModule(moduleId, {
+          title: title.trim(),
+          description: description?.trim() || undefined,
+        }),
+      );
 
-        toast.success('Module updated successfully');
-        return true;
-      } else {
-        const errorData = await response.json();
-        toast.error(
-          errorData.error || 'Failed to update module. Please try again.',
-        );
-        return false;
-      }
+      // Refresh modules to get latest state
+      refetchModules();
+      
+      toast.success('Module updated successfully');
+      return true;
     } catch (error) {
       console.error('Error updating module:', error);
       toast.error('Failed to update module. Please try again.');
@@ -135,23 +113,15 @@ export const useModuleManager = (courseId: string) => {
     setIsDeleting(true);
 
     try {
-      const endpoint =
-        state.currentUser?.role === 'student'
-          ? `/student/modules/${moduleId}`
-          : `/instructor/modules/${moduleId}`;
-
-      const response = await fetch(`${API_URL}${endpoint}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to delete module: ${response.statusText}`);
-      }
+      // ✅ NEW: Use direct Supabase operations
+      await moduleOperations.deleteModule(moduleId);
 
       dispatch(courseActions.deleteModule(moduleId));
+      
+      // Refresh modules to get latest state
+      refetchModules();
+      
       toast.success('Module deleted successfully');
-
       return true;
     } catch (error) {
       console.error('Error deleting module:', error);
