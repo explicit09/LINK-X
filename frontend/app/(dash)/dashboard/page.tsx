@@ -40,7 +40,7 @@ function DashboardContent() {
   const role = profile?.role || 'student';
   
   // Dashboard mode and data hooks
-  const { mode, config, isLoading: modeLoading, userStats } = useDashboardMode();
+  const { mode, config, isLoading: modeLoading, userStats, refresh: refreshDashboardMode } = useDashboardMode();
   const { stage, isLoading: journeyLoading } = useUserJourneyStage();
   const { data: dashboardData, loading: dashboardLoading } = useDashboardOverview();
   const { data: aiData } = useAIRecommendations();
@@ -78,6 +78,33 @@ function DashboardContent() {
     }
     previousMode.current = mode;
   }, [mode, useAdaptiveDashboard]);
+  
+  // Refresh dashboard when page becomes visible (e.g., returning from course creation)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !modeLoading) {
+        console.log('[Dashboard] Page became visible, refreshing dashboard mode');
+        refreshDashboardMode?.();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Also refresh on focus
+    const handleFocus = () => {
+      if (!modeLoading) {
+        console.log('[Dashboard] Window focused, refreshing dashboard mode');
+        refreshDashboardMode?.();
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [refreshDashboardMode, modeLoading]);
 
   // ENHANCED AUTH CHECK - authentication and onboarding
   useEffect(() => {

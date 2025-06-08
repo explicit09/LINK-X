@@ -79,7 +79,7 @@ const dashboardConfigs: Record<DashboardMode, DashboardModeConfig> = {
 };
 
 export function useDashboardMode() {
-  const { stage, metrics, isLoading } = useUserJourneyStage();
+  const { stage, metrics, isLoading, refresh: refreshJourney } = useUserJourneyStage();
   const { userStats } = useGamification();
 
   const mode = useMemo(() => {
@@ -168,7 +168,8 @@ export function useDashboardMode() {
       percentage: Math.round((completedMissionsCount / setupMissions.length) * 100),
       earnedXP: earnedMissionsXP,
       totalXP: totalMissionsXP
-    }
+    },
+    refresh: refreshJourney
   };
 }
 

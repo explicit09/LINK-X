@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { apiClient } from '@/lib/api/client';
+import { courseOperations } from '@/lib/db/operations';
+import { supabase } from '@/lib/supabase';
 
 export enum UserJourneyStage {
   FIRST_VISIT = 'first_visit',          // Just registered, no profile
@@ -30,7 +31,7 @@ interface UserJourneyData {
   personalizationLevel: number; // 0-100
 }
 
-export function useUserJourneyStage(): UserJourneyData {
+export function useUserJourneyStage(): UserJourneyData & { refresh: () => void } {
   const [journeyData, setJourneyData] = useState<UserJourneyData>({
     stage: UserJourneyStage.FIRST_VISIT,
     metrics: {
@@ -50,68 +51,118 @@ export function useUserJourneyStage(): UserJourneyData {
     personalizationLevel: 0
   });
 
-  useEffect(() => {
-    const analyzeUserJourney = async () => {
+  const analyzeUserJourney = async () => {
       try {
-        // Fetch user data from multiple endpoints
-        const [coursesRes, dashboardRes] = await Promise.all([
-          apiClient.get('/api/v2/courses').catch(() => null),
-          apiClient.get('/api/v2/dashboard/overview').catch(() => null)
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setJourneyData(prev => ({ ...prev, isLoading: false }));
+          return;
+        }
+
+        // Fetch all necessary data in parallel
+        const [
+          coursesResponse,
+          profileData,
+          userStatsData,
+          completedTasksData,
+          studyTimeData,
+          lastActivityData
+        ] = await Promise.all([
+          // 1. Get courses
+          courseOperations.getUserCourses().catch(() => ({ courses: [], total: 0 })),
+          
+          // 2. Get user profile
+          supabase
+            .from('profiles')
+            .select('onboarding_completed, onboarding_step, created_at')
+            .eq('id', user.id)
+            .single(),
+          
+          // 3. Get user stats (XP and streaks)
+          supabase
+            .from('user_stats')
+            .select('total_xp, daily_streak, last_activity_date')
+            .eq('user_id', user.id)
+            .single(),
+          
+          // 4. Count completed tasks
+          supabase
+            .from('todos')
+            .select('id', { count: 'exact' })
+            .eq('user_id', user.id)
+            .eq('completed', true),
+          
+          // 5. Calculate total study hours
+          supabase
+            .from('study_sessions')
+            .select('actual_duration')
+            .eq('user_id', user.id),
+          
+          // 6. Get last activity from user_activities
+          supabase
+            .from('user_activities')
+            .select('created_at')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single()
         ]);
         
-        // Profile endpoint might not exist, use user data from auth instead
-        const profileRes = null;
+        // Extract data
+        const courses = coursesResponse.courses || [];
+        const profile = profileData.data;
+        const userStats = userStatsData.data;
+        const completedTasksCount = completedTasksData.count || 0;
         
-        // Mock activity response until backend endpoint is implemented
-        const activityRes = {
-          data: {
-            last_activity: new Date().toISOString(),
-            streak_days: 0,
-            total_study_time: 0
-          }
-        };
-
-        // Extract metrics
-        const profile = profileRes?.data;
-        // Fix: BaseClient already unwraps v2 responses, so coursesRes IS the array
-        const courses = coursesRes || [];
-        // Fix: BaseClient unwraps v2 responses, so dashboardRes IS the data
-        const dashboard = dashboardRes || {};
-        const activity = activityRes?.data;
+        // Calculate total study hours
+        const totalStudyMinutes = studyTimeData.data?.reduce((sum, session) => 
+          sum + (session.actual_duration || 0), 0) || 0;
+        const studyHours = Math.round(totalStudyMinutes / 60);
         
-        console.log('📊 Raw Data Debug:', {
-          fullCoursesResponse: coursesRes,
-          coursesArray: courses,
-          coursesLength: courses.length,
-          isArray: Array.isArray(courses),
-          coursesResponseType: typeof coursesRes,
-          sampleCourse: courses[0] || 'no courses',
-          dashboardData: dashboard
-        });
-
-        // Calculate days since signup (default to 0 for new users)
-        const signupDate = new Date(); // We'll use current date as fallback
-        const daysSinceSignup = 0; // Default to new user
-
-        // Calculate last activity
-        const lastActivity = activity?.last_activity ? new Date(activity.last_activity) : new Date();
+        // Calculate days since signup
+        const signupDate = profile?.created_at ? new Date(profile.created_at) : new Date();
+        const daysSinceSignup = Math.floor((Date.now() - signupDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Calculate last activity days
+        const lastActivityDate = lastActivityData.data?.created_at || 
+                                 userStats?.last_activity_date || 
+                                 new Date().toISOString();
+        const lastActivity = new Date(lastActivityDate);
         const lastActivityDays = Math.floor((Date.now() - lastActivity.getTime()) / (1000 * 60 * 60 * 24));
-
-        // Get setup missions from localStorage
+        
+        // Get setup missions from localStorage (this should eventually move to DB)
         const completedMissions = JSON.parse(localStorage.getItem('completedSetupMissions') || '[]');
+        
+        // Determine if onboarding is completed
+        const isOnboardingCompleted = profile?.onboarding_completed || 
+                                     profile?.onboarding_step === 999 || 
+                                     courses.length > 0 || 
+                                     localStorage.getItem('onboarding_completed') === 'true';
 
         const metrics: UserMetrics = {
           coursesCount: courses.length,
-          totalXP: dashboard?.weekly_progress?.xp?.lifetime || 0,
-          tasksCompleted: dashboard?.weekly_progress?.tasks?.lifetime_completed || 0,
-          studyHours: Math.round((dashboard?.weekly_progress?.study_time?.lifetime || 0) / 60),
+          totalXP: userStats?.total_xp || 0,
+          tasksCompleted: completedTasksCount,
+          studyHours: studyHours,
           daysSinceSignup,
           lastActivityDays,
-          streakDays: activity?.streak_days || 0,
-          // If user has courses, they must have completed onboarding (handles LMS imports)
-          completedOnboarding: courses.length > 0 || localStorage.getItem('onboarding_completed') === 'true',
+          streakDays: userStats?.daily_streak || 0,
+          completedOnboarding: isOnboardingCompleted,
           setupMissionsCompleted: completedMissions.length
         };
+        
+        console.log('📊 User Journey Metrics:', {
+          coursesCount: metrics.coursesCount,
+          totalXP: metrics.totalXP,
+          tasksCompleted: metrics.tasksCompleted,
+          studyHours: metrics.studyHours,
+          daysSinceSignup: metrics.daysSinceSignup,
+          lastActivityDays: metrics.lastActivityDays,
+          streakDays: metrics.streakDays,
+          completedOnboarding: metrics.completedOnboarding,
+          setupMissionsCompleted: metrics.setupMissionsCompleted
+        });
 
         // Determine user stage
         const stage = determineUserStage(metrics);
@@ -145,12 +196,19 @@ export function useUserJourneyStage(): UserJourneyData {
         console.error('Error analyzing user journey:', error);
         setJourneyData(prev => ({ ...prev, isLoading: false }));
       }
-    };
+  };
 
+  useEffect(() => {
     analyzeUserJourney();
   }, []);
 
-  return journeyData;
+  // Add refresh function
+  const refresh = () => {
+    setJourneyData(prev => ({ ...prev, isLoading: true }));
+    analyzeUserJourney();
+  };
+
+  return { ...journeyData, refresh };
 }
 
 function determineUserStage(metrics: UserMetrics): UserJourneyStage {
