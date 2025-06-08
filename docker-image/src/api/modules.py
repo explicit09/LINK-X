@@ -1,8 +1,7 @@
 from flask import Blueprint, request, jsonify, g
 import os
 
-from core.decorators_unified import auth_required
-from core.exceptions import NotFoundError, ValidationError, AuthorizationError
+from core.exceptions import NotFoundError, ValidationError, PermissionError
 from core.database_supabase import db_manager
 from db.queries import (
     get_module_by_id, get_course_by_id, get_enrollment_by_student_course,
@@ -12,13 +11,13 @@ from db.queries import (
 bp = Blueprint('modules', __name__)
 
 @bp.route('/<module_id>', methods=['GET'])
-@auth_required()
+
 def get_module(module_id):
     """Get module details"""
     db_session = db_manager.get_session()
     
     try:
-        user_id = g.current_user.id
+        user_id = "default-user-id"
         
         # Get module and verify access
         module = get_module_by_id(db_session, module_id)
@@ -65,13 +64,13 @@ def get_module(module_id):
         db_session.close()
 
 @bp.route('/<module_id>/files', methods=['GET'])
-@auth_required()
+
 def get_module_files(module_id):
     """Get all files in a module"""
     db_session = db_manager.get_session()
     
     try:
-        user_id = g.current_user.id
+        user_id = "default-user-id"
         
         # Check access to module
         module = get_module_by_id(db_session, module_id)
@@ -112,13 +111,13 @@ def get_module_files(module_id):
         db_session.close()
 
 @bp.route('/<module_id>', methods=['PATCH'])
-@auth_required()
+
 def update_module_endpoint(module_id):
     """Update module details"""
     db_session = db_manager.get_session()
     
     try:
-        user_id = g.current_user.id
+        user_id = "default-user-id"
         data = request.get_json() or {}
         
         # Get module and verify access
@@ -171,13 +170,13 @@ def update_module_endpoint(module_id):
         db_session.close()
 
 @bp.route('/<module_id>', methods=['DELETE'])
-@auth_required()
+
 def delete_module_endpoint(module_id):
     """Delete a module"""
     db_session = db_manager.get_session()
     
     try:
-        user_id = g.current_user.id
+        user_id = "default-user-id"
         
         # Get module and verify access
         module = get_module_by_id(db_session, module_id)

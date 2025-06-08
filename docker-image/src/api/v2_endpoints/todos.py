@@ -5,7 +5,6 @@ from flask import Blueprint, request, g
 from datetime import datetime
 import logging
 
-from core.decorators_unified import auth_required
 from core.exceptions import ValidationError, NotFoundError
 from repositories.todo_repository import TodoRepository
 
@@ -28,11 +27,11 @@ def get_todo_repo():
 
 
 @todos_bp.route('', methods=['GET'])
-@auth_required()
+
 def list_todos_v2():
     """List todos with pagination and filtering"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Pagination
         page, per_page = validate_pagination()
@@ -93,11 +92,11 @@ def list_todos_v2():
 
 
 @todos_bp.route('', methods=['POST'])
-@auth_required()
+
 def create_todo_v2():
     """Create a new todo item"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         data = request.get_json()
         
         if not data:
@@ -142,11 +141,11 @@ def create_todo_v2():
 
 
 @todos_bp.route('/<todo_id>', methods=['GET'])
-@auth_required()
+
 def get_todo_v2(todo_id):
     """Get a specific todo item"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Get todo
         todo = get_todo_repo().get_by_id(todo_id)
@@ -178,11 +177,11 @@ def get_todo_v2(todo_id):
 
 
 @todos_bp.route('/<todo_id>', methods=['PATCH'])
-@auth_required()
+
 def update_todo_v2(todo_id):
     """Update a todo item"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         data = request.get_json()
         
         if not data:
@@ -222,11 +221,11 @@ def update_todo_v2(todo_id):
 
 
 @todos_bp.route('/<todo_id>', methods=['DELETE'])
-@auth_required()
+
 def delete_todo_v2(todo_id):
     """Delete a todo item"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Get todo
         todo = get_todo_repo().get_by_id(todo_id)

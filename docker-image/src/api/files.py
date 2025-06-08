@@ -4,7 +4,6 @@ import uuid
 from io import BytesIO
 from werkzeug.utils import secure_filename
 
-from core.decorators_unified import auth_required
 from core.exceptions import NotFoundError, ValidationError, FileProcessingError
 from core.config import get_config
 from core.database_supabase import db
@@ -22,7 +21,7 @@ from db.queries import (
 bp = Blueprint('files', __name__)
 
 @bp.route('/upload', methods=['POST'])
-@auth_required()
+
 @rate_limit_decorator(**RateLimitConfig.FILE_UPLOAD)
 def upload_file():
     """Upload a file to a module with security validation"""
@@ -48,7 +47,7 @@ def upload_file():
     db_session = db_manager.get_session()
     
     try:
-        user_id = g.current_user.id
+        user_id = "default-user-id"
         title = request.form.get('title', file.filename)
         description = request.form.get('description', '')
         
@@ -108,7 +107,7 @@ def upload_file():
         db_session.close()
 
 @bp.route('/<file_id>', methods=['GET'])
-@auth_required()
+
 def get_file(file_id):
     """Get file metadata"""
     from sqlalchemy.orm import sessionmaker
@@ -117,7 +116,7 @@ def get_file(file_id):
     db_session = db_manager.get_session()
     
     try:
-        user_id = g.current_user.id
+        user_id = "default-user-id"
         
         # Get file and verify access
         file_obj = get_file_by_id(db_session, file_id)
@@ -160,7 +159,7 @@ def get_file(file_id):
         db_session.close()
 
 @bp.route('/<file_id>/content', methods=['GET'])
-@auth_required()
+
 def get_file_content(file_id):
     """Get file content for viewing"""
     from sqlalchemy.orm import sessionmaker
@@ -169,7 +168,7 @@ def get_file_content(file_id):
     db_session = db_manager.get_session()
     
     try:
-        user_id = g.current_user.id
+        user_id = "default-user-id"
         
         # Get file and verify access
         file_obj = get_file_by_id(db_session, file_id)
@@ -228,7 +227,7 @@ def get_file_content(file_id):
         db_session.close()
 
 @bp.route('/<file_id>/download', methods=['GET'])
-@auth_required()
+
 def download_file(file_id):
     """Download a file"""
     file_service = FileService()
@@ -236,7 +235,7 @@ def download_file(file_id):
     try:
         file_path, filename = file_service.get_file_for_download(
             file_id=file_id,
-            user_id=g.current_user.id
+            user_id="default-user-id"
         )
         
         return send_file(
@@ -252,7 +251,7 @@ def download_file(file_id):
         return jsonify({'error': 'File download failed'}), 500
 
 @bp.route('/<file_id>/preview', methods=['GET'])
-@auth_required()
+
 def preview_file(file_id):
     """Get file preview URL"""
     file_service = FileService()
@@ -260,7 +259,7 @@ def preview_file(file_id):
     try:
         preview_url = file_service.get_file_preview_url(
             file_id=file_id,
-            user_id=g.current_user.id
+            user_id="default-user-id"
         )
         
         return jsonify({
@@ -271,7 +270,7 @@ def preview_file(file_id):
         return jsonify({'error': 'File not found'}), 404
 
 @bp.route('/<file_id>/stream', methods=['GET'])
-@auth_required()
+
 def stream_file(file_id):
     """Stream file content (for personalized content)"""
     file_service = FileService()
@@ -280,7 +279,7 @@ def stream_file(file_id):
         try:
             for chunk in file_service.stream_personalized_content(
                 file_id=file_id,
-                user_id=g.current_user.id
+                user_id="default-user-id"
             ):
                 yield f"data: {chunk}\n\n"
         except Exception as e:
@@ -296,7 +295,7 @@ def stream_file(file_id):
     )
 
 @bp.route('/<file_id>', methods=['DELETE'])
-@auth_required()
+
 def delete_file_endpoint(file_id):
     """Delete a file"""
     from sqlalchemy.orm import sessionmaker
@@ -306,7 +305,7 @@ def delete_file_endpoint(file_id):
     db_session = db_manager.get_session()
     
     try:
-        user_id = g.current_user.id
+        user_id = "default-user-id"
         
         # Get file and verify access
         file_obj = get_file_by_id(db_session, file_id)
@@ -352,7 +351,7 @@ def delete_file_endpoint(file_id):
         db_session.close()
 
 @bp.route('/module/<module_id>', methods=['GET'])
-@auth_required()
+
 def get_module_files(module_id):
     """Get all files in a module"""
     from sqlalchemy.orm import sessionmaker
@@ -362,7 +361,7 @@ def get_module_files(module_id):
     db_session = db_manager.get_session()
     
     try:
-        user_id = g.current_user.id
+        user_id = "default-user-id"
         
         # Check access to module
         module = get_module_by_id(db_session, module_id)
@@ -403,7 +402,7 @@ def get_module_files(module_id):
         db_session.close()
 
 @bp.route('/search', methods=['GET'])
-@auth_required()
+
 def search_files():
     """Search files"""
     query = request.args.get('q', '')
@@ -418,7 +417,7 @@ def search_files():
     try:
         results = file_service.search_files(
             query=query,
-            user_id=g.current_user.id,
+            user_id="default-user-id",
             course_id=course_id,
             file_type=file_type
         )
@@ -431,7 +430,7 @@ def search_files():
         return jsonify({'error': 'Search failed'}), 500
 
 @bp.route('/<file_id>/content-v2', methods=['GET'])
-@auth_required()
+
 def get_file_content_v2(file_id):
     """Get file content or presigned URL (v2)"""
     # S3 storage removed - using Supabase Storage
@@ -440,7 +439,7 @@ def get_file_content_v2(file_id):
     
     try:
         # Get file and check access
-        file = file_service.get_file(file_id, g.current_user.id)
+        file = file_service.get_file(file_id, "default-user-id")
         
         # If file is in S3, return presigned URL
         if hasattr(file, 's3_key') and file.s3_key:
@@ -466,7 +465,7 @@ def get_file_content_v2(file_id):
         return jsonify({'error': str(e)}), 500
 
 @bp.route('/process/<file_id>', methods=['POST'])
-@auth_required()
+
 def reprocess_file(file_id):
     """Trigger file reprocessing"""
     file_service = FileService()
@@ -474,7 +473,7 @@ def reprocess_file(file_id):
     try:
         file_service.reprocess_file(
             file_id=file_id,
-            user_id=g.current_user.id
+            user_id="default-user-id"
         )
         
         return jsonify({
@@ -487,7 +486,7 @@ def reprocess_file(file_id):
         return jsonify({'error': 'Reprocessing failed'}), 500
 
 @bp.route('/<file_id>', methods=['PATCH'])
-@auth_required()
+
 def update_file_endpoint(file_id):
     """Update file metadata"""
     from sqlalchemy.orm import sessionmaker
@@ -497,7 +496,7 @@ def update_file_endpoint(file_id):
     db_session = db_manager.get_session()
     
     try:
-        user_id = g.current_user.id
+        user_id = "default-user-id"
         data = request.get_json() or {}
         
         # Get file and verify access
@@ -551,7 +550,7 @@ def update_file_endpoint(file_id):
         db_session.close()
 
 @bp.route('/<file_id>/download', methods=['GET'])
-@auth_required()
+
 def get_download_url(file_id):
     """Generate a signed URL for downloading a file"""
     from sqlalchemy.orm import sessionmaker
@@ -560,7 +559,7 @@ def get_download_url(file_id):
     db_session = db_manager.get_session()
     
     try:
-        user_id = g.current_user.id
+        user_id = "default-user-id"
         
         # Get file and verify access
         file_obj = get_file_by_id(db_session, file_id)

@@ -1,7 +1,6 @@
 import { toast as sonnerToast } from 'sonner';
 import { UploadFile } from '../types';
 import { formatFileSize, getFileTypeFromMime } from '../utils';
-import { supabase } from '@/supabaseconfig';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 

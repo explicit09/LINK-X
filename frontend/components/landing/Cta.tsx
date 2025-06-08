@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth';
+import { useMockAuth as useAuth } from '@/contexts/MockAuth';
 import { dashboardRoutes } from '@/lib/navigation';
 
 const Cta = () => {
@@ -54,49 +54,27 @@ const Cta = () => {
             </p>
 
             <div className="reveal flex flex-col sm:flex-row gap-4 justify-center">
-              {user ? (
-                <>
-                  <Button
-                    size="lg"
-                    className="bg-blue-600 text-white hover:bg-blue-700 text-base h-12 px-6"
-                    asChild
-                  >
-                    <Link href={dashboardRoutes.main}>
-                      🚀 Go to Dashboard
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="text-blue-700 border-blue-300 hover:bg-blue-100 text-base h-12 px-6"
-                    asChild
-                  >
-                    <Link href="/contact">Schedule a Demo</Link>
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    size="lg"
-                    className="bg-blue-600 text-white hover:bg-blue-700 text-base h-12 px-6"
-                    asChild
-                  >
-                    <Link href="/register">
-                      Start Learning Now
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="text-blue-700 border-blue-300 hover:bg-blue-100 text-base h-12 px-6"
-                    asChild
-                  >
-                    <Link href="/contact">Schedule a Demo</Link>
-                  </Button>
-                </>
-              )}
+              {/* No-auth mode: always show dashboard buttons */}
+              <>
+                <Button
+                  size="lg"
+                  className="bg-blue-600 text-white hover:bg-blue-700 text-base h-12 px-6"
+                  asChild
+                >
+                  <Link href={dashboardRoutes.main}>
+                    🚀 Go to Dashboard
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="text-blue-700 border-blue-300 hover:bg-blue-100 text-base h-12 px-6"
+                  asChild
+                >
+                  <Link href="/contact">Schedule a Demo</Link>
+                </Button>
+              </>
             </div>
 
             <p className="reveal text-sm text-blue-700 mt-6">

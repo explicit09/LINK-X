@@ -21,19 +21,19 @@ class ValidationError(LinkXException):
     status_code = 400
     message = "Validation failed"
 
-class AuthenticationError(LinkXException):
+class ValueError(LinkXException):
     """Raised when authentication fails"""
     status_code = 401
     message = "Authentication failed"
 
-class AuthorizationError(LinkXException):
+class PermissionError(LinkXException):
     """Raised when authorization fails"""
     status_code = 403
     message = "Insufficient permissions"
 
 # Aliases for backward compatibility
-UnauthorizedError = AuthorizationError
-PermissionError = AuthorizationError
+UnauthorizedError = PermissionError
+PermissionError = PermissionError
 
 class NotFoundError(LinkXException):
     """Raised when resource is not found"""

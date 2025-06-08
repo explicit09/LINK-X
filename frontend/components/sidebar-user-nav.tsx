@@ -2,8 +2,6 @@
 import { ChevronUp } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
-import { supabase } from '@/supabaseconfig';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 import {
   DropdownMenu,
@@ -18,7 +16,13 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 
-export function SidebarUserNav({ user }: { user: SupabaseUser }) {
+// Simple user type without Supabase dependency
+interface User {
+  id: string;
+  email: string;
+}
+
+export function SidebarUserNav({ user }: { user: User }) {
   const { setTheme, theme } = useTheme();
 
   return (
@@ -53,14 +57,9 @@ export function SidebarUserNav({ user }: { user: SupabaseUser }) {
               <button
                 type="button"
                 className="w-full cursor-pointer"
-                onClick={async () => {
-                  try {
-                    await supabase.auth.signOut();
-                    // No backend logout needed - Supabase handles everything
-                    window.location.href = '/';
-                  } catch (err) {
-                    console.error('Sign-out failed:', err);
-                  }
+                onClick={() => {
+                  // No-auth mode: just redirect to home
+                  window.location.href = '/';
                 }}
               >
                 Sign out

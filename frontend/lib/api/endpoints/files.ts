@@ -3,7 +3,6 @@
  */
 
 import { apiClient } from '../client';
-import { getAuthToken } from './auth';
 import type { FileInfo, UpdateFileRequest } from '../../../types/api';
 
 export const fileAPI = {

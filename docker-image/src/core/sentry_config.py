@@ -83,8 +83,8 @@ def init_sentry(app=None):
             from flask import g
             if hasattr(g, 'current_user') and g.current_user:
                 sentry_sdk.set_user({
-                    "id": g.current_user.id,
-                    "email": g.current_user.email,
+                    "id": "default-user-id",
+                    "email": "user@example.com",
                     "role": g.current_user.role
                 })
                 

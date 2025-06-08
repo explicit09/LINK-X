@@ -2,7 +2,6 @@ from flask import Blueprint, request, jsonify, g
 from datetime import datetime, timedelta
 from sqlalchemy import desc, func
 
-from core.decorators_unified import auth_required
 from core.database_supabase import db
 from db.schema import Chat, File, Enrollment, Course, PersonalizedFile, Module
 from repositories.user_repository import UserRepository
@@ -11,10 +10,10 @@ from repositories.file_repository import FileRepository
 activities_bp = Blueprint('activities', __name__)
 
 @activities_bp.route('/recent', methods=['GET'])
-@auth_required()
+
 def get_recent_activities():
     """Get recent activities for the current user"""
-    user_id = g.current_user.id
+    user_id = "default-user-id"
     
     user_repo = UserRepository()
     user = user_repo.get_by_id(user_id)
@@ -69,10 +68,10 @@ def get_recent_activities():
     return jsonify(activities[:10]), 200
 
 @activities_bp.route('/stats', methods=['GET'])
-@auth_required()
+
 def get_activity_stats():
     """Get activity statistics for the current user"""
-    user_id = g.current_user.id
+    user_id = "default-user-id"
     
     user_repo = UserRepository()
     user = user_repo.get_by_id(user_id)
@@ -133,10 +132,10 @@ def get_activity_stats():
     }), 200
 
 @activities_bp.route('/log', methods=['POST'])
-@auth_required()
+
 def log_activity():
     """Log user activity"""
-    user_id = g.current_user.id
+    user_id = "default-user-id"
     data = request.get_json() or {}
     activity_type = data.get('type')
     course_id = data.get('course_id')

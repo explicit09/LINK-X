@@ -1,6 +1,6 @@
 """File management service module"""
 from typing import List, Dict, Optional
-from core.exceptions import NotFoundError, AuthorizationError, FileProcessingError
+from core.exceptions import NotFoundError, PermissionError, FileProcessingError
 from core.cache import invalidate_cache
 from .base_service import BaseFileService
 
@@ -37,7 +37,7 @@ class FileManagementService(BaseFileService):
         # Filter by specific course if provided
         if course_id:
             if course_id not in [course['id'] for course in accessible_courses]:
-                raise AuthorizationError("Not authorized to search in this course")
+                raise PermissionError("Not authorized to search in this course")
             accessible_courses = [course for course in accessible_courses if course['id'] == course_id]
         
         # Search files
@@ -61,7 +61,7 @@ class FileManagementService(BaseFileService):
         course = self.course_repo.get_by_id(module.course_id)
         
         if not self._check_course_access(course, user_id):
-            raise AuthorizationError("Not authorized to access this file")
+            raise PermissionError("Not authorized to access this file")
         
         return file
     

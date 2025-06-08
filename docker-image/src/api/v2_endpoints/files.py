@@ -8,7 +8,6 @@ from datetime import datetime
 import logging
 import json
 
-from core.decorators_unified import auth_required
 from core.exceptions import ValidationError, NotFoundError, UnauthorizedError
 from services.file_service_supabase import SupabaseFileService as FileService
 from repositories.module_repository import ModuleRepository
@@ -57,13 +56,13 @@ def allowed_file(filename):
 
 
 @files_bp.route('/upload', methods=['POST'])
-@auth_required()
+
 def upload_file_v2():
     """Upload a file to a module with enhanced validation"""
     logger = logging.getLogger(__name__)
     try:
         logger.info("File upload started")
-        user = g.current_user
+        # Mock user - auth removed
         logger.info(f"User authenticated: {user.id}")
         
         # Check for file
@@ -433,11 +432,11 @@ def upload_file_v2():
 
 
 @files_bp.route('/<file_id>', methods=['GET'])
-@auth_required()
+
 def get_file_v2(file_id):
     """Get file metadata"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Get file with access check
         file = get_file_service().get_file_with_access_check(file_id, user.id)
@@ -468,11 +467,11 @@ def get_file_v2(file_id):
 
 
 @files_bp.route('/<file_id>/content', methods=['GET'])
-@auth_required()
+
 def get_file_content_v2(file_id):
     """Get file content (download or presigned URL)"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Get file with access check
         file = get_file_service().get_file_with_access_check(file_id, user.id)
@@ -529,11 +528,11 @@ def get_file_content_v2(file_id):
 
 
 @files_bp.route('/<file_id>', methods=['PATCH'])
-@auth_required()
+
 def update_file_v2(file_id):
     """Update file metadata"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         data = request.get_json()
         
         if not data:
@@ -561,11 +560,11 @@ def update_file_v2(file_id):
 
 
 @files_bp.route('/<file_id>', methods=['DELETE'])
-@auth_required()
+
 def delete_file_v2(file_id):
     """Delete a file"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Get file first to get S3 key
         file = get_file_service().get_file_with_access_check(file_id, user.id)
@@ -595,11 +594,11 @@ def delete_file_v2(file_id):
 
 
 @files_bp.route('/<file_id>/existing-content', methods=['GET'])
-@auth_required()
+
 def get_existing_content_v2(file_id):
     """Get existing personalized content for a file"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Get file with access check
         file = get_file_service().get_file_with_access_check(file_id, user.id)
@@ -675,11 +674,11 @@ def get_existing_content_v2(file_id):
 
 
 @files_bp.route('/<file_id>/outline', methods=['GET'])
-@auth_required()
+
 def get_file_outline_v2(file_id):
     """Generate outline for a file"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Get file with access check
         file_obj = get_file_service().get_file_with_access_check(file_id, user.id)
@@ -748,11 +747,11 @@ def get_file_outline_v2(file_id):
 
 
 @files_bp.route('/<file_id>/stream-section', methods=['POST'])
-@auth_required()
+
 def stream_section_v2(file_id):
     """Stream personalized content for a specific section"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         data = request.get_json()
         
         if not data:

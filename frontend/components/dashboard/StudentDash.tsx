@@ -4,7 +4,7 @@ import ModernDashboard from "./ModernDashboard";
 import { StudentDashProps } from "./student/types";
 import { useStudentData } from "./student/hooks";
 import { LoadingState, OnboardingPrompt } from "./student/components";
-import { toComponentUser } from "@/types/auth";
+import { toComponentUser } from "@/types/user";
 
 export default function StudentDash({ currentUser }: StudentDashProps) {
   const {

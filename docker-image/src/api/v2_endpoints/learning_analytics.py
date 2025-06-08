@@ -7,7 +7,6 @@ from datetime import datetime, timedelta, date
 import logging
 from typing import Dict, List, Optional
 
-from core.decorators_unified import auth_required
 from core.exceptions import ValidationError, NotFoundError
 from core.database_supabase import db_manager
 from repositories.user_repository import UserRepository
@@ -36,12 +35,12 @@ def get_course_repo():
     return course_repo
 
 @analytics_bp.route('/track/engagement', methods=['POST'])
-@auth_required()
+
 def track_engagement():
     """Track real-time engagement metrics"""
     try:
         data = request.get_json()
-        user_id = str(g.current_user.id)
+        user_id = str("default-user-id")
         
         # Validate required fields
         required_fields = ['event_type', 'content_id', 'interaction_data']
@@ -128,11 +127,11 @@ def track_engagement():
         return error_response(str(e), 500)
 
 @analytics_bp.route('/student/dashboard', methods=['GET'])
-@auth_required()
+
 def get_student_analytics_dashboard():
     """Get comprehensive analytics dashboard for student"""
     try:
-        user_id = str(g.current_user.id)
+        user_id = str("default-user-id")
         
         # Parse query parameters
         days = request.args.get('days', '30', type=int)
@@ -281,11 +280,10 @@ def get_student_analytics_dashboard():
         return error_response(str(e), 500)
 
 @analytics_bp.route('/professor/course/<course_id>/insights', methods=['GET'])
-@auth_required(['instructor', 'admin'])
 def get_course_engagement_insights(course_id: str):
     """Get engagement insights for a course (professor view)"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Verify course access
         course_repo = get_course_repo()
@@ -384,11 +382,11 @@ def get_course_engagement_insights(course_id: str):
         return error_response(str(e), 500)
 
 @analytics_bp.route('/patterns/detect', methods=['POST'])
-@auth_required()
+
 def detect_user_patterns():
     """Trigger detection of learning patterns for current user"""
     try:
-        user_id = str(g.current_user.id)
+        user_id = str("default-user-id")
         
         with db_manager.get_session() as session:
             # Run pattern detection
@@ -426,11 +424,11 @@ def detect_user_patterns():
         return error_response(str(e), 500)
 
 @analytics_bp.route('/engagement/summary', methods=['GET'])
-@auth_required()
+
 def get_engagement_summary():
     """Get high-level engagement summary for current user"""
     try:
-        user_id = str(g.current_user.id)
+        user_id = str("default-user-id")
         days = request.args.get('days', '7', type=int)
         
         with db_manager.get_session() as session:
@@ -495,11 +493,11 @@ def get_engagement_summary():
         return error_response(str(e), 500)
 
 @analytics_bp.route('/recommendations', methods=['GET'])
-@auth_required()
+
 def get_personalized_recommendations():
     """Get AI-powered learning recommendations based on analytics"""
     try:
-        user_id = str(g.current_user.id)
+        user_id = str("default-user-id")
         
         with db_manager.get_session() as session:
             # Get user patterns and recent engagement
@@ -603,11 +601,11 @@ def get_personalized_recommendations():
 # ===== STUDY TIME TRACKING ENDPOINTS =====
 
 @analytics_bp.route('/study-time', methods=['GET'])
-@auth_required()
+
 def get_study_time():
     """Get user's study time analytics"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         user_id = str(user.id)
         
         # Get query parameters
@@ -766,11 +764,11 @@ def get_study_time():
 
 
 @analytics_bp.route('/study-time/session', methods=['POST'])
-@auth_required()  
+  
 def start_study_session():
     """Start a new study session"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         user_id = str(user.id)
         data = request.get_json()
         
@@ -824,11 +822,11 @@ def start_study_session():
 
 
 @analytics_bp.route('/study-time/session/<session_id>/end', methods=['PUT'])
-@auth_required()
+
 def end_study_session(session_id: str):
     """End an active study session"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         user_id = str(user.id)
         data = request.get_json() or {}
         

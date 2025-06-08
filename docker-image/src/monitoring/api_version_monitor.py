@@ -11,7 +11,7 @@ from flask import Blueprint, jsonify, request, g
 from sqlalchemy import text
 
 from core.database_supabase import db
-from core.decorators_unified import auth_required
+# Auth removed - using MockAuth
 from core.cache import cache
 
 logger = logging.getLogger(__name__)
@@ -280,11 +280,11 @@ api_monitor = APIVersionMonitor()
 
 # Monitoring endpoints
 @monitoring_bp.route('/version-usage', methods=['GET'])
-@auth_required()
+
 def get_version_usage():
     """Get API version usage statistics"""
     # Check if user is admin
-    user = g.current_user
+    # Mock user - auth removed
     if not user.role or user.role.role_type != 'admin':
         return jsonify({'error': 'Admin access required'}), 403
     
@@ -297,11 +297,11 @@ def get_version_usage():
 
 
 @monitoring_bp.route('/migration-status', methods=['GET'])
-@auth_required()
+
 def get_migration_status():
     """Get user migration status"""
     # Check if user is admin
-    user = g.current_user
+    # Mock user - auth removed
     if not user.role or user.role.role_type != 'admin':
         return jsonify({'error': 'Admin access required'}), 403
     
@@ -313,11 +313,11 @@ def get_migration_status():
 
 
 @monitoring_bp.route('/deprecation-report', methods=['GET'])
-@auth_required()
+
 def get_deprecation_report():
     """Get comprehensive deprecation report"""
     # Check if user is admin
-    user = g.current_user
+    # Mock user - auth removed
     if not user.role or user.role.role_type != 'admin':
         return jsonify({'error': 'Admin access required'}), 403
     

@@ -7,7 +7,6 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 import logging
 from core.database_supabase import db_manager
 from services.embedding_service import EmbeddingService
-from core.decorators_unified import auth_required
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +65,6 @@ def get_file_embedding_status(file_id):
 
 @bp.route('/toggle', methods=['POST'])
 @jwt_required()
-@auth_required(['admin', 'professor'])
 def toggle_embeddings():
     """Toggle embeddings on/off (kill switch)"""
     try:
@@ -103,7 +101,6 @@ def toggle_embeddings():
 
 @bp.route('/metrics', methods=['GET'])
 @jwt_required()
-@auth_required(['admin', 'professor'])
 def get_embedding_metrics():
     """Get detailed embedding metrics"""
     try:
@@ -183,7 +180,6 @@ def get_embedding_metrics():
 
 @bp.route('/cleanup', methods=['POST'])
 @jwt_required()
-@auth_required(['admin'])
 def cleanup_old_jobs():
     """Clean up old embedding jobs"""
     try:
@@ -211,7 +207,6 @@ def cleanup_old_jobs():
 
 @bp.route('/vectors/health', methods=['GET'])
 @jwt_required()
-@auth_required(['admin', 'professor'])
 def get_vector_health():
     """Get vector index health metrics"""
     try:
@@ -236,7 +231,6 @@ def get_vector_health():
 
 @bp.route('/vectors/archive', methods=['POST'])
 @jwt_required()
-@auth_required(['admin'])
 def archive_old_vectors():
     """Archive old vectors to reduce memory usage"""
     try:
@@ -261,7 +255,6 @@ def archive_old_vectors():
 
 @bp.route('/vectors/reindex', methods=['POST'])
 @jwt_required()
-@auth_required(['admin'])
 def reindex_vectors():
     """Reindex vector indexes for better performance"""
     try:
@@ -295,7 +288,6 @@ def reindex_vectors():
 
 @bp.route('/schema/validate', methods=['POST'])
 @jwt_required()
-@auth_required(['admin'])
 def validate_schema():
     """Validate schema integrity between outbox functions and tables"""
     try:
@@ -322,7 +314,6 @@ def validate_schema():
 
 @bp.route('/schema/status', methods=['GET'])
 @jwt_required()
-@auth_required(['admin', 'professor'])
 def get_schema_status():
     """Get current schema validation status"""
     try:
@@ -346,7 +337,6 @@ def get_schema_status():
 
 @bp.route('/test', methods=['POST'])
 @jwt_required()
-@auth_required(['admin'])
 def test_kill_switch():
     """Test the kill switch mechanism"""
     try:

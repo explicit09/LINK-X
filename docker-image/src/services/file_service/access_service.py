@@ -1,6 +1,6 @@
 """File access and retrieval service module"""
 from typing import Dict, List
-from core.exceptions import NotFoundError, ValidationError, FileProcessingError, AuthorizationError
+from core.exceptions import NotFoundError, ValidationError, FileProcessingError, PermissionError
 from .base_service import BaseFileService
 
 class FileAccessService(BaseFileService):
@@ -17,7 +17,7 @@ class FileAccessService(BaseFileService):
         course = self.course_repo.get_with_enrollments(module.course_id)
         
         if not self._check_course_access(course, user_id):
-            raise AuthorizationError("Not authorized to access this file")
+            raise PermissionError("Not authorized to access this file")
         
         return file
     
@@ -98,6 +98,6 @@ class FileAccessService(BaseFileService):
         
         course = self.course_repo.get_with_enrollments(module.course_id)
         if not self._check_course_access(course, user_id):
-            raise AuthorizationError("Not authorized to access this module")
+            raise PermissionError("Not authorized to access this module")
         
         return self.file_repo.get_by_module_id(module_id)

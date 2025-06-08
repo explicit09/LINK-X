@@ -4,7 +4,6 @@ import time
 from queue import Queue
 import threading
 
-from core.decorators_unified import auth_required
 from core.exceptions import NotFoundError
 from services.streaming_service import StreamingService
 from services.ai_service import AIService
@@ -12,7 +11,7 @@ from services.ai_service import AIService
 bp = Blueprint('streaming', __name__)
 
 @bp.route('/learn/<file_id>', methods=['GET'])
-@auth_required()
+
 def stream_learning_content(file_id):
     """Stream personalized learning content"""
     streaming_service = StreamingService()
@@ -25,7 +24,7 @@ def stream_learning_content(file_id):
             # Stream content
             for chunk in streaming_service.stream_personalized_content(
                 file_id=file_id,
-                user_id=g.current_user.id,
+                user_id="default-user-id",
                 learning_style=request.args.get('style', 'default')
             ):
                 yield f"data: {json.dumps(chunk)}\n\n"
@@ -47,7 +46,7 @@ def stream_learning_content(file_id):
     )
 
 @bp.route('/chat', methods=['POST'])
-@auth_required()
+
 def stream_chat_response():
     """Stream AI chat responses"""
     data = request.get_json()
@@ -65,7 +64,7 @@ def stream_chat_response():
                 target=ai_service.generate_chat_response,
                 args=(
                     data['message'],
-                    g.current_user.id,
+                    "default-user-id",
                     data.get('context', {}),
                     response_queue
                 )
@@ -95,7 +94,7 @@ def stream_chat_response():
     )
 
 @bp.route('/outline/<file_id>', methods=['GET'])
-@auth_required()
+
 def get_document_outline(file_id):
     """Get document outline for streaming"""
     streaming_service = StreamingService()
@@ -103,7 +102,7 @@ def get_document_outline(file_id):
     try:
         outline = streaming_service.get_document_outline(
             file_id=file_id,
-            user_id=g.current_user.id
+            user_id="default-user-id"
         )
         
         return jsonify({
@@ -114,7 +113,7 @@ def get_document_outline(file_id):
         return jsonify({'error': 'File not found'}), 404
 
 @bp.route('/section', methods=['POST'])
-@auth_required()
+
 def stream_section_content():
     """Stream specific section content"""
     data = request.get_json()
@@ -124,7 +123,7 @@ def stream_section_content():
     try:
         file = streaming_service._verify_file_access(
             file_id=data['fileId'],
-            user_id=g.current_user.id
+            user_id="default-user-id"
         )
         section_content = streaming_service._get_section_content(file, data['sectionId'])
         
@@ -132,7 +131,7 @@ def stream_section_content():
             return jsonify({'error': 'Section not found'}), 404
             
         # Get user profile for examples
-        user = streaming_service.user_repo.get_with_profile(g.current_user.id)
+        user = streaming_service.user_repo.get_with_profile("default-user-id")
         
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -170,7 +169,7 @@ def stream_section_content():
     )
 
 @bp.route('/quiz/<file_id>', methods=['GET'])
-@auth_required()
+
 def stream_quiz_questions(file_id):
     """Stream quiz questions based on content"""
     streaming_service = StreamingService()
@@ -179,7 +178,7 @@ def stream_quiz_questions(file_id):
         try:
             for question in streaming_service.generate_quiz_questions(
                 file_id=file_id,
-                user_id=g.current_user.id,
+                user_id="default-user-id",
                 difficulty=request.args.get('difficulty', 'medium'),
                 count=int(request.args.get('count', 5))
             ):
@@ -198,7 +197,7 @@ def stream_quiz_questions(file_id):
     )
 
 @bp.route('/summary/<file_id>', methods=['GET'])
-@auth_required()
+
 def stream_content_summary(file_id):
     """Stream content summary"""
     streaming_service = StreamingService()
@@ -207,7 +206,7 @@ def stream_content_summary(file_id):
         try:
             for chunk in streaming_service.generate_summary(
                 file_id=file_id,
-                user_id=g.current_user.id,
+                user_id="default-user-id",
                 summary_type=request.args.get('type', 'brief')
             ):
                 yield f"data: {json.dumps(chunk)}\n\n"
@@ -225,7 +224,7 @@ def stream_content_summary(file_id):
     )
 
 @bp.route('/check/<file_id>', methods=['GET'])
-@auth_required()
+
 def check_existing_content(file_id):
     """Check if personalized content exists for this file"""
     try:
@@ -239,7 +238,7 @@ def check_existing_content(file_id):
         return jsonify({'error': 'Failed to check content'}), 500
 
 @bp.route('/progress', methods=['POST'])
-@auth_required()
+
 def update_learning_progress():
     """Update user's learning progress"""
     data = request.get_json()
@@ -249,7 +248,7 @@ def update_learning_progress():
         progress = streaming_service.update_progress(
             file_id=data['fileId'],
             section_id=data['sectionId'],
-            user_id=g.current_user.id,
+            user_id="default-user-id",
             progress=data['progress']
         )
         

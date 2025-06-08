@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from './useAuth';
+import { useMockAuth as useAuth } from '@/contexts/MockAuth';
 
 interface AnalyticsData {
   overview: {

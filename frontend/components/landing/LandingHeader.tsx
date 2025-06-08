@@ -5,8 +5,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/lib/supabase';
+// No auth needed
 import { dashboardRoutes } from '@/lib/navigation';
 // Import icons separately to avoid bundling issues
 import { Menu } from 'lucide-react';
@@ -16,8 +15,8 @@ import { Settings } from 'lucide-react';
 const LandingHeader = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user } = useAuth();
-  const isLoggedIn = !!user;
+  // Always show logged in state
+  const isLoggedIn = true;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -27,14 +26,9 @@ const LandingHeader = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
-
+  // No logout needed in no-auth mode
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    await fetch(`${API}/sessionLogout`, {
-      method: 'POST',
-      credentials: 'include',
-    });
+    console.log('Logout clicked - no-auth mode');
   };
 
   const navItems = [
@@ -77,46 +71,29 @@ const LandingHeader = () => {
         </nav>
 
         <div className="hidden md:flex items-center space-x-4">
-          {isLoggedIn ? (
-            <>
-              <Link
-                href={dashboardRoutes.settings}
-                className="text-gray-800 hover:text-blue-600 transition-colors mr-2"
-                aria-label="Settings"
-              >
-                <Settings size={20} />
-              </Link>
-              <Button
-                variant="ghost"
-                className="text-sm font-medium text-gray-800 hover:text-blue-600"
-                onClick={handleLogout}
-              >
-                Log Out
-              </Button>
-              <Button
-                className="bg-blue-600 hover:bg-blue-700 text-white border-0"
-                asChild
-              >
-                <Link href={dashboardRoutes.main}>🚀 Dashboard</Link>
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="ghost"
-                className="text-sm font-medium text-gray-800 hover:text-blue-600"
-                asChild
-              >
-                <Link href="/login">Log In</Link>
-              </Button>
-              <Button
-                className="bg-blue-600 hover:bg-blue-700 text-white border-0"
-                asChild
-              >
-                <Link href="/register">Get Started</Link>
-              </Button>
-            </>
-          )}
+          {/* No-auth mode: always show dashboard buttons */}
+          <>
+            <Link
+              href={dashboardRoutes.settings}
+              className="text-gray-800 hover:text-blue-600 transition-colors mr-2"
+              aria-label="Settings"
+            >
+              <Settings size={20} />
+            </Link>
+            <Button
+              variant="ghost"
+              className="text-sm font-medium text-gray-800 hover:text-blue-600"
+              onClick={handleLogout}
+            >
+              Log Out
+            </Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700 text-white border-0"
+              asChild
+            >
+              <Link href={dashboardRoutes.main}>🚀 Dashboard</Link>
+            </Button>
+          </>
         </div>
 
         <button
@@ -148,39 +125,22 @@ const LandingHeader = () => {
             ))}
           </nav>
           <div className="flex flex-col space-y-4 pt-6 border-t border-gray-300">
-            {isLoggedIn ? (
-              <>
-                <Button
-                  variant="ghost"
-                  className="justify-center text-gray-800"
-                  onClick={handleLogout}
-                >
-                  Log Out
-                </Button>
-                <Button
-                  className="bg-blue-600 hover:bg-blue-700 text-white border-0 justify-center"
-                  asChild
-                >
-                  <Link href={dashboardRoutes.main}>🚀 Dashboard</Link>
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="ghost"
-                  className="justify-center text-gray-800"
-                  asChild
-                >
-                  <Link href="/login">Log In</Link>
-                </Button>
-                <Button
-                  className="bg-blue-600 hover:bg-blue-700 text-white border-0 justify-center"
-                  asChild
-                >
-                  <Link href="/register">Get Started</Link>
-                </Button>
-              </>
-            )}
+            {/* No-auth mode: always show dashboard buttons */}
+            <>
+              <Button
+                variant="ghost"
+                className="justify-center text-gray-800"
+                onClick={handleLogout}
+              >
+                Log Out
+              </Button>
+              <Button
+                className="bg-blue-600 hover:bg-blue-700 text-white border-0 justify-center"
+                asChild
+              >
+                <Link href={dashboardRoutes.main}>🚀 Dashboard</Link>
+              </Button>
+            </>
           </div>
         </div>
       </div>

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { authAPI } from '@/lib/api';
 
 export type UserRole = 'instructor' | 'student' | null;
 
@@ -20,15 +19,14 @@ export function useUserRole() {
         setLoading(true);
         setError(null);
 
-        // Ensure authAPI is available
-        if (!authAPI || !authAPI.v2) {
-          console.error('AuthAPI not available');
-          setError('Authentication API not available');
-          return;
-        }
-
-        // Use the API client which handles authentication properly
-        const response = await authAPI.v2.getProfile() as any;
+        // Mock: Use default user in no-auth mode
+        const response = { 
+          data: { 
+            role: 'student',
+            email: 'user@example.com',
+            name: 'Default User'
+          } 
+        };
         // The backend returns { success: true, data: {...}, message: "Success", timestamp: "..." }
         const userData = response.data;
         

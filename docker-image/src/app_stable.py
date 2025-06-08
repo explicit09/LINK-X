@@ -72,7 +72,7 @@ def create_app():
     
     # Import blueprints - using the new unified structure
     from api.health import bp as health_bp
-    from api.auth_unified import bp as auth_bp
+    # Auth removed - using MockAuth
     from api.v2_endpoints import api_v2
     from monitoring.api_version_monitor import monitoring_bp, create_api_usage_table
     from api.circuit_breaker_monitor import bp as circuit_breaker_bp
@@ -92,7 +92,7 @@ def create_app():
     app.register_blueprint(session_bp)
     
     # New unified auth endpoints (v2 style) - mounted at /auth for new frontend
-    app.register_blueprint(auth_bp, url_prefix='/auth')
+          # Auth blueprint removed - using MockAuth
     
     # API v2 endpoints (current version) - all under /api/v2
     app.register_blueprint(api_v2)

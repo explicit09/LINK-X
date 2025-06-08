@@ -39,9 +39,9 @@ export const useCourseData = (courseId: string) => {
           dispatch(courseActions.setUser(user));
         } catch (userError) {
           console.error('Failed to load user:', userError);
-          toast.error('Authentication failed. Please log in again.');
-          router.push('/login');
-          return;
+          // No-auth mode: use default user instead of redirecting
+          user = { id: 'default-user', email: 'user@example.com', name: 'Default User', role: 'student' };
+          dispatch(courseActions.setUser(user));
         }
 
         let courseData;

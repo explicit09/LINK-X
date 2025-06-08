@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useMockAuth as useAuth } from '@/contexts/MockAuth';
 import { apiClient } from '@/lib/api/client';
 import { toast } from 'sonner';
 
@@ -49,7 +49,7 @@ export function useStreamingPersonalization(
     retryDelay = 1000
   } = options;
 
-  const { user } = useAuthUser();
+  const { user } = useAuth();
   const [sections, setSections] = useState<Map<string, string>>(new Map());
   const [outline, setOutline] = useState<OutlineSection[]>([]);
   const [currentSection, setCurrentSection] = useState<string | null>(null);
@@ -139,7 +139,6 @@ export function useStreamingPersonalization(
 
     try {
       // Get the current user's Supabase token for SSE
-      const { supabase } = await import('@/lib/supabase');
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token || '';
 

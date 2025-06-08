@@ -6,7 +6,7 @@ from datetime import datetime
 from repositories.file_repository import FileRepository
 from repositories.course_repository import CourseRepository
 from repositories.user_repository import UserRepository
-from core.exceptions import NotFoundError, AuthorizationError
+from core.exceptions import NotFoundError, PermissionError
 from core.cache import cache
 from .ai_service import AIService
 
@@ -232,13 +232,13 @@ class StreamingService:
         
         if user.role.role_type == 'instructor':
             if str(course.instructor_id) != str(user_id):
-                raise AuthorizationError("Access denied")
+                raise PermissionError("Access denied")
         else:  # Student
             from repositories.enrollment_repository import EnrollmentRepository
             enrollment_repo = EnrollmentRepository()
             enrollment = enrollment_repo.get_by_student_course(user_id, course.id)
             if not enrollment:
-                raise AuthorizationError("Not enrolled in course")
+                raise PermissionError("Not enrolled in course")
         
         return file
     

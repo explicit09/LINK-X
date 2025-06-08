@@ -3,8 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
 import { useCourseData } from '@/hooks/course/useCourseData';
-import { useAuth } from '@/hooks/useAuth';
-import { toComponentUser } from '@/types/auth';
+import { useMockAuth as useAuth } from '@/contexts/MockAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +27,7 @@ export default function CourseInsightsPage() {
   const courseId = params?.courseId as string;
   
   const { user, profile } = useAuth();
-  const currentUser = toComponentUser(profile, user);
+  const currentUser = { id: user?.id || "default-user", email: user?.email || "user@example.com", name: user?.name || "Default User", role: "student" };
   const { course, loading, error } = useCourseData(courseId);
 
   if (loading) {

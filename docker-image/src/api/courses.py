@@ -1,16 +1,15 @@
 from flask import Blueprint, request, jsonify, g
-from core.decorators_unified import auth_required
-from core.exceptions import NotFoundError, ValidationError, AuthorizationError
+from core.exceptions import NotFoundError, ValidationError, PermissionError
 from services.course_service_optimized import OptimizedCourseService as CourseService
 from repositories.course_repository import CourseRepository
 
 bp = Blueprint('courses', __name__)
 
 @bp.route('', methods=['GET'])
-@auth_required()
+
 def list_courses():
     """List courses based on user role"""
-    user = g.current_user
+    # Mock user - auth removed
     course_service = CourseService()
     
     # Handle pagination manually
@@ -67,7 +66,7 @@ def list_courses():
     }), 200
 
 @bp.route('/<course_id>', methods=['GET'])
-@auth_required()
+
 def get_course(course_id):
     """Get course details"""
     course_service = CourseService()
@@ -75,7 +74,7 @@ def get_course(course_id):
     try:
         course = course_service.get_course_with_access_check(
             course_id=course_id,
-            user_id=g.current_user.id
+            user_id="default-user-id"
         )
         
         return jsonify({
@@ -84,15 +83,15 @@ def get_course(course_id):
         
     except NotFoundError:
         return jsonify({'error': 'Course not found'}), 404
-    except AuthorizationError:
+    except PermissionError:
         return jsonify({'error': 'Access denied'}), 403
 
 @bp.route('', methods=['POST'])
-@auth_required()
+
 def create_course():
     """Create a new course"""
     # Check role
-    user = g.current_user
+    # Mock user - auth removed
     role_value = user.role.role_type if user.role else 'student'
     if role_value not in ['instructor', 'admin', 'student']:
         return jsonify({'error': 'Insufficient permissions'}), 403
@@ -111,7 +110,7 @@ def create_course():
     
     try:
         course = course_service.create_course(
-            instructor_id=g.current_user.id,
+            instructor_id="default-user-id",
             title=data['title'],
             description=data['description'],
             category=data.get('category'),
@@ -127,11 +126,11 @@ def create_course():
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<course_id>', methods=['PUT', 'PATCH'])
-@auth_required()
+
 def update_course(course_id):
     """Update course details"""
     # Check role
-    user = g.current_user
+    # Mock user - auth removed
     role_value = user.role.role_type if user.role else 'student'
     if role_value not in ['instructor', 'admin', 'student']:
         return jsonify({'error': 'Insufficient permissions'}), 403
@@ -145,7 +144,7 @@ def update_course(course_id):
     try:
         course = course_service.update_course(
             course_id=course_id,
-            user_id=g.current_user.id,
+            user_id="default-user-id",
             **data
         )
         
@@ -156,17 +155,17 @@ def update_course(course_id):
         
     except NotFoundError:
         return jsonify({'error': 'Course not found'}), 404
-    except AuthorizationError:
+    except PermissionError:
         return jsonify({'error': 'Not authorized to update this course'}), 403
     except ValidationError as e:
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<course_id>', methods=['DELETE'])
-@auth_required()
+
 def delete_course(course_id):
     """Delete a course"""
     # Check role
-    user = g.current_user
+    # Mock user - auth removed
     role_value = user.role.role_type if user.role else 'student'
     if role_value not in ['instructor', 'admin', 'student']:
         return jsonify({'error': 'Insufficient permissions'}), 403
@@ -176,7 +175,7 @@ def delete_course(course_id):
     try:
         course_service.delete_course(
             course_id=course_id,
-            user_id=g.current_user.id
+            user_id="default-user-id"
         )
         
         return jsonify({
@@ -185,15 +184,15 @@ def delete_course(course_id):
         
     except NotFoundError:
         return jsonify({'error': 'Course not found'}), 404
-    except AuthorizationError:
+    except PermissionError:
         return jsonify({'error': 'Not authorized to delete this course'}), 403
 
 @bp.route('/<course_id>/publish', methods=['POST'])
-@auth_required()
+
 def publish_course(course_id):
     """Publish a course"""
     # Check role
-    user = g.current_user
+    # Mock user - auth removed
     role_value = user.role.role_type if user.role else 'student'
     if role_value not in ['instructor', 'admin', 'student']:
         return jsonify({'error': 'Insufficient permissions'}), 403
@@ -203,7 +202,7 @@ def publish_course(course_id):
     try:
         course = course_service.publish_course(
             course_id=course_id,
-            user_id=g.current_user.id
+            user_id="default-user-id"
         )
         
         return jsonify({
@@ -213,13 +212,13 @@ def publish_course(course_id):
         
     except NotFoundError:
         return jsonify({'error': 'Course not found'}), 404
-    except AuthorizationError:
+    except PermissionError:
         return jsonify({'error': 'Not authorized to publish this course'}), 403
     except ValidationError as e:
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<course_id>/modules', methods=['GET'])
-@auth_required()
+
 def get_course_modules(course_id):
     """Get all modules for a course"""
     course_service = CourseService()
@@ -228,12 +227,12 @@ def get_course_modules(course_id):
     print(f"[MODULES ENDPOINT] Course ID: {course_id}")
     print(f"[MODULES ENDPOINT] Has current_user: {hasattr(g, 'current_user')}")
     if hasattr(g, 'current_user') and g.current_user:
-        print(f"[MODULES ENDPOINT] User ID: {g.current_user.id}, Email: {g.current_user.email}")
+        print(f"[MODULES ENDPOINT] User ID: {"default-user-id"}, Email: {"user@example.com"}")
     
     try:
         modules = course_service.get_course_modules(
             course_id=course_id,
-            user_id=g.current_user.id
+            user_id="default-user-id"
         )
         
         return jsonify({
@@ -242,15 +241,15 @@ def get_course_modules(course_id):
         
     except NotFoundError:
         return jsonify({'error': 'Course not found'}), 404
-    except AuthorizationError:
+    except PermissionError:
         return jsonify({'error': 'Access denied'}), 403
 
 @bp.route('/<course_id>/modules', methods=['POST'])
-@auth_required()
+
 def create_module(course_id):
     """Create a new module in a course"""
     # Check role
-    user = g.current_user
+    # Mock user - auth removed
     role_value = user.role.role_type if user.role else 'student'
     if role_value not in ['instructor', 'admin', 'student']:
         return jsonify({'error': 'Insufficient permissions'}), 403
@@ -268,7 +267,7 @@ def create_module(course_id):
     try:
         module = course_service.create_module(
             course_id=course_id,
-            user_id=g.current_user.id,
+            user_id="default-user-id",
             title=data['title'],
             description=data.get('description'),
             order=data.get('order')
@@ -281,17 +280,17 @@ def create_module(course_id):
         
     except NotFoundError:
         return jsonify({'error': 'Course not found'}), 404
-    except AuthorizationError:
+    except PermissionError:
         return jsonify({'error': 'Not authorized to add modules to this course'}), 403
     except ValidationError as e:
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<course_id>/enroll', methods=['POST'])
-@auth_required()
+
 def enroll_in_course(course_id):
     """Enroll in a course using access code"""
     # Check role
-    user = g.current_user
+    # Mock user - auth removed
     role_value = user.role.role_type if user.role else 'student'
     if role_value != 'student':
         return jsonify({'error': 'Only students can enroll in courses'}), 403
@@ -309,7 +308,7 @@ def enroll_in_course(course_id):
     try:
         enrollment = course_service.enroll_student(
             course_id=course_id,
-            student_id=g.current_user.id,
+            student_id="default-user-id",
             access_code=data['accessCode']
         )
         
@@ -324,11 +323,11 @@ def enroll_in_course(course_id):
         return jsonify({'error': str(e)}), 400
 
 @bp.route('/<course_id>/stats', methods=['GET'])
-@auth_required()
+
 def get_course_stats(course_id):
     """Get course statistics"""
     # Check role
-    user = g.current_user
+    # Mock user - auth removed
     role_value = user.role.role_type if user.role else 'student'
     if role_value not in ['instructor', 'admin']:
         return jsonify({'error': 'Insufficient permissions'}), 403
@@ -338,7 +337,7 @@ def get_course_stats(course_id):
     try:
         stats = course_service.get_course_statistics(
             course_id=course_id,
-            user_id=g.current_user.id
+            user_id="default-user-id"
         )
         
         return jsonify({
@@ -347,11 +346,11 @@ def get_course_stats(course_id):
         
     except NotFoundError:
         return jsonify({'error': 'Course not found'}), 404
-    except AuthorizationError:
+    except PermissionError:
         return jsonify({'error': 'Not authorized to view course statistics'}), 403
 
 @bp.route('/<course_id>/progress', methods=['GET', 'OPTIONS'])
-@auth_required()
+
 def get_course_progress(course_id):
     """Get course progress for current user"""
     try:
@@ -371,7 +370,7 @@ def get_course_progress(course_id):
         return jsonify({'error': 'Failed to get course progress'}), 500
 
 @bp.route('/<course_id>/discussions', methods=['GET', 'OPTIONS'])
-@auth_required()
+
 def get_course_discussions(course_id):
     """Get course discussions"""
     try:
@@ -383,7 +382,7 @@ def get_course_discussions(course_id):
         return jsonify({'error': 'Failed to get discussions'}), 500
 
 @bp.route('/<course_id>/moduleswithfiles', methods=['GET', 'OPTIONS'])
-@auth_required()
+
 def get_modules_with_files(course_id):
     """Get all modules for a course with their files"""
     course_service = CourseService()
@@ -391,7 +390,7 @@ def get_modules_with_files(course_id):
     try:
         modules = course_service.get_course_modules(
             course_id=course_id,
-            user_id=g.current_user.id
+            user_id="default-user-id"
         )
         
         # Get files for each module
@@ -409,5 +408,5 @@ def get_modules_with_files(course_id):
         
     except NotFoundError:
         return jsonify({'error': 'Course not found'}), 404
-    except AuthorizationError:
+    except PermissionError:
         return jsonify({'error': 'Access denied'}), 403

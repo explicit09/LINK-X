@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { toComponentUser } from '@/types/auth';
+import { useMockAuth as useAuth } from '@/contexts/MockAuth';
 import { EngagementDashboard } from '@/components/analytics/EngagementDashboard';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,7 +9,7 @@ import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDash
 
 export default function AnalyticsPage() {
   const { user, profile, loading } = useAuth();
-  const currentUser = toComponentUser(profile, user);
+  const currentUser = { id: user?.id || "default-user", email: user?.email || "user@example.com", name: user?.name || "Default User", role: "student" };
 
   if (loading) {
     return (

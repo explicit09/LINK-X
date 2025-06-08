@@ -9,7 +9,7 @@ from repositories.course_repository import CourseRepository
 from repositories.user_repository import UserRepository
 from repositories.enrollment_repository import EnrollmentRepository
 from repositories.optimized_queries import optimized_queries
-from core.exceptions import NotFoundError, ValidationError, AuthorizationError
+from core.exceptions import NotFoundError, ValidationError, PermissionError
 from core.cache import cache, invalidate_cache
 from core.database_supabase import db_manager
 
@@ -44,7 +44,7 @@ class OptimizedCourseService:
             user = db.session.query(User).filter_by(id=user_id).first()
             
             if not user:
-                raise AuthorizationError("User not found")
+                raise PermissionError("User not found")
             
             # Access check - simplified since we're using direct queries
             user_role = getattr(user.role, 'role_type', 'student') if user.role else 'student'
@@ -322,11 +322,11 @@ class OptimizedCourseService:
             ).filter_by(id=user_id).first()
             
             if not user:
-                raise AuthorizationError("User not found")
+                raise PermissionError("User not found")
             
             user_role = user.role.role_type if user.role else 'student'
             if user_role != 'admin' and str(course.creator_id) != str(user_id):
-                raise AuthorizationError("Access denied")
+                raise PermissionError("Access denied")
             
             return self.course_repo.update(course_id, **kwargs)
             
@@ -369,14 +369,14 @@ class OptimizedCourseService:
         try:
             self.get_course_with_access_check(course_id, user_id)
             return True
-        except (NotFoundError, AuthorizationError):
+        except (NotFoundError, PermissionError):
             return False
 
     def get_course_modules(self, course_id: str, user_id: str) -> List[Dict]:
         """Get modules for a course"""
         # Check access first
         if not self.check_course_access(course_id, user_id):
-            raise AuthorizationError("Access denied")
+            raise PermissionError("Access denied")
         
         modules = self.course_repo.get_modules(course_id)
         if not modules:

@@ -1,5 +1,4 @@
 import { BaseAPIClient, APIError, type RequestConfig } from './base-client';
-import { AuthAPIClient } from './auth-client';
 import { CourseAPIClient } from './course-client';
 import { StudyPlanAPIClient } from './study-plan-client';
 import { StreamingAPIClient } from './streaming-client';

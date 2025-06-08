@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { StudySession, CourseConfig, ScheduleFilters, ScheduleState } from '../types/schedule';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useMockAuth as useAuth } from '@/contexts/MockAuth';
 import { apiClient } from '@/lib/api/client';
 import { scheduleAPI, transformSessionForFrontend } from '@/lib/api/endpoints/schedule';
 
@@ -28,7 +28,7 @@ export function useScheduleState() {
   });
 
   // Use centralized auth user hook
-  const { user: currentUser } = useAuthUser();
+  const { user: currentUser } = useAuth();
   
   // Course data
   const [userCourses, setUserCourses] = useState<any[]>([]);

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+// No auth needed - using default user
+const DEFAULT_USER_ID = 'default-user';
 import { toast } from 'sonner';
 import { gamificationAPI, type UserStats as APIUserStats, type Achievement as APIAchievement } from '@/lib/api/endpoints/gamification';
 
@@ -89,7 +90,8 @@ const calculateCurrentLevelXP = (totalXP: number, currentLevel: number): number 
 };
 
 export function GamificationProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  // Using default user - no auth needed
+  const user = { id: DEFAULT_USER_ID, email: 'user@example.com' };
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [isLoading, setIsLoading] = useState(true);

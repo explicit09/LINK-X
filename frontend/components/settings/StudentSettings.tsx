@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { User, Settings, Bell, Shield } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
-import { useAuth } from '@/hooks/useAuth';
+import { useMockAuth as useAuth } from '@/contexts/MockAuth';
 
 // Hooks
 import { useUserRole } from './hooks/useUserRole';

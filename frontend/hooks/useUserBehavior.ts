@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+// import { useAuth } from '@/hooks/useAuth'; // Removed - auth file deleted
 import { useGamification } from '@/contexts/GamificationContext';
 import { useStudyTime } from '@/hooks/useStudyTime';
 import { useDashboardOverview } from '@/hooks/useDashboardData';
@@ -46,7 +46,8 @@ export interface SmartDefault {
 }
 
 export function useUserBehavior() {
-  const { user } = useAuth();
+  // const { user } = useAuth(); // Removed - auth file deleted
+  const user = null; // Placeholder - replace with actual auth implementation
   const { userStats } = useGamification();
   const { weeklyStudyHours, dailyStudyTime, sessionHistory } = useStudyTime('month');
   const { data: dashboardData } = useDashboardOverview();

@@ -1,7 +1,7 @@
 """API Documentation using Flask-RESTX"""
 from flask import Blueprint
 from flask_restx import Api, Resource, fields, Namespace
-from core.decorators_unified import require_auth
+# Auth removed - using MockAuth
 from functools import wraps
 
 bp = Blueprint('api_docs', __name__)

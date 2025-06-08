@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/hooks/useAuth';
+// Auth removed - using MockAuth globally
 import { useRouter } from 'next/navigation';
 import {
   BookOpen,
@@ -81,7 +81,7 @@ const ModernSidebar = ({
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const router = useRouter();
-  const { signOut } = useAuth();
+  // MockAuth doesn't need signOut
 
   useEffect(() => {
     setMounted(true);
@@ -108,14 +108,7 @@ const ModernSidebar = ({
     if (onCollapseChange) onCollapseChange(newValue);
   };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      router.push('/login');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
+  // MockAuth doesn't need signOut functionality
 
   const mainNavItems = [
     {
@@ -425,23 +418,7 @@ const ModernSidebar = ({
               </div>
             )}
 
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 hover:bg-gray-100"
-                    onClick={handleSignOut}
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>Sign Out</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            {/* MockAuth doesn't need sign out */}
           </div>
         </div>
       </aside>

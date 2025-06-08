@@ -1,4 +1,3 @@
-import { AuthAPIClient } from './auth-client';
 import { APIError } from './base-client';
 
 /**

@@ -21,7 +21,6 @@ from core.monitoring import (
     update_system_metrics
 )
 from core.dependencies import get_db
-from core.decorators_unified import require_auth, auth_required
 from repositories.user_repository import UserRepository
 from repositories.course_repository import CourseRepository
 from repositories.file_repository import FileRepository
@@ -482,7 +481,7 @@ def health_metrics():
         return f"# Error generating health metrics: {str(e)}\n", 500
 
 @metrics_bp.route('/dashboard')
-@auth_required()
+
 def metrics_dashboard():
     """Metrics dashboard for internal monitoring"""
     try:

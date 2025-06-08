@@ -178,10 +178,8 @@ export function StudentSidebar({ currentUser, isCollapsed, onToggleCollapse, cou
 
   const handleSignOut = async () => {
     try {
-      // Import signOut from supabaseconfig
-      const { signOut } = await import('@/supabaseconfig');
-      await signOut();
-      router.push('/login');
+      // No-auth mode: just redirect to home
+      router.push('/');
     } catch (error) {
       console.error('Error signing out:', error);
     }

@@ -1,4 +1,3 @@
-import { AuthAPIClient } from './auth-client';
 import type { RequestConfig } from './base-client';
 
 export interface Course {

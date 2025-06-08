@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
-import { useAuth } from '@/hooks/useAuth';
-import { toComponentUser } from '@/types/auth';
+import { useMockAuth as useAuth } from '@/contexts/MockAuth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Download, Sparkles, Eye, ExternalLink } from 'lucide-react';
@@ -28,7 +27,7 @@ export default function FilePreviewPage() {
   const params = useParams();
   const router = useRouter();
   const { user, profile } = useAuth();
-  const currentUser = toComponentUser(profile, user);
+  const currentUser = { id: user?.id || "default-user", email: user?.email || "user@example.com", name: user?.name || "Default User", role: "student" };
 
   const courseId = params?.courseId as string;
   const moduleId = params?.moduleId as string;

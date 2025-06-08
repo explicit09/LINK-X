@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api/client';
-import { supabase } from '@/lib/supabase';
 
 interface Section {
   id: string;

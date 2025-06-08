@@ -3,14 +3,13 @@
 import React from 'react';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
 import { GamificationDashboard } from '@/components/gamification';
-import { useAuth } from '@/hooks/useAuth';
-import { toComponentUser } from '@/types/auth';
+import { useMockAuth as useAuth } from '@/contexts/MockAuth';
 import { motion } from 'framer-motion';
 import { Trophy, Sparkles } from 'lucide-react';
 
 export default function GamificationPage() {
   const { user, profile } = useAuth();
-  const currentUser = toComponentUser(profile, user);
+  const currentUser = { id: user?.id || "default-user", email: user?.email || "user@example.com", name: user?.name || "Default User", role: "student" };
 
   return (
     <SharedDashboardLayout 

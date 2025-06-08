@@ -13,7 +13,7 @@ from repositories.user_repository import UserRepository
 from repositories.course_repository import CourseRepository
 from repositories.file_repository import FileRepository
 from db.connection import get_db_session
-from core.exceptions import ValidationError, NotFoundError, AuthorizationError
+from core.exceptions import ValidationError, NotFoundError, PermissionError
 # Try to import websocket manager - may not be available
 try:
     from core.websocket_manager import collaboration_ws_manager
@@ -38,7 +38,7 @@ class CollaborationService:
         with get_db_session() as session:
             # Verify user is enrolled in course
             if not self._verify_course_access(session, user_id, course_id):
-                raise AuthorizationError("Not enrolled in this course")
+                raise PermissionError("Not enrolled in this course")
             
             # Check if course allows collaboration
             course = self.course_repo.get_course_by_id(session, course_id)
@@ -68,7 +68,7 @@ class CollaborationService:
             
             # Check if user has access
             if not self._verify_group_access(session, user_id, group_id):
-                raise AuthorizationError("Not authorized to view this group")
+                raise PermissionError("Not authorized to view this group")
             
             return self._format_study_group(study_group, include_members=True)
     
@@ -83,7 +83,7 @@ class CollaborationService:
         with get_db_session() as session:
             # Verify user has access to course
             if not self._verify_course_access(session, user_id, course_id):
-                raise AuthorizationError("Not enrolled in this course")
+                raise PermissionError("Not enrolled in this course")
             
             study_groups = self.collab_repo.get_course_study_groups(session, course_id, is_public_only=True)
             return [self._format_study_group(group) for group in study_groups]
@@ -106,11 +106,11 @@ class CollaborationService:
             
             # Verify user is enrolled in the course
             if not self._verify_course_access(session, user_id, study_group.course_id):
-                raise AuthorizationError("Not enrolled in this course")
+                raise PermissionError("Not enrolled in this course")
             
             # Check if group is public or user has access
             if not study_group.is_public:
-                raise AuthorizationError("This is a private group")
+                raise PermissionError("This is a private group")
             
             # Add user as member
             member = self.collab_repo.add_group_member(session, group_id, user_id)
@@ -144,7 +144,7 @@ class CollaborationService:
             # Verify user is admin of group
             member = self.collab_repo.get_group_member(session, group_id, user_id)
             if not member or member.role != 'admin':
-                raise AuthorizationError("Not authorized to update this group")
+                raise PermissionError("Not authorized to update this group")
             
             study_group = self.collab_repo.update_study_group(session, group_id, **updates)
             return self._format_study_group(study_group)
@@ -158,11 +158,11 @@ class CollaborationService:
         with get_db_session() as session:
             # Verify file access
             if not self._verify_file_access(session, user_id, file_id):
-                raise AuthorizationError("Not authorized to annotate this file")
+                raise PermissionError("Not authorized to annotate this file")
             
             # If group_id provided, verify group membership
             if group_id and not self._verify_group_access(session, user_id, group_id):
-                raise AuthorizationError("Not a member of this group")
+                raise PermissionError("Not a member of this group")
             
             # Create annotation
             annotation = self.collab_repo.create_annotation(
@@ -200,7 +200,7 @@ class CollaborationService:
         with get_db_session() as session:
             # Verify file access
             if not self._verify_file_access(session, user_id, file_id):
-                raise AuthorizationError("Not authorized to view annotations for this file")
+                raise PermissionError("Not authorized to view annotations for this file")
             
             annotations = self.collab_repo.get_file_annotations(
                 session, file_id, user_id, group_id, include_public=True
@@ -228,11 +228,11 @@ class CollaborationService:
         with get_db_session() as session:
             # Verify course access
             if not self._verify_course_access(session, user_id, course_id):
-                raise AuthorizationError("Not enrolled in this course")
+                raise PermissionError("Not enrolled in this course")
             
             # If group_id provided, verify group membership
             if group_id and not self._verify_group_access(session, user_id, group_id):
-                raise AuthorizationError("Not a member of this group")
+                raise PermissionError("Not a member of this group")
             
             discussion = self.collab_repo.create_discussion(
                 session=session,
@@ -256,7 +256,7 @@ class CollaborationService:
         with get_db_session() as session:
             # Verify course access
             if not self._verify_course_access(session, user_id, course_id):
-                raise AuthorizationError("Not enrolled in this course")
+                raise PermissionError("Not enrolled in this course")
             
             discussions = self.collab_repo.get_course_discussions(
                 session, course_id, discussion_type, group_id
@@ -274,7 +274,7 @@ class CollaborationService:
             
             # Verify course access
             if not self._verify_course_access(session, user_id, discussion.course_id):
-                raise AuthorizationError("Not enrolled in this course")
+                raise PermissionError("Not enrolled in this course")
             
             reply = self.collab_repo.add_discussion_reply(
                 session=session,
@@ -316,11 +316,11 @@ class CollaborationService:
         with get_db_session() as session:
             # Verify course access
             if not self._verify_course_access(session, user_id, course_id):
-                raise AuthorizationError("Not enrolled in this course")
+                raise PermissionError("Not enrolled in this course")
             
             # If group_id provided, verify group membership
             if group_id and not self._verify_group_access(session, user_id, group_id):
-                raise AuthorizationError("Not a member of this group")
+                raise PermissionError("Not a member of this group")
             
             note = self.collab_repo.create_collaborative_note(
                 session=session,
@@ -344,7 +344,7 @@ class CollaborationService:
             
             # Verify access (simplified - would check course/group access)
             if not self._verify_course_access(session, user_id, note.course_id):
-                raise AuthorizationError("Not authorized to view this note")
+                raise PermissionError("Not authorized to view this note")
             
             return self._format_collaborative_note(note)
     
@@ -353,7 +353,7 @@ class CollaborationService:
         with get_db_session() as session:
             # Verify file access
             if not self._verify_file_access(session, user_id, file_id):
-                raise AuthorizationError("Not authorized to view notes for this file")
+                raise PermissionError("Not authorized to view notes for this file")
             
             notes = self.collab_repo.get_file_notes(session, file_id, user_id)
             return [self._format_collaborative_note(note) for note in notes]

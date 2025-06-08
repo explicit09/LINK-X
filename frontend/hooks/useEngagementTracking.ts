@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useCallback } from 'react';
-import { useAuthUser } from './useAuthUser';
 
 interface EngagementMetrics {
   interaction_count: number;

@@ -19,8 +19,7 @@ import { CanvasGrades } from '@/components/course/canvas/CanvasGrades';
 import { CanvasFiles } from '@/components/course/canvas/CanvasFiles';
 import { CanvasDiscussions } from '@/components/course/canvas/CanvasDiscussions';
 import { CanvasSyllabus } from '@/components/course/canvas/CanvasSyllabus';
-import { useAuth } from '@/hooks/useAuth';
-import { toComponentUser } from '@/types/auth';
+import { useMockAuth as useAuth } from '@/contexts/MockAuth';
 import { useCourseData } from '@/hooks/course/useCourseData';
 import { useCourseModules } from '@/hooks/course/useCourseModules';
 import { useCourseProgress } from '@/hooks/course/useCourseProgress';
@@ -59,13 +58,13 @@ export default function CoursePage() {
   const courseId = params?.courseId as string;
   
   const { user, profile } = useAuth();
-  const currentUser = toComponentUser(profile, user);
+  const currentUser = { id: user?.id || "default-user", email: user?.email || "user@example.com", name: user?.name || "Default User", role: "student" };
   const { course, loading: courseLoading, error: courseError, refetch: refetchCourse } = useCourseData(courseId);
   const { modules, loading: modulesLoading, error: modulesError, refetch: refetchModules } = useCourseModules(courseId);
   const { progress: courseProgress, loading: progressLoading, refetch: refetchProgress } = useCourseProgress(courseId);
   
   // Determine user role for tabs
-  const userRole = profile?.role as 'student' | 'instructor' | 'admin' || 'student';
+  const userRole = "student" as 'student' | 'instructor' | 'admin' || 'student';
   
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
   const [metrics, setMetrics] = useState<CourseMetrics | null>(null);
@@ -175,7 +174,7 @@ export default function CoursePage() {
     currentUser_id: profile?.id,
     isOwner,
     isStudentCreatedCourse,
-    currentUserRole: profile?.role
+    currentUserRole: "student"
   });
 
   const loading = courseLoading || modulesLoading || progressLoading;

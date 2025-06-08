@@ -7,8 +7,7 @@ from flask import Blueprint, request, jsonify, g
 from uuid import UUID
 from typing import Dict, Any, List
 
-from core.decorators_unified import auth_required
-from core.exceptions import ValidationError, NotFoundError, AuthorizationError
+from core.exceptions import ValidationError, NotFoundError, PermissionError
 from services.collaboration_service import CollaborationService
 
 bp = Blueprint('collaboration_v2', __name__)
@@ -17,7 +16,7 @@ collaboration_service = CollaborationService()
 # Study Group Endpoints
 
 @bp.route('/study-groups', methods=['POST'])
-@auth_required()
+
 # Rate limiting disabled for now
 def create_study_group():
     """Create a new study group"""
@@ -31,7 +30,7 @@ def create_study_group():
                 return jsonify({'error': f'{field} is required'}), 400
         
         result = collaboration_service.create_study_group(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             course_id=UUID(data['course_id']),
             name=data['name'],
             description=data.get('description'),
@@ -47,18 +46,18 @@ def create_study_group():
         
     except ValidationError as e:
         return jsonify({'error': str(e)}), 400
-    except AuthorizationError as e:
+    except PermissionError as e:
         return jsonify({'error': str(e)}), 403
     except Exception as e:
         return jsonify({'error': 'Failed to create study group'}), 500
 
 @bp.route('/study-groups/<group_id>', methods=['GET'])
-@auth_required()
+
 def get_study_group(group_id):
     """Get study group details"""
     try:
         result = collaboration_service.get_study_group(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             group_id=UUID(group_id)
         )
         
@@ -69,13 +68,13 @@ def get_study_group(group_id):
         
     except NotFoundError as e:
         return jsonify({'error': str(e)}), 404
-    except AuthorizationError as e:
+    except PermissionError as e:
         return jsonify({'error': str(e)}), 403
     except Exception as e:
         return jsonify({'error': 'Failed to get study group'}), 500
 
 @bp.route('/study-groups', methods=['GET'])
-@auth_required()
+
 def get_user_study_groups():
     """Get user's study groups"""
     try:
@@ -83,7 +82,7 @@ def get_user_study_groups():
         course_uuid = UUID(course_id) if course_id else None
         
         result = collaboration_service.get_user_study_groups(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             course_id=course_uuid
         )
         
@@ -96,12 +95,12 @@ def get_user_study_groups():
         return jsonify({'error': 'Failed to get study groups'}), 500
 
 @bp.route('/courses/<course_id>/study-groups', methods=['GET'])
-@auth_required()
+
 def get_course_study_groups(course_id):
     """Get public study groups for a course"""
     try:
         result = collaboration_service.get_course_study_groups(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             course_id=UUID(course_id)
         )
         
@@ -110,13 +109,13 @@ def get_course_study_groups(course_id):
             'data': result
         }), 200
         
-    except AuthorizationError as e:
+    except PermissionError as e:
         return jsonify({'error': str(e)}), 403
     except Exception as e:
         return jsonify({'error': 'Failed to get course study groups'}), 500
 
 @bp.route('/study-groups/join', methods=['POST'])
-@auth_required()
+
 # Rate limiting disabled for now
 def join_study_group():
     """Join a study group by ID or invite code"""
@@ -130,7 +129,7 @@ def join_study_group():
             return jsonify({'error': 'Either group_id or invite_code is required'}), 400
         
         result = collaboration_service.join_study_group(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             group_id=UUID(group_id) if group_id else None,
             invite_code=invite_code
         )
@@ -145,18 +144,18 @@ def join_study_group():
         return jsonify({'error': str(e)}), 400
     except NotFoundError as e:
         return jsonify({'error': str(e)}), 404
-    except AuthorizationError as e:
+    except PermissionError as e:
         return jsonify({'error': str(e)}), 403
     except Exception as e:
         return jsonify({'error': 'Failed to join study group'}), 500
 
 @bp.route('/study-groups/<group_id>/leave', methods=['POST'])
-@auth_required()
+
 def leave_study_group(group_id):
     """Leave a study group"""
     try:
         collaboration_service.leave_study_group(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             group_id=UUID(group_id)
         )
         
@@ -169,14 +168,14 @@ def leave_study_group(group_id):
         return jsonify({'error': 'Failed to leave study group'}), 500
 
 @bp.route('/study-groups/<group_id>', methods=['PUT'])
-@auth_required()
+
 def update_study_group(group_id):
     """Update study group (admin only)"""
     try:
         data = request.get_json()
         
         result = collaboration_service.update_study_group(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             group_id=UUID(group_id),
             **data
         )
@@ -187,7 +186,7 @@ def update_study_group(group_id):
             'message': 'Study group updated successfully'
         }), 200
         
-    except AuthorizationError as e:
+    except PermissionError as e:
         return jsonify({'error': str(e)}), 403
     except Exception as e:
         return jsonify({'error': 'Failed to update study group'}), 500
@@ -195,7 +194,7 @@ def update_study_group(group_id):
 # Annotation Endpoints
 
 @bp.route('/annotations', methods=['POST'])
-@auth_required()
+
 # Rate limiting disabled  # 50 annotations per 5 minutes
 def create_annotation():
     """Create a shared annotation"""
@@ -209,7 +208,7 @@ def create_annotation():
                 return jsonify({'error': f'{field} is required'}), 400
         
         result = collaboration_service.create_annotation(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             file_id=UUID(data['file_id']),
             annotation_type=data['annotation_type'],
             content=data['content'],
@@ -227,13 +226,13 @@ def create_annotation():
         
     except ValidationError as e:
         return jsonify({'error': str(e)}), 400
-    except AuthorizationError as e:
+    except PermissionError as e:
         return jsonify({'error': str(e)}), 403
     except Exception as e:
         return jsonify({'error': 'Failed to create annotation'}), 500
 
 @bp.route('/files/<file_id>/annotations', methods=['GET'])
-@auth_required()
+
 def get_file_annotations(file_id):
     """Get annotations for a file"""
     try:
@@ -241,7 +240,7 @@ def get_file_annotations(file_id):
         group_uuid = UUID(group_id) if group_id else None
         
         result = collaboration_service.get_file_annotations(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             file_id=UUID(file_id),
             group_id=group_uuid
         )
@@ -251,13 +250,13 @@ def get_file_annotations(file_id):
             'data': result
         }), 200
         
-    except AuthorizationError as e:
+    except PermissionError as e:
         return jsonify({'error': str(e)}), 403
     except Exception as e:
         return jsonify({'error': 'Failed to get annotations'}), 500
 
 @bp.route('/annotations/<annotation_id>/reactions', methods=['POST'])
-@auth_required()
+
 # Rate limiting disabled  # 100 reactions per 5 minutes
 def add_annotation_reaction(annotation_id):
     """Add reaction to annotation"""
@@ -268,7 +267,7 @@ def add_annotation_reaction(annotation_id):
             return jsonify({'error': 'reaction_type is required'}), 400
         
         result = collaboration_service.add_annotation_reaction(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             annotation_id=UUID(annotation_id),
             reaction_type=data['reaction_type']
         )
@@ -289,7 +288,7 @@ def add_annotation_reaction(annotation_id):
 # Discussion Endpoints
 
 @bp.route('/discussions', methods=['POST'])
-@auth_required()
+
 # Rate limiting disabled  # 20 discussions per 5 minutes
 def create_discussion():
     """Create a peer discussion"""
@@ -303,7 +302,7 @@ def create_discussion():
                 return jsonify({'error': f'{field} is required'}), 400
         
         result = collaboration_service.create_discussion(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             course_id=UUID(data['course_id']),
             title=data['title'],
             content=data['content'],
@@ -322,13 +321,13 @@ def create_discussion():
         
     except ValidationError as e:
         return jsonify({'error': str(e)}), 400
-    except AuthorizationError as e:
+    except PermissionError as e:
         return jsonify({'error': str(e)}), 403
     except Exception as e:
         return jsonify({'error': 'Failed to create discussion'}), 500
 
 @bp.route('/courses/<course_id>/discussions', methods=['GET'])
-@auth_required()
+
 def get_course_discussions(course_id):
     """Get discussions for a course"""
     try:
@@ -337,7 +336,7 @@ def get_course_discussions(course_id):
         group_uuid = UUID(group_id) if group_id else None
         
         result = collaboration_service.get_course_discussions(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             course_id=UUID(course_id),
             discussion_type=discussion_type,
             group_id=group_uuid
@@ -348,13 +347,13 @@ def get_course_discussions(course_id):
             'data': result
         }), 200
         
-    except AuthorizationError as e:
+    except PermissionError as e:
         return jsonify({'error': str(e)}), 403
     except Exception as e:
         return jsonify({'error': 'Failed to get discussions'}), 500
 
 @bp.route('/discussions/<discussion_id>/replies', methods=['POST'])
-@auth_required()
+
 # Rate limiting disabled  # 50 replies per 5 minutes
 def add_discussion_reply(discussion_id):
     """Add reply to discussion"""
@@ -365,7 +364,7 @@ def add_discussion_reply(discussion_id):
             return jsonify({'error': 'content is required'}), 400
         
         result = collaboration_service.add_discussion_reply(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             discussion_id=UUID(discussion_id),
             content=data['content'],
             parent_reply_id=UUID(data['parent_reply_id']) if data.get('parent_reply_id') else None
@@ -381,13 +380,13 @@ def add_discussion_reply(discussion_id):
         return jsonify({'error': str(e)}), 400
     except NotFoundError as e:
         return jsonify({'error': str(e)}), 404
-    except AuthorizationError as e:
+    except PermissionError as e:
         return jsonify({'error': str(e)}), 403
     except Exception as e:
         return jsonify({'error': 'Failed to add reply'}), 500
 
 @bp.route('/discussions/<discussion_id>/vote', methods=['POST'])
-@auth_required()
+
 # Rate limiting disabled  # 100 votes per 5 minutes
 def vote_on_discussion(discussion_id):
     """Vote on discussion"""
@@ -401,7 +400,7 @@ def vote_on_discussion(discussion_id):
             return jsonify({'error': 'vote_type must be upvote or downvote'}), 400
         
         result = collaboration_service.vote_on_discussion(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             discussion_id=UUID(discussion_id),
             vote_type=data['vote_type']
         )
@@ -420,7 +419,7 @@ def vote_on_discussion(discussion_id):
 # Collaborative Notes Endpoints
 
 @bp.route('/collaborative-notes', methods=['POST'])
-@auth_required()
+
 # Rate limiting disabled  # 20 notes per 5 minutes
 def create_collaborative_note():
     """Create a collaborative note"""
@@ -434,7 +433,7 @@ def create_collaborative_note():
                 return jsonify({'error': f'{field} is required'}), 400
         
         result = collaboration_service.create_collaborative_note(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             course_id=UUID(data['course_id']),
             title=data['title'],
             content=data['content'],
@@ -451,18 +450,18 @@ def create_collaborative_note():
         
     except ValidationError as e:
         return jsonify({'error': str(e)}), 400
-    except AuthorizationError as e:
+    except PermissionError as e:
         return jsonify({'error': str(e)}), 403
     except Exception as e:
         return jsonify({'error': 'Failed to create collaborative note'}), 500
 
 @bp.route('/collaborative-notes/<note_id>', methods=['GET'])
-@auth_required()
+
 def get_collaborative_note(note_id):
     """Get collaborative note"""
     try:
         result = collaboration_service.get_collaborative_note(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             note_id=UUID(note_id)
         )
         
@@ -473,18 +472,18 @@ def get_collaborative_note(note_id):
         
     except NotFoundError as e:
         return jsonify({'error': str(e)}), 404
-    except AuthorizationError as e:
+    except PermissionError as e:
         return jsonify({'error': str(e)}), 403
     except Exception as e:
         return jsonify({'error': 'Failed to get collaborative note'}), 500
 
 @bp.route('/files/<file_id>/collaborative-notes', methods=['GET'])
-@auth_required()
+
 def get_file_collaborative_notes(file_id):
     """Get collaborative notes for a file"""
     try:
         result = collaboration_service.get_file_notes(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             file_id=UUID(file_id)
         )
         
@@ -493,7 +492,7 @@ def get_file_collaborative_notes(file_id):
             'data': result
         }), 200
         
-    except AuthorizationError as e:
+    except PermissionError as e:
         return jsonify({'error': str(e)}), 403
     except Exception as e:
         return jsonify({'error': 'Failed to get collaborative notes'}), 500
@@ -501,12 +500,12 @@ def get_file_collaborative_notes(file_id):
 # User Preferences Endpoints
 
 @bp.route('/preferences', methods=['GET'])
-@auth_required()
+
 def get_collaboration_preferences():
     """Get user's collaboration preferences"""
     try:
         result = collaboration_service.get_collaboration_preferences(
-            user_id=UUID(g.current_user.id)
+            user_id=UUID("default-user-id")
         )
         
         return jsonify({
@@ -518,14 +517,14 @@ def get_collaboration_preferences():
         return jsonify({'error': 'Failed to get preferences'}), 500
 
 @bp.route('/preferences', methods=['PUT'])
-@auth_required()
+
 def update_collaboration_preferences():
     """Update user's collaboration preferences"""
     try:
         data = request.get_json()
         
         result = collaboration_service.update_collaboration_preferences(
-            user_id=UUID(g.current_user.id),
+            user_id=UUID("default-user-id"),
             **data
         )
         
@@ -541,12 +540,12 @@ def update_collaboration_preferences():
         return jsonify({'error': 'Failed to update preferences'}), 500
 
 @bp.route('/stats', methods=['GET'])
-@auth_required()
+
 def get_collaboration_stats():
     """Get collaboration statistics for user"""
     try:
         result = collaboration_service.get_collaboration_stats(
-            user_id=UUID(g.current_user.id)
+            user_id=UUID("default-user-id")
         )
         
         return jsonify({

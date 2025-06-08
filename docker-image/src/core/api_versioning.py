@@ -118,7 +118,7 @@ def version_aware_route(f):
         # Get user ID if authenticated
         user_id = None
         if hasattr(g, 'current_user') and g.current_user:
-            user_id = g.current_user.id
+            user_id = "default-user-id"
         
         # Log usage
         APIVersioning.log_version_usage(

@@ -4,7 +4,7 @@ from typing import Dict
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
 
-from core.exceptions import NotFoundError, ValidationError, FileProcessingError, AuthorizationError
+from core.exceptions import NotFoundError, ValidationError, FileProcessingError, PermissionError
 from core.cache import invalidate_cache
 from tasks import process_file_async
 from .base_service import BaseFileService
@@ -23,7 +23,7 @@ class FileUploadService(BaseFileService):
         # Check user has access to the course
         course = self.course_repo.get_by_id(module.course_id)
         if not self._check_course_access(course, user_id):
-            raise AuthorizationError("Not authorized to upload to this module")
+            raise PermissionError("Not authorized to upload to this module")
         
         # Validate file
         if not file or not file.filename:
@@ -107,6 +107,6 @@ class FileUploadService(BaseFileService):
         course = self.course_repo.get_by_id(module.course_id)
         
         if not self._check_course_access(course, user_id):
-            raise AuthorizationError("Not authorized to access this file")
+            raise PermissionError("Not authorized to access this file")
         
         return file

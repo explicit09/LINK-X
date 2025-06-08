@@ -4,8 +4,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { analyticsAPI, type StudyTimeAnalytics, type StudySessionResponse } from '@/lib/api/analytics';
-import { useAuth } from './useAuth';
 import { toast } from 'sonner';
+import { useMockAuth as useAuth } from '@/contexts/MockAuth';
 
 export interface UseStudyTimeReturn {
   // Data

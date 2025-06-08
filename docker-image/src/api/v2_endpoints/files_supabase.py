@@ -7,7 +7,6 @@ from werkzeug.utils import secure_filename
 import io
 import logging
 
-from core.decorators_unified import auth_required
 from core.exceptions import ValidationError, NotFoundError, UnauthorizedError
 from services.file_service_supabase import SupabaseFileService
 from repositories.module_repository import ModuleRepository
@@ -41,14 +40,14 @@ def get_module_repo():
 
 
 @files_bp.route('/upload', methods=['POST'])
-@auth_required()
+
 def upload_file_v2():
     """
     Upload a file to Supabase Storage
     Simplified from 200+ lines to ~50 lines
     """
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Validate request
         if 'file' not in request.files:
@@ -92,7 +91,7 @@ def upload_file_v2():
 
 
 @files_bp.route('/<file_id>/url', methods=['GET'])
-@auth_required()
+
 def get_file_url_v2(file_id):
     """Get a signed URL for file access"""
     try:
@@ -115,7 +114,7 @@ def get_file_url_v2(file_id):
 
 
 @files_bp.route('/<file_id>/download', methods=['GET'])
-@auth_required()
+
 def download_file_v2(file_id):
     """Download a file from Supabase Storage"""
     try:
@@ -138,11 +137,11 @@ def download_file_v2(file_id):
 
 
 @files_bp.route('/<file_id>', methods=['DELETE'])
-@auth_required()
+
 def delete_file_v2(file_id):
     """Delete a file from Supabase Storage"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Delete file
         success = get_file_service().delete_file(file_id, str(user.id))
@@ -162,11 +161,11 @@ def delete_file_v2(file_id):
 
 
 @files_bp.route('/module/<module_id>', methods=['GET'])
-@auth_required()
+
 def list_module_files_v2(module_id):
     """List all files in a module"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Get files
         files = get_file_service().list_module_files(module_id, str(user.id))
@@ -184,7 +183,7 @@ def list_module_files_v2(module_id):
 
 
 @files_bp.route('/<file_id>/reprocess', methods=['POST'])
-@auth_required()
+
 def reprocess_file_v2(file_id):
     """Reprocess a file (re-extract text and create chunks)"""
     try:

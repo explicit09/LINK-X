@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { signOut } from '@/supabaseconfig';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft,
@@ -150,7 +149,7 @@ const ModernLearnSidebar = ({
 
   const handleSignOut = async () => {
     try {
-      await signOut();
+      await // Mock: signOut();
       router.push('/');
     } catch (error) {
       console.error('Sign out error:', error);

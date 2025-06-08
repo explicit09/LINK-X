@@ -8,7 +8,6 @@ from datetime import datetime, date, timedelta
 from uuid import UUID
 import logging
 
-from core.decorators_unified import auth_required
 from core.database_supabase import db_manager
 from repositories.study_plan_repository import (
     StudyPlanRepository, StudyGoalRepository, 
@@ -37,7 +36,7 @@ def get_repositories():
 # ===== STUDY PLAN ENDPOINTS =====
 
 @study_plans_bp.route('', methods=['GET'])
-@auth_required()
+
 def list_study_plans():
     """Get user's study plans"""
     try:
@@ -45,7 +44,7 @@ def list_study_plans():
         include_inactive = request.args.get('include_inactive', 'false').lower() == 'true'
         
         plans = repos['study_plans'].get_user_plans(
-            user_id=g.current_user.id,
+            user_id="default-user-id",
             include_inactive=include_inactive
         )
         
@@ -81,7 +80,7 @@ def list_study_plans():
 
 
 @study_plans_bp.route('', methods=['POST'])
-@auth_required()
+
 def create_study_plan():
     """Create a new study plan"""
     try:
@@ -109,14 +108,14 @@ def create_study_plan():
         
         # Create plan with goals
         plan = repos['study_plans'].create_plan_with_goals(
-            user_id=g.current_user.id,
+            user_id="default-user-id",
             plan_data=plan_data,
             goals_data=goals_data
         )
         
         # If this is set as active, deactivate other plans
         if data.get('is_active', True):
-            repos['study_plans'].deactivate_other_plans(g.current_user.id, plan.id)
+            repos['study_plans'].deactivate_other_plans("default-user-id", plan.id)
             repos['study_plans'].update(plan.id, is_active=True)
         
         response_data = {
@@ -134,14 +133,14 @@ def create_study_plan():
 
 
 @study_plans_bp.route('/<plan_id>', methods=['GET'])
-@auth_required()
+
 def get_study_plan(plan_id):
     """Get specific study plan with analytics"""
     try:
         repos = get_repositories()
         
         plan = repos['study_plans'].get_by_id(UUID(plan_id))
-        if not plan or plan.user_id != g.current_user.id:
+        if not plan or plan.user_id != "default-user-id":
             return error_response("Study plan not found", status_code=404)
             
         # Get plan analytics
@@ -197,7 +196,7 @@ def get_study_plan(plan_id):
 
 
 @study_plans_bp.route('/<plan_id>', methods=['PATCH'])
-@auth_required()
+
 def update_study_plan(plan_id):
     """Update study plan preferences"""
     try:
@@ -209,7 +208,7 @@ def update_study_plan(plan_id):
         
         # Verify ownership
         plan = repos['study_plans'].get_by_id(UUID(plan_id))
-        if not plan or plan.user_id != g.current_user.id:
+        if not plan or plan.user_id != "default-user-id":
             return error_response("Study plan not found", status_code=404)
             
         # Update preferences
@@ -236,13 +235,13 @@ def update_study_plan(plan_id):
 
 
 @study_plans_bp.route('/active', methods=['GET'])
-@auth_required()
+
 def get_active_plan():
     """Get user's active study plan"""
     try:
         repos = get_repositories()
         
-        plan = repos['study_plans'].get_active_plan_by_user(g.current_user.id)
+        plan = repos['study_plans'].get_active_plan_by_user("default-user-id")
         if not plan:
             # Return empty data instead of 404 for new users
             return success_response(None, "No active study plan found")
@@ -280,7 +279,7 @@ def get_active_plan():
 # ===== STUDY GOAL ENDPOINTS =====
 
 @study_plans_bp.route('/goals', methods=['GET'])
-@auth_required()
+
 def list_goals():
     """Get user's study goals with filtering"""
     try:
@@ -292,7 +291,7 @@ def list_goals():
         limit = request.args.get('limit', type=int)
         
         goals = repos['goals'].get_user_goals(
-            user_id=g.current_user.id,
+            user_id="default-user-id",
             status=status,
             priority=priority,
             limit=limit
@@ -326,7 +325,7 @@ def list_goals():
 
 
 @study_plans_bp.route('/goals', methods=['POST'])
-@auth_required()
+
 def create_goal():
     """Create a new study goal"""
     try:
@@ -343,11 +342,11 @@ def create_goal():
         
         # Verify plan ownership
         plan = repos['study_plans'].get_by_id(UUID(data['study_plan_id']))
-        if not plan or plan.user_id != g.current_user.id:
+        if not plan or plan.user_id != "default-user-id":
             return error_response("Study plan not found", status_code=404)
             
         goal_data = {
-            'user_id': g.current_user.id,
+            'user_id': "default-user-id",
             'study_plan_id': UUID(data['study_plan_id']),
             'title': data['title'],
             'description': data.get('description'),
@@ -380,7 +379,7 @@ def create_goal():
 
 
 @study_plans_bp.route('/goals/<goal_id>', methods=['PATCH'])
-@auth_required()
+
 def update_goal(goal_id):
     """Update a study goal"""
     try:
@@ -392,7 +391,7 @@ def update_goal(goal_id):
         
         # Verify goal ownership
         goal = repos['goals'].get_by_id(UUID(goal_id))
-        if not goal or goal.user_id != g.current_user.id:
+        if not goal or goal.user_id != "default-user-id":
             return error_response("Goal not found", status_code=404)
             
         # Update goal
@@ -419,7 +418,7 @@ def update_goal(goal_id):
 
 
 @study_plans_bp.route('/goals/<goal_id>/progress', methods=['POST'])
-@auth_required()
+
 def log_goal_progress(goal_id):
     """Log progress for a specific goal"""
     try:
@@ -431,7 +430,7 @@ def log_goal_progress(goal_id):
         
         # Verify goal ownership
         goal = repos['goals'].get_by_id(UUID(goal_id))
-        if not goal or goal.user_id != g.current_user.id:
+        if not goal or goal.user_id != "default-user-id":
             return error_response("Goal not found", status_code=404)
             
         progress_data = {
@@ -445,7 +444,7 @@ def log_goal_progress(goal_id):
         
         progress = repos['progress'].log_progress(
             goal_id=UUID(goal_id),
-            user_id=g.current_user.id,
+            user_id="default-user-id",
             progress_data=progress_data
         )
         
@@ -468,7 +467,7 @@ def log_goal_progress(goal_id):
 # ===== STUDY SESSION ENDPOINTS =====
 
 @study_plans_bp.route('/sessions', methods=['GET'])
-@auth_required()
+
 def list_sessions():
     """Get user's study sessions"""
     try:
@@ -479,7 +478,7 @@ def list_sessions():
         end_date = datetime.strptime(request.args.get('end_date'), '%Y-%m-%d').date() if request.args.get('end_date') else None
         
         sessions = repos['sessions'].get_user_sessions(
-            user_id=g.current_user.id,
+            user_id="default-user-id",
             limit=limit,
             start_date=start_date,
             end_date=end_date
@@ -512,7 +511,7 @@ def list_sessions():
 
 
 @study_plans_bp.route('/sessions', methods=['POST'])
-@auth_required()
+
 def start_session():
     """Start a new study session"""
     try:
@@ -523,7 +522,7 @@ def start_session():
         repos = get_repositories()
         
         # Check if user has active session
-        active_session = repos['sessions'].get_active_session(g.current_user.id)
+        active_session = repos['sessions'].get_active_session("default-user-id")
         if active_session:
             return error_response("You already have an active study session", status_code=409)
             
@@ -535,7 +534,7 @@ def start_session():
             'metadata': data.get('metadata')
         }
         
-        session = repos['sessions'].start_session(g.current_user.id, session_data)
+        session = repos['sessions'].start_session("default-user-id", session_data)
         
         response_data = {
             'id': str(session.id),
@@ -553,7 +552,7 @@ def start_session():
 
 
 @study_plans_bp.route('/sessions/<session_id>/end', methods=['POST'])
-@auth_required()
+
 def end_session(session_id):
     """End a study session"""
     try:
@@ -563,7 +562,7 @@ def end_session(session_id):
         
         # Verify session ownership
         session = repos['sessions'].get_by_id(UUID(session_id))
-        if not session or session.user_id != g.current_user.id:
+        if not session or session.user_id != "default-user-id":
             return error_response("Session not found", status_code=404)
             
         if session.actual_end:
@@ -602,7 +601,7 @@ def end_session(session_id):
 # ===== RECOMMENDATION ENDPOINTS =====
 
 @study_plans_bp.route('/recommendations', methods=['GET'])
-@auth_required()
+
 def list_recommendations():
     """Get active study recommendations"""
     try:
@@ -610,7 +609,7 @@ def list_recommendations():
         
         limit = request.args.get('limit', type=int)
         recommendations = repos['recommendations'].get_active_recommendations(
-            user_id=g.current_user.id,
+            user_id="default-user-id",
             limit=limit
         )
         
@@ -640,7 +639,7 @@ def list_recommendations():
 
 
 @study_plans_bp.route('/recommendations/<rec_id>/apply', methods=['POST'])
-@auth_required()
+
 def apply_recommendation(rec_id):
     """Apply a study recommendation"""
     try:
@@ -648,7 +647,7 @@ def apply_recommendation(rec_id):
         
         # Verify recommendation ownership
         rec = repos['recommendations'].get_by_id(UUID(rec_id))
-        if not rec or rec.user_id != g.current_user.id:
+        if not rec or rec.user_id != "default-user-id":
             return error_response("Recommendation not found", status_code=404)
             
         updated_rec = repos['recommendations'].apply_recommendation(UUID(rec_id))
@@ -668,7 +667,7 @@ def apply_recommendation(rec_id):
 # ===== ANALYTICS ENDPOINTS =====
 
 @study_plans_bp.route('/analytics', methods=['GET'])
-@auth_required()
+
 def get_study_analytics():
     """Get comprehensive study analytics"""
     try:
@@ -677,11 +676,11 @@ def get_study_analytics():
         days = request.args.get('days', 30, type=int)
         
         # Get session analytics
-        session_analytics = repos['sessions'].get_session_analytics(g.current_user.id, days)
+        session_analytics = repos['sessions'].get_session_analytics("default-user-id", days)
         
         # Get active plan analytics
         try:
-            active_plan = repos['study_plans'].get_active_plan_by_user(g.current_user.id)
+            active_plan = repos['study_plans'].get_active_plan_by_user("default-user-id")
             plan_analytics = {}
             if active_plan:
                 plan_analytics = repos['study_plans'].get_plan_analytics(active_plan.id)
@@ -718,7 +717,7 @@ def get_study_analytics():
         # Get weekly progress
         try:
             week_start = date.today() - timedelta(days=date.today().weekday())
-            weekly_progress = repos['progress'].get_weekly_progress(g.current_user.id, week_start)
+            weekly_progress = repos['progress'].get_weekly_progress("default-user-id", week_start)
             weekly_progress_count = len(weekly_progress) if weekly_progress else 0
         except Exception as e:
             logger.warning(f"Error getting weekly progress: {e}")

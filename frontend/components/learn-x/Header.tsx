@@ -3,8 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { signOut } from '@/supabaseconfig';
-import { useAuth } from '@/hooks/useAuth';
+import { useMockAuth as useAuth } from '@/contexts/MockAuth';
 
 type HeaderProps = {
   showAuthButton?: boolean;
@@ -19,7 +18,7 @@ const Header = ({ showAuthButton = true, isLoggedIn }: HeaderProps) => {
 
   const handleSignOut = async () => {
     try {
-      await signOut();
+      // No-auth mode: just call backend logout
       await fetch(`${API}/sessionLogout`, {
         method: 'POST',
         credentials: 'include',
@@ -31,7 +30,8 @@ const Header = ({ showAuthButton = true, isLoggedIn }: HeaderProps) => {
   };
 
   const handleLogin = () => {
-    router.push('/login');
+    // No-auth mode: go to dashboard instead
+    router.push('/dashboard');
   };
 
   return (

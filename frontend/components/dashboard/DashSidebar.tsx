@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/hooks/useAuth';
+// Auth removed - using MockAuth globally
 import { useRouter } from 'next/navigation';
 import {
   BookOpen,
@@ -49,7 +49,7 @@ const Sidebar = ({ className, onCollapseChange, userRole }: SidebarProps) => {
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const router = useRouter(); //router
-  const { signOut } = useAuth();
+  // MockAuth doesn't need signOut
 
   useEffect(() => {
     setMounted(true);
@@ -236,26 +236,7 @@ const Sidebar = ({ className, onCollapseChange, userRole }: SidebarProps) => {
               </Button>
             </Link>
 
-            {/* Sign Out */}
-            <Button
-              variant="outline"
-              size={collapsed ? 'icon' : 'default'}
-              onClick={async () => {
-                try {
-                  await signOut();
-                  router.push('/');
-                } catch (error) {
-                  console.error('Error signing out:', error);
-                }
-              }}
-              className={cn(
-                'w-full bg-sidebar-accent hover:bg-sidebar-accent/70 border-sidebar-border/50 text-sidebar-foreground/70 hover:text-sidebar-foreground',
-                collapsed ? 'justify-center' : 'justify-start',
-              )}
-            >
-              <LogOut className="h-5 w-5 flex-shrink-0" />
-              {!collapsed && <span className="ml-2 text-sm">Sign out</span>}
-            </Button>
+            {/* MockAuth doesn't need sign out */}
           </div>
         </div>
       </aside>

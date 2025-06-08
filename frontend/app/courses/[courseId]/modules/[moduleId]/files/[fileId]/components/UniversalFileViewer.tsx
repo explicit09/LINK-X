@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useMockAuth as useAuth } from '@/contexts/MockAuth';
 import { Button } from '@/components/ui/button';
 import { FileText, Video, Music, Image, File, AlertCircle, ExternalLink, RefreshCw, Download } from 'lucide-react';
 import { EnhancedPDFViewer } from '@/components/course/EnhancedPDFViewer';

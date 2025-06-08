@@ -3,10 +3,10 @@
  * Backwards compatibility layer
  */
 
-import { authAPI } from './endpoints';
 
 export const userAPI = {
-  getMe: authAPI.getMe,
-  updateMe: authAPI.updateMe,
-  deleteMe: authAPI.deleteMe,
+  // Mocked for no-auth mode
+  getMe: async () => ({ id: 'default-user', email: 'user@example.com', name: 'Default User', role: 'student' }),
+  updateMe: async () => ({ success: true }),
+  deleteMe: async () => ({ success: true }),
 };

@@ -5,7 +5,6 @@ from flask import Blueprint, request, g
 from datetime import datetime
 import logging
 
-from core.decorators_unified import auth_required
 from core.database_supabase import db
 from db.schema import Enrollment, Course, PersonalizedFile, File, Module
 
@@ -18,11 +17,11 @@ activities_bp = Blueprint('api_v2_activities', __name__)
 
 
 @activities_bp.route('/recent', methods=['GET'])
-@auth_required()
+
 def get_recent_activities():
     """Get recent user activities"""
     try:
-        user_id = g.current_user.id
+        user_id = "default-user-id"
         activities = []
         
         # Get recent file views
@@ -75,11 +74,11 @@ def get_recent_activities():
 
 
 @activities_bp.route('/stats', methods=['GET'])
-@auth_required()
+
 def get_activity_stats():
     """Get user activity statistics"""
     try:
-        user_id = g.current_user.id
+        user_id = "default-user-id"
         
         # Get total courses
         total_courses = db.session.query(Enrollment).filter(Enrollment.user_id == user_id).count()
@@ -132,11 +131,11 @@ def get_activity_stats():
 
 
 @activities_bp.route('/log', methods=['POST'])
-@auth_required()
+
 def log_activity():
     """Log a user activity"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         data = request.get_json()
         
         if not data:

@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, BookOpen, Award, Database } from 'lucide-react';
 import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth';
+import { useMockAuth as useAuth } from '@/contexts/MockAuth';
 import { dashboardRoutes } from '@/lib/navigation';
 
 const Hero = () => {
@@ -65,49 +65,27 @@ const Hero = () => {
           </p>
 
           <div className="reveal flex flex-col sm:flex-row gap-4 justify-center mt-10">
-            {user ? (
-              <>
-                <Button
-                  size="lg"
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-base h-12 px-6"
-                  asChild
-                >
-                  <Link href={dashboardRoutes.main}>
-                    🚀 Go to Dashboard
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="text-base h-12 px-6 border-gray-300 text-gray-700 hover:bg-gray-100"
-                  asChild
-                >
-                  <Link href={dashboardRoutes.courses}>📚 My Courses</Link>
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  size="lg"
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-base h-12 px-6"
-                  asChild
-                >
-                  <Link href="/register">
-                    Get Started
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="text-base h-12 px-6 border-gray-300 text-gray-700 hover:bg-gray-100"
-                  asChild
-                >
-                  <Link href={dashboardRoutes.courses}>📚 My Courses</Link>
-                </Button>
-              </>
-            )}
+            {/* No-auth mode: always show dashboard buttons */}
+            <>
+              <Button
+                size="lg"
+                className="bg-blue-600 hover:bg-blue-700 text-white text-base h-12 px-6"
+                asChild
+              >
+                <Link href={dashboardRoutes.main}>
+                  🚀 Go to Dashboard
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                className="text-base h-12 px-6 border-gray-300 text-gray-700 hover:bg-gray-100"
+                asChild
+              >
+                <Link href={dashboardRoutes.courses}>📚 My Courses</Link>
+              </Button>
+            </>
           </div>
         </div>
 

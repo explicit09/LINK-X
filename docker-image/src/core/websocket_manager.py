@@ -22,8 +22,7 @@ try:
 except ImportError:
     REDIS_AVAILABLE = False
     redis = None
-from core.decorators_unified import auth_required
-from core.exceptions import AuthenticationError, ValidationError
+from core.exceptions import ValueError, ValidationError
 
 logger = logging.getLogger(__name__)
 

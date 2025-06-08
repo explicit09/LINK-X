@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { signOut } from '@/supabaseconfig';
 import { useRouter } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -45,7 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleSignOut = async () => {
     try {
-      await signOut();
+      await // Mock: signOut();
       router.push('/');
     } catch (error) {
       console.error('Sign out error:', error);

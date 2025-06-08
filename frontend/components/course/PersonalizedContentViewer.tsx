@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Loader2, Sparkles, AlertCircle } from 'lucide-react';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useMockAuth as useAuthUser } from '@/contexts/MockAuth';
 import { apiClient } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

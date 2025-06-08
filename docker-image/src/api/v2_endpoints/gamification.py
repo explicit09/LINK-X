@@ -6,7 +6,6 @@ from flask import Blueprint, request, g
 from datetime import datetime, timedelta
 import logging
 
-from core.decorators_unified import auth_required
 from core.exceptions import ValidationError, NotFoundError
 from core.database_supabase import db_manager
 from db.schema import UserStats, UserActivity, UserAchievement, ApiUsageLog
@@ -27,11 +26,11 @@ def get_session():
 
 
 @gamification_bp.route('/stats', methods=['GET'])
-@auth_required()
+
 def get_user_stats_v2():
     """Get current user's gamification stats"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         user_id = str(user.id)
         
         with get_session() as session:
@@ -108,11 +107,11 @@ def get_user_stats_v2():
 
 
 @gamification_bp.route('/award-xp', methods=['POST'])
-@auth_required()
+
 def award_xp_v2():
     """Award XP to user for an activity"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         user_id = str(user.id)
         data = request.get_json()
         
@@ -168,11 +167,11 @@ def award_xp_v2():
 
 
 @gamification_bp.route('/achievements', methods=['GET'])
-@auth_required()
+
 def get_user_achievements_v2():
     """Get user's achievements"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         user_id = str(user.id)
         
         
@@ -203,7 +202,7 @@ def get_user_achievements_v2():
 
 
 @gamification_bp.route('/leaderboard', methods=['GET'])
-@auth_required()
+
 def get_leaderboard_v2():
     """Get user leaderboard"""
     try:
@@ -223,7 +222,7 @@ def get_leaderboard_v2():
             ).fetchall()
             
             leaderboard_data = []
-            current_user_id = str(g.current_user.id)
+            current_user_id = str("default-user-id")
             for row in leaderboard_query:
                 user_id = str(row[0])
                 leaderboard_data.append({
@@ -238,7 +237,7 @@ def get_leaderboard_v2():
                 })
             
             # Get current user's rank
-            user = g.current_user
+            # Mock user - auth removed
             user_rank_query = session.execute(
                 "SELECT rank FROM user_leaderboard WHERE user_id = :user_id",
                 {'user_id': str(user.id)}
@@ -262,11 +261,11 @@ def get_leaderboard_v2():
 
 
 @gamification_bp.route('/activity-history', methods=['GET'])
-@auth_required()
+
 def get_activity_history_v2():
     """Get user's recent activity history"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         user_id = str(user.id)
         
         limit = int(request.args.get('limit', 20))
@@ -347,11 +346,11 @@ def award_activity_xp(user_id: str, activity_type: str, **kwargs):
 
 
 @gamification_bp.route('/weekly-goals', methods=['GET'])
-@auth_required()
+
 def get_weekly_goals_v2():
     """Get user's weekly goals and progress"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         user_id = str(user.id)
         
         with get_session() as session:
@@ -426,11 +425,11 @@ def get_weekly_goals_v2():
 
 
 @gamification_bp.route('/weekly-goals', methods=['PUT'])
-@auth_required()
+
 def update_weekly_goals_v2():
     """Update user's weekly goal target"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         user_id = str(user.id)
         data = request.get_json()
         

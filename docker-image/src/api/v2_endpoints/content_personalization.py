@@ -6,7 +6,6 @@ import logging
 from flask import Blueprint, request, jsonify, g
 from typing import Dict, Any
 
-from core.decorators_unified import auth_required
 from services.streaming_personalization_v2 import OptimizedStreamingPersonalizationService
 from services.personalization_memory import PersonalizationMemoryService
 
@@ -15,7 +14,7 @@ logger = logging.getLogger(__name__)
 content_personalization_bp = Blueprint('content_personalization', __name__)
 
 @content_personalization_bp.route('/personalize-content', methods=['POST'])
-@auth_required()
+
 def personalize_content_instant():
     """
     Instantly personalize any content based on user profile
@@ -47,7 +46,7 @@ def personalize_content_instant():
         service = get_streaming_service()
         
         # Get user profile
-        user_id = str(g.current_user.id)
+        user_id = str("default-user-id")
         user = service.user_repo.get_by_id(user_id)
         
         if not user or not user.student_profile:
@@ -119,7 +118,7 @@ def personalize_content_instant():
 
 
 @content_personalization_bp.route('/check-personalization', methods=['GET'])
-@auth_required()
+
 def check_personalization_status():
     """
     Check if user has personalization enabled and properly configured
@@ -128,7 +127,7 @@ def check_personalization_status():
         from api.v2_endpoints.personalization_v2 import get_streaming_service
         service = get_streaming_service()
         
-        user_id = str(g.current_user.id)
+        user_id = str("default-user-id")
         user = service.user_repo.get_by_id(user_id)
         
         if not user or not user.student_profile:

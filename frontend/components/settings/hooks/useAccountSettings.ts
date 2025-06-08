@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { authAPI } from '@/lib/api';
 
 export interface AccountData {
   email: string;
@@ -102,14 +101,14 @@ export function useAccountSettings() {
     try {
       setLoadingAccount(true);
 
-      // Ensure authAPI is available (prevent SSR issues)
-      if (!authAPI || !authAPI.v2) {
-        console.error('AuthAPI not available');
-        return;
-      }
-
-      // Use the API client which handles authentication properly
-      const response = await authAPI.v2.getProfile() as any;
+      // Mock: Skip API call in no-auth mode
+      const response = { 
+        data: { 
+          email: 'user@example.com',
+          name: 'Default User',
+          id: 'default-user'
+        } 
+      };
       // The backend returns { success: true, data: {...}, message: "Success", timestamp: "..." }
       const userData = response.data;
       

@@ -165,7 +165,6 @@ export const useEnhancedPersonalization = (fileId: string) => {
     const connectWithRetry = async () => {
       try {
         // Get Supabase token for SSE
-        const { supabase } = await import('@/lib/supabase');
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session) {

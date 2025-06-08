@@ -181,7 +181,7 @@ def init_container(app: Flask) -> Container:
     """
     # Wire container to modules
     container.wire(modules=[
-        "api.auth_unified",
+        # "api.auth_unified", # Removed - using MockAuth
         "api.courses",
         "api.files",
         "api.modules",

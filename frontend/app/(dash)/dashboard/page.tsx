@@ -9,8 +9,8 @@ import { DashboardSidebar } from '@/components/dashboard/sections/DashboardSideb
 import { FirstTimeUserGuide } from '@/components/dashboard/FirstTimeUserGuide';
 import { useUserJourneyStage, UserJourneyStage } from '@/hooks/useUserJourneyStage';
 import { useDashboardOverview, useAIRecommendations } from '@/hooks/useDashboardData';
-import { useAuth } from '@/hooks/useAuth';
-import { toComponentUser, type ComponentUser } from '@/types/auth';
+import { useNoAuth as useAuth } from '@/contexts/NoAuthContext';
+// User type is now directly from NoAuthContext
 import { useDashboardMode, DashboardMode } from '@/hooks/useDashboardMode';
 // import { DashboardTransition, useDashboardTransition } from '@/components/dashboard/transitions/DashboardTransition'; // TODO: Re-enable after framer-motion is installed
 import { FadeInCard } from '@/components/dashboard/animations/CSSAnimations';
@@ -24,18 +24,18 @@ import {
 function DashboardContent() {
   const router = useRouter();
   
-  // Use enhanced SimpleAuth with profile data
+  // Get user data from auth provider
   const { 
     user: currentUser, 
-    profile,
-    userName: displayName,
     isAuthenticated,
-    needsOnboarding,
     loading: authLoading 
   } = useAuth();
   
-  // Get role from profile or default to student
-  const role = profile?.role || 'student';
+  // Use user properties directly with null check
+  const displayName = currentUser?.name || 'User';
+  
+  // Default role to student
+  const role = 'student';
   
   // Dashboard mode and data hooks
   const { mode, config, isLoading: modeLoading, userStats } = useDashboardMode();
@@ -59,34 +59,15 @@ function DashboardContent() {
     previousMode.current = mode;
   }, [mode, useAdaptiveDashboard]);
 
-  // ENHANCED AUTH CHECK - authentication and onboarding
+  // NO AUTH - Skip all auth checks
   useEffect(() => {
-    if (authLoading) return; // Wait for auth to load
-    
-    console.log('[Dashboard] Auth status:', {
-      isAuthenticated,
-      needsOnboarding,
+    console.log('[Dashboard] No auth active - skipping auth checks');
+    console.log('[Dashboard] Default user:', {
+      isAuthenticated: true,
       user: currentUser?.email,
-      profile: profile?.name
+      name: currentUser?.name
     });
-
-    // If not authenticated, redirect to login
-    if (!isAuthenticated) {
-      console.log('[Dashboard] Not authenticated, redirecting to login');
-      router.replace('/login');
-      return;
-    }
-
-    // If needs onboarding, redirect to onboarding
-    if (needsOnboarding) {
-      console.log('[Dashboard] User needs onboarding, redirecting');
-      router.replace('/onboarding');
-      return;
-    }
-
-    // All checks passed - user is authenticated and onboarded
-    console.log('[Dashboard] All auth checks passed, allowing access');
-  }, [authLoading, isAuthenticated, needsOnboarding, router, currentUser, profile]);
+  }, [currentUser]);
 
   // Unified handler functions for narrative flow
   const handleActionClick = (action: any) => {
@@ -123,15 +104,14 @@ function DashboardContent() {
     router.push('/schedule');
   };
 
-  // Show loading while checking auth or determining dashboard mode
-  if (authLoading || journeyLoading || modeLoading) {
+  // Show loading while determining dashboard mode (skip auth loading in mock mode)
+  if (journeyLoading || modeLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-600">
-            {authLoading ? 'Verifying authentication...' : 
-             modeLoading ? 'Personalizing your dashboard...' : 
+            {modeLoading ? 'Personalizing your dashboard...' : 
              'Loading your dashboard...'}
           </p>
         </div>
@@ -139,15 +119,19 @@ function DashboardContent() {
     );
   }
 
-  // Debug user data (with profile)
+  // Debug user data
   console.log('🔍 User Data Debug:', {
     currentUser,
-    profile,
     displayName
   });
 
-  // Create a properly shaped user object for components using the helper
-  const componentUser = toComponentUser(profile, currentUser);
+  // Create a simple user object for components
+  const componentUser = {
+    id: currentUser?.id || 'default-id',
+    email: currentUser?.email || 'user@example.com',
+    name: displayName,
+    role: role
+  };
 
   // Render appropriate dashboard mode
   const renderDashboardContent = () => {

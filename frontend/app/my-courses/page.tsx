@@ -51,8 +51,7 @@ import {
 } from 'lucide-react';
 import { toast as sonnerToast } from 'sonner';
 import { courseAPI } from '@/lib/api';
-import { useAuth } from '@/hooks/useAuth';
-import { toComponentUser } from '@/types/auth';
+import { useMockAuth as useAuth } from '@/contexts/MockAuth';
 
 interface Course {
   id: string;
@@ -105,7 +104,7 @@ export default function MyCoursesPage() {
 
   // Use centralized auth user hook
   const { user, profile } = useAuth();
-  const currentUser = toComponentUser(profile, user);
+  const currentUser = { id: user?.id || "default-user", email: user?.email || "user@example.com", name: user?.name || "Default User", role: "student" };
 
   // Helper function to format relative time
   const formatRelativeTime = (dateString: string) => {

@@ -55,8 +55,6 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
 export const validateEnvironmentConfig = (config: EnvironmentConfig): void => {
   const requiredFields: (keyof EnvironmentConfig)[] = [
     'API_URL',
-    'SUPABASE_URL',
-    'SUPABASE_ANON_KEY',
   ];
 
   const missingFields = requiredFields.filter(
@@ -73,9 +71,9 @@ export const validateEnvironmentConfig = (config: EnvironmentConfig): void => {
     }
   }
 
-  // Validate Supabase configuration
+  // Validate Supabase configuration only if provided
   if (config.SUPABASE_URL && !config.SUPABASE_ANON_KEY) {
-    throw new Error('Supabase URL provided but anon key is missing');
+    console.warn('⚠️  Supabase URL provided but anon key is missing - Supabase features will be disabled');
   }
 
   // Validate API URL format

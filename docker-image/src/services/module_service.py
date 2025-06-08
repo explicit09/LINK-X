@@ -2,7 +2,7 @@ from typing import Dict, List
 from repositories.module_repository import ModuleRepository
 from repositories.course_repository import CourseRepository
 from repositories.user_repository import UserRepository
-from core.exceptions import NotFoundError, ValidationError, AuthorizationError
+from core.exceptions import NotFoundError, ValidationError, PermissionError
 
 class ModuleService:
     """Service for module-related business logic"""
@@ -33,14 +33,14 @@ class ModuleService:
         elif user.role.role_type == 'instructor':
             # Instructor has access to their own courses
             if str(course.instructor_id) != str(user_id):
-                raise AuthorizationError("Access denied")
+                raise PermissionError("Access denied")
         else:  # Student
             # Check if student is enrolled
             from repositories.enrollment_repository import EnrollmentRepository
             enrollment_repo = EnrollmentRepository()
             enrollment = enrollment_repo.get_by_student_course(user_id, course.id)
             if not enrollment and not course.published:
-                raise AuthorizationError("Access denied")
+                raise PermissionError("Access denied")
         
         return module
     
@@ -81,7 +81,7 @@ class ModuleService:
         is_admin = user.role and user.role.role_type == 'admin'
         
         if not is_owner and not is_admin:
-            raise AuthorizationError("Only course owner or admin can update modules")
+            raise PermissionError("Only course owner or admin can update modules")
         
         # Validate updates
         if 'title' in kwargs and len(kwargs['title']) < 3:
@@ -108,7 +108,7 @@ class ModuleService:
         is_admin = user.role and user.role.role_type == 'admin'
         
         if not is_owner and not is_admin:
-            raise AuthorizationError("Only course owner or admin can delete modules")
+            raise PermissionError("Only course owner or admin can delete modules")
         
         # Check if module has files
         from repositories.file_repository import FileRepository

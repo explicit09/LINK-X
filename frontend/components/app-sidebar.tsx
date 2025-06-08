@@ -1,6 +1,5 @@
 'use client';
 
-import type { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 
 import { PlusIcon } from '@/components/icons';
@@ -16,6 +15,12 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import Link from 'next/link';
+
+// Simple user type without Supabase dependency
+interface User {
+  id: string;
+  email: string;
+}
 
 export function AppSidebar({ user }: { user: User | undefined }) {
   const router = useRouter();

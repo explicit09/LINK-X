@@ -8,7 +8,6 @@ from typing import Dict, Any
 from flask import Blueprint, jsonify, request
 
 from core.database_supabase import db_manager
-from core.decorators_unified import auth_required
 from core.monitoring import monitor_request
 from monitoring.task_monitor import TaskMonitor
 
@@ -136,7 +135,7 @@ def health_metrics():
 
 
 @metrics_bp.route('/dashboard')
-@auth_required()
+
 def metrics_dashboard():
     """Metrics dashboard for internal monitoring."""
     try:

@@ -4,7 +4,6 @@
  */
 
 import {
-  authAPI,
   courseAPI,
   moduleAPI,
   fileAPI,
@@ -12,11 +11,11 @@ import {
 } from './endpoints';
 
 export const instructorAPI = {
-  // Profile management
-  getProfile: authAPI.v2.getProfile,
-  createProfile: authAPI.v2.createProfile,
-  updateProfile: authAPI.v2.updateProfile,
-  deleteProfile: authAPI.v2.deleteProfile,
+  // Profile management (mocked for no-auth)
+  getProfile: async () => ({ data: { role: 'instructor', email: 'instructor@example.com' } }),
+  createProfile: async () => ({ data: { role: 'instructor' } }),
+  updateProfile: async () => ({ data: { role: 'instructor' } }),
+  deleteProfile: async () => ({ success: true }),
 
   // Courses
   getCourses: courseAPI.getCourses,

@@ -26,7 +26,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useMockAuth as useAuthUser } from '@/contexts/MockAuth';
 import { courseAPI } from '@/lib/api/courses';
 import { toast as sonnerToast } from 'sonner';
 

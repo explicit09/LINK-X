@@ -22,7 +22,7 @@ class RateLimiter:
     def _get_identifier(self, identifier_type: str = 'ip') -> str:
         """Get identifier for rate limiting"""
         if identifier_type == 'user' and hasattr(g, 'current_user'):
-            return f"user:{g.current_user.id}"
+            return f"user:{"default-user-id"}"
         elif identifier_type == 'ip':
             # Get real IP behind proxy
             forwarded_for = request.headers.get('X-Forwarded-For')

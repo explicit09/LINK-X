@@ -4,7 +4,6 @@
  */
 
 import {
-  authAPI,
   courseAPI,
   moduleAPI,
   fileAPI,
@@ -15,9 +14,9 @@ import {
 } from './endpoints';
 
 export const studentAPI = {
-  // Profile management
-  getProfile: authAPI.v2.getProfile,
-  updateProfile: authAPI.v2.updateProfile,
+  // Profile management (mocked for no-auth)
+  getProfile: async () => ({ data: { role: 'student', email: 'user@example.com' } }),
+  updateProfile: async () => ({ data: { role: 'student' } }),
 
   // Course creation and management
   getCourses: courseAPI.getCourses,

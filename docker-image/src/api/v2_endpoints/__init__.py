@@ -7,8 +7,6 @@ from datetime import datetime, timezone
 import logging
 
 # Import all sub-blueprints
-from .auth_unified import auth_unified_bp
-from .simple_auth import simple_auth_bp
 from .courses import courses_bp
 # Import files blueprint based on feature flag
 import os
@@ -35,8 +33,6 @@ logger = logging.getLogger(__name__)
 api_v2 = Blueprint('api_v2', __name__, url_prefix='/api/v2')
 
 # Register all sub-blueprints
-api_v2.register_blueprint(auth_unified_bp, url_prefix='/auth/unified')
-api_v2.register_blueprint(simple_auth_bp, url_prefix='/auth/simple')
 api_v2.register_blueprint(courses_bp, url_prefix='/courses')
 api_v2.register_blueprint(files_bp, url_prefix='/files')
 api_v2.register_blueprint(activities_bp, url_prefix='/activities')
@@ -100,42 +96,11 @@ def health_check_v2():
 
 # ===== COMPATIBILITY ENDPOINTS =====
 # These endpoints provide backward compatibility for older API calls
-from core.decorators_unified import auth_required
-
-@api_v2.route('/user/profile', methods=['GET'])
-@auth_required()
-def get_user_profile_legacy():
-    """Legacy endpoint - redirects to /auth/me for backward compatibility"""
-    from .auth import get_profile_v2
-    return get_profile_v2()
-
-
-@api_v2.route('/user/profile', methods=['PATCH'])
-@auth_required()
-def update_user_profile_legacy():
-    """Legacy endpoint - redirects to /auth/me for backward compatibility"""
-    from .auth import update_profile_v2
-    return update_profile_v2()
-
-
-@api_v2.route('/session', methods=['GET'])
-@auth_required()
-def get_session_legacy():
-    """Legacy session endpoint - returns current user session info"""
-    from .auth import get_profile_v2
-    return get_profile_v2()
-
-
-@api_v2.route('/session', methods=['POST'])
-def create_session_legacy():
-    """Legacy session login endpoint - redirects to /auth/login for backward compatibility"""
-    from .utils import error_response
-    return error_response("Use /auth/login for authentication", status_code=410)
 
 
 # ===== TODO COMPATIBILITY ENDPOINTS =====
 @api_v2.route('/todo-items', methods=['GET'])
-@auth_required()
+
 def list_todo_items_legacy():
     """Legacy endpoint - redirects to /todos for backward compatibility"""
     from .todos import list_todos_v2
@@ -143,7 +108,7 @@ def list_todo_items_legacy():
 
 
 @api_v2.route('/todo-items', methods=['POST'])
-@auth_required()
+
 def create_todo_item_legacy():
     """Legacy endpoint - redirects to /todos for backward compatibility"""
     from .todos import create_todo_v2
@@ -151,7 +116,7 @@ def create_todo_item_legacy():
 
 
 @api_v2.route('/todo-items/<todo_id>', methods=['PATCH'])
-@auth_required()
+
 def update_todo_item_legacy(todo_id):
     """Legacy endpoint - not implemented yet"""
     from .utils import error_response
@@ -159,7 +124,7 @@ def update_todo_item_legacy(todo_id):
 
 
 @api_v2.route('/todo-items/<todo_id>', methods=['DELETE'])
-@auth_required()
+
 def delete_todo_item_legacy(todo_id):
     """Legacy endpoint - not implemented yet"""
     from .utils import error_response

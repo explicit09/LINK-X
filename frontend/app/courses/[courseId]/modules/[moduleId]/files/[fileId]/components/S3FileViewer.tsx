@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useMockAuth as useAuthUser } from '@/contexts/MockAuth';
 import { Button } from '@/components/ui/button';
 import { FileText, Video, Music, Image, File, AlertCircle, ExternalLink, RefreshCw } from 'lucide-react';
 import { toast as sonnerToast } from 'sonner';

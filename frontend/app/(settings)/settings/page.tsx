@@ -5,8 +5,7 @@ import { cn } from '@/lib/utils';
 //import Sidebar from "@/components/link-x/DashSidebar";
 import AudioUpload from '@/components/dashboard/AudioUpload';
 import Footer from '@/components/landing/Footer';
-import { useAuth } from '@/hooks/useAuth';
-import { toComponentUser } from '@/types/auth';
+import { useMockAuth as useAuth } from '@/contexts/MockAuth';
 import ProfessorSettings from '@/components/settings/ProfessorSettings';
 import StudentSettings from '@/components/settings/StudentSettings';
 
@@ -17,7 +16,7 @@ export default function Settings() {
   const { user, profile, loading: isLoading } = useAuth();
   
   // Extract role from profile data
-  const role = (profile?.role as 'student' | 'instructor' | 'admin') || 'student';
+  const role = ("student" as 'student' | 'instructor' | 'admin') || 'student';
 
   if (isLoading) {
     return (

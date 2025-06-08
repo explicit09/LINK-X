@@ -3,7 +3,6 @@ from datetime import datetime
 from sqlalchemy import desc
 import uuid
 
-from core.decorators_unified import auth_required
 from core.database_supabase import db
 from db.schema import Todo
 from repositories.todo_repository import TodoRepository
@@ -12,11 +11,11 @@ from repositories.course_repository import CourseRepository
 todos_bp = Blueprint('todos', __name__)
 
 @todos_bp.route('', methods=['GET'])
-@auth_required()
+
 def list_todos():
     """Get all todos for the current user"""
     todo_repo = TodoRepository()
-    todos = todo_repo.get_by_user(g.current_user.id)
+    todos = todo_repo.get_by_user("default-user-id")
     
     # Transform todos to match frontend expectations
     todo_items = []
@@ -64,7 +63,7 @@ def list_todos():
     return jsonify(todo_items), 200
 
 @todos_bp.route('', methods=['POST'])
-@auth_required()
+
 def create_todo():
     """Create a new todo"""
     data = request.get_json() or {}
@@ -74,7 +73,7 @@ def create_todo():
     
     todo_repo = TodoRepository()
     todo = todo_repo.create(
-        user_id=g.current_user.id,
+        user_id="default-user-id",
         title=title,
         description=data.get('description', ''),
         due_date=data.get('due_date'),
@@ -121,13 +120,13 @@ def create_todo():
     }), 201
 
 @todos_bp.route('/<todo_id>', methods=['GET'])
-@auth_required()
+
 def get_todo(todo_id):
     """Get a specific todo"""
     todo_repo = TodoRepository()
     todo = todo_repo.get_by_id(todo_id)
     
-    if not todo or str(todo.user_id) != str(g.current_user.id):
+    if not todo or str(todo.user_id) != str("default-user-id"):
         return jsonify({'error': 'Todo not found'}), 404
     
     # Get course name if course_id exists
@@ -170,7 +169,7 @@ def get_todo(todo_id):
     }), 200
 
 @todos_bp.route('/<todo_id>', methods=['PATCH'])
-@auth_required()
+
 def update_todo(todo_id):
     """Update a todo"""
     data = request.get_json() or {}
@@ -178,7 +177,7 @@ def update_todo(todo_id):
     todo_repo = TodoRepository()
     todo = todo_repo.get_by_id(todo_id)
     
-    if not todo or str(todo.user_id) != str(g.current_user.id):
+    if not todo or str(todo.user_id) != str("default-user-id"):
         return jsonify({'error': 'Todo not found'}), 404
     
     # Update fields
@@ -230,13 +229,13 @@ def update_todo(todo_id):
     }), 200
 
 @todos_bp.route('/<todo_id>', methods=['DELETE'])
-@auth_required()
+
 def delete_todo(todo_id):
     """Delete a todo"""
     todo_repo = TodoRepository()
     todo = todo_repo.get_by_id(todo_id)
     
-    if not todo or str(todo.user_id) != str(g.current_user.id):
+    if not todo or str(todo.user_id) != str("default-user-id"):
         return jsonify({'error': 'Todo not found'}), 404
     
     todo_repo.delete(todo_id)

@@ -5,7 +5,6 @@ from flask import Blueprint, request, g, jsonify
 from datetime import datetime
 import logging
 
-from core.decorators_unified import auth_required
 from core.exceptions import ValidationError, NotFoundError, UnauthorizedError
 from services.course_service_optimized import OptimizedCourseService as CourseService
 from services.module_service import ModuleService
@@ -46,11 +45,11 @@ def get_module_service():
 
 
 @courses_bp.route('', methods=['GET'])
-@auth_required()
+
 def list_courses_v2():
     """List courses with pagination and filtering"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Pagination parameters
         page, per_page = validate_pagination()
@@ -143,11 +142,11 @@ def list_courses_v2():
 
 
 @courses_bp.route('', methods=['POST'])
-@auth_required()
+
 def create_course_v2():
     """Create a new course with enhanced validation"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         data = request.get_json()
         
         # Log course creation attempt
@@ -213,11 +212,11 @@ def create_course_v2():
 
 
 @courses_bp.route('/<course_id>', methods=['GET'])
-@auth_required()
+
 def get_course_v2(course_id):
     """Get detailed course information"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Get course with access check (returns a dict)
         course_dict = get_course_service().get_course_with_access_check(course_id, user.id)
@@ -266,11 +265,11 @@ def get_course_v2(course_id):
 
 
 @courses_bp.route('/<course_id>', methods=['PATCH'])
-@auth_required()
+
 def update_course_v2(course_id):
     """Update course information"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         data = request.get_json()
         
         if not data:
@@ -298,11 +297,11 @@ def update_course_v2(course_id):
 
 
 @courses_bp.route('/<course_id>', methods=['DELETE'])
-@auth_required()
+
 def delete_course_v2(course_id):
     """Delete a course"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Delete course
         success = get_course_service().delete_course(course_id, user.id)
@@ -324,11 +323,11 @@ def delete_course_v2(course_id):
 
 
 @courses_bp.route('/<course_id>/modules', methods=['GET'])
-@auth_required()
+
 def list_modules_v2(course_id):
     """List course modules with files"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Simplified access check to avoid instructor attribute error
         try:
@@ -402,11 +401,11 @@ def list_modules_v2(course_id):
 
 
 @courses_bp.route('/<course_id>/modules', methods=['POST'])
-@auth_required()
+
 def create_module_v2(course_id):
     """Create a new module in a course"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         data = request.get_json()
         
         if not data or 'title' not in data:
@@ -461,11 +460,11 @@ def create_module_v2(course_id):
 
 
 @courses_bp.route('/<course_id>/moduleswithfiles', methods=['GET'])
-@auth_required()
+
 def get_modules_with_files_v2(course_id):
     """Get course modules with their files included"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Simplified access check to avoid instructor attribute error
         try:
@@ -536,11 +535,11 @@ def get_modules_with_files_v2(course_id):
 
 
 @courses_bp.route('/<course_id>/discussions', methods=['GET'])
-@auth_required()
+
 def get_course_discussions_v2(course_id):
     """Get course discussions (placeholder)"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Simplified access check to avoid instructor attribute error
         try:
@@ -568,11 +567,11 @@ def get_course_discussions_v2(course_id):
 
 
 @courses_bp.route('/<course_id>/progress', methods=['GET'])
-@auth_required()
+
 def get_course_progress_v2(course_id):
     """Get user's progress in a course (placeholder)"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Simplified access check to avoid instructor attribute error
         try:
@@ -604,11 +603,11 @@ def get_course_progress_v2(course_id):
 
 
 @courses_bp.route('/join', methods=['POST'])
-@auth_required()
+
 def join_course_by_access_code_v2():
     """Join a course using an access code"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         data = request.get_json()
         
         if not data or 'access_code' not in data:
@@ -663,11 +662,11 @@ def join_course_by_access_code_v2():
 
 
 @courses_bp.route('/<course_id>/resume', methods=['GET'])
-@auth_required()
+
 def get_resume_target_v2(course_id):
     """Get the specific material/location where user should resume studying"""
     try:
-        user = g.current_user
+        # Mock user - auth removed
         
         # Check course access
         try:
