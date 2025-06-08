@@ -22,6 +22,11 @@ export interface UserProfile {
   role: UserRole
   created_at: string
   updated_at: string
+  // Onboarding fields
+  onboarding_completed: boolean
+  onboarding_completed_at?: string
+  onboarding_step: number
+  onboarding_data: Record<string, any>
 }
 
 // Enhanced auth error interface
@@ -42,6 +47,8 @@ export type AuthEventType =
   | 'role_change'
   | 'failed_login'
   | 'account_locked'
+  | 'onboarding_progress'
+  | 'onboarding_completed'
 
 // Auth event for audit logging
 export interface AuthEvent {
@@ -121,6 +128,8 @@ export interface AuthContextState {
   isAuthenticated: boolean
   isLoading: boolean
   userRole: UserRole
+  needsOnboarding: boolean
+  onboardingStep: number
   
   // Authentication methods
   signUp: (data: SignUpData) => Promise<AuthResponse>
@@ -133,6 +142,10 @@ export interface AuthContextState {
   // Profile methods
   updateProfile: (data: UpdateProfileData) => Promise<UserProfile | null>
   refreshProfile: () => Promise<UserProfile | null>
+  
+  // Onboarding methods
+  updateOnboardingStep: (step: number, data?: Record<string, any>) => Promise<boolean>
+  completeOnboarding: (data?: OnboardingCompletionData) => Promise<boolean>
   
   // Permission methods
   hasPermission: (permission: Permission) => boolean
@@ -202,6 +215,7 @@ export interface AuthGuardOptions {
   redirectTo?: string
   requiredRole?: UserRole
   requiredPermission?: Permission
+  requireOnboarding?: boolean
   fallback?: React.ComponentType
 }
 
@@ -255,3 +269,63 @@ export const ROLE_PERMISSIONS: RolePermissions = {
     'audit:read'
   ]
 }
+
+// Onboarding step data interface
+export interface OnboardingStepData {
+  step: number
+  data: Record<string, any>
+  completed?: boolean
+}
+
+// Onboarding completion data
+export interface OnboardingCompletionData {
+  preferences?: {
+    theme?: string
+    notifications?: boolean
+    language?: string
+  }
+  profile?: {
+    bio?: string
+    interests?: string[]
+    learning_goals?: string[]
+  }
+  settings?: {
+    email_notifications?: boolean
+    marketing_emails?: boolean
+    weekly_digest?: boolean
+  }
+}
+
+// User journey route definitions
+export const USER_JOURNEY_ROUTES = {
+  // Public routes
+  LANDING: '/',
+  LOGIN: '/login',
+  SIGNUP: '/signup',
+  
+  // Auth callback
+  AUTH_CALLBACK: '/auth/callback',
+  
+  // Onboarding (auth required, onboarding incomplete)
+  ONBOARDING: '/onboarding',
+  
+  // Protected routes (auth + onboarding required)
+  DASHBOARD: '/dashboard',
+  PROFILE: '/profile',
+  SETTINGS: '/settings',
+  
+  // Utility routes
+  UNAUTHORIZED: '/unauthorized',
+  NOT_FOUND: '/404',
+} as const
+
+// Onboarding step configuration
+export const ONBOARDING_STEPS = {
+  WELCOME: 1,
+  PROFILE_SETUP: 2,
+  PREFERENCES: 3,
+  LEARNING_GOALS: 4,
+  COMPLETE: 999,
+} as const
+
+export type OnboardingStep = typeof ONBOARDING_STEPS[keyof typeof ONBOARDING_STEPS]

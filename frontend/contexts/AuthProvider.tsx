@@ -402,12 +402,78 @@ export function AuthProvider({ children, config }: AuthProviderProps) {
   }, [])
 
   // =============================================================================
+  // ONBOARDING METHODS
+  // =============================================================================
+
+  /**
+   * Update onboarding step
+   */
+  const updateOnboardingStep = useCallback(async (step: number, data: Record<string, any> = {}): Promise<boolean> => {
+    try {
+      if (!user?.id) {
+        throw new Error('No authenticated user')
+      }
+
+      setLoading(true)
+      setError(null)
+      debugLog('Updating onboarding step', { userId: user.id, step })
+
+      const success = await authService.updateOnboardingStep(user.id, step, data)
+      
+      if (success) {
+        // Refresh profile to get updated onboarding status
+        await refreshProfile()
+      }
+
+      return success
+    } catch (err) {
+      const authError = transformError(err)
+      setError(authError)
+      throw authError
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.id, refreshProfile])
+
+  /**
+   * Complete onboarding
+   */
+  const completeOnboarding = useCallback(async (data: Record<string, any> = {}): Promise<boolean> => {
+    try {
+      if (!user?.id) {
+        throw new Error('No authenticated user')
+      }
+
+      setLoading(true)
+      setError(null)
+      debugLog('Completing onboarding', { userId: user.id })
+
+      const success = await authService.completeOnboarding(user.id, data)
+      
+      if (success) {
+        // Refresh profile to get updated onboarding status
+        await refreshProfile()
+      }
+
+      return success
+    } catch (err) {
+      const authError = transformError(err)
+      setError(authError)
+      throw authError
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.id, refreshProfile])
+
+  // =============================================================================
   // COMPUTED PROPERTIES
   // =============================================================================
 
   const isAuthenticated = !!user && !!session
   const isLoading = loading
   const userRole: UserRole = user ? authService.getUserRole(user) : DEFAULT_ROLE
+  const needsOnboarding = user ? authService.needsOnboarding(user) : false
+  const onboardingStep = user ? authService.getOnboardingStep(user) : 0
 
   // =============================================================================
   // CONTEXT VALUE
@@ -425,6 +491,8 @@ export function AuthProvider({ children, config }: AuthProviderProps) {
     isAuthenticated,
     isLoading,
     userRole,
+    needsOnboarding,
+    onboardingStep,
 
     // Authentication methods
     signUp,
@@ -437,6 +505,10 @@ export function AuthProvider({ children, config }: AuthProviderProps) {
     // Profile methods
     updateProfile,
     refreshProfile,
+
+    // Onboarding methods
+    updateOnboardingStep,
+    completeOnboarding,
 
     // Permission methods
     hasPermission,

@@ -6,12 +6,12 @@ import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { BookOpen, ArrowLeft } from 'lucide-react'
-import { SignupForm } from '@/components/auth/SignupForm'
+import { LoginForm } from '@/components/auth/LoginForm'
 import { useAuth } from '@/hooks/useAuth'
 import { useRouter } from 'next/navigation'
 import { USER_JOURNEY_ROUTES } from '@/lib/auth/types'
 
-export default function SignupPage() {
+export default function LoginPage() {
   const { isAuthenticated, needsOnboarding, isLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -68,39 +68,35 @@ export default function SignupPage() {
           <Card className="border-0 shadow-xl">
             <CardHeader className="text-center space-y-2">
               <CardTitle className="text-2xl font-bold text-gray-900">
-                Create Your Account
+                Welcome Back
               </CardTitle>
               <CardDescription className="text-gray-600">
-                Start your learning journey with us today
+                Sign in to your account to continue learning
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <SignupForm />
+              <LoginForm />
               
               <div className="text-center">
                 <p className="text-sm text-gray-600">
-                  Already have an account?{' '}
+                  Don't have an account?{' '}
                   <Link 
-                    href={`/login${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`}
+                    href={`/signup${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`}
                     className="font-medium text-blue-600 hover:text-blue-500"
                   >
-                    Sign in here
+                    Sign up here
                   </Link>
                 </p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Terms and Privacy */}
+          {/* Help Text */}
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-500">
-              By creating an account, you agree to our{' '}
-              <Link href="/terms" className="text-blue-600 hover:text-blue-500">
-                Terms of Service
-              </Link>
-              {' '}and{' '}
-              <Link href="/privacy" className="text-blue-600 hover:text-blue-500">
-                Privacy Policy
+              Having trouble signing in?{' '}
+              <Link href="/help" className="text-blue-600 hover:text-blue-500">
+                Get help
               </Link>
             </p>
           </div>

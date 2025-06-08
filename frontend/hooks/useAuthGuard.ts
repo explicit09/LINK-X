@@ -5,103 +5,133 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from './useAuth'
 import type { UserRole, Permission, AuthGuardOptions } from '@/lib/auth/types'
+import { USER_JOURNEY_ROUTES } from '@/lib/auth/types'
 import { routeConfig } from '@/lib/auth/config'
 
 /**
- * Hook to protect routes and components that require authentication
+ * Enhanced authentication guard hook with onboarding support
  * 
- * Redirects unauthenticated users to login page and optionally checks
- * for specific roles or permissions.
- * 
- * @param options - Configuration options for the guard
- * 
- * @example
- * ```tsx
- * function ProtectedPage() {
- *   useAuthGuard() // Redirect to login if not authenticated
- *   
- *   const { user } = useAuth()
- *   return <div>Welcome {user?.email}!</div>
- * }
- * ```
- * 
- * @example
- * ```tsx
- * function AdminPage() {
- *   useAuthGuard({ 
- *     requiredRole: 'admin',
- *     redirectTo: '/unauthorized' 
- *   })
- *   
- *   return <div>Admin Panel</div>
- * }
- * ```
+ * This hook implements the complete user journey:
+ * 1. Unauthenticated users -> redirect to login
+ * 2. Authenticated but no onboarding -> redirect to onboarding
+ * 3. Authenticated + onboarded -> allow access (with role/permission checks)
  */
-export function useAuthGuard(options: AuthGuardOptions = {}) {
-  const router = useRouter()
-  const { 
-    isAuthenticated, 
-    loading, 
-    user, 
-    hasRole, 
-    hasPermission 
-  } = useAuth()
-
+export const useAuthGuard = (options: AuthGuardOptions = {}) => {
   const {
-    redirectTo = routeConfig.login,
+    redirectTo,
     requiredRole,
     requiredPermission,
+    requireOnboarding = true, // Default to requiring onboarding
   } = options
 
-  useEffect(() => {
-    // Don't redirect while still loading
-    if (loading) return
-
-    // Check authentication
-    if (!isAuthenticated) {
-      console.log('[AuthGuard] User not authenticated, redirecting to:', redirectTo)
-      router.push(redirectTo)
-      return
-    }
-
-    // Check required role
-    if (requiredRole && !hasRole(requiredRole)) {
-      console.log('[AuthGuard] User missing required role:', requiredRole)
-      router.push(routeConfig.unauthorized)
-      return
-    }
-
-    // Check required permission
-    if (requiredPermission && !hasPermission(requiredPermission)) {
-      console.log('[AuthGuard] User missing required permission:', requiredPermission)
-      router.push(routeConfig.unauthorized)
-      return
-    }
-
-    console.log('[AuthGuard] Access granted for user:', user?.email)
-  }, [
+  const router = useRouter()
+  const pathname = usePathname()
+  const { 
     isAuthenticated, 
-    loading, 
-    user?.email,
-    requiredRole, 
-    requiredPermission, 
+    isLoading, 
+    needsOnboarding, 
+    hasRole, 
+    hasPermission,
+    userRole 
+  } = useAuth()
+
+  useEffect(() => {
+    // Don't redirect while loading
+    if (isLoading) return
+
+    // If not authenticated, redirect to login with return URL
+    if (!isAuthenticated) {
+      const loginUrl = `${USER_JOURNEY_ROUTES.LOGIN}?returnTo=${encodeURIComponent(pathname)}`
+      router.push(redirectTo || loginUrl)
+      return
+    }
+
+    // If authenticated but needs onboarding and onboarding is required
+    if (requireOnboarding && needsOnboarding) {
+      // Don't redirect if already on onboarding page
+      if (pathname !== USER_JOURNEY_ROUTES.ONBOARDING) {
+        router.push(USER_JOURNEY_ROUTES.ONBOARDING)
+      }
+      return
+    }
+
+    // If on onboarding page but onboarding is complete, redirect to dashboard
+    if (pathname === USER_JOURNEY_ROUTES.ONBOARDING && !needsOnboarding) {
+      router.push(USER_JOURNEY_ROUTES.DASHBOARD)
+      return
+    }
+
+    // Check role requirements
+    if (requiredRole && !hasRole(requiredRole)) {
+      console.warn(`Access denied: User role '${userRole}' does not match required role '${requiredRole}'`)
+      router.push(USER_JOURNEY_ROUTES.UNAUTHORIZED)
+      return
+    }
+
+    // Check permission requirements
+    if (requiredPermission && !hasPermission(requiredPermission)) {
+      console.warn(`Access denied: User lacks required permission '${requiredPermission}'`)
+      router.push(USER_JOURNEY_ROUTES.UNAUTHORIZED)
+      return
+    }
+
+  }, [
+    isLoading,
+    isAuthenticated,
+    needsOnboarding,
+    requireOnboarding,
+    pathname,
+    router,
     redirectTo,
+    requiredRole,
+    requiredPermission,
     hasRole,
     hasPermission,
-    router
+    userRole
   ])
 
-  // Return guard status for conditional rendering
   return {
+    isLoading,
     isAuthenticated,
-    loading,
-    hasAccess: isAuthenticated && 
-              (!requiredRole || hasRole(requiredRole)) && 
-              (!requiredPermission || hasPermission(requiredPermission))
+    needsOnboarding,
+    userRole,
+    // Helper functions for conditional rendering
+    canAccess: isAuthenticated && (!requireOnboarding || !needsOnboarding),
+    shouldShowOnboarding: isAuthenticated && needsOnboarding && requireOnboarding,
+    shouldShowLogin: !isAuthenticated,
   }
+}
+
+/**
+ * Hook for pages that require authentication (with onboarding)
+ */
+export const useRequireAuth = (options: Omit<AuthGuardOptions, 'requireOnboarding'> = {}) => {
+  return useAuthGuard({ ...options, requireOnboarding: true })
+}
+
+/**
+ * Hook for pages that require authentication but not onboarding
+ * (useful for onboarding page itself)
+ */
+export const useRequireAuthOnly = (options: Omit<AuthGuardOptions, 'requireOnboarding'> = {}) => {
+  return useAuthGuard({ ...options, requireOnboarding: false })
+}
+
+/**
+ * Hook for role-based access control
+ */
+export const useRequireRole = (role: string, options: AuthGuardOptions = {}) => {
+  return useAuthGuard({ ...options, requiredRole: role as any })
+}
+
+/**
+ * Hook for permission-based access control
+ */
+export const useRequirePermission = (permission: string, options: AuthGuardOptions = {}) => {
+  return useAuthGuard({ ...options, requiredPermission: permission as any })
 }
 
 /**

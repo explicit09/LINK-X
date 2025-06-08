@@ -461,6 +461,80 @@ class AuthService {
   }
 
   // =============================================================================
+  // ONBOARDING MANAGEMENT
+  // =============================================================================
+
+  /**
+   * Update user onboarding step
+   */
+  async updateOnboardingStep(userId: string, step: number, data: Record<string, any> = {}): Promise<boolean> {
+    try {
+      debugLog('Updating onboarding step', { userId, step, data })
+
+      const { error } = await this.supabase.rpc('update_onboarding_step', {
+        user_id: userId,
+        step: step,
+        step_data: data
+      })
+
+      if (error) {
+        throw error
+      }
+
+      debugLog('Onboarding step updated successfully')
+      return true
+    } catch (err) {
+      errorLog('Update onboarding step failed', err)
+      throw this.transformError(err)
+    }
+  }
+
+  /**
+   * Complete user onboarding
+   */
+  async completeOnboarding(userId: string, onboardingData: Record<string, any> = {}): Promise<boolean> {
+    try {
+      debugLog('Completing onboarding', { userId, onboardingData })
+
+      const { error } = await this.supabase.rpc('complete_onboarding', {
+        user_id: userId,
+        onboarding_data: onboardingData
+      })
+
+      if (error) {
+        throw error
+      }
+
+      debugLog('Onboarding completed successfully')
+      return true
+    } catch (err) {
+      errorLog('Complete onboarding failed', err)
+      throw this.transformError(err)
+    }
+  }
+
+  /**
+   * Check if user needs onboarding
+   */
+  needsOnboarding(user: AuthUser): boolean {
+    return !user.profile?.onboarding_completed || false
+  }
+
+  /**
+   * Get user's current onboarding step
+   */
+  getOnboardingStep(user: AuthUser): number {
+    return user.profile?.onboarding_step || 0
+  }
+
+  /**
+   * Check if user has completed onboarding
+   */
+  hasCompletedOnboarding(user: AuthUser): boolean {
+    return user.profile?.onboarding_completed || false
+  }
+
+  // =============================================================================
   // UTILITY METHODS
   // =============================================================================
 
