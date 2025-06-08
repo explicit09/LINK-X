@@ -94,17 +94,17 @@ export function GoogleAuthButton({
       variant="outline"
       onClick={handleGoogleAuth}
       disabled={disabled || loading}
-      className="w-full flex items-center justify-center gap-3 h-12 bg-brand-indigo hover:bg-brand-navy text-white border-brand-indigo hover:border-brand-navy font-medium rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+      className="w-full flex items-center justify-center gap-3 h-12 bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-200 hover:border-gray-300 font-semibold rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow"
     >
       {loading ? (
-        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
       ) : (
         <LogoGoogle size={20} aria-label="Google logo" />
       )}
       <span className="text-base">
         {loading
           ? 'Signing in...'
-          : `Sign ${mode === 'login' ? 'in' : 'up'} with Google`}
+          : `Continue with Google`}
       </span>
     </Button>
   );
