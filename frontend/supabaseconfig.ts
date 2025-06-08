@@ -1,11 +1,11 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Supabase configuration from environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://torsffahnivnzcnjnxgc.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRvcnNmZmFobml2bnpjbmpueGdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkxMzc3MzcsImV4cCI6MjA2NDcxMzczN30.RSplRmOfX5noj_MDpRIRRgUbUYSvlaCXyUGc8PUiySA';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+  throw new Error('Missing required Supabase environment variables. Please check your .env.local file.');
 }
 
 // Singleton instance - prevents multiple client creation
@@ -21,8 +21,8 @@ export const supabase = (() => {
           persistSession: true,
           detectSessionInUrl: true,
           storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-          storageKey: 'sb-torsffahnivnzcnjnxgc-auth-token', // Use Supabase default key format
-          flowType: 'implicit', // Use implicit flow for OAuth
+          storageKey: 'sb-auth-token', // Simplified storage key
+          flowType: 'pkce', // Use PKCE flow for better security
         },
         global: {
           headers: {

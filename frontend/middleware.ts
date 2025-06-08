@@ -1,31 +1,24 @@
-import { NextResponse, type NextRequest } from 'next/server'
+import { type NextRequest } from 'next/server'
+import { updateSession } from '@/lib/supabase/middleware'
 
 /**
- * SIMPLE AUTH MIDDLEWARE
- * Just basic route protection. No complexity.
+ * ENHANCED AUTH MIDDLEWARE
+ * Properly handles Supabase auth session refresh and route protection
  */
 export async function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname
-
-  // Protected routes (require login)
-  const protectedRoutes = ['/dashboard', '/my-courses', '/courses', '/settings']
-  
-  // Auth routes (redirect if logged in)
-  const authRoutes = ['/login', '/signup']
-
-  // Skip middleware for auth callback
-  if (pathname.includes('/auth/callback')) {
-    return NextResponse.next()
-  }
-
-  // For now, just handle basic redirects
-  // More advanced auth checking happens in components
-  
-  return NextResponse.next()
+  return await updateSession(request)
 }
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|public|images|fonts).*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - images, fonts (static assets)
+     * Feel free to modify this pattern to include more paths.
+     */
+    '/((?!_next/static|_next/image|favicon.ico|images|fonts|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
-};
+}
