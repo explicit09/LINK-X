@@ -6,11 +6,12 @@
 
 import React, { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { GoogleOAuthButton } from './GoogleOAuthButton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Mail, Lock, User, Chrome, CheckCircle } from 'lucide-react'
+import { Loader2, Mail, Lock, User, CheckCircle } from 'lucide-react'
 
 interface SignupFormProps {
   onSuccess?: () => void
@@ -19,7 +20,7 @@ interface SignupFormProps {
 }
 
 export function SignupForm({ onSuccess, onSignInClick, className }: SignupFormProps) {
-  const { signUp, signInWithGoogle, loading, error, clearError } = useAuth()
+  const { signUp, loading, error, clearError } = useAuth()
   
   // Form state
   const [email, setEmail] = useState('')
@@ -116,18 +117,6 @@ export function SignupForm({ onSuccess, onSignInClick, className }: SignupFormPr
     }
   }
 
-  // Handle Google OAuth
-  const handleGoogleSignUp = async () => {
-    clearError()
-    
-    try {
-      await signInWithGoogle()
-      // OAuth redirects, so success will be handled on callback
-    } catch (err) {
-      console.error('Google sign up failed:', err)
-    }
-  }
-
   // Show success message
   if (showSuccess) {
     return (
@@ -175,19 +164,13 @@ export function SignupForm({ onSuccess, onSignInClick, className }: SignupFormPr
       )}
 
       {/* Google Sign Up */}
-      <Button
-        variant="outline"
-        className="w-full"
-        onClick={handleGoogleSignUp}
+      <GoogleOAuthButton
+        mode="signup"
         disabled={loading}
-      >
-        {loading ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        ) : (
-          <Chrome className="mr-2 h-4 w-4" />
-        )}
-        Continue with Google
-      </Button>
+        onError={(error) => {
+          console.error('Google OAuth signup error:', error)
+        }}
+      />
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center">

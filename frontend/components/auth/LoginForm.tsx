@@ -4,13 +4,15 @@
 // Phase 2: Core Email Authentication
 // File: components/auth/LoginForm.tsx
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import { GoogleOAuthButton } from './GoogleOAuthButton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Mail, Lock, Chrome } from 'lucide-react'
+import { Loader2, Mail, Lock, CheckCircle, AlertCircle } from 'lucide-react'
 
 interface LoginFormProps {
   onSuccess?: () => void
@@ -19,13 +21,50 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSuccess, onSignUpClick, className }: LoginFormProps) {
-  const { signIn, signInWithGoogle, signInWithMagicLink, loading, error, clearError } = useAuth()
+  const searchParams = useSearchParams()
+  const { signIn, signInWithMagicLink, loading, error, clearError } = useAuth()
   
   // Form state
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [useEmailLink, setUseEmailLink] = useState(false)
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+  const [urlMessage, setUrlMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
+
+  // Handle URL parameters (from OAuth callback or other redirects)
+  useEffect(() => {
+    const error = searchParams.get('error')
+    const message = searchParams.get('message')
+    const welcome = searchParams.get('welcome')
+
+    if (error && message) {
+      setUrlMessage({ type: 'error', text: message })
+    } else if (message) {
+      setUrlMessage({ type: 'success', text: message })
+    } else if (welcome) {
+      setUrlMessage({ type: 'success', text: 'Welcome! Your account has been created successfully.' })
+    }
+
+    // Clear URL parameters after handling
+    if (error || message || welcome) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('error')
+      url.searchParams.delete('message')
+      url.searchParams.delete('welcome')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [searchParams])
+
+  // Clear URL message when component unmounts or form is interacted with
+  useEffect(() => {
+    if (urlMessage) {
+      const timer = setTimeout(() => {
+        setUrlMessage(null)
+      }, 8000) // Auto-clear after 8 seconds
+
+      return () => clearTimeout(timer)
+    }
+  }, [urlMessage])
 
   // Validate form
   const validateForm = () => {
@@ -52,12 +91,16 @@ export function LoginForm({ onSuccess, onSignUpClick, className }: LoginFormProp
     if (!validateForm()) return
     
     clearError()
+    setUrlMessage(null)
     
     try {
       if (useEmailLink) {
         // Send magic link
         await signInWithMagicLink(email)
-        alert('Magic link sent! Check your email to complete sign in.')
+        setUrlMessage({ 
+          type: 'success', 
+          text: 'Magic link sent! Check your email to complete sign in.' 
+        })
       } else {
         // Regular email/password sign in
         const response = await signIn({ email, password })
@@ -71,18 +114,6 @@ export function LoginForm({ onSuccess, onSignUpClick, className }: LoginFormProp
     }
   }
 
-  // Handle Google OAuth
-  const handleGoogleSignIn = async () => {
-    clearError()
-    
-    try {
-      await signInWithGoogle()
-      // OAuth redirects, so success will be handled on callback
-    } catch (err) {
-      console.error('Google sign in failed:', err)
-    }
-  }
-
   return (
     <div className={`w-full max-w-md mx-auto space-y-6 ${className}`}>
       <div className="text-center">
@@ -92,9 +123,24 @@ export function LoginForm({ onSuccess, onSignUpClick, className }: LoginFormProp
         </p>
       </div>
 
-      {/* Error Alert */}
-      {error && (
+      {/* URL Message Alert */}
+      {urlMessage && (
+        <Alert variant={urlMessage.type === 'error' ? 'destructive' : 'default'}>
+          {urlMessage.type === 'error' ? (
+            <AlertCircle className="h-4 w-4" />
+          ) : (
+            <CheckCircle className="h-4 w-4" />
+          )}
+          <AlertDescription>
+            {urlMessage.text}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Auth Error Alert */}
+      {error && !urlMessage && (
         <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             {error.message}
           </AlertDescription>
@@ -102,19 +148,13 @@ export function LoginForm({ onSuccess, onSignUpClick, className }: LoginFormProp
       )}
 
       {/* Google Sign In */}
-      <Button
-        variant="outline"
-        className="w-full"
-        onClick={handleGoogleSignIn}
+      <GoogleOAuthButton 
+        mode="signin"
         disabled={loading}
-      >
-        {loading ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        ) : (
-          <Chrome className="mr-2 h-4 w-4" />
-        )}
-        Continue with Google
-      </Button>
+        onError={(error) => {
+          console.error('Google OAuth error:', error)
+        }}
+      />
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
@@ -139,7 +179,10 @@ export function LoginForm({ onSuccess, onSignUpClick, className }: LoginFormProp
               type="email"
               placeholder="Enter your email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value)
+                setUrlMessage(null) // Clear URL message on interaction
+              }}
               className="pl-10"
               disabled={loading}
             />
@@ -160,7 +203,10 @@ export function LoginForm({ onSuccess, onSignUpClick, className }: LoginFormProp
                 type="password"
                 placeholder="Enter your password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setUrlMessage(null) // Clear URL message on interaction
+                }}
                 className="pl-10"
                 disabled={loading}
               />

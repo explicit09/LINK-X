@@ -20,6 +20,7 @@ import { ROLE_PERMISSIONS } from './types'
 import { 
   authConfig, 
   AUTH_CONSTANTS, 
+  routeConfig,
   debugLog, 
   errorLog 
 } from './config'
@@ -166,6 +167,14 @@ class AuthService {
   async signInWithGoogle(): Promise<AuthResponse> {
     try {
       debugLog('Attempting Google OAuth sign in')
+
+      // Store current URL for post-auth redirect (optional)
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname
+        if (currentPath !== routeConfig.login && currentPath !== routeConfig.signup) {
+          document.cookie = `auth-redirect=${currentPath}; path=/; max-age=600` // 10 minutes
+        }
+      }
 
       const { data, error } = await this.supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -517,6 +526,60 @@ class AuthService {
     } catch (err) {
       // Don't throw on logging errors, just log them
       errorLog('Failed to log auth event', err)
+    }
+  }
+
+  /**
+   * Check if user account is linked with OAuth provider
+   */
+  async checkOAuthLinking(email: string): Promise<{
+    hasPassword: boolean
+    providers: string[]
+    canLink: boolean
+  }> {
+    try {
+      // This would require a custom function in Supabase to check providers
+      // For now, we'll return basic info
+      return {
+        hasPassword: true, // Assume user has password unless we know otherwise
+        providers: [], // Would list connected OAuth providers
+        canLink: true
+      }
+    } catch (err) {
+      errorLog('OAuth linking check failed', err)
+      return {
+        hasPassword: false,
+        providers: [],
+        canLink: false
+      }
+    }
+  }
+
+  /**
+   * Link OAuth provider to existing account
+   */
+  async linkOAuthProvider(provider: 'google'): Promise<AuthResponse> {
+    try {
+      debugLog('Attempting to link OAuth provider', { provider })
+
+      const { data, error } = await this.supabase.auth.linkIdentity({
+        provider,
+        options: {
+          redirectTo: `${authConfig.oauth.redirectUrl}?type=link`,
+        }
+      })
+
+      if (error) {
+        const authError = this.transformError(error)
+        return { user: null, session: null, error: authError }
+      }
+
+      debugLog('OAuth linking initiated')
+      return { user: null, session: null, error: null }
+    } catch (err) {
+      const error = this.transformError(err)
+      errorLog('OAuth linking failed', err)
+      return { user: null, session: null, error }
     }
   }
 }
