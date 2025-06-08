@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, g
 from datetime import datetime, timedelta
 from sqlalchemy import desc, func
 
-from core.decorators_unified import firebase_auth_required
+from core.decorators_unified import auth_required
 from core.database_supabase import db
 from db.schema import Chat, File, Enrollment, Course, PersonalizedFile, Module
 from repositories.user_repository import UserRepository
@@ -11,7 +11,7 @@ from repositories.file_repository import FileRepository
 activities_bp = Blueprint('activities', __name__)
 
 @activities_bp.route('/recent', methods=['GET'])
-@firebase_auth_required
+@auth_required()
 def get_recent_activities():
     """Get recent activities for the current user"""
     user_id = g.current_user.id
@@ -69,7 +69,7 @@ def get_recent_activities():
     return jsonify(activities[:10]), 200
 
 @activities_bp.route('/stats', methods=['GET'])
-@firebase_auth_required
+@auth_required()
 def get_activity_stats():
     """Get activity statistics for the current user"""
     user_id = g.current_user.id
@@ -133,7 +133,7 @@ def get_activity_stats():
     }), 200
 
 @activities_bp.route('/log', methods=['POST'])
-@firebase_auth_required
+@auth_required()
 def log_activity():
     """Log user activity"""
     user_id = g.current_user.id

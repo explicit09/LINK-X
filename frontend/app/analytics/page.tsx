@@ -1,19 +1,16 @@
 'use client';
 
 import React from 'react';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useAuth } from '@/hooks/useAuth';
+import { toComponentUser } from '@/types/auth';
 import { EngagementDashboard } from '@/components/analytics/EngagementDashboard';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
 
 export default function AnalyticsPage() {
-  const { user, loading } = useAuthUser();
-  const currentUser = user ? {
-    name: user.displayName || user.email?.split('@')[0],
-    email: user.email || '',
-    avatar: user.photoURL || undefined
-  } : undefined;
+  const { user, profile, loading } = useAuth();
+  const currentUser = toComponentUser(profile, user);
 
   if (loading) {
     return (
@@ -93,7 +90,7 @@ export default function AnalyticsPage() {
 
           {/* Analytics Dashboard */}
           <EngagementDashboard 
-            userId={user.uid} 
+            userId={user?.id || ''} 
             className="w-full"
           />
         </div>

@@ -5,12 +5,11 @@ from flask import Blueprint, jsonify, request, g
 from datetime import datetime, timezone
 import logging
 
-from core.decorators_unified import firebase_auth_required
+from core.decorators_unified import auth_required
 from core.database_supabase import db
 from core.exceptions import ValidationError, NotFoundError, UnauthorizedError
 from services.course_service_optimized import OptimizedCourseService as CourseService
 from services.file_service_supabase import FileService
-from services.auth_service_unified import UnifiedAuthService as AuthService
 from services.module_service import ModuleService
 from repositories.todo_repository import TodoRepository
 from repositories.user_repository import UserRepository
@@ -27,7 +26,6 @@ logger = logging.getLogger(__name__)
 course_service = CourseService()
 file_service = FileService()
 module_service = ModuleService()
-auth_service = AuthService()
 
 
 # ===== COMMON RESPONSE HELPERS =====
@@ -87,49 +85,128 @@ def paginated_response(items, page, per_page, total, endpoint, **kwargs):
 # ===== AUTHENTICATION ENDPOINTS =====
 @api_v2.route('/auth/login', methods=['POST'])
 def login_v2():
-    """Enhanced login with better error handling and response structure"""
+    """Enhanced login with Supabase authentication"""
     try:
         data = request.get_json()
         if not data:
             return error_response("Request body is required", status_code=400)
         
-        id_token = data.get('idToken')
-        if not id_token:
-            return error_response("ID token is required", errors={'idToken': 'This field is required'}, status_code=400)
-        
-        # Use auth service for login
-        result = auth_service.login_with_firebase(id_token)
-        
-        # Enhanced response with user details
-        response_data = {
-            'user': {
-                'id': str(result['user'].id),
-                'email': result['user'].email,
-                'display_name': result['user'].display_name,
-                'role': result['user'].role.role_type if result['user'].role else None,
-                'firebase_uid': result['user'].firebase_uid,
-                'created_at': result['user'].created_at.isoformat() if result['user'].created_at else None
-            },
-            'tokens': {
-                'access_token': result['access_token'],
-                'refresh_token': result.get('refresh_token'),
-                'expires_in': 3600  # 1 hour
-            }
-        }
-        
-        return success_response(response_data, "Login successful")
-        
-    except ValidationError as e:
-        return error_response(str(e), status_code=400)
-    except UnauthorizedError as e:
-        return error_response(str(e), status_code=401)
+        # Support both email/password and token-based login
+        if 'email' in data and 'password' in data:
+            # Email/password login
+            email = data.get('email')
+            password = data.get('password')
+            
+            if not email or not password:
+                return error_response("Email and password are required", status_code=400)
+            
+            # Use Supabase auth service
+            from services.auth.supabase_auth_service import get_auth_service
+            auth_service = get_auth_service()
+            
+            try:
+                auth_response = auth_service.sign_in_with_password(email, password)
+                if not auth_response or not auth_response.user:
+                    return error_response("Invalid credentials", status_code=401)
+                
+                # Get or create user in our database
+                user_repo = UserRepository()
+                user = user_repo.get_by_email(email)
+                
+                if not user:
+                    # Create user if doesn't exist
+                    user_data = {
+                        'email': email,
+                        'display_name': data.get('display_name', email.split('@')[0]),
+                        'supabase_id': auth_response.user.id
+                    }
+                    user = user_repo.create(user_data)
+                
+                # Create JWT token
+                from flask_jwt_extended import create_access_token, create_refresh_token
+                access_token = create_access_token(identity=str(user.id))
+                refresh_token = create_refresh_token(identity=str(user.id))
+                
+                response_data = {
+                    'user': {
+                        'id': str(user.id),
+                        'email': user.email,
+                        'display_name': user.display_name,
+                        'role': user.role.role_type if user.role else None,
+                        'supabase_id': getattr(user, 'supabase_id', None),
+                        'created_at': user.created_at.isoformat() if user.created_at else None
+                    },
+                    'tokens': {
+                        'access_token': access_token,
+                        'refresh_token': refresh_token,
+                        'supabase_token': auth_response.session.access_token if auth_response.session else None,
+                        'expires_in': 3600  # 1 hour
+                    }
+                }
+                
+                return success_response(response_data, "Login successful")
+                
+            except Exception as e:
+                logger.error(f"Supabase login error: {str(e)}")
+                return error_response("Authentication failed", status_code=401)
+                
+        elif 'token' in data or 'idToken' in data:
+            # Token-based login (for compatibility)
+            token = data.get('token') or data.get('idToken')
+            if not token:
+                return error_response("Token is required", status_code=400)
+            
+            # Verify Supabase token
+            from services.auth.supabase_auth_service import get_auth_service
+            auth_service = get_auth_service()
+            
+            try:
+                auth_user = auth_service.verify_token(token)
+                if not auth_user:
+                    return error_response("Invalid token", status_code=401)
+                
+                # Get user from database
+                user_repo = UserRepository()
+                user = user_repo.get_by_email(auth_user.email)
+                
+                if not user:
+                    return error_response("User not found", status_code=404)
+                
+                # Create JWT token
+                from flask_jwt_extended import create_access_token, create_refresh_token
+                access_token = create_access_token(identity=str(user.id))
+                refresh_token = create_refresh_token(identity=str(user.id))
+                
+                response_data = {
+                    'user': {
+                        'id': str(user.id),
+                        'email': user.email,
+                        'display_name': user.display_name,
+                        'role': user.role.role_type if user.role else None,
+                        'created_at': user.created_at.isoformat() if user.created_at else None
+                    },
+                    'tokens': {
+                        'access_token': access_token,
+                        'refresh_token': refresh_token,
+                        'expires_in': 3600  # 1 hour
+                    }
+                }
+                
+                return success_response(response_data, "Login successful")
+                
+            except Exception as e:
+                logger.error(f"Token verification error: {str(e)}")
+                return error_response("Invalid or expired token", status_code=401)
+        else:
+            return error_response("Email/password or token required", status_code=400)
+            
     except Exception as e:
         logger.error(f"Login error: {str(e)}")
         return error_response("An error occurred during login", status_code=500)
 
 
 @api_v2.route('/auth/logout', methods=['POST'])
-@require_auth
+@auth_required()
 def logout_v2():
     """Enhanced logout with token invalidation"""
     try:
@@ -152,7 +229,7 @@ def logout_v2():
 
 
 @api_v2.route('/auth/me', methods=['GET'])
-@require_auth
+@auth_required()
 def get_profile_v2():
     """Get current user profile with enhanced details"""
     try:
@@ -183,7 +260,7 @@ def get_profile_v2():
             'id': str(full_user.id),
             'email': full_user.email,
             'display_name': full_user.display_name,
-            'firebase_uid': full_user.firebase_uid,
+            'supabase_id': getattr(full_user, 'supabase_id', None),
             'role': {
                 'type': full_user.role.role_type if full_user.role else None,
                 'permissions': getattr(full_user.role, 'permissions', []) if full_user.role else []
@@ -207,7 +284,7 @@ def get_profile_v2():
 
 
 @api_v2.route('/auth/me', methods=['PATCH'])
-@require_auth
+@auth_required()
 def update_profile_v2():
     """Update current user profile with validation"""
     try:
@@ -242,7 +319,7 @@ def update_profile_v2():
 
 # ===== COURSES ENDPOINTS =====
 @api_v2.route('/courses', methods=['GET'])
-@require_auth
+@auth_required()
 def list_courses_v2():
     """List courses with pagination and filtering"""
     try:
@@ -306,7 +383,7 @@ def list_courses_v2():
 
 
 @api_v2.route('/courses', methods=['POST'])
-@require_auth
+@auth_required()
 def create_course_v2():
     """Create a new course with enhanced validation"""
     try:
@@ -367,7 +444,7 @@ def create_course_v2():
 
 
 @api_v2.route('/courses/<course_id>', methods=['GET'])
-@require_auth
+@auth_required()
 def get_course_v2(course_id):
     """Get course details with enhanced information"""
     try:
@@ -426,7 +503,7 @@ def get_course_v2(course_id):
 
 
 @api_v2.route('/courses/<course_id>', methods=['PUT', 'PATCH'])
-@require_auth
+@auth_required()
 def update_course_v2(course_id):
     """Update course with validation"""
     try:
@@ -467,7 +544,7 @@ def update_course_v2(course_id):
 
 
 @api_v2.route('/courses/<course_id>', methods=['DELETE'])
-@require_auth
+@auth_required()
 def delete_course_v2(course_id):
     """Delete course with proper authorization"""
     try:
@@ -496,7 +573,7 @@ def delete_course_v2(course_id):
 
 # ===== MODULES ENDPOINTS =====
 @api_v2.route('/courses/<course_id>/modules', methods=['GET'])
-@require_auth
+@auth_required()
 def list_modules_v2(course_id):
     """List course modules with enhanced details"""
     try:
@@ -537,7 +614,7 @@ def list_modules_v2(course_id):
 
 
 @api_v2.route('/courses/<course_id>/modules', methods=['POST'])
-@require_auth
+@auth_required()
 def create_module_v2(course_id):
     """Create a new module with validation"""
     try:
@@ -589,7 +666,7 @@ def create_module_v2(course_id):
 
 # ===== FILES ENDPOINTS =====
 @api_v2.route('/files/upload', methods=['POST'])
-@require_auth
+@auth_required()
 def upload_file_v2():
     """Upload file with enhanced validation and progress tracking"""
     try:
@@ -647,7 +724,7 @@ def upload_file_v2():
 
 
 @api_v2.route('/files/<file_id>/content', methods=['GET'])
-@require_auth
+@auth_required()
 def get_file_content_v2(file_id):
     """Get file content with signed URL"""
     try:
@@ -686,7 +763,7 @@ def get_file_content_v2(file_id):
 
 # ===== TODO ENDPOINTS =====
 @api_v2.route('/todos', methods=['GET'])
-@require_auth
+@auth_required()
 def list_todos_v2():
     """List todos with pagination and filtering"""
     try:
@@ -740,7 +817,7 @@ def list_todos_v2():
 
 
 @api_v2.route('/todos', methods=['POST'])
-@require_auth
+@auth_required()
 def create_todo_v2():
     """Create a new todo with validation"""
     try:

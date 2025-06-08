@@ -2,7 +2,7 @@
 -- These indexes target the most common query patterns
 
 -- User authentication lookups
-CREATE INDEX IF NOT EXISTS idx_user_firebase_uid ON "User"(firebase_uid);
+CREATE INDEX IF NOT EXISTS idx_user_supabase_uid ON "User"(supabase_uid);
 CREATE INDEX IF NOT EXISTS idx_user_email ON "User"(email);
 
 -- Role lookups (very frequent)

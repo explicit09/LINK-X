@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import desc
 import uuid
 
-from core.auth.decorators import require_auth
+from core.decorators_unified import auth_required
 from core.database_supabase import db
 from db.schema import Todo
 from repositories.todo_repository import TodoRepository
@@ -12,7 +12,7 @@ from repositories.course_repository import CourseRepository
 todos_bp = Blueprint('todos', __name__)
 
 @todos_bp.route('', methods=['GET'])
-@require_auth
+@auth_required()
 def list_todos():
     """Get all todos for the current user"""
     todo_repo = TodoRepository()
@@ -64,7 +64,7 @@ def list_todos():
     return jsonify(todo_items), 200
 
 @todos_bp.route('', methods=['POST'])
-@require_auth
+@auth_required()
 def create_todo():
     """Create a new todo"""
     data = request.get_json() or {}
@@ -121,7 +121,7 @@ def create_todo():
     }), 201
 
 @todos_bp.route('/<todo_id>', methods=['GET'])
-@require_auth
+@auth_required()
 def get_todo(todo_id):
     """Get a specific todo"""
     todo_repo = TodoRepository()
@@ -170,7 +170,7 @@ def get_todo(todo_id):
     }), 200
 
 @todos_bp.route('/<todo_id>', methods=['PATCH'])
-@require_auth
+@auth_required()
 def update_todo(todo_id):
     """Update a todo"""
     data = request.get_json() or {}
@@ -230,7 +230,7 @@ def update_todo(todo_id):
     }), 200
 
 @todos_bp.route('/<todo_id>', methods=['DELETE'])
-@require_auth
+@auth_required()
 def delete_todo(todo_id):
     """Delete a todo"""
     todo_repo = TodoRepository()

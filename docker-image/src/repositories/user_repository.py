@@ -77,16 +77,16 @@ class UserRepository(BaseRepository[User]):
         """Find user by email"""
         return self.find_by(email=email)
     
-    def find_by_firebase_uid(self, firebase_uid: str) -> Optional[User]:
-        """Find user by Firebase UID"""
+    def find_by_supabase_uid(self, supabase_uid: str) -> Optional[User]:
+        """Find user by Supabase UID"""
         with self.get_session() as session:
-            print(f"Querying database for Firebase UID: {firebase_uid}")
+            print(f"Querying database for Supabase UID: {supabase_uid}")
             user = session.query(User).options(
                 joinedload(User.role),
                 joinedload(User.student_profile),
                 joinedload(User.instructor_profile),
                 joinedload(User.admin_profile)
-            ).filter_by(firebase_uid=firebase_uid).first()
+            ).filter_by(supabase_uid=supabase_uid).first()
             print(f"Query result: {user}")
             
             if user:
@@ -284,9 +284,9 @@ class UserRepository(BaseRepository[User]):
         ]
         return self.find_by(email=email, load_options=load_options)
     
-    def get_by_firebase_uid(self, firebase_uid: str) -> Optional[User]:
-        """Get user by Firebase UID - alias for find_by_firebase_uid"""
-        return self.find_by_firebase_uid(firebase_uid)
+    def get_by_supabase_uid(self, supabase_uid: str) -> Optional[User]:
+        """Get user by Supabase UID - alias for find_by_supabase_uid"""
+        return self.find_by_supabase_uid(supabase_uid)
     
     def get_by_role(self, role: str, offset: int = 0, limit: int = 20) -> List[User]:
         """Get users by role - alias for get_users_by_role"""

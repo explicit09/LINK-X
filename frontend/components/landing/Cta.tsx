@@ -1,23 +1,15 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-import { onAuthStateChange } from '@/lib/auth/supabase-auth-service';
+import { useAuth } from '@/hooks/useAuth';
 import { dashboardRoutes } from '@/lib/navigation';
 
 const Cta = () => {
   const ctaRef = useRef<HTMLDivElement>(null);
-  const [user, setUser] = useState<any | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChange((authUser) => {
-      setUser(authUser);
-    });
-
-    return () => unsubscribe();
-  }, []);
+  const { user } = useAuth();
 
   useEffect(() => {
     const observer = new IntersectionObserver(

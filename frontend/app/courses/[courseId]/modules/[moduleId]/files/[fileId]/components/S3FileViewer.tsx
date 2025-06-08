@@ -75,11 +75,12 @@ export function S3FileViewer({ file, courseId, moduleId, onError }: S3FileViewer
       }
 
       // Get presigned URL from backend
+      // The API client will handle authentication automatically
       const response = await fetch(`/api/v2/files/${file.id}/content`, {
         headers: {
-          'Authorization': `Bearer ${await currentUser.getIdToken()}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include cookies for auth
       });
 
       if (!response.ok) {

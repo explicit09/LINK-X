@@ -10,7 +10,7 @@ import datetime as dt
 from sqlalchemy.orm import Session
 from db.schema import PersonalizedFile, FileChunk, File
 from db.queries import (
-    get_user_by_firebase_uid, 
+    get_user_by_supabase_uid, 
     get_student_profile,
     get_file_by_id
 )
@@ -27,17 +27,17 @@ class DataProcessor:
         self.db = db_session
         self.logger = logging.getLogger(__name__)
     
-    def get_user_info(self, firebase_uid: Optional[str]) -> Tuple[Optional[int], Optional[StudentProfile]]:
-        """Get user ID and profile from Firebase UID"""
-        if not firebase_uid:
-            self.logger.warning("No firebase_uid provided")
+    def get_user_info(self, supabase_uid: Optional[str]) -> Tuple[Optional[int], Optional[StudentProfile]]:
+        """Get user ID and profile from Supabase UID"""
+        if not supabase_uid:
+            self.logger.warning("No supabase_uid provided")
             return None, None
         
         try:
-            # Get user from firebase UID
-            user = get_user_by_firebase_uid(self.db, firebase_uid)
+            # Get user from supabase UID
+            user = get_user_by_supabase_uid(self.db, supabase_uid)
             if not user:
-                self.logger.warning(f"User not found for firebase_uid: {firebase_uid}")
+                self.logger.warning(f"User not found for supabase_uid: {supabase_uid}")
                 return None, None
             
             # Get student profile

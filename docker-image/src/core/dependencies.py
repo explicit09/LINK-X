@@ -23,7 +23,6 @@ from repositories.file_repository import FileRepository
 from repositories.module_repository import ModuleRepository
 from repositories.todo_repository import TodoRepository
 
-from services.auth_service_unified import UnifiedAuthService
 from services.course_service_optimized import OptimizedCourseService as CourseService
 from services.file_service_supabase import FileService
 from services.module_service import ModuleService
@@ -124,11 +123,7 @@ class Container(containers.DeclarativeContainer):
     )
     
     # Services
-    auth_service = providers.Factory(
-        UnifiedAuthService,
-        user_repo=user_repository,
-        redis_client=redis_client
-    )
+    # Auth service is now handled by Supabase - see services.auth.supabase_auth_service
     
     course_service = providers.Factory(
         CourseService,

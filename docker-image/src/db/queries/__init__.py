@@ -11,7 +11,7 @@ from the entity-specific query modules.
 from .user_queries import (
     get_user_by_id,
     get_user_by_email, 
-    get_user_by_firebase_uid,
+    get_user_by_supabase_uid,
     create_user,
     update_user,
     delete_user,
@@ -351,7 +351,7 @@ def delete_todo(conn, todo_id):
 # Export all functions for backward compatibility
 __all__ = [
     # User queries
-    'get_user_by_id', 'get_user_by_email', 'get_user_by_firebase_uid',
+    'get_user_by_id', 'get_user_by_email', 'get_user_by_supabase_uid',
     'create_user', 'update_user', 'delete_user',
     'get_role_by_user_id', 'set_role',
     

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useAuthUser } from './useAuthUser';
+import { useAuth } from './useAuth';
 
 interface AnalyticsData {
   overview: {
@@ -96,7 +96,7 @@ export function useAnalytics(): {
   loading: boolean;
   error: string | null;
 } {
-  const { user } = useAuthUser();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

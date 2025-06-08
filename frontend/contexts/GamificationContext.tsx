@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { gamificationAPI, type UserStats as APIUserStats, type Achievement as APIAchievement } from '@/lib/api/endpoints/gamification';
 
@@ -89,7 +89,7 @@ const calculateCurrentLevelXP = (totalXP: number, currentLevel: number): number 
 };
 
 export function GamificationProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuthUser();
+  const { user } = useAuth();
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -145,6 +145,12 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
 
   // Load initial stats
   useEffect(() => {
+    // Only run in browser environment
+    if (typeof window === 'undefined') {
+      setIsLoading(false);
+      return;
+    }
+
     console.log('[GamificationContext] User state:', { 
       hasUser: !!user, 
       userId: user?.id, 
@@ -163,6 +169,11 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('learn-x-last-login', today);
         awardXP('DAILY_LOGIN');
       }
+    } else {
+      // Clear stats when no user
+      setUserStats(null);
+      setAchievements([]);
+      setIsLoading(false);
     }
   }, [user?.id]);
 
@@ -269,6 +280,13 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
   const awardXP = useCallback(async (action: XPActionType, metadata?: Record<string, any>) => {
     if (!user?.id) return;
     
+    // Validate action exists
+    const actionConfig = XP_ACTIONS[action];
+    if (!actionConfig) {
+      console.error(`Invalid XP action: ${action}`);
+      return;
+    }
+    
     // Check cooldown
     if (isOnCooldown(action)) {
       const remaining = Math.ceil(getRemainingCooldown(action) / 1000);
@@ -276,21 +294,21 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
       return;
     }
     
-    const actionConfig = XP_ACTIONS[action];
-    
     // Special handling for streak bonus
     const xpAmount = action === 'STREAK_BONUS' 
       ? (userStats?.current_streak || 1) 
       : actionConfig.xp;
     
+    // Define animation outside try block to make it accessible in catch block
+    const animation: XPAnimation = {
+      id: `${Date.now()}-${Math.random()}`,
+      amount: xpAmount,
+      action: actionConfig.message,
+      timestamp: Date.now()
+    };
+    
     try {
       // Optimistic update
-      const animation: XPAnimation = {
-        id: `${Date.now()}-${Math.random()}`,
-        amount: xpAmount,
-        action: actionConfig.message,
-        timestamp: Date.now()
-      };
       setPendingAnimations(prev => [...prev, animation]);
       
       // Update cooldown
@@ -351,8 +369,10 @@ export function GamificationProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Failed to award XP:', error);
-      // Remove animation on error
-      setPendingAnimations(prev => prev.filter(a => a.id !== animation?.id));
+      // Remove animation on error (only if animation was created)
+      if (animation?.id) {
+        setPendingAnimations(prev => prev.filter(a => a.id !== animation.id));
+      }
       toast.error('Failed to record XP');
     }
   }, [user?.id, isOnCooldown, getRemainingCooldown, checkAchievements]);

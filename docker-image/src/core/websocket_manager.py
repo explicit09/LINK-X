@@ -22,7 +22,7 @@ try:
 except ImportError:
     REDIS_AVAILABLE = False
     redis = None
-from core.decorators_unified import firebase_auth_required
+from core.decorators_unified import auth_required
 from core.exceptions import AuthenticationError, ValidationError
 
 logger = logging.getLogger(__name__)
@@ -412,8 +412,8 @@ class CollaborationWebSocketManager:
     
     # Helper methods
     def _verify_token(self, token: str) -> Optional[str]:
-        """Verify Firebase token and return user ID"""
-        # Simplified - would use actual Firebase auth verification
+        """Verify Supabase token and return user ID"""
+        # Simplified - would use actual Supabase auth verification
         # For now, return dummy user ID
         return "dummy_user_id" if token else None
     

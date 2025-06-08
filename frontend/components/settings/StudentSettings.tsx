@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { User, Settings, Bell, Shield } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useAuth } from '@/hooks/useAuth';
 
 // Hooks
 import { useUserRole } from './hooks/useUserRole';
@@ -18,7 +18,8 @@ import { PrivacySettings } from './sections/PrivacySettings';
 
 export default function StudentSettings() {
   const { role, loading: roleLoading, isStudent } = useUserRole();
-  const { user: currentUser } = useAuthUser();
+  const { user, profile } = useAuth();
+  const currentUser = { name: profile?.name, email: profile?.email };
 
   // Loading state
   if (roleLoading) {

@@ -9,27 +9,11 @@ export class AuthAPIClient extends BaseAPIClient {
   
   /**
    * Get authentication token
-   * Priority: Backend JWT tokens first, then Supabase tokens as fallback
+   * Uses Supabase session for authentication
    */
   async getAuthToken(): Promise<{ token: string; isSupabase: boolean } | null> {
     try {
-      // Check if we have a backend JWT token in localStorage first
-      const backendToken = localStorage.getItem('accessToken');
-      
-      if (backendToken) {
-        // Verify the token is not expired
-        try {
-          const payload = JSON.parse(atob(backendToken.split('.')[1]));
-          if (payload.exp * 1000 > Date.now()) {
-            console.log('🎯 AuthClient: Using backend JWT token');
-            return { token: backendToken, isSupabase: false };
-          }
-        } catch (e) {
-          // Token parsing failed, continue to Supabase auth
-        }
-      }
-
-      // Fallback to Supabase auth if no backend token available
+      // Get Supabase session
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.access_token) {
@@ -88,12 +72,12 @@ export class AuthAPIClient extends BaseAPIClient {
     } catch (error) {
       // Handle 401 - Try to refresh session (PRESERVE exact retry logic)
       if (error instanceof APIError && error.status === 401 && !skipAuth && retryCount === 0) {
-        // Try to refresh token using auth service
+        // Try to refresh token using Supabase
         try {
-          // Import authService dynamically to avoid circular dependency
-          const { authService } = await import('../../auth-service');
-          const refreshed = await authService.refreshTokens();
-          if (refreshed) {
+          const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
+          if (refreshError) throw refreshError;
+          
+          if (session?.access_token) {
             // Retry the request with new token
             return this.request<T>(endpoint, { ...config, retryCount: 1 });
           }

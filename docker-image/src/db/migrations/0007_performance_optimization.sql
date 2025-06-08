@@ -3,7 +3,7 @@
 
 -- User queries
 CREATE INDEX IF NOT EXISTS idx_user_email ON "User"(email);
-CREATE INDEX IF NOT EXISTS idx_user_firebase_uid ON "User"(firebase_uid);
+CREATE INDEX IF NOT EXISTS idx_user_supabase_uid ON "User"(supabase_uid);
 CREATE INDEX IF NOT EXISTS idx_user_role ON "User"(role);
 CREATE INDEX IF NOT EXISTS idx_user_suspended ON "User"(suspended) WHERE suspended = true;
 CREATE INDEX IF NOT EXISTS idx_user_last_login ON "User"(last_login DESC);

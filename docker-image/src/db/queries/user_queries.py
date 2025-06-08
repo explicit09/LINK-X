@@ -30,17 +30,17 @@ def get_user_by_email(conn: Connection, email: str) -> Optional[Dict[str, Any]]:
     query = "SELECT * FROM users WHERE email = %s"
     return execute_query(conn, query, (email,), fetch_one=True)
 
-def get_user_by_firebase_uid(conn: Connection, firebase_uid: str) -> Optional[Dict[str, Any]]:
-    """Get user by Firebase UID."""
-    if not firebase_uid:
+def get_user_by_supabase_uid(conn: Connection, supabase_uid: str) -> Optional[Dict[str, Any]]:
+    """Get user by Supabase UID."""
+    if not supabase_uid:
         return None
     
-    query = "SELECT * FROM users WHERE firebase_uid = %s"
-    return execute_query(conn, query, (firebase_uid,), fetch_one=True)
+    query = "SELECT * FROM users WHERE supabase_uid = %s"
+    return execute_query(conn, query, (supabase_uid,), fetch_one=True)
 
 def create_user(conn: Connection, user_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Create a new user."""
-    required_fields = ['firebase_uid', 'email']
+    required_fields = ['supabase_uid', 'email']
     validate_required_fields(user_data, required_fields)
     
     # Set default values

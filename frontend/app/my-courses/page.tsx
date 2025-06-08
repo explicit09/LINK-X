@@ -51,7 +51,8 @@ import {
 } from 'lucide-react';
 import { toast as sonnerToast } from 'sonner';
 import { courseAPI } from '@/lib/api';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useAuth } from '@/hooks/useAuth';
+import { toComponentUser } from '@/types/auth';
 
 interface Course {
   id: string;
@@ -103,7 +104,8 @@ export default function MyCoursesPage() {
   const router = useRouter();
 
   // Use centralized auth user hook
-  const { user: currentUser } = useAuthUser();
+  const { user, profile } = useAuth();
+  const currentUser = toComponentUser(profile, user);
 
   // Helper function to format relative time
   const formatRelativeTime = (dateString: string) => {

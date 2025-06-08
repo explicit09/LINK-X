@@ -9,7 +9,8 @@ import { SkeletonRow, FadeInWhen } from '@/components/ui/skeleton-row';
 import { GhostGauge } from '@/components/ui/ghost-gauge';
 import { FirstTimeTooltip } from '@/components/ui/first-time-tooltip';
 import { useState, useEffect } from 'react';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useAuth } from '@/hooks/useAuth';
+import { toComponentUser } from '@/types/auth';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
@@ -78,7 +79,8 @@ export default function StudyPlanPage() {
   >(new Set());
   
   // Use centralized auth user hook
-  const { user: currentUser } = useAuthUser();
+  const { user, profile } = useAuth();
+  const currentUser = toComponentUser(profile, user);
   const [showCreatePlan, setShowCreatePlan] = useState(false);
   const [showCreateGoal, setShowCreateGoal] = useState(false);
   const [isCreatingFirstGoal, setIsCreatingFirstGoal] = useState(false);

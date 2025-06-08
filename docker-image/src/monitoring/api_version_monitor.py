@@ -11,7 +11,7 @@ from flask import Blueprint, jsonify, request, g
 from sqlalchemy import text
 
 from core.database_supabase import db
-from core.decorators_unified import firebase_auth_required
+from core.decorators_unified import auth_required
 from core.cache import cache
 
 logger = logging.getLogger(__name__)
@@ -280,7 +280,7 @@ api_monitor = APIVersionMonitor()
 
 # Monitoring endpoints
 @monitoring_bp.route('/version-usage', methods=['GET'])
-@firebase_auth_required
+@auth_required()
 def get_version_usage():
     """Get API version usage statistics"""
     # Check if user is admin
@@ -297,7 +297,7 @@ def get_version_usage():
 
 
 @monitoring_bp.route('/migration-status', methods=['GET'])
-@firebase_auth_required
+@auth_required()
 def get_migration_status():
     """Get user migration status"""
     # Check if user is admin
@@ -313,7 +313,7 @@ def get_migration_status():
 
 
 @monitoring_bp.route('/deprecation-report', methods=['GET'])
-@firebase_auth_required
+@auth_required()
 def get_deprecation_report():
     """Get comprehensive deprecation report"""
     # Check if user is admin

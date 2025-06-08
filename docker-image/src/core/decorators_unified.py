@@ -386,7 +386,7 @@ def _verify_supabase_token(token: str) -> Optional[User]:
         auth_service = get_auth_service()
         auth_user = auth_service.verify_token(token)
         if auth_user:
-            return _get_user_by_firebase_uid(auth_user.id)  # Use firebase_uid field for Supabase ID
+            return _get_user_by_supabase_uid(auth_user.id)  # Use supabase_uid field for Supabase ID
         return None
             
     except Exception as e:
@@ -394,37 +394,32 @@ def _verify_supabase_token(token: str) -> Optional[User]:
         return None
 
 
-def _get_user_by_firebase_uid(firebase_uid: str) -> Optional[User]:
-    """Get user by Firebase UID from database"""
+def _get_user_by_supabase_uid(supabase_uid: str) -> Optional[User]:
+    """Get user by Supabase UID from database"""
     from core.database_supabase import db
     from sqlalchemy.orm import joinedload
     
     try:
-        logger.info(f"Looking up user by Firebase UID: {firebase_uid}")
+        logger.info(f"Looking up user by Supabase UID: {supabase_uid}")
         # Query directly using the current session
         user = db.session.query(User).options(
             joinedload(User.role),
             joinedload(User.student_profile),
             joinedload(User.instructor_profile)
-        ).filter_by(firebase_uid=firebase_uid).first()
+        ).filter_by(supabase_uid=supabase_uid).first()
         
         if user:
             logger.info(f"User found: {user.email}, role: {user.role.role_type if user.role else 'no role'}")
         else:
-            logger.warning(f"User not found in database for Firebase UID: {firebase_uid}")
+            logger.warning(f"User not found in database for Supabase UID: {supabase_uid}")
         return user
     except Exception as e:
-        logger.error(f"Error getting user by Firebase UID {firebase_uid}: {e}", exc_info=True)
+        logger.error(f"Error getting user by Supabase UID {supabase_uid}: {e}", exc_info=True)
         return None
 
 
 # Backward compatibility aliases
 # Create proper decorators instead of partials to avoid Flask endpoint naming issues
-def firebase_auth_required(f):
-    """Supabase authentication required decorator (Firebase compatibility)"""
-    print(f"firebase_auth_required called for function: {f.__name__}")
-    return auth_required(version_aware=True)(f)
-
 def jwt_required_v1(f):
     """JWT v1 authentication required decorator"""
     return auth_required(version_aware=False)(f)
@@ -475,7 +470,7 @@ def supabase_token_required(allow_unregistered: bool = False):
                 }
                 
                 # Try to get user from database
-                user = _get_user_by_firebase_uid(auth_user.id)  # Use firebase_uid field for Supabase ID
+                user = _get_user_by_supabase_uid(auth_user.id)  # Use supabase_uid field for Supabase ID
                 if user:
                     g.current_user = user
                 elif not allow_unregistered:

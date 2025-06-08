@@ -19,7 +19,8 @@ import { CanvasGrades } from '@/components/course/canvas/CanvasGrades';
 import { CanvasFiles } from '@/components/course/canvas/CanvasFiles';
 import { CanvasDiscussions } from '@/components/course/canvas/CanvasDiscussions';
 import { CanvasSyllabus } from '@/components/course/canvas/CanvasSyllabus';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useAuth } from '@/hooks/useAuth';
+import { toComponentUser } from '@/types/auth';
 import { useCourseData } from '@/hooks/course/useCourseData';
 import { useCourseModules } from '@/hooks/course/useCourseModules';
 import { useCourseProgress } from '@/hooks/course/useCourseProgress';
@@ -57,13 +58,14 @@ export default function CoursePage() {
   const router = useRouter();
   const courseId = params?.courseId as string;
   
-  const { user: currentUser } = useAuthUser();
+  const { user, profile } = useAuth();
+  const currentUser = toComponentUser(profile, user);
   const { course, loading: courseLoading, error: courseError, refetch: refetchCourse } = useCourseData(courseId);
   const { modules, loading: modulesLoading, error: modulesError, refetch: refetchModules } = useCourseModules(courseId);
   const { progress: courseProgress, loading: progressLoading, refetch: refetchProgress } = useCourseProgress(courseId);
   
   // Determine user role for tabs
-  const userRole = currentUser?.role as 'student' | 'instructor' | 'admin' || 'student';
+  const userRole = profile?.role as 'student' | 'instructor' | 'admin' || 'student';
   
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
   const [metrics, setMetrics] = useState<CourseMetrics | null>(null);
@@ -156,10 +158,10 @@ export default function CoursePage() {
     });
   };
 
-  const isOwner = currentUser && course && (
-    course.creator_id === currentUser.id || 
-    course.instructor_id === currentUser.id ||
-    currentUser.role === 'admin'
+  const isOwner = profile && course && (
+    course.creator_id === profile.id || 
+    course.instructor_id === profile.id ||
+    profile.role === 'admin'
   );
 
   // Check if this is a student-created course (personal course)
@@ -170,10 +172,10 @@ export default function CoursePage() {
     course: course?.title,
     creator_id: course?.creator_id,
     instructor_id: course?.instructor_id,
-    currentUser_id: currentUser?.id,
+    currentUser_id: profile?.id,
     isOwner,
     isStudentCreatedCourse,
-    currentUserRole: currentUser?.role
+    currentUserRole: profile?.role
   });
 
   const loading = courseLoading || modulesLoading || progressLoading;

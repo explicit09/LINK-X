@@ -2,7 +2,7 @@
 Enhanced RAG API endpoints for semantic search and processing
 """
 from flask import Blueprint, request, jsonify
-from core.auth.decorators import require_auth
+from core.decorators_unified import auth_required
 from flask import g
 import logging
 
@@ -28,7 +28,7 @@ hybrid_search = HybridSearchService()
 
 
 @bp.route('/search', methods=['POST'])
-@require_auth
+@auth_required()
 def hybrid_search_endpoint():
     """
     Perform hybrid search (vector + keyword) on course content.
@@ -113,7 +113,7 @@ def hybrid_search_endpoint():
 
 
 @bp.route('/process/file/<file_id>', methods=['POST'])
-@require_auth
+@auth_required()
 def process_file_semantic(file_id: str):
     """
     Process a file with semantic chunking.
@@ -157,7 +157,7 @@ def process_file_semantic(file_id: str):
 
 
 @bp.route('/process/course/<course_id>', methods=['POST'])
-@require_auth
+@auth_required()
 def reprocess_course(course_id: str):
     """
     Reprocess all files in a course with semantic chunking.
@@ -189,7 +189,7 @@ def reprocess_course(course_id: str):
 
 
 @bp.route('/chunk/<file_id>/<int:chunk_index>', methods=['GET'])
-@require_auth
+@auth_required()
 def get_chunk_details(file_id: str, chunk_index: int):
     """
     Get detailed information about a specific chunk including metadata.

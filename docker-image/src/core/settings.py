@@ -96,7 +96,7 @@ class Settings(BaseSettings):
         default=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     )
     cors_allow_headers: List[str] = Field(
-        default=["Content-Type", "Authorization", "X-Requested-With", "X-Firebase-Token"]
+        default=["Content-Type", "Authorization", "X-Requested-With", "X-Supabase-Auth"]
     )
     
     # Celery

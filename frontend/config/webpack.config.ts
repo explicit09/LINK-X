@@ -64,10 +64,10 @@ export const webpackConfig = (config: Configuration, { isServer }: { isServer: b
           reuseExistingChunk: true,
           chunks: 'all',
         },
-        // Firebase
-        firebase: {
-          test: /[\\/]node_modules[\\/](@firebase|firebase)[\\/]/,
-          name: 'firebase',
+        // Supabase
+        supabase: {
+          test: /[\\/]node_modules[\\/](@supabase|supabase)[\\/]/,
+          name: 'supabase',
           priority: 20,
           reuseExistingChunk: true,
           chunks: 'all',

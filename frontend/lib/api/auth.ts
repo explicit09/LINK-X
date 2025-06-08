@@ -5,7 +5,6 @@ export interface User {
   email: string;
   role: 'student' | 'instructor' | 'admin';
   profile?: UserProfile;
-  firebase_uid?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -86,26 +85,6 @@ class AuthAPI {
     return response;
   }
 
-  // Firebase session management (for Firebase Auth integration)
-  async sessionLogin(idToken: string): Promise<AuthResponse> {
-    const response = await apiClient.post<AuthResponse>(
-      '/auth/login',
-      {
-        idToken,
-      },
-    );
-
-    // Store tokens
-    if (response.access_token) {
-      localStorage.setItem('access_token', response.access_token);
-      if (response.refresh_token) {
-        localStorage.setItem('refresh_token', response.refresh_token);
-      }
-    }
-
-    return response;
-  }
-
   // User profile
   async getCurrentUser(): Promise<User> {
     return apiClient.get<User>('/api/v2/auth/me');
@@ -117,55 +96,6 @@ class AuthAPI {
 
   async deleteCurrentUser(): Promise<void> {
     await apiClient.delete('/api/v2/auth/me');
-    // Clear tokens
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-  }
-
-  // Legacy registration endpoints (backward compatibility)
-  async registerStudent(idToken: string, data: RegisterData): Promise<User> {
-    const response = await this.register({
-      ...data,
-      role: 'student',
-    });
-    return response.user;
-  }
-
-  async registerInstructor(idToken: string, data: RegisterData): Promise<User> {
-    const response = await this.register({
-      ...data,
-      role: 'instructor',
-    });
-    return response.user;
-  }
-
-  // Password management
-  async forgotPassword(email: string): Promise<void> {
-    // TODO: Password reset endpoints not implemented in backend
-    throw new Error('Password reset not implemented');
-  }
-
-  async resetPassword(token: string, password: string): Promise<void> {
-    // TODO: Password reset endpoints not implemented in backend
-    throw new Error('Password reset not implemented');
-  }
-
-  // Token management helpers
-  getAccessToken(): string | null {
-    return localStorage.getItem('access_token');
-  }
-
-  getRefreshToken(): string | null {
-    return localStorage.getItem('refresh_token');
-  }
-
-  isAuthenticated(): boolean {
-    return !!this.getAccessToken();
-  }
-
-  clearTokens(): void {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
   }
 }
 

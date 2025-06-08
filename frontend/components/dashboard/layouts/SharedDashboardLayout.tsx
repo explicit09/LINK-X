@@ -10,6 +10,8 @@ import { MiniFooter } from '../../MiniFooter';
 import { toast as sonnerToast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { UnifiedStudyMode } from '@/components/study';
+import { GamificationProvider } from '@/contexts/GamificationContext';
+import { DailyLoginTracker } from '@/components/gamification/DailyLoginTracker';
 
 interface CourseContext {
   id: string;
@@ -69,67 +71,70 @@ export function SharedDashboardLayout({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 relative">
-      {/* Fixed Sidebar */}
-      <StudentSidebar
-        currentUser={currentUser}
-        isCollapsed={sidebarCollapsed}
-        onToggleCollapse={setSidebarCollapsed}
-        courseContext={courseContext}
-      />
+    <GamificationProvider>
+      <DailyLoginTracker />
+      <div className="min-h-screen bg-gray-50 relative">
+        {/* Fixed Sidebar */}
+        <StudentSidebar
+          currentUser={currentUser}
+          isCollapsed={sidebarCollapsed}
+          onToggleCollapse={setSidebarCollapsed}
+          courseContext={courseContext}
+        />
 
-      {/* Main Content Area - Absolutely positioned to avoid any layout conflicts */}
-      <div
-        className={cn(
-          'absolute top-0 right-0 bottom-0 transition-all duration-300',
-          sidebarCollapsed ? 'left-16' : 'left-64',
-        )}
-      >
-        {/* Header - Removed PersonalizedHeader to avoid duplicate greetings with ProgressiveDashboard */}
+        {/* Main Content Area - Absolutely positioned to avoid any layout conflicts */}
+        <div
+          className={cn(
+            'absolute top-0 right-0 bottom-0 transition-all duration-300',
+            sidebarCollapsed ? 'left-16' : 'left-64',
+          )}
+        >
+          {/* Header - Removed PersonalizedHeader to avoid duplicate greetings with ProgressiveDashboard */}
 
-        {/* Page Content */}
-        <div className="h-full overflow-y-auto">
-          <div className="p-4 pb-12 md:pb-14">
-            <div className="max-w-7xl mx-auto">
-              {/* Compressed Progress Strip */}
-              {showGamification && (
-                <CompressedProgressStrip
-                  onStreakClick={handleStreakClick}
-                  onLevelClick={handleLevelClick}
-                />
-              )}
+          {/* Page Content */}
+          <div className="h-full overflow-y-auto">
+            <div className="p-4 pb-12 md:pb-14">
+              <div className="max-w-7xl mx-auto">
+                {/* Compressed Progress Strip */}
+                {showGamification && (
+                  <CompressedProgressStrip
+                    onStreakClick={handleStreakClick}
+                    onLevelClick={handleLevelClick}
+                  />
+                )}
 
-              {/* Page Title - Only show if not empty */}
-              {pageTitle && pageTitle.trim() !== "" && (
-                <div className="mb-4">
-                  <h1 className="text-2xl font-bold text-gray-900">
-                    {pageTitle}
-                  </h1>
-                </div>
-              )}
+                {/* Page Title - Only show if not empty */}
+                {pageTitle && pageTitle.trim() !== "" && (
+                  <div className="mb-4">
+                    <h1 className="text-2xl font-bold text-gray-900">
+                      {pageTitle}
+                    </h1>
+                  </div>
+                )}
 
-              {/* Page Content */}
-              <div className={cn('space-y-6', className)}>{children}</div>
+                {/* Page Content */}
+                <div className={cn('space-y-6', className)}>{children}</div>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Task Completion Feedback */}
+        <TaskCompletionFeedback
+          completion={taskCompletion}
+          onClose={handleTaskCompletionClose}
+          onViewProgress={handleViewProgress}
+        />
+
+        {/* Fixed Mini Footer */}
+        <MiniFooter sidebarCollapsed={sidebarCollapsed} />
+
+        {/* Unified Study Mode - replaces both Focus Mode and Floating Study Button */}
+        <UnifiedStudyMode 
+          courseId={courseContext?.id}
+          courseTitle={courseContext?.title}
+        />
       </div>
-
-      {/* Task Completion Feedback */}
-      <TaskCompletionFeedback
-        completion={taskCompletion}
-        onClose={handleTaskCompletionClose}
-        onViewProgress={handleViewProgress}
-      />
-
-      {/* Fixed Mini Footer */}
-      <MiniFooter sidebarCollapsed={sidebarCollapsed} />
-
-      {/* Unified Study Mode - replaces both Focus Mode and Floating Study Button */}
-      <UnifiedStudyMode 
-        courseId={courseContext?.id}
-        courseTitle={courseContext?.title}
-      />
-    </div>
+    </GamificationProvider>
   );
 }

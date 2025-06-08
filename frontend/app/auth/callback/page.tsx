@@ -3,188 +3,89 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/supabaseconfig';
-import { unifiedAuthService } from '@/lib/auth/unified-auth-service';
 import { toast } from 'sonner';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if we're in a redirect loop
-    const redirectCount = parseInt(sessionStorage.getItem('auth_callback_count') || '0');
-    if (redirectCount > 2) {
-      console.error('Detected potential redirect loop');
-      sessionStorage.removeItem('auth_callback_count');
-      toast.error('Authentication failed. Please try again.');
-      router.replace('/login');
-      return;
-    }
-    sessionStorage.setItem('auth_callback_count', (redirectCount + 1).toString());
-    
     const handleCallback = async () => {
       try {
-        // Check for OAuth errors first
+        console.log('[AuthCallback] Processing OAuth callback...');
+        console.log('[AuthCallback] Full URL:', window.location.href);
+        
+        // Check for OAuth errors in URL
         const urlParams = new URLSearchParams(window.location.search);
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        
+        console.log('[AuthCallback] URL Params:', Object.fromEntries(urlParams));
+        console.log('[AuthCallback] Hash Params:', Object.fromEntries(hashParams));
         
         const error = urlParams.get('error') || hashParams.get('error');
         const errorDescription = urlParams.get('error_description') || hashParams.get('error_description');
 
         if (error) {
-          throw new Error(errorDescription || `OAuth error: ${error}`);
+          console.error('[AuthCallback] OAuth error:', error, errorDescription);
+          toast.error(errorDescription || `Authentication failed: ${error}`);
+          router.replace('/login');
+          return;
         }
 
-        // For Supabase OAuth with PKCE, we should just wait for the session to be available
-        // The Supabase client handles the PKCE flow automatically
-        console.log('Waiting for OAuth session...');
-        
-        // Use exponential backoff to wait for session with max attempts
-        let currentSession = null;
-        let attempts = 0;
-        const maxAttempts = 5;
-        const baseDelay = 500;
-        
-        while (!currentSession && attempts < maxAttempts) {
-          attempts++;
-          const delay = baseDelay * Math.pow(2, attempts - 1); // 500, 1000, 2000, 4000, 8000
+        // Exchange code for session
+        const code = urlParams.get('code');
+        if (code) {
+          console.log('[AuthCallback] Found auth code:', code.substring(0, 10) + '...');
+          console.log('[AuthCallback] Exchanging code for session...');
           
-          console.log(`Attempt ${attempts}: Waiting ${delay}ms for OAuth session...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           
-          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-          
-          if (sessionError) {
-            console.error(`Session error on attempt ${attempts}:`, sessionError);
-            if (attempts === maxAttempts) {
-              throw sessionError;
-            }
-            continue;
-          }
-          
-          if (session) {
-            currentSession = session;
-            console.log('Session acquired successfully');
-            break;
-          }
-        }
-        
-        if (!currentSession) {
-          throw new Error('Unable to establish session after OAuth callback. Please try signing in again.');
-        }
-
-        // Get the current user
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError) throw userError;
-        if (!user) throw new Error('No user data received from OAuth provider');
-
-        // Get the stored auth mode
-        const mode = window.sessionStorage.getItem('google_auth_mode') || 'login';
-        window.sessionStorage.removeItem('google_auth_mode');
-
-        // Use unified authentication system with retry logic
-        let unifiedSession = null;
-        let retryCount = 0;
-        const maxRetries = 3;
-        
-        while (!unifiedSession && retryCount < maxRetries) {
-          retryCount++;
-          try {
-            console.log(`Creating unified session (attempt ${retryCount})...`);
-            unifiedSession = await unifiedAuthService.createSession();
-            
-            if (unifiedSession) {
-              console.log('Unified session created successfully:', unifiedSession);
-              break;
-            } else {
-              console.warn(`Session creation attempt ${retryCount} returned null/undefined`);
-            }
-          } catch (sessionError: any) {
-            console.error(`Session creation error on attempt ${retryCount}:`, sessionError);
-            console.error('Error details:', {
-              message: sessionError?.message || 'Unknown error',
-              stack: sessionError?.stack,
-              name: sessionError?.name
-            });
-            if (retryCount === maxRetries) {
-              throw new Error(`Failed to create session after multiple attempts: ${sessionError?.message || 'Unknown error'}`);
-            }
-            // Wait before retrying
-            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-          }
-        }
-        
-        if (unifiedSession) {
-          // Don't clear cache immediately after successful session creation
-          // The cache contains the session we just created
-          console.log('Unified session available:', {
-            authenticated: unifiedSession.authenticated,
-            registered: unifiedSession.registered,
-            requires_onboarding: unifiedSession.requires_onboarding,
-            user_email: unifiedSession.user?.email,
-            user_role: unifiedSession.user?.role
+          console.log('[AuthCallback] Exchange result:', { 
+            session: data?.session ? 'EXISTS' : 'NONE',
+            user: data?.user ? data.user.email : 'NONE',
+            error: exchangeError?.message 
           });
           
-          if (mode === 'login') {
-            if (!unifiedSession.registered) {
-              toast.error('Account not found. Please sign up first.');
-              router.push('/register');
-              return;
-            }
-
-            // Check redirect path based on unified auth state
-            const redirectPath = unifiedAuthService.getRedirectPath(unifiedSession);
-            
-            if (redirectPath === '/onboarding') {
-              toast.info('Please complete your profile setup');
-            } else {
-              toast.success('Successfully signed in with Google!');
-            }
-            
-            // Clear redirect counter on success
-            sessionStorage.removeItem('auth_callback_count');
-            
-            // Use replace instead of push to prevent back button loops
-            router.replace(redirectPath);
-          } else {
-            // Register mode
-            if (unifiedSession.registered && !unifiedSession.requires_onboarding) {
-              // User already exists and is fully set up
-              toast.error('Account already exists. Please sign in instead.');
-              sessionStorage.removeItem('auth_callback_count');
-              router.replace('/login');
-            } else {
-              // New user or needs to complete onboarding
-              toast.success('Account created successfully! Complete your profile.');
-              sessionStorage.removeItem('auth_callback_count');
-              router.replace('/onboarding');
-            }
-          }
-        }
-        
-        // If we reach here without a unified session, it means we exhausted retries
-        if (!unifiedSession) {
-          console.warn('Could not create unified session after all retries');
-          
-          // Fallback: If we have a valid Supabase session, proceed with basic redirect
-          if (currentSession && user) {
-            console.log('Using fallback mode - redirecting to dashboard with Supabase auth only');
-            sessionStorage.removeItem('auth_callback_count');
-            toast.info('Authentication successful. Setting up your profile...');
-            router.replace('/dashboard');
-            return;
-          } else {
-            console.error('No valid session available, redirecting to login');
-            sessionStorage.removeItem('auth_callback_count');
-            toast.error('Authentication failed. Please try again.');
+          if (exchangeError) {
+            console.error('[AuthCallback] Code exchange error:', exchangeError);
+            toast.error(`Authentication failed: ${exchangeError.message}`);
             router.replace('/login');
             return;
           }
+          
+          if (!data?.session) {
+            console.error('[AuthCallback] No session returned from code exchange');
+            toast.error('Failed to establish session. Please try again.');
+            router.replace('/login');
+            return;
+          }
+          
+          console.log('[AuthCallback] Session established successfully');
+          console.log('[AuthCallback] User:', data.user?.email);
+        } else {
+          console.log('[AuthCallback] No auth code found in URL');
+          toast.error('No authentication code received. Please try again.');
+          router.replace('/login');
+          return;
         }
+
+        // Wait a moment for the session to propagate
+        console.log('[AuthCallback] Waiting for session to propagate...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Check final session state
+        const { data: { session: finalSession } } = await supabase.auth.getSession();
+        console.log('[AuthCallback] Final session check:', finalSession ? 'EXISTS' : 'NONE');
+        
+        // Simple redirect to dashboard - let the dashboard handle onboarding checks
+        console.log('[AuthCallback] Redirecting to dashboard');
+        toast.success('Successfully signed in!');
+        router.replace('/dashboard');
+        
       } catch (error: any) {
-        console.error('OAuth callback error:', error);
-        sessionStorage.removeItem('auth_callback_count');
-        toast.error(error.message || 'Authentication failed. Please try again.');
-        router.push('/login');
+        console.error('[AuthCallback] Unexpected error:', error);
+        console.error('[AuthCallback] Error stack:', error.stack);
+        toast.error(`Unexpected error: ${error.message}`);
+        router.replace('/login');
       }
     };
 
@@ -192,12 +93,23 @@ export default function AuthCallbackPage() {
   }, [router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-16 h-16 border-4 border-brand-indigo border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-gray-600">Completing sign in...</p>
-        <p className="text-sm text-gray-500 mt-2">Please wait while we set up your session</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center space-y-4">
+        <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+        <div className="space-y-2">
+          <h2 className="text-xl font-semibold text-gray-900">
+            Completing sign in...
+          </h2>
+          <p className="text-gray-600">
+            Please wait while we set up your session.
+          </p>
+        </div>
       </div>
     </div>
   );
 }
+
+
+Can you check the consistency of my login and if it has been properly done along with the authentication system as a whole? use context7 MCP to look for supabase auth as well to see if we properly did it 
+
+@https://supabase.com/docs/guides/auth @https://supabase.com/docs/guides/auth/social-login/auth-google @https://supabase.com/docs/guides/auth/sessions @https://supabase.com/docs/guides/auth/auth-helpers/auth-ui 

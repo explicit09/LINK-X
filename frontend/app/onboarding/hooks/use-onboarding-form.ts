@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { useUnifiedAuth } from '@/hooks/useUnifiedAuth';
+import { useAuth } from '@/hooks/useAuth';
 import type { FormData, OnboardingHookReturn } from '../types/onboarding';
 
 const INITIAL_FORM_DATA: FormData = {
@@ -21,11 +21,10 @@ const INITIAL_FORM_DATA: FormData = {
 
 export function useOnboardingForm(): OnboardingHookReturn {
   const router = useRouter();
-  const { registerUser, completeOnboarding, isRegistered, registering, completingOnboarding } = useUnifiedAuth();
+  const { user, isAuthenticated, isRegistered, registerUser, completeOnboarding } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>(INITIAL_FORM_DATA);
-  
-  const isSubmitting = registering || completingOnboarding;
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const updateField = (field: keyof FormData, value: string | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -61,6 +60,7 @@ export function useOnboardingForm(): OnboardingHookReturn {
   const handleSubmit = async () => {
     if (!canProceed(4)) return;
 
+    setIsSubmitting(true);
     try {
       const onboardingAnswers = {
         learningStyle: formData.learningStyle,
@@ -89,6 +89,8 @@ export function useOnboardingForm(): OnboardingHookReturn {
     } catch (error) {
       console.error('Error creating profile:', error);
       toast.error('An error occurred. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

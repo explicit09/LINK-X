@@ -20,7 +20,6 @@ export interface User {
   id: string;
   email: string;
   role: UserRole;
-  firebase_uid?: string;
   created_at: string;
   updated_at: string;
   last_login?: string;

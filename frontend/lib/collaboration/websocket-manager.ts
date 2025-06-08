@@ -70,9 +70,15 @@ class CollaborationWebSocketManager {
 
   private async getAuthToken(): Promise<string | null> {
     try {
-      // This would get the Firebase ID token
-      // For now, return a placeholder
-      return localStorage.getItem('firebase_token') || null;
+      // TODO: Implement Supabase WebSocket authentication
+      // When backend WebSocket server supports Supabase auth:
+      // 1. Import supabase client: import { supabase } from '@/lib/supabase'
+      // 2. Get the session token:
+      //    const { data: { session } } = await supabase.auth.getSession()
+      //    return session?.access_token || null
+      // 3. Backend should validate the JWT token using Supabase's JWT secret
+      console.warn('WebSocket authentication pending backend support for Supabase tokens');
+      return null;
     } catch (error) {
       console.error('Failed to get auth token:', error);
       return null;

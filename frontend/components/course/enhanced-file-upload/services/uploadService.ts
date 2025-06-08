@@ -1,10 +1,20 @@
 import { toast as sonnerToast } from 'sonner';
 import { UploadFile } from '../types';
 import { formatFileSize, getFileTypeFromMime } from '../utils';
-import { authService } from '@/lib/auth-service';
 import { supabase } from '@/supabaseconfig';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+// Helper functions for auth
+const getAuthToken = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token || null;
+};
+
+const isAuthenticated = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return !!session;
+};
 
 interface UploadServiceOptions {
   courseId: string;
@@ -54,29 +64,20 @@ export class UploadService {
         `Uploaded by student: ${uploadFile.file.name}`,
       );
 
-      // Get auth token with IndexedDB error handling
+      // Get auth token
       let authHeaders: Record<string, string> = {};
       
       try {
-        // Try backend token first
-        if (authService.isAuthenticated()) {
-          try {
-            const backendToken = await authService.getValidToken();
-            if (backendToken && typeof backendToken === 'string') {
-              authHeaders['Authorization'] = `Bearer ${backendToken}`;
-            }
-          } catch (authError: any) {
-            console.warn('Backend auth failed, trying Supabase fallback:', authError);
-            // If backend auth fails, try Supabase
-            throw authError;
+        if (await isAuthenticated()) {
+          const token = await getAuthToken();
+          if (token) {
+            authHeaders['Authorization'] = `Bearer ${token}`;
           }
         } else {
-          // Force Supabase fallback
-          throw new Error('Not authenticated with backend');
+          throw new Error('Not authenticated');
         }
       } catch (error: any) {
-        console.log('Falling back to Supabase auth due to:', error.message);
-        // Fallback to Supabase
+        console.log('Auth failed:', error.message);
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (session) {
@@ -142,23 +143,17 @@ export class UploadService {
       this.options.onStatusChange(fileId, 'uploading');
       this.options.onProgress(fileId, 0);
 
-      // Get auth token with IndexedDB error handling
+      // Get auth token
       let authHeaders: Record<string, string> = {};
       
       try {
-        // Try backend token first
-        if (authService.isAuthenticated()) {
-          try {
-            const backendToken = await authService.getValidToken();
-            if (backendToken && typeof backendToken === 'string') {
-              authHeaders['Authorization'] = `Bearer ${backendToken}`;
-            }
-          } catch (authError: any) {
-            console.warn('Backend auth failed, trying Supabase fallback:', authError);
-            throw authError;
+        if (await isAuthenticated()) {
+          const token = await getAuthToken();
+          if (token) {
+            authHeaders['Authorization'] = `Bearer ${token}`;
           }
         } else {
-          throw new Error('Not authenticated with backend');
+          throw new Error('Not authenticated');
         }
       } catch (error: any) {
         console.log('Falling back to Supabase auth due to:', error.message);

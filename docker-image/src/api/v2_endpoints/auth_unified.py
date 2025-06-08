@@ -47,14 +47,14 @@ def create_session():
             # Check if user exists in our database
             user_repo = UserRepository(db_manager.session_factory)
             
-            # Look up user by Supabase ID (stored as firebase_uid for compatibility)
+            # Look up user by Supabase ID
             db_user = None
             try:
-                db_user = user_repo.get_by_firebase_uid(auth_user.id)
+                db_user = user_repo.get_by_supabase_uid(auth_user.id)
             except Exception:
                 pass
             
-            # If not found by firebase_uid, try by email
+            # If not found by supabase_uid, try by email
             if not db_user:
                 try:
                     db_user = user_repo.get_by_email(auth_user.email)
@@ -115,7 +115,7 @@ def create_session():
                     'display_name': display_name,
                     'role': role,
                     'has_completed_onboarding': has_completed_onboarding,
-                    'firebase_uid': db_user.firebase_uid,
+                    'supabase_uid': db_user.supabase_uid,
                     'created_at': db_user.created_at.isoformat() if hasattr(db_user, 'created_at') else None
                 },
                 'session': {
@@ -168,7 +168,7 @@ def register_user():
             # Create the user
             user_data = {
                 'email': auth_user.email,
-                'firebase_uid': auth_user.id,
+                'supabase_uid': auth_user.id,
                 'role': role,
                 'name': name
             }
@@ -185,10 +185,10 @@ def register_user():
                     'department': data.get('department')
                 })
             
-            # Register user using auth service
-            from services.auth_service_unified import UnifiedAuthService
-            unified_auth = UnifiedAuthService(user_repo=user_repo)
-            result = unified_auth.register_user(**user_data)
+            # Register user using Supabase auth service
+            from services.auth.supabase_auth_service import SupabaseAuthService
+            auth_service = SupabaseAuthService()
+            result = auth_service.register_user(**user_data)
             
             # Check if onboarding was completed during registration
             has_completed_onboarding = True
@@ -242,7 +242,7 @@ def complete_onboarding():
         
         # Get user from database
         user_repo = UserRepository(db_manager.session_factory)
-        db_user = user_repo.get_by_firebase_uid(auth_user.id)
+        db_user = user_repo.get_by_supabase_uid(auth_user.id)
         
         if not db_user:
             return error_response("User not found", status_code=404)
@@ -303,7 +303,7 @@ def get_profile():
         
         # Get user from database
         user_repo = UserRepository(db_manager.session_factory)
-        db_user = user_repo.get_by_firebase_uid(auth_user.id)
+        db_user = user_repo.get_by_supabase_uid(auth_user.id)
         
         if not db_user:
             return error_response("User not found", status_code=404)

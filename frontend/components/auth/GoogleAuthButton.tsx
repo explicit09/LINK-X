@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { signInWithGoogle } from '@/lib/auth/supabase-auth-service';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { LogoGoogle } from '@/components/icons';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { authService } from '@/lib/auth-service';
 
 interface GoogleAuthButtonProps {
   mode: 'login' | 'register';
@@ -21,6 +20,7 @@ export function GoogleAuthButton({
 }: GoogleAuthButtonProps) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { signInWithGoogle } = useAuth();
 
   // Check for stored error messages on mount
   React.useEffect(() => {
@@ -34,17 +34,32 @@ export function GoogleAuthButton({
   }, []);
 
   const handleGoogleAuth = async () => {
-    if (disabled || loading) return;
+    console.log('[GoogleAuthButton] Button clicked!');
+    
+    if (disabled || loading) {
+      console.log('[GoogleAuthButton] Button is disabled or loading');
+      return;
+    }
 
     setLoading(true);
     onLoading?.(true);
 
     try {
       // Sign in with Google using Supabase
-      console.log('Starting Google OAuth...');
-      const { data, error } = await signInWithGoogle();
+      console.log('[GoogleAuthButton] Starting Google OAuth...');
+      console.log('[GoogleAuthButton] Current URL:', window.location.origin);
+      console.log('[GoogleAuthButton] Redirect URL:', `${window.location.origin}/auth/callback`);
+      
+      const { error } = await signInWithGoogle();
+      
+      console.log('[GoogleAuthButton] OAuth response:', { error });
       
       if (error) {
+        console.error('[GoogleAuthButton] OAuth error details:', {
+          message: error.message,
+          status: error.status,
+          name: error.name
+        });
         throw error;
       }
       

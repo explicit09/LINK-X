@@ -20,7 +20,7 @@ def setup_middleware(app):
             response.headers['Access-Control-Allow-Origin'] = origin
             response.headers['Access-Control-Allow-Credentials'] = 'true'
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept, X-Firebase-Token'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept, X-Supabase-Auth'
         
         return response
     
@@ -43,7 +43,7 @@ def setup_middleware(app):
             response.headers['Access-Control-Allow-Origin'] = origin if origin else '*'
             response.headers['Access-Control-Allow-Credentials'] = 'true'
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept, X-Firebase-Token, X-API-Version'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept, X-Supabase-Auth, X-API-Version'
             response.headers['Access-Control-Max-Age'] = '86400'
             logger.info(f"Handled OPTIONS request for {request.path} - returning 200 with origin {origin}")
                 
@@ -72,7 +72,7 @@ def setup_middleware(app):
             response.headers['Access-Control-Allow-Origin'] = origin
             response.headers['Access-Control-Allow-Credentials'] = 'true'
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept, X-Firebase-Token, X-API-Version'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Accept, X-Supabase-Auth, X-API-Version'
             response.headers['Access-Control-Expose-Headers'] = 'Content-Length, Content-Type, X-Request-ID'
         
         # Calculate request duration

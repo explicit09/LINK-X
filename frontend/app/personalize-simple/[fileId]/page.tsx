@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useAuth } from '@/hooks/useAuth';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useEnhancedPersonalization } from '@/app/personalize/[fileId]/hooks/useEnhancedPersonalization';
@@ -10,7 +10,7 @@ import { Zap, Play } from 'lucide-react';
 
 export default function SimplePersonalizePage() {
   const { fileId } = useParams();
-  const { user } = useAuthUser();
+  const { user } = useAuth();
   const {
     outline,
     sections,

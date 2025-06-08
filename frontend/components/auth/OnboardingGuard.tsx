@@ -2,23 +2,25 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/app/(auth)/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 
 interface OnboardingGuardProps {
   children: React.ReactNode;
 }
 
 /**
- * OnboardingGuard - Ensures students have completed onboarding before accessing protected pages
- * Uses existing auth context instead of making fresh API calls to prevent race conditions
+ * ONBOARDING GUARD
+ * Checks authentication and onboarding completion
+ * - Redirects to login if not authenticated
+ * - Redirects to onboarding if not completed
  */
 export function OnboardingGuard({ children }: OnboardingGuardProps) {
   const router = useRouter();
-  const { user, loading, session, requiresOnboarding } = useAuth();
+  const { user, loading, isAuthenticated, needsOnboarding } = useAuth();
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    // Wait for auth context to finish loading
+    // Wait for auth to load
     if (loading) {
       console.log('[OnboardingGuard] Still loading auth state...');
       return;
@@ -26,29 +28,20 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
 
     console.log('[OnboardingGuard] Auth state loaded:', { 
       user: user?.email, 
-      session: session?.authenticated, 
-      registered: session?.registered,
-      requiresOnboarding,
-      has_completed_onboarding: session?.user?.has_completed_onboarding 
+      isAuthenticated,
+      needsOnboarding
     });
 
-    // If no user, redirect to login
-    if (!user) {
-      console.log('[OnboardingGuard] No user found, redirecting to login');
+    // If not authenticated, redirect to login
+    if (!isAuthenticated) {
+      console.log('[OnboardingGuard] Not authenticated, redirecting to login');
       router.push('/login');
       return;
     }
 
-    // If user exists but not registered with backend, redirect to onboarding
-    if (!session || !session.registered) {
-      console.log('[OnboardingGuard] User not registered with backend, redirecting to onboarding');
-      router.push('/onboarding');
-      return;
-    }
-
-    // Check if onboarding is required - check both fields
-    if (requiresOnboarding || !session.user?.has_completed_onboarding) {
-      console.log('[OnboardingGuard] User requires onboarding completion');
+    // If authenticated but needs onboarding, redirect to onboarding
+    if (needsOnboarding) {
+      console.log('[OnboardingGuard] User needs onboarding, redirecting');
       router.push('/onboarding');
       return;
     }
@@ -56,7 +49,7 @@ export function OnboardingGuard({ children }: OnboardingGuardProps) {
     // All checks passed, allow access
     console.log('[OnboardingGuard] All checks passed, allowing access');
     setIsChecking(false);
-  }, [user, loading, session, requiresOnboarding, router]);
+  }, [user, loading, isAuthenticated, needsOnboarding, router]);
   
   if (loading || isChecking) {
     return (

@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { analyticsAPI, type StudyTimeAnalytics, type StudySessionResponse } from '@/lib/api/analytics';
-import { useAuthUser } from './useAuthUser';
+import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
 export interface UseStudyTimeReturn {
@@ -26,7 +26,7 @@ export interface UseStudyTimeReturn {
 }
 
 export function useStudyTime(period: 'week' | 'month' | 'all' = 'week'): UseStudyTimeReturn {
-  const { user } = useAuthUser();
+  const { user } = useAuth();
   const [studyTime, setStudyTime] = useState<StudyTimeAnalytics | null>(null);
   const [activeSession, setActiveSession] = useState<StudySessionResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);

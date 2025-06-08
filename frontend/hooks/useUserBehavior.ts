@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useSupabaseAuth } from '@/hooks/useSupabaseAuth';
+import { useAuth } from '@/hooks/useAuth';
 import { useGamification } from '@/contexts/GamificationContext';
 import { useStudyTime } from '@/hooks/useStudyTime';
 import { useDashboardOverview } from '@/hooks/useDashboardData';
@@ -46,7 +46,7 @@ export interface SmartDefault {
 }
 
 export function useUserBehavior() {
-  const { user } = useSupabaseAuth();
+  const { user } = useAuth();
   const { userStats } = useGamification();
   const { weeklyStudyHours, dailyStudyTime, sessionHistory } = useStudyTime('month');
   const { data: dashboardData } = useDashboardOverview();

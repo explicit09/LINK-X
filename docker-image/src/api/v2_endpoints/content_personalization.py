@@ -6,7 +6,7 @@ import logging
 from flask import Blueprint, request, jsonify, g
 from typing import Dict, Any
 
-from core.auth.decorators import require_auth
+from core.decorators_unified import auth_required
 from services.streaming_personalization_v2 import OptimizedStreamingPersonalizationService
 from services.personalization_memory import PersonalizationMemoryService
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 content_personalization_bp = Blueprint('content_personalization', __name__)
 
 @content_personalization_bp.route('/personalize-content', methods=['POST'])
-@require_auth
+@auth_required()
 def personalize_content_instant():
     """
     Instantly personalize any content based on user profile
@@ -119,7 +119,7 @@ def personalize_content_instant():
 
 
 @content_personalization_bp.route('/check-personalization', methods=['GET'])
-@require_auth
+@auth_required()
 def check_personalization_status():
     """
     Check if user has personalization enabled and properly configured

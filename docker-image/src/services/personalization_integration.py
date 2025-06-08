@@ -773,9 +773,9 @@ class PersonalizationIntegrationService:
         """
         Stream personalized content section by section
         """
-        # First get the User by firebase_uid
+        # First get the User by supabase_uid
         user = self.db.execute(
-            select(User).filter(User.firebase_uid == student_id)
+            select(User).filter(User.supabase_uid == student_id)
         ).scalar_one_or_none()
         
         if not user:

@@ -9,13 +9,26 @@ export function useUserRole() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Only run in browser environment
+    if (typeof window === 'undefined') {
+      setLoading(false);
+      return;
+    }
+
     const fetchUserRole = async () => {
       try {
         setLoading(true);
         setError(null);
 
+        // Ensure authAPI is available
+        if (!authAPI || !authAPI.v2) {
+          console.error('AuthAPI not available');
+          setError('Authentication API not available');
+          return;
+        }
+
         // Use the API client which handles authentication properly
-        const response = await authAPI.v2.getProfile();
+        const response = await authAPI.v2.getProfile() as any;
         // The backend returns { success: true, data: {...}, message: "Success", timestamp: "..." }
         const userData = response.data;
         

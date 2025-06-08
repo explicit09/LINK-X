@@ -5,7 +5,7 @@ from flask import Blueprint, request, g, jsonify
 from datetime import datetime
 import logging
 
-from core.auth.decorators import require_auth
+from core.decorators_unified import auth_required
 from core.exceptions import ValidationError, NotFoundError, UnauthorizedError
 from services.course_service_optimized import OptimizedCourseService as CourseService
 from services.module_service import ModuleService
@@ -46,7 +46,7 @@ def get_module_service():
 
 
 @courses_bp.route('', methods=['GET'])
-@require_auth
+@auth_required()
 def list_courses_v2():
     """List courses with pagination and filtering"""
     try:
@@ -143,7 +143,7 @@ def list_courses_v2():
 
 
 @courses_bp.route('', methods=['POST'])
-@require_auth
+@auth_required()
 def create_course_v2():
     """Create a new course with enhanced validation"""
     try:
@@ -213,7 +213,7 @@ def create_course_v2():
 
 
 @courses_bp.route('/<course_id>', methods=['GET'])
-@require_auth
+@auth_required()
 def get_course_v2(course_id):
     """Get detailed course information"""
     try:
@@ -266,7 +266,7 @@ def get_course_v2(course_id):
 
 
 @courses_bp.route('/<course_id>', methods=['PATCH'])
-@require_auth
+@auth_required()
 def update_course_v2(course_id):
     """Update course information"""
     try:
@@ -298,7 +298,7 @@ def update_course_v2(course_id):
 
 
 @courses_bp.route('/<course_id>', methods=['DELETE'])
-@require_auth
+@auth_required()
 def delete_course_v2(course_id):
     """Delete a course"""
     try:
@@ -324,7 +324,7 @@ def delete_course_v2(course_id):
 
 
 @courses_bp.route('/<course_id>/modules', methods=['GET'])
-@require_auth
+@auth_required()
 def list_modules_v2(course_id):
     """List course modules with files"""
     try:
@@ -402,7 +402,7 @@ def list_modules_v2(course_id):
 
 
 @courses_bp.route('/<course_id>/modules', methods=['POST'])
-@require_auth
+@auth_required()
 def create_module_v2(course_id):
     """Create a new module in a course"""
     try:
@@ -461,7 +461,7 @@ def create_module_v2(course_id):
 
 
 @courses_bp.route('/<course_id>/moduleswithfiles', methods=['GET'])
-@require_auth
+@auth_required()
 def get_modules_with_files_v2(course_id):
     """Get course modules with their files included"""
     try:
@@ -536,7 +536,7 @@ def get_modules_with_files_v2(course_id):
 
 
 @courses_bp.route('/<course_id>/discussions', methods=['GET'])
-@require_auth
+@auth_required()
 def get_course_discussions_v2(course_id):
     """Get course discussions (placeholder)"""
     try:
@@ -568,7 +568,7 @@ def get_course_discussions_v2(course_id):
 
 
 @courses_bp.route('/<course_id>/progress', methods=['GET'])
-@require_auth
+@auth_required()
 def get_course_progress_v2(course_id):
     """Get user's progress in a course (placeholder)"""
     try:
@@ -604,7 +604,7 @@ def get_course_progress_v2(course_id):
 
 
 @courses_bp.route('/join', methods=['POST'])
-@require_auth
+@auth_required()
 def join_course_by_access_code_v2():
     """Join a course using an access code"""
     try:
@@ -663,7 +663,7 @@ def join_course_by_access_code_v2():
 
 
 @courses_bp.route('/<course_id>/resume', methods=['GET'])
-@require_auth
+@auth_required()
 def get_resume_target_v2(course_id):
     """Get the specific material/location where user should resume studying"""
     try:

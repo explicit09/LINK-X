@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signOut } from '@/supabaseconfig';
-import { useAuth } from '@/app/(auth)/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 
 type HeaderProps = {
   showAuthButton?: boolean;

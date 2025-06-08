@@ -45,7 +45,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleSignOut = async () => {
     try {
-      await signOut(auth);
+      await signOut();
       router.push('/');
     } catch (error) {
       console.error('Sign out error:', error);

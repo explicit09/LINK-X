@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useAuth } from '@/hooks/useAuth';
+import { toComponentUser } from '@/types/auth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Download, Sparkles, Eye, ExternalLink } from 'lucide-react';
@@ -26,7 +27,8 @@ interface FileData {
 export default function FilePreviewPage() {
   const params = useParams();
   const router = useRouter();
-  const { user: currentUser } = useAuthUser();
+  const { user, profile } = useAuth();
+  const currentUser = toComponentUser(profile, user);
 
   const courseId = params?.courseId as string;
   const moduleId = params?.moduleId as string;
@@ -51,7 +53,7 @@ export default function FilePreviewPage() {
         
         // Raw API response logging (temporarily disabled)
         
-        const response = await apiClient.get(`/api/v2/files/${fileId}`);
+        const response = await apiClient.get(`/api/v2/files/${fileId}`) as any;
         console.log('Raw API response:', response);
         
         // Extract the actual file data from the response wrapper
@@ -112,7 +114,7 @@ export default function FilePreviewPage() {
   const handleDownload = async () => {
     try {
       // Get the file download URL from the API
-      const data = await apiClient.get(`/api/v2/files/${fileId}/content?download=true`);
+      const data = await apiClient.get(`/api/v2/files/${fileId}/content?download=true`) as any;
       
       let downloadUrl: string;
       

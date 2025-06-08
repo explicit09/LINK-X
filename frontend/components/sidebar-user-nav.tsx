@@ -56,13 +56,7 @@ export function SidebarUserNav({ user }: { user: SupabaseUser }) {
                 onClick={async () => {
                   try {
                     await supabase.auth.signOut();
-                    await fetch(
-                      `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v2/auth/logout`,
-                      {
-                        method: 'POST',
-                        credentials: 'include',
-                      },
-                    );
+                    // No backend logout needed - Supabase handles everything
                     window.location.href = '/';
                   } catch (err) {
                     console.error('Sign-out failed:', err);

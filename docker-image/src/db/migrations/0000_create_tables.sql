@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS "User" (
   "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   "email" VARCHAR(64) NOT NULL UNIQUE,
   "password" VARCHAR(255) NOT NULL,
-  "firebase_uid" VARCHAR(128)
+  "supabase_uid" VARCHAR(128)
 );
 
 CREATE TABLE IF NOT EXISTS "Role" (

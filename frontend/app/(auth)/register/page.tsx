@@ -18,8 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SiteFooter } from '@/components/SiteFooter';
 
-import { signUpWithEmail } from '@/lib/auth/supabase-auth-service';
-import { authService, type RegistrationData } from '@/lib/auth-service';
+import { useAuth } from '@/hooks/useAuth';
 
 // Import GoogleAuthButton with no SSR to prevent hydration mismatches
 const GoogleAuthButton = dynamic(
@@ -77,51 +76,32 @@ export default function Page() {
     }
   };
 
+  const { register } = useAuth();
+
   const handleSubmit = async (formData: FormData) => {
     setEmail(formData.get('email') as string);
     setState('in_progress');
 
     try {
-      // Step 1: Create Firebase user
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
+      // Use the Supabase auth service to register
+      const result = await register(
         formData.get('email') as string,
-        formData.get('password') as string,
+        formData.get('password') as string
       );
 
-      // Step 2: Prepare registration data for auth service
-      const registrationData: RegistrationData = {
-        role: role,
-        name: role === 'instructor' ? String(formData.get('name') || '') : '',
-        university: role === 'instructor' ? String(formData.get('university') || '') : '',
-      };
-
-      // Step 3: Use auth service to complete registration
-      const registrationSuccess = await authService.register(registrationData);
-
-      if (!registrationSuccess) {
+      if (!result.error) {
+        setState('success');
+      } else {
         setState('failed');
-        toast.error('Failed to complete registration');
-        // If registration fails, we might want to delete the Firebase user
-        // to avoid orphaned Firebase accounts
-        try {
-          await userCredential.user.delete();
-          console.log('Cleaned up Firebase user after failed registration');
-        } catch (deleteError) {
-          console.error('Failed to cleanup Firebase user:', deleteError);
-        }
-        return;
+        toast.error(result.error?.message || 'Failed to create account');
       }
 
-      // Registration successful
-      setState('success');
-
     } catch (error: any) {
-      console.error('Firebase Registration Error:', error.message);
-      if (error.code === 'auth/email-already-in-use') {
+      console.error('Registration Error:', error.message);
+      if (error.message?.includes('already registered')) {
         setState('user_exists');
         toast.error('Email is already registered!');
-      } else if (error.code === 'auth/weak-password') {
+      } else if (error.message?.includes('weak password')) {
         setState('invalid_data');
         toast.error('Password is too weak!');
       } else {

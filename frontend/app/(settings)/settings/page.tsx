@@ -5,7 +5,8 @@ import { cn } from '@/lib/utils';
 //import Sidebar from "@/components/link-x/DashSidebar";
 import AudioUpload from '@/components/dashboard/AudioUpload';
 import Footer from '@/components/landing/Footer';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useAuth } from '@/hooks/useAuth';
+import { toComponentUser } from '@/types/auth';
 import ProfessorSettings from '@/components/settings/ProfessorSettings';
 import StudentSettings from '@/components/settings/StudentSettings';
 
@@ -13,10 +14,10 @@ export default function Settings() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   
   // Use centralized auth user hook
-  const { user, isLoading } = useAuthUser();
+  const { user, profile, loading: isLoading } = useAuth();
   
-  // Extract role from user data
-  const role = (user?.role as 'student' | 'instructor' | 'admin') || 'student';
+  // Extract role from profile data
+  const role = (profile?.role as 'student' | 'instructor' | 'admin') || 'student';
 
   if (isLoading) {
     return (

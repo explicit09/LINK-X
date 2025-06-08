@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useAuth } from '@/app/(auth)/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useGamification } from '@/contexts/GamificationContext';
 
 /**
@@ -9,12 +9,12 @@ import { useGamification } from '@/contexts/GamificationContext';
  * Should be mounted once when the app loads to automatically award daily login bonus
  */
 export function DailyLoginTracker() {
-  const { user, isRegistered, loading } = useAuth();
+  const { user, isAuthenticated, isRegistered, loading } = useAuth();
   const { awardXP } = useGamification();
   
   useEffect(() => {
     // Only award daily login XP when user is fully authenticated and registered
-    if (user && isRegistered && !loading) {
+    if (user && isAuthenticated && isRegistered && !loading) {
       console.log('[DailyLoginTracker] Awarding daily login XP for authenticated user');
       
       // Award XP after a short delay to ensure everything is loaded
@@ -28,7 +28,7 @@ export function DailyLoginTracker() {
       
       return () => clearTimeout(timer);
     }
-  }, [user, isRegistered, loading, awardXP]);
+  }, [user, isAuthenticated, isRegistered, loading, awardXP]);
 
   // No visible UI - this is just a tracker component
   return null;

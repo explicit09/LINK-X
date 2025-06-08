@@ -5,7 +5,8 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import Image from 'next/image';
-import { onAuthStateChange, signOut } from '@/lib/auth/supabase-auth-service';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 import { dashboardRoutes } from '@/lib/navigation';
 // Import icons separately to avoid bundling issues
 import { Menu } from 'lucide-react';
@@ -15,7 +16,8 @@ import { Settings } from 'lucide-react';
 const LandingHeader = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { user } = useAuth();
+  const isLoggedIn = !!user;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -25,22 +27,14 @@ const LandingHeader = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChange((user) => {
-      setIsLoggedIn(!!user);
-    });
-    return () => unsubscribe();
-  }, []);
-
   const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
   const handleLogout = async () => {
-    await signOut();
+    await supabase.auth.signOut();
     await fetch(`${API}/sessionLogout`, {
       method: 'POST',
       credentials: 'include',
     });
-    setIsLoggedIn(false);
   };
 
   const navItems = [

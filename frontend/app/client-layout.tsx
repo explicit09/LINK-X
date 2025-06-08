@@ -1,10 +1,9 @@
 'use client';
 
 import { ThemeProvider } from '@/components/theme-provider';
-import { AuthProvider } from '@/app/(auth)/AuthContext';
+import { SimpleAuthProvider } from '@/contexts/SimpleAuth';
 import { GamificationProvider } from '@/contexts/GamificationContext';
 import { Toaster } from '@/components/ui/toaster';
-import { DailyLoginTracker } from '@/components/gamification/DailyLoginTracker';
 
 export default function ClientLayout({
   children,
@@ -18,13 +17,12 @@ export default function ClientLayout({
       enableSystem
       disableTransitionOnChange
     >
-      <AuthProvider>
+      <SimpleAuthProvider>
         <GamificationProvider>
-          <DailyLoginTracker />
           {children}
           <Toaster />
         </GamificationProvider>
-      </AuthProvider>
+      </SimpleAuthProvider>
     </ThemeProvider>
   );
 }

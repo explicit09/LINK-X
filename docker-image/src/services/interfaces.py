@@ -14,8 +14,8 @@ class AuthServiceInterface(Protocol):
     """Authentication service interface"""
     
     @abstractmethod
-    def authenticate_firebase(self, id_token: str, version: str = 'v1') -> Dict[str, Any]:
-        """Authenticate user with Firebase ID token"""
+    def authenticate_supabase(self, access_token: str, version: str = 'v1') -> Dict[str, Any]:
+        """Authenticate user with Supabase access token"""
         ...
     
     @abstractmethod
@@ -24,7 +24,7 @@ class AuthServiceInterface(Protocol):
         ...
     
     @abstractmethod
-    def create_user(self, email: str, role: str, firebase_uid: Optional[str] = None,
+    def create_user(self, email: str, role: str, supabase_uid: Optional[str] = None,
                     password: Optional[str] = None, name: Optional[str] = None,
                     version: str = 'v1') -> Dict[str, Any]:
         """Create a new user"""

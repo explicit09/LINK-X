@@ -37,11 +37,11 @@ def get_user_by_email(db: Session, email: str):
     return db.execute(select(User).filter_by(email=email)).scalars().first()
 
 
-def get_user_by_firebase_uid(db: Session, firebase_uid: str):
-    return db.execute(select(User).filter_by(firebase_uid=firebase_uid)).scalars().first()
+def get_user_by_supabase_uid(db: Session, supabase_uid: str):
+    return db.execute(select(User).filter_by(supabase_uid=supabase_uid)).scalars().first()
 
 
-def create_user(db: Session, email: str, password: str, firebase_uid: str, role_type: str):
+def create_user(db: Session, email: str, password: str, supabase_uid: str, role_type: str):
     """Create a new user and associated Role row.
 
     This helper now provides **robust** error handling for two common
@@ -64,7 +64,7 @@ def create_user(db: Session, email: str, password: str, firebase_uid: str, role_
         user = User(
             email=email,
             password=generate_password_hash(password),
-            firebase_uid=firebase_uid,
+            supabase_uid=supabase_uid,
         )
     except Exception as e:
         # Fallback for deployments where the password column might have been
@@ -72,7 +72,7 @@ def create_user(db: Session, email: str, password: str, firebase_uid: str, role_
         if "password" in str(e).lower():
             user = User(
                 email=email,
-                firebase_uid=firebase_uid,
+                supabase_uid=supabase_uid,
             )
         else:
             raise e

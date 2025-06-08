@@ -6,7 +6,8 @@ import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDash
 import { CanvasCoursesGrid } from '@/components/dashboard/CanvasCoursesGrid';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useAuth } from '@/hooks/useAuth';
+import { toComponentUser } from '@/types/auth';
 import { Search, Plus, Filter } from "lucide-react";
 import AccessCodeCard from "@/components/dashboard/AccessCodeCard";
 import {
@@ -43,7 +44,8 @@ export default function CoursesPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const router = useRouter();
-  const { user: currentUser } = useAuthUser();
+  const { user, profile } = useAuth();
+  const currentUser = toComponentUser(profile, user);
 
   useEffect(() => {
     const fetchCourses = async () => {

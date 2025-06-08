@@ -9,7 +9,8 @@ import { DashboardSidebar } from '@/components/dashboard/sections/DashboardSideb
 import { FirstTimeUserGuide } from '@/components/dashboard/FirstTimeUserGuide';
 import { useUserJourneyStage, UserJourneyStage } from '@/hooks/useUserJourneyStage';
 import { useDashboardOverview, useAIRecommendations } from '@/hooks/useDashboardData';
-import { useUnifiedAuth } from '@/hooks/useUnifiedAuth';
+import { useAuth } from '@/hooks/useAuth';
+import { toComponentUser, type ComponentUser } from '@/types/auth';
 import { useDashboardMode, DashboardMode } from '@/hooks/useDashboardMode';
 // import { DashboardTransition, useDashboardTransition } from '@/components/dashboard/transitions/DashboardTransition'; // TODO: Re-enable after framer-motion is installed
 import { FadeInCard } from '@/components/dashboard/animations/CSSAnimations';
@@ -23,18 +24,18 @@ import {
 function DashboardContent() {
   const router = useRouter();
   
-  // Use ONLY unified auth system - removed duplicate auth hooks
+  // Use enhanced SimpleAuth with profile data
   const { 
     user: currentUser, 
-    session, 
-    isAuthenticated, 
-    isRegistered, 
+    profile,
+    userName: displayName,
+    isAuthenticated,
     needsOnboarding,
     loading: authLoading 
-  } = useUnifiedAuth();
+  } = useAuth();
   
-  // Extract role from session data
-  const role = (session?.user?.role as 'student' | 'instructor' | 'admin') || 'student';
+  // Get role from profile or default to student
+  const role = profile?.role || 'student';
   
   // Dashboard mode and data hooks
   const { mode, config, isLoading: modeLoading, userStats } = useDashboardMode();
@@ -58,15 +59,15 @@ function DashboardContent() {
     previousMode.current = mode;
   }, [mode, useAdaptiveDashboard]);
 
-  // SIMPLE AUTH CHECK using unified auth
+  // ENHANCED AUTH CHECK - authentication and onboarding
   useEffect(() => {
     if (authLoading) return; // Wait for auth to load
     
     console.log('[Dashboard] Auth status:', {
       isAuthenticated,
-      isRegistered,
       needsOnboarding,
-      user: session?.user?.email
+      user: currentUser?.email,
+      profile: profile?.name
     });
 
     // If not authenticated, redirect to login
@@ -76,16 +77,16 @@ function DashboardContent() {
       return;
     }
 
-    // If not registered or onboarding needed, redirect to onboarding
-    if (!isRegistered || needsOnboarding) {
-      console.log('[Dashboard] Not registered or onboarding incomplete, redirecting to onboarding');
+    // If needs onboarding, redirect to onboarding
+    if (needsOnboarding) {
+      console.log('[Dashboard] User needs onboarding, redirecting');
       router.replace('/onboarding');
       return;
     }
 
-    // If we reach here, user is authenticated, registered, and onboarded
-    console.log('[Dashboard] All auth conditions met, allowing access');
-  }, [authLoading, isAuthenticated, isRegistered, needsOnboarding, router, session]);
+    // All checks passed - user is authenticated and onboarded
+    console.log('[Dashboard] All auth checks passed, allowing access');
+  }, [authLoading, isAuthenticated, needsOnboarding, router, currentUser, profile]);
 
   // Unified handler functions for narrative flow
   const handleActionClick = (action: any) => {
@@ -138,24 +139,15 @@ function DashboardContent() {
     );
   }
 
-  // Debug user data
+  // Debug user data (with profile)
   console.log('🔍 User Data Debug:', {
     currentUser,
-    displayName: currentUser?.displayName,
-    email: currentUser?.email,
-    firstName: currentUser?.firstName,
-    lastName: currentUser?.lastName,
-    name: currentUser?.name
+    profile,
+    displayName
   });
-  
-  // Improved user name resolution
-  const userName = currentUser?.displayName || 
-                   currentUser?.name || 
-                   (currentUser?.firstName && currentUser?.lastName ? 
-                     `${currentUser.firstName} ${currentUser.lastName}` : 
-                     null) ||
-                   currentUser?.email?.split('@')[0] || 
-                   'there';
+
+  // Create a properly shaped user object for components using the helper
+  const componentUser = toComponentUser(profile, currentUser);
 
   // Render appropriate dashboard mode
   const renderDashboardContent = () => {
@@ -195,8 +187,7 @@ function DashboardContent() {
       case DashboardMode.WELCOME:
         return (
           <WelcomeDashboard
-            userName={userName}
-            currentUser={currentUser}
+            userName={displayName}
             onActionClick={handleActionClick}
           />
         );
@@ -206,8 +197,7 @@ function DashboardContent() {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div className="lg:col-span-3">
               <GuidedDashboard
-                userName={userName}
-                currentUser={currentUser}
+                userName={displayName}
                 onActionClick={handleActionClick}
               />
             </div>
@@ -226,7 +216,7 @@ function DashboardContent() {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div className="lg:col-span-3">
               <ProgressiveDashboard
-                userName={userName}
+                userName={displayName}
                 dashboardData={dashboardData}
                 aiRecommendations={aiData?.recommendations}
                 onActionClick={handleActionClick}
@@ -245,8 +235,7 @@ function DashboardContent() {
       case DashboardMode.ADVANCED:
         return (
           <AdvancedDashboard
-            userName={userName}
-            currentUser={currentUser}
+            userName={displayName}
             dashboardData={dashboardData}
             aiRecommendations={aiData?.recommendations}
             onActionClick={handleActionClick}
@@ -256,17 +245,16 @@ function DashboardContent() {
       default:
         return (
           <WelcomeDashboard
-            userName={userName}
-            currentUser={currentUser}
+            userName={displayName}
             onActionClick={handleActionClick}
           />
         );
     }
   };
 
-  // Use SharedDashboardLayout with adaptive structure
+  // Use SharedDashboardLayout with properly shaped user
   return (
-    <SharedDashboardLayout currentUser={currentUser}>
+    <SharedDashboardLayout currentUser={componentUser}>
       <div className="transition-all duration-500 ease-in-out">
         {renderDashboardContent()}
         

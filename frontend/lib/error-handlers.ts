@@ -1,30 +1,25 @@
 /**
- * Global error handlers for common Firebase/IndexedDB issues
+ * Global error handlers for common application issues
  */
 
 /**
- * Handle IndexedDB errors that commonly occur with Firebase Auth
+ * Handle common storage/persistence errors
  */
-export function handleIndexedDBError(error: any): boolean {
+export function handleStorageError(error: any): boolean {
   if (
     error?.message?.includes('IndexedDB') ||
     error?.message?.includes('transaction') ||
-    error?.message?.includes('object store') ||
-    error?.code === 'auth/internal-error'
+    error?.message?.includes('object store')
   ) {
-    console.warn('IndexedDB error detected:', error.message);
+    console.warn('Storage error detected:', error.message);
     
-    // Try to clear corrupted auth data
+    // Try to clear any corrupted auth data
     try {
       if (typeof window !== 'undefined') {
-        // Clear potentially corrupted Firebase persistence
-        localStorage.removeItem('firebase:authUser:');
-        localStorage.removeItem('firebase:persistence:');
-        
-        // Clear any auth state that might be corrupted
+        // Clear any Supabase auth data that might be corrupted
         const keys = Object.keys(localStorage);
         keys.forEach(key => {
-          if (key.startsWith('firebase:') || key.includes('auth')) {
+          if (key.includes('supabase.auth')) {
             try {
               localStorage.removeItem(key);
             } catch (e) {
@@ -37,10 +32,10 @@ export function handleIndexedDBError(error: any): boolean {
       console.warn('Failed to cleanup corrupted auth data:', cleanupError);
     }
     
-    return true; // Indicates this was an IndexedDB error
+    return true; // Indicates this was a storage error
   }
   
-  return false; // Not an IndexedDB error
+  return false; // Not a storage error
 }
 
 /**
@@ -50,18 +45,18 @@ export function setupGlobalErrorHandlers() {
   if (typeof window !== 'undefined') {
     // Handle unhandled promise rejections
     window.addEventListener('unhandledrejection', (event) => {
-      if (handleIndexedDBError(event.reason)) {
+      if (handleStorageError(event.reason)) {
         // Prevent the error from appearing in console as unhandled
         event.preventDefault();
-        console.log('IndexedDB error handled gracefully');
+        console.log('Storage error handled gracefully');
       }
     });
     
     // Handle regular errors
     window.addEventListener('error', (event) => {
-      if (handleIndexedDBError(event.error)) {
+      if (handleStorageError(event.error)) {
         event.preventDefault();
-        console.log('IndexedDB error handled gracefully');
+        console.log('Storage error handled gracefully');
       }
     });
   }

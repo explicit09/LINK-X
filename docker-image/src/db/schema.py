@@ -33,7 +33,7 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(64), nullable=False, unique=True)
     password = Column(String(255), nullable=True)  # Made nullable for Supabase auth
-    firebase_uid = Column(String(128))
+    supabase_uid = Column(String(128))
 
     role = relationship('Role', back_populates='user', uselist=False)
     instructor_profile = relationship('InstructorProfile', back_populates='user', uselist=False)

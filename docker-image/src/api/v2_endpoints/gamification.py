@@ -6,7 +6,7 @@ from flask import Blueprint, request, g
 from datetime import datetime, timedelta
 import logging
 
-from core.auth.decorators import require_auth
+from core.decorators_unified import auth_required
 from core.exceptions import ValidationError, NotFoundError
 from core.database_supabase import db_manager
 from db.schema import UserStats, UserActivity, UserAchievement, ApiUsageLog
@@ -27,7 +27,7 @@ def get_session():
 
 
 @gamification_bp.route('/stats', methods=['GET'])
-@require_auth
+@auth_required()
 def get_user_stats_v2():
     """Get current user's gamification stats"""
     try:
@@ -108,7 +108,7 @@ def get_user_stats_v2():
 
 
 @gamification_bp.route('/award-xp', methods=['POST'])
-@require_auth
+@auth_required()
 def award_xp_v2():
     """Award XP to user for an activity"""
     try:
@@ -168,7 +168,7 @@ def award_xp_v2():
 
 
 @gamification_bp.route('/achievements', methods=['GET'])
-@require_auth
+@auth_required()
 def get_user_achievements_v2():
     """Get user's achievements"""
     try:
@@ -203,7 +203,7 @@ def get_user_achievements_v2():
 
 
 @gamification_bp.route('/leaderboard', methods=['GET'])
-@require_auth
+@auth_required()
 def get_leaderboard_v2():
     """Get user leaderboard"""
     try:
@@ -262,7 +262,7 @@ def get_leaderboard_v2():
 
 
 @gamification_bp.route('/activity-history', methods=['GET'])
-@require_auth
+@auth_required()
 def get_activity_history_v2():
     """Get user's recent activity history"""
     try:
@@ -347,7 +347,7 @@ def award_activity_xp(user_id: str, activity_type: str, **kwargs):
 
 
 @gamification_bp.route('/weekly-goals', methods=['GET'])
-@require_auth
+@auth_required()
 def get_weekly_goals_v2():
     """Get user's weekly goals and progress"""
     try:
@@ -426,7 +426,7 @@ def get_weekly_goals_v2():
 
 
 @gamification_bp.route('/weekly-goals', methods=['PUT'])
-@require_auth
+@auth_required()
 def update_weekly_goals_v2():
     """Update user's weekly goal target"""
     try:

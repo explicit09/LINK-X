@@ -3,7 +3,7 @@
 
 -- Users table indexes
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_firebase_uid ON users(firebase_uid);
+CREATE INDEX IF NOT EXISTS idx_users_supabase_uid ON users(supabase_uid);
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users(email) WHERE deleted_at IS NULL;
 

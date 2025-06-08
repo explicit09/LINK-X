@@ -34,12 +34,12 @@ class PersonalizationAPI:
             processor = DataProcessor(db)
             
             # Get user info
-            firebase_uid = request.cookies.get('firebase_uid')
-            if not firebase_uid:
-                self.logger.warning("No firebase_uid in cookies, using anonymous access")
+            supabase_uid = request.cookies.get('supabase_uid')
+            if not supabase_uid:
+                self.logger.warning("No supabase_uid in cookies, using anonymous access")
                 return jsonify({'exists': False}), 200
             
-            user_id, _ = processor.get_user_info(firebase_uid)
+            user_id, _ = processor.get_user_info(supabase_uid)
             if not user_id:
                 return jsonify({'exists': False}), 200
             
@@ -69,12 +69,12 @@ class PersonalizationAPI:
             data = request.get_json() or {}
             
             # Get user info
-            firebase_uid = request.cookies.get('firebase_uid')
-            if not firebase_uid:
-                self.logger.warning("No firebase_uid in cookies for save operation")
+            supabase_uid = request.cookies.get('supabase_uid')
+            if not supabase_uid:
+                self.logger.warning("No supabase_uid in cookies for save operation")
                 return jsonify({'error': 'Authentication required'}), 401
             
-            user_id, _ = processor.get_user_info(firebase_uid)
+            user_id, _ = processor.get_user_info(supabase_uid)
             if not user_id:
                 return jsonify({'error': 'User not found'}), 404
             
@@ -156,8 +156,8 @@ class PersonalizationAPI:
             regenerate = data.get('regenerate', False)
             
             # Get user info
-            firebase_uid = request.cookies.get('firebase_uid')
-            user_id, student_profile = processor.get_user_info(firebase_uid)
+            supabase_uid = request.cookies.get('supabase_uid')
+            user_id, student_profile = processor.get_user_info(supabase_uid)
             
             # Get persona string
             persona = student_profile.to_persona() if student_profile else "General learner seeking comprehensive understanding"

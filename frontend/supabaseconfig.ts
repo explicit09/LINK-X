@@ -21,7 +21,7 @@ export const supabase = (() => {
           persistSession: true,
           detectSessionInUrl: true,
           storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-          storageKey: 'supabase.auth.token', // Use consistent storage key
+          storageKey: 'sb-torsffahnivnzcnjnxgc-auth-token', // Use Supabase default key format
           flowType: 'implicit', // Use implicit flow for OAuth
         },
         global: {

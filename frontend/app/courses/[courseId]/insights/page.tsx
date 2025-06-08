@@ -3,7 +3,8 @@
 import { useParams, useRouter } from 'next/navigation';
 import { SharedDashboardLayout } from '@/components/dashboard/layouts/SharedDashboardLayout';
 import { useCourseData } from '@/hooks/course/useCourseData';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useAuth } from '@/hooks/useAuth';
+import { toComponentUser } from '@/types/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,12 +27,13 @@ export default function CourseInsightsPage() {
   const router = useRouter();
   const courseId = params?.courseId as string;
   
-  const { user: currentUser } = useAuthUser();
+  const { user, profile } = useAuth();
+  const currentUser = toComponentUser(profile, user);
   const { course, loading, error } = useCourseData(courseId);
 
   if (loading) {
     return (
-      <SharedDashboardLayout pageTitle="Loading Insights..." currentUser={null}>
+              <SharedDashboardLayout pageTitle="Loading Insights..." currentUser={undefined}>
         <div className="flex justify-center items-center min-h-screen">
           <div className="text-center">
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />

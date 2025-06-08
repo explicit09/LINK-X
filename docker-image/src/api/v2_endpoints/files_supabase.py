@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 import io
 import logging
 
-from core.auth.decorators import require_auth
+from core.decorators_unified import auth_required
 from core.exceptions import ValidationError, NotFoundError, UnauthorizedError
 from services.file_service_supabase import SupabaseFileService
 from repositories.module_repository import ModuleRepository
@@ -41,7 +41,7 @@ def get_module_repo():
 
 
 @files_bp.route('/upload', methods=['POST'])
-@require_auth
+@auth_required()
 def upload_file_v2():
     """
     Upload a file to Supabase Storage
@@ -92,7 +92,7 @@ def upload_file_v2():
 
 
 @files_bp.route('/<file_id>/url', methods=['GET'])
-@require_auth
+@auth_required()
 def get_file_url_v2(file_id):
     """Get a signed URL for file access"""
     try:
@@ -115,7 +115,7 @@ def get_file_url_v2(file_id):
 
 
 @files_bp.route('/<file_id>/download', methods=['GET'])
-@require_auth
+@auth_required()
 def download_file_v2(file_id):
     """Download a file from Supabase Storage"""
     try:
@@ -138,7 +138,7 @@ def download_file_v2(file_id):
 
 
 @files_bp.route('/<file_id>', methods=['DELETE'])
-@require_auth
+@auth_required()
 def delete_file_v2(file_id):
     """Delete a file from Supabase Storage"""
     try:
@@ -162,7 +162,7 @@ def delete_file_v2(file_id):
 
 
 @files_bp.route('/module/<module_id>', methods=['GET'])
-@require_auth
+@auth_required()
 def list_module_files_v2(module_id):
     """List all files in a module"""
     try:
@@ -184,7 +184,7 @@ def list_module_files_v2(module_id):
 
 
 @files_bp.route('/<file_id>/reprocess', methods=['POST'])
-@require_auth
+@auth_required()
 def reprocess_file_v2(file_id):
     """Reprocess a file (re-extract text and create chunks)"""
     try:

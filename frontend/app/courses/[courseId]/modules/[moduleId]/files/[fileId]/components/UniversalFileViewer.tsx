@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { FileText, Video, Music, Image, File, AlertCircle, ExternalLink, RefreshCw, Download } from 'lucide-react';
 import { EnhancedPDFViewer } from '@/components/course/EnhancedPDFViewer';
@@ -29,7 +29,7 @@ interface UniversalFileViewerProps {
 }
 
 export function UniversalFileViewer({ file, courseId, moduleId, onError }: UniversalFileViewerProps) {
-  const { user: currentUser } = useAuthUser();
+  const { user: currentUser } = useAuth();
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -149,7 +149,7 @@ export function UniversalFileViewer({ file, courseId, moduleId, onError }: Unive
       }
 
       console.log('Fetching file URL for:', file.id);
-      const data = await apiClient.get(`/api/v2/files/${file.id}/content`);
+      const data = await apiClient.get(`/api/v2/files/${file.id}/content`) as any;
       
       if (data?.url) {
         setFileUrl(data.url);

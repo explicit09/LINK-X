@@ -47,7 +47,7 @@ def cors_after_request(response):
             response.headers['Access-Control-Allow-Origin'] = origin
             response.headers['Access-Control-Allow-Credentials'] = 'true'
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, X-Firebase-Token, Accept'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, X-Supabase-Auth, Accept'
             response.headers['Access-Control-Max-Age'] = '3600'
             logger.info(f"CORS: Debug mode - allowed localhost/127.0.0.1 origin {origin}")
             return response
@@ -100,7 +100,7 @@ def handle_preflight():
             response.headers['Access-Control-Allow-Origin'] = origin
             response.headers['Access-Control-Allow-Credentials'] = 'true'
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, X-Firebase-Token, Accept'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, X-Supabase-Auth, Accept'
             response.headers['Access-Control-Max-Age'] = '3600'
             logger.info(f"CORS: Preflight - allowed localhost/127.0.0.1 origin {origin}")
             return response
@@ -163,7 +163,7 @@ def configure_cors(app):
             "origins": cors_origins,
             "allow_headers": [
                 "Content-Type", "Authorization", "X-Requested-With", 
-                "Accept", "X-Firebase-Token", "X-CSRF-Token", "X-Supabase-Auth"
+                "Accept", "X-CSRF-Token", "X-Supabase-Auth"
             ],
             "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
             "supports_credentials": True,

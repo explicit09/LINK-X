@@ -15,7 +15,7 @@ import { utilityAPI, publicAPI } from './api/endpoints/utilities';
 
 // Re-export auth helpers for backward compatibility
 export { getAuthToken, sessionLogin, authAPI };
-export { authService } from './auth-service';
+// export { authService } from './auth-service'; // Removed - using new auth system
 
 // Legacy fetchWithAuth - now uses the modern client
 export async function fetchWithAuth(

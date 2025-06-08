@@ -102,8 +102,14 @@ export function useAccountSettings() {
     try {
       setLoadingAccount(true);
 
+      // Ensure authAPI is available (prevent SSR issues)
+      if (!authAPI || !authAPI.v2) {
+        console.error('AuthAPI not available');
+        return;
+      }
+
       // Use the API client which handles authentication properly
-      const response = await authAPI.v2.getProfile();
+      const response = await authAPI.v2.getProfile() as any;
       // The backend returns { success: true, data: {...}, message: "Success", timestamp: "..." }
       const userData = response.data;
       
