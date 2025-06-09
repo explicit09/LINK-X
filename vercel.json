@@ -1,18 +1,24 @@
 {
-  "buildCommand": "cd frontend && npm run build",
+  "buildCommand": "cd frontend && npm ci && npm run build",
   "outputDirectory": "frontend/.next",
-  "installCommand": "cd frontend && npm install",
+  "installCommand": "cd frontend && npm ci",
   "framework": "nextjs",
   "regions": ["iad1"],
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./frontend/",
   "functions": {
     "frontend/app/api/**/*": {
       "maxDuration": 30
     }
   },
   "env": {
-    "NEXT_PUBLIC_API_URL": "@learn_x_api_url",
+    "NEXT_PUBLIC_API_URL": "@railway_api_url",
     "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key"
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key",
+    "NEXT_PUBLIC_SITE_URL": "@vercel_site_url",
+    "NEXT_PUBLIC_API_VERSION": "v2",
+    "NEXT_PUBLIC_ENABLE_GAMIFICATION": "true",
+    "NEXT_PUBLIC_ENABLE_AI_FEATURES": "true",
+    "NEXT_PUBLIC_ENABLE_COLLABORATION": "true"
   },
   "headers": [
     {
@@ -36,11 +42,15 @@
   "rewrites": [
     {
       "source": "/api/v2/:path*",
-      "destination": "@learn_x_api_url/api/v2/:path*"
+      "destination": "@railway_api_url/api/v2/:path*"
     },
     {
       "source": "/api/v1/:path*",
-      "destination": "@learn_x_api_url/api/v1/:path*"
+      "destination": "@railway_api_url/api/v1/:path*"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "@railway_api_url/api/:path*"
     }
   ]
 }
