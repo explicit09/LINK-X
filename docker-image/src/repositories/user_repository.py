@@ -3,6 +3,7 @@ from sqlalchemy import or_, and_
 from sqlalchemy.orm import joinedload, sessionmaker
 from datetime import datetime, timedelta
 import logging
+from contextlib import contextmanager
 
 from repositories.base_repository import BaseRepository
 from db.schema import User, StudentProfile, InstructorProfile, Role, AdminProfile
@@ -15,13 +16,51 @@ class UserRepository(BaseRepository[User]):
     
     def __init__(self, session_factory: sessionmaker = None):
         try:
+            # Store the initial session factory (might be None)
+            self._initial_session_factory = session_factory
+            self._session_factory = session_factory
+            
+            # If no session factory provided, we'll try to get it later
             if session_factory is None:
-                session_factory = db_manager.session_factory
-            super().__init__(User, session_factory)
-            logger.info(f"UserRepository initialized successfully with session factory: {type(session_factory)}")
+                # Don't immediately try to get from db_manager - it might not be ready
+                logger.info("UserRepository initialized with deferred session factory loading")
+                # Initialize with a dummy session factory to avoid errors
+                self.model = User
+            else:
+                # Initialize normally with provided session factory
+                super().__init__(User, session_factory)
+                logger.info(f"UserRepository initialized successfully with session factory: {type(session_factory)}")
         except Exception as e:
             logger.error(f"Failed to initialize UserRepository: {type(e).__name__}: {str(e)}")
             raise
+    
+    @property
+    def session_factory(self):
+        """Get session factory, loading it lazily if needed"""
+        if self._session_factory is None:
+            # Try to get from db_manager now
+            from core.database_supabase import db_manager
+            if db_manager.session_factory is not None:
+                self._session_factory = db_manager.session_factory
+                logger.info(f"UserRepository session factory loaded lazily: {type(self._session_factory)}")
+            else:
+                logger.warning("db_manager.session_factory is still None - database may not be initialized yet")
+                raise RuntimeError("Database session factory not available")
+        
+        return self._session_factory
+    
+    @contextmanager
+    def get_session(self):
+        """Get database session with proper cleanup"""
+        session = self.session_factory()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
     
     def create(self, **kwargs) -> User:
         """Create user with role"""
