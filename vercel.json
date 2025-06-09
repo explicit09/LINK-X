@@ -1,4 +1,5 @@
 {
+  "root": "frontend",
   "buildCommand": "npm run build --legacy-peer-deps",
   "installCommand": "npm install --legacy-peer-deps",
   "outputDirectory": ".next",
