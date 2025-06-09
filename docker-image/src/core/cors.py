@@ -141,21 +141,35 @@ def configure_cors(app):
     # Get CORS options from config
     cors_options = app.config.get('CORS_OPTIONS', {})
     
-    # Get frontend origin from environment or config
-    frontend_origin = os.getenv('FRONTEND_ORIGIN', 'http://localhost:3000')
-    cors_origins = cors_options.get('origins', [frontend_origin])
+    # Get origins from config (should be properly set from environment)
+    cors_origins = cors_options.get('origins', [])
     
-    # For development, allow common localhost ports
-    if app.config.get('DEBUG', False):
+    # Only add development origins if explicitly in development mode
+    if app.config.get('DEBUG', False) and app.config.get('FLASK_ENV') == 'development':
+        # Get frontend origin from environment or config as fallback
+        frontend_origin = os.getenv('FRONTEND_ORIGIN', 'http://localhost:3000')
+        if frontend_origin not in cors_origins:
+            cors_origins.append(frontend_origin)
+            
         development_origins = [
             "http://localhost:3000", "http://localhost:3001", "http://localhost:3002",
             "http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:3002",
             "https://localhost:3000", "https://localhost:3001"
         ]
-        # Combine configured origins with development origins
-        cors_origins.extend(development_origins)
-        # Remove duplicates while preserving order
-        cors_origins = list(dict.fromkeys(cors_origins))
+        # Add development origins that aren't already configured
+        for dev_origin in development_origins:
+            if dev_origin not in cors_origins:
+                cors_origins.append(dev_origin)
+    
+    # Fallback: if no origins configured, try to get from environment
+    if not cors_origins:
+        cors_env = os.getenv('CORS_ORIGINS', '')
+        if cors_env:
+            cors_origins = [o.strip() for o in cors_env.split(",") if o.strip()]
+        else:
+            # Last resort fallback only in development
+            if app.config.get('DEBUG', False):
+                cors_origins = ['http://localhost:3000']
     
     # Configure CORS globally for all routes
     CORS(app, resources={

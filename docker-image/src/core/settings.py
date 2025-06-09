@@ -167,22 +167,36 @@ class Settings(BaseSettings):
         """Build CORS origins list after model initialization"""
         origins = []
         
-        # Add explicitly configured origins
+        # Add explicitly configured origins first
         if self.cors_origins:
             origins.extend(self.cors_origins)
             
-        # Add environment-specific origins
+        # Add frontend URL if specified and not already in list
+        if self.frontend_url:
+            frontend_str = str(self.frontend_url)
+            if frontend_str not in origins:
+                origins.append(frontend_str)
+            
+        # Add environment-specific origins ONLY for development
         if self.environment == "development":
-            # Add localhost ports for development
+            # Add localhost ports for development only
+            dev_origins = []
             for port in range(3000, 3011):
-                origins.extend([
+                dev_origins.extend([
                     f"http://localhost:{port}",
                     f"http://127.0.0.1:{port}"
                 ])
+            # Add dev origins that aren't already configured
+            for dev_origin in dev_origins:
+                if dev_origin not in origins:
+                    origins.append(dev_origin)
                 
-        # Add frontend URL if specified
-        if self.frontend_url:
-            origins.append(str(self.frontend_url))
+        # If no origins configured and in production, use environment variables as fallback
+        if not origins and self.environment == "production":
+            # Try to get from CORS_ORIGINS environment variable
+            cors_env = os.getenv('CORS_ORIGINS', '')
+            if cors_env:
+                origins.extend([o.strip() for o in cors_env.split(",") if o.strip()])
             
         # Remove duplicates while preserving order
         seen = set()

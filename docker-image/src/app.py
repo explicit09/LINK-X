@@ -101,6 +101,23 @@ def create_app():
         from flask import Response
         return Response(status=204)  # No Content - prevents browser errors
     
+    # Add root endpoint with API information
+    @app.route('/')
+    def root():
+        from flask import jsonify
+        return jsonify({
+            'message': 'LINK-X Backend API',
+            'version': 'v2.0',
+            'status': 'online',
+            'endpoints': {
+                'health': '/api/v2/health',
+                'auth': '/api/v2/auth',
+                'api_v2': '/api/v2',
+                'streaming': '/api/streaming',
+                'monitoring': '/api/monitoring'
+            },
+            'documentation': '/api/docs' if app.config.get('FLASK_ENV') != 'production' else None
+        })
     
     # Register blueprints in order of priority
     # Health check (no prefix for load balancer compatibility)
