@@ -91,11 +91,20 @@ export function ProgressiveDashboard({
   };
   
   // Use real data when available, fallback to calculated estimates
-  const weeklyProgress = dashboardData?.weekly_progress || {
-    overall: overallProgress,
-    xp: { current: weeklyXPCurrent, target: weeklyXPTarget },
-    tasks: calculateTaskData(),
-    study_time: { current: weeklyStudyHours, target: weeklyStudyTarget }
+  const weeklyProgress = {
+    overall: dashboardData?.weekly_progress?.overall ?? overallProgress,
+    xp: {
+      current: dashboardData?.weekly_progress?.xp?.current ?? weeklyXPCurrent,
+      target: dashboardData?.weekly_progress?.xp?.target ?? weeklyXPTarget
+    },
+    tasks: {
+      completed: dashboardData?.weekly_progress?.tasks?.completed ?? calculateTaskData().completed,
+      total: dashboardData?.weekly_progress?.tasks?.total ?? calculateTaskData().total
+    },
+    study_time: {
+      current: dashboardData?.weekly_progress?.study_time?.current ?? weeklyStudyHours,
+      target: dashboardData?.weekly_progress?.study_time?.target ?? weeklyStudyTarget
+    }
   };
 
   // Generate smart priority actions based on user data
@@ -119,7 +128,7 @@ export function ProgressiveDashboard({
       actions.push({
         id: 'increase-study-time',
         title: 'Catch Up on Study Time',
-        description: `You need ${(weeklyStudyTarget - weeklyStudyHours).toFixed(1)} more hours this week`,
+        description: `You need ${((weeklyStudyTarget || 0) - (weeklyStudyHours || 0)).toFixed(1)} more hours this week`,
         urgency: 'urgent',
         time_estimate: '60 min',
         type: 'study'
@@ -194,7 +203,7 @@ export function ProgressiveDashboard({
       recommendations.push({
         id: 'optimize-schedule',
         title: 'Optimize Study Schedule',
-        description: `Based on your ${weeklyStudyHours.toFixed(1)}h/week pattern, here's an optimized schedule`,
+        description: `Based on your ${(weeklyStudyHours || 0).toFixed(1)}h/week pattern, here's an optimized schedule`,
         icon: 'clock',
         action: 'View Schedule',
         xp_reward: 100,
@@ -312,7 +321,7 @@ export function ProgressiveDashboard({
                   {studyTimeLoading ? (
                     <span className="animate-pulse">--</span>
                   ) : (
-                    `${weeklyProgress.study_time.current.toFixed(1)}h`
+                    `${(weeklyProgress.study_time.current || 0).toFixed(1)}h`
                   )}
                 </p>
               </div>

@@ -209,10 +209,36 @@ export function useDashboardData(): UseDashboardDataReturn {
       
       if (process.env.NODE_ENV === 'development') {
         console.log('📦 Raw API Response:', result);
+        console.log('🔍 Response structure check:', {
+          hasStatus: 'status' in result,
+          status: result.status,
+          hasData: 'data' in result,
+          dataKeys: result.data ? Object.keys(result.data) : 'no data',
+          message: result.message
+        });
       }
       
-      if (!result.success) {
+      if (result.status !== 'success') {
+        console.error('❌ API returned non-success status:', result.status, result.message);
         throw new Error(result.message || 'Failed to fetch dashboard data');
+      }
+
+      if (!result.data) {
+        console.error('❌ API response has no data field:', result);
+        throw new Error('No data received from dashboard API');
+      }
+
+      // Log the actual data structure before setting it
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📊 Dashboard data structure:', {
+          user: result.data.user,
+          stats: result.data.stats,
+          activities_count: result.data.recent_activities?.length || 0,
+          courses_count: result.data.courses?.enrolled?.length || 0,
+          todos_count: result.data.todos?.upcoming?.length || 0,
+          hasError: !!result.data.error,
+          dataFreshness: result.data.data_freshness
+        });
       }
 
       setData(result.data);

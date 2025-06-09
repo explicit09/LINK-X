@@ -5,6 +5,7 @@ Provides dashboard data and analytics for students
 from flask import Blueprint, request, g
 from datetime import datetime, timedelta
 import logging
+from sqlalchemy import text
 
 from core.decorators_unified import auth_required
 from core.exceptions import ValidationError, NotFoundError
@@ -68,113 +69,12 @@ def get_unified_dashboard():
         user = g.current_user
         user_id = str(user.id)
         
+        logger.info(f"Getting dashboard data for user {user_id}, email: {getattr(user, 'email', 'N/A')}")
+        
         # Execute optimized database query with JOINs
         try:
             with db_manager.session_factory() as session:
-                # Single optimized query that fetches all dashboard data with JOINs
-                dashboard_query = """
-                    WITH user_data AS (
-                        SELECT 
-                            p.id as user_id,
-                            p.email,
-                            p.full_name,
-                            p.role,
-                            p.onboarding_step,
-                            us.current_level,
-                            us.total_xp,
-                            us.streak_days,
-                            us.badges_earned
-                        FROM profiles p
-                        LEFT JOIN user_stats us ON p.id = us.user_id
-                        WHERE p.id = %s
-                    ),
-                    recent_activities AS (
-                        SELECT 
-                            activity_type,
-                            xp_earned,
-                            created_at,
-                            metadata
-                        FROM user_activities 
-                        WHERE user_id = %s 
-                            AND created_at >= %s
-                        ORDER BY created_at DESC
-                        LIMIT 10
-                    ),
-                    weekly_xp AS (
-                        SELECT 
-                            COALESCE(SUM(xp_earned), 0) as week_xp
-                        FROM user_activities 
-                        WHERE user_id = %s 
-                            AND created_at >= %s
-                    ),
-                    user_courses AS (
-                        SELECT 
-                            c.id,
-                            c.title,
-                            c.description,
-                            c.created_at,
-                            c.published,
-                            e.enrolled_at,
-                            e.role as enrollment_role
-                        FROM enrollments e
-                        JOIN courses c ON e.course_id = c.id
-                        WHERE e.user_id = %s
-                        ORDER BY e.enrolled_at DESC
-                        LIMIT 5
-                    ),
-                    user_todos AS (
-                        SELECT 
-                            id,
-                            title,
-                            description,
-                            completed,
-                            priority,
-                            due_date,
-                            created_at
-                        FROM todos 
-                        WHERE user_id = %s 
-                            AND (completed = false OR completed_at >= %s)
-                        ORDER BY 
-                            CASE WHEN due_date IS NOT NULL THEN due_date ELSE '2099-12-31'::timestamp END,
-                            priority DESC,
-                            created_at DESC
-                        LIMIT 10
-                    ),
-                    study_sessions AS (
-                        SELECT 
-                            id,
-                            course_id,
-                            scheduled_start,
-                            status,
-                            urgency
-                        FROM study_sessions 
-                        WHERE user_id = %s 
-                            AND scheduled_start >= %s
-                            AND scheduled_start <= %s
-                        ORDER BY scheduled_start
-                        LIMIT 5
-                    ),
-                    recent_achievements AS (
-                        SELECT 
-                            achievement_id,
-                            earned_at
-                        FROM user_achievements 
-                        WHERE user_id = %s 
-                            AND earned_at >= %s
-                        ORDER BY earned_at DESC
-                        LIMIT 3
-                    )
-                    SELECT 
-                        (SELECT row_to_json(user_data) FROM user_data) as user_data,
-                        (SELECT json_agg(recent_activities) FROM recent_activities) as recent_activities,
-                        (SELECT week_xp FROM weekly_xp) as weekly_xp,
-                        (SELECT json_agg(user_courses) FROM user_courses) as courses,
-                        (SELECT json_agg(user_todos) FROM user_todos) as todos,
-                        (SELECT json_agg(study_sessions) FROM study_sessions) as study_sessions,
-                        (SELECT json_agg(recent_achievements) FROM recent_achievements) as achievements
-                """
-                
-                # Calculate date boundaries
+                # Calculate date boundaries first
                 now = datetime.utcnow()
                 week_start = now - timedelta(days=now.weekday())
                 week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -182,121 +82,209 @@ def get_unified_dashboard():
                 today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
                 today_end = today_start + timedelta(days=1)
                 
-                # Execute optimized query
-                result = session.execute(dashboard_query, (
-                    user_id,  # user_data
-                    user_id, last_week,  # recent_activities  
-                    user_id, week_start,  # weekly_xp
-                    user_id,  # user_courses
-                    user_id, last_week,  # user_todos
-                    user_id, today_start, today_end,  # study_sessions
-                    user_id, last_week   # recent_achievements
-                )).fetchone()
+                # Get user basic data
+                user_query = text("""
+                    SELECT 
+                        p.id,
+                        p.email,
+                        p.role,
+                        p.full_name,
+                        p.onboarding_step
+                    FROM profiles p
+                    WHERE p.id = :user_id
+                """)
+                user_result = session.execute(user_query, {'user_id': user_id}).fetchone()
+                logger.info(f"User query result: {user_result}")
                 
-                if not result:
-                    # Fallback for new users
-                    dashboard_data = {
-                        "user": {"id": user_id, "email": user.email, "role": "student"},
-                        "stats": {"current_level": 1, "total_xp": 0, "streak_days": 0},
-                        "weekly_progress": {"xp": {"current": 0, "target": 150}},
-                        "recent_activities": [],
-                        "courses": [],
-                        "todos": [],
-                        "study_sessions": [],
-                        "achievements": [],
-                        "performance_pulse": {"improvement_percentage": 0, "rank": 0}
+                # Get user stats separately
+                stats_query = text("""
+                    SELECT 
+                        us.current_level, 
+                        us.total_xp, 
+                        us.daily_streak as streak_days,
+                        us.weekly_xp,
+                        us.weekly_goal,
+                        us.weekly_progress,
+                        us.total_study_minutes,
+                        us.weekly_study_minutes,
+                        COALESCE((
+                            SELECT COUNT(*) 
+                            FROM user_achievements ua 
+                            WHERE ua.user_id = us.user_id
+                        ), 0) as badges_earned
+                    FROM user_stats us
+                    WHERE us.user_id = :user_id
+                """)
+                stats_result = session.execute(stats_query, {'user_id': user_id}).fetchone()
+                logger.info(f"Stats query result: {stats_result}")
+                
+                # Get weekly XP
+                weekly_xp_query = text("""
+                    SELECT COALESCE(SUM(xp_earned), 0) as week_xp
+                    FROM user_activities
+                    WHERE user_id = :user_id AND created_at >= :week_start
+                """)
+                weekly_xp_result = session.execute(weekly_xp_query, {
+                    'user_id': user_id,
+                    'week_start': week_start
+                }).fetchone()
+                logger.info(f"Weekly XP result: {weekly_xp_result}")
+                
+                # Get recent activities
+                activities_query = text("""
+                    SELECT activity_type, xp_earned, created_at, metadata
+                    FROM user_activities
+                    WHERE user_id = :user_id AND created_at >= :last_week
+                    ORDER BY created_at DESC
+                    LIMIT 10
+                """)
+                activities_result = session.execute(activities_query, {
+                    'user_id': user_id,
+                    'last_week': last_week
+                }).fetchall()
+                logger.info(f"Activities count: {len(activities_result)}")
+                
+                # Get courses
+                courses_query = text("""
+                    SELECT c.id, c.title, c.description, c.published, e.enrolled_at
+                    FROM enrollments e
+                    JOIN courses c ON e.course_id = c.id
+                    WHERE e.user_id = :user_id
+                    ORDER BY e.enrolled_at DESC
+                    LIMIT 5
+                """)
+                courses_result = session.execute(courses_query, {'user_id': user_id}).fetchall()
+                logger.info(f"Courses count: {len(courses_result)}")
+                
+                # Get todos
+                todos_query = text("""
+                    SELECT id, title, description, completed, priority, due_date, created_at, updated_at
+                    FROM todos
+                    WHERE user_id = :user_id AND (completed = false OR updated_at >= :last_week)
+                    ORDER BY priority DESC, created_at DESC
+                    LIMIT 10
+                """)
+                todos_result = session.execute(todos_query, {
+                    'user_id': user_id,
+                    'last_week': last_week
+                }).fetchall()
+                logger.info(f"Todos count: {len(todos_result)}")
+                
+                # Build dashboard data from individual queries
+                user_data = {
+                    "id": str(user_id),
+                    "email": user_result.email if user_result else getattr(user, 'email', ''),
+                    "full_name": user_result.full_name if user_result else None,
+                    "role": user_result.role if user_result else "student",
+                    "onboarding_step": user_result.onboarding_step if user_result else None
+                }
+                
+                stats_data = {
+                    "current_level": stats_result.current_level if stats_result else 1,
+                    "total_xp": stats_result.total_xp if stats_result else 0,
+                    "streak_days": stats_result.streak_days if stats_result else 0,
+                    "badges_earned": stats_result.badges_earned if stats_result else 0
+                }
+                
+                # Get the actual weekly data from stats
+                weekly_xp_from_stats = stats_result.weekly_xp if stats_result else 0
+                weekly_goal = stats_result.weekly_goal if stats_result else 500
+                weekly_progress_percent = stats_result.weekly_progress if stats_result else 0
+                
+                # Calculate actual percentage if weekly_progress is 0
+                if weekly_progress_percent == 0 and weekly_xp_from_stats > 0:
+                    weekly_progress_percent = int((weekly_xp_from_stats / weekly_goal) * 100)
+                
+                weekly_xp = weekly_xp_result.week_xp if weekly_xp_result else 0
+                
+                recent_activities = [
+                    {
+                        "activity_type": a.activity_type,
+                        "xp_earned": a.xp_earned,
+                        "created_at": a.created_at.isoformat() if a.created_at else None,
+                        "metadata": a.metadata
                     }
-                else:
-                    # Parse optimized query results
-                    user_data = result[0] or {}
-                    recent_activities = result[1] or []
-                    weekly_xp = result[2] or 0
-                    courses = result[3] or []
-                    todos = result[4] or []
-                    study_sessions = result[5] or []
-                    achievements = result[6] or []
-                    
-                    # Process and enhance data
-                    dashboard_data = {
-                        "user": {
-                            "id": user_data.get("user_id", user_id),
-                            "email": user_data.get("email", user.email),
-                            "full_name": user_data.get("full_name"),
-                            "role": user_data.get("role", "student"),
-                            "onboarding_step": user_data.get("onboarding_step")
-                        },
-                        "stats": {
-                            "current_level": user_data.get("current_level", 1),
-                            "total_xp": user_data.get("total_xp", 0),
-                            "streak_days": user_data.get("streak_days", 0),
-                            "badges_earned": user_data.get("badges_earned", 0)
-                        },
-                        "weekly_progress": {
-                            "xp": {
-                                "current": min(weekly_xp, 150),
-                                "target": 150
-                            },
-                            "tasks": {
-                                "completed": len([t for t in todos if t.get("completed")]),
-                                "total": max(len(todos), 8)
-                            },
-                            "study_time": {
-                                "current": len(recent_activities) * 0.5,  # Estimated hours
-                                "target": 12.0
-                            }
-                        },
-                        "recent_activities": recent_activities[:5],  # Limit for dashboard
-                        "courses": {
-                            "enrolled": courses,
-                            "active_count": len([c for c in courses if c.get("published")]),
-                            "total_count": len(courses)
-                        },
-                        "todos": {
-                            "urgent": [t for t in todos if not t.get("completed") and (
-                                t.get("priority") == "high" or 
-                                (t.get("due_date") and _safe_parse_datetime(t["due_date"]) and 
-                                 _safe_parse_datetime(t["due_date"]) <= now + timedelta(hours=24))
-                            )][:5],
-                            "upcoming": [t for t in todos if not t.get("completed")][:8],
-                            "completed_today": [t for t in todos if t.get("completed") and 
-                                             t.get("completed_at") and 
-                                             _safe_parse_datetime(t["completed_at"]) and
-                                             _safe_parse_datetime(t["completed_at"]).date() == now.date()]
-                        },
-                        "today_schedule": [
-                            {
-                                "time": session.get("scheduled_start", "").split("T")[1][:5] if session.get("scheduled_start") else "TBD",
-                                "title": f"Study Session - {session.get('course_id', 'General')}",
-                                "status": session.get("status", "scheduled"),
-                                "urgency": session.get("urgency", "medium"),
-                                "type": "study_session",
-                                "id": session.get("id")
-                            }
-                            for session in study_sessions
-                        ],
-                        "achievements": achievements,
-                        "performance_pulse": {
-                            "improvement_percentage": min(len(recent_activities) * 2.5, 25),  # Mock calculation
-                            "current_rank": max(50 - len(recent_activities), 1),
-                            "rank_change": 0,
-                            "average_score": min(weekly_xp / 150 * 100, 100) if weekly_xp > 0 else 0
-                        },
-                        "ai_recommendations": [
-                            {
-                                "id": "focus-session",
-                                "title": "Start 45-min Focus Session",
-                                "description": "Based on your recent activity patterns",
-                                "icon": "🧠", 
-                                "action": "Start Now",
-                                "xp_reward": 25,
-                                "estimated_time": "45 min"
-                            }
-                        ] if len(recent_activities) > 0 else [],
-                        "last_updated": now.isoformat(),
-                        "load_time_ms": None,  # Will be calculated by frontend
-                        "optimized": True,  # Flag to indicate this is the new optimized endpoint
-                        "data_freshness": "real-time"
+                    for a in activities_result
+                ]
+                
+                courses = [
+                    {
+                        "id": str(c.id),
+                        "title": c.title,
+                        "description": c.description,
+                        "published": c.published,
+                        "enrolled_at": c.enrolled_at.isoformat() if c.enrolled_at else None
                     }
+                    for c in courses_result
+                ]
+                
+                todos = [
+                    {
+                        "id": str(t.id),
+                        "title": t.title,
+                        "description": t.description,
+                        "completed": t.completed,
+                        "priority": t.priority,
+                        "due_date": t.due_date.isoformat() if t.due_date else None,
+                        "created_at": t.created_at.isoformat() if t.created_at else None
+                    }
+                    for t in todos_result
+                ]
+                
+                # Build the dashboard data from our individual queries
+                dashboard_data = {
+                    "user": user_data,
+                    "stats": stats_data,
+                    "weekly_progress": {
+                        "xp": {
+                            "current": weekly_xp_from_stats,
+                            "target": weekly_goal,
+                            "percentage": weekly_progress_percent
+                        },
+                        "tasks": {
+                            "completed": len([t for t in todos if t.get("completed")]),
+                            "total": max(len(todos), 8)
+                        },
+                        "study_time": {
+                            "current": stats_result.weekly_study_minutes / 60 if stats_result and stats_result.weekly_study_minutes else 0,
+                            "target": 12.0,
+                            "total_minutes": stats_result.total_study_minutes if stats_result else 0
+                        }
+                    },
+                    "recent_activities": recent_activities[:5],
+                    "courses": {
+                        "enrolled": courses,
+                        "active_count": len([c for c in courses if c.get("published")]),
+                        "total_count": len(courses)
+                    },
+                    "todos": {
+                        "urgent": [t for t in todos if not t.get("completed") and t.get("priority") == "high"][:5],
+                        "upcoming": [t for t in todos if not t.get("completed")][:8],
+                        "completed_today": []  # TODO: filter by today's date
+                    },
+                    "today_schedule": [],  # TODO: implement study sessions
+                    "achievements": [],  # TODO: implement achievements
+                    "performance_pulse": {
+                        "improvement_percentage": min(len(recent_activities) * 2.5, 25),
+                        "current_rank": max(50 - len(recent_activities), 1),
+                        "rank_change": 0,
+                        "average_score": min(weekly_xp / 150 * 100, 100) if weekly_xp > 0 else 0
+                    },
+                    "ai_recommendations": [
+                        {
+                            "id": "focus-session",
+                            "title": "Start 45-min Focus Session",
+                            "description": "Based on your recent activity patterns",
+                            "icon": "🧠",
+                            "action": "Start Now",
+                            "xp_reward": 25,
+                            "estimated_time": "45 min"
+                        }
+                    ] if len(recent_activities) > 0 else [],
+                    "last_updated": now.isoformat(),
+                    "optimized": True,
+                    "data_freshness": "real-time"
+                }
                 
                 logger.info(f"Unified dashboard query executed successfully for user {user_id}")
                 return success_response(
@@ -308,7 +296,13 @@ def get_unified_dashboard():
             logger.error(f"Database error in unified dashboard: {db_error}")
             # Fallback to basic data structure
             dashboard_data = {
-                "user": {"id": user_id, "email": getattr(user, 'email', ''), "role": "student"},
+                "user": {
+                    "id": str(user_id), 
+                    "email": getattr(user, 'email', ''), 
+                    "full_name": None,
+                    "role": "student",
+                    "onboarding_step": None
+                },
                 "stats": {"current_level": 1, "total_xp": 0, "streak_days": 0},
                 "weekly_progress": {"xp": {"current": 0, "target": 150}, "tasks": {"completed": 0, "total": 8}},
                 "recent_activities": [],
