@@ -1,4 +1,4 @@
-# Simple Railway Dockerfile - Fallback without complex startup script
+# Simple Railway Dockerfile - Direct Gunicorn startup
 ARG PYTHON_VERSION=3.11
 
 # Build stage
@@ -28,54 +28,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user with home directory
-RUN groupadd -r linkx && useradd -r -g linkx -d /home/linkx -m linkx
+# Create non-root user
+RUN groupadd -r linkx && useradd -r -g linkx linkx
 
 WORKDIR /app
 
 # Copy Python dependencies from builder
 COPY --from=builder /usr/local /usr/local
 
-# Copy application code with proper ownership
+# Copy application code
 COPY --chown=linkx:linkx docker-image/src/ ./src/
 
-# Set permissions and create necessary directories
-RUN mkdir -p /app/logs /app/data /app/tmp && \
-    chown -R linkx:linkx /app
-
-# Environment setup with Railway optimizations
-ENV PATH=/usr/local/bin:$PATH \
-    PYTHONPATH=/app/src:$PYTHONPATH \
+# Set basic environment variables for Railway optimization
+ENV PYTHONPATH=/app/src:$PYTHONPATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    GUNICORN_WORKERS=2 \
-    GUNICORN_WORKER_CLASS=sync \
-    GUNICORN_TIMEOUT=120 \
-    GUNICORN_MAX_REQUESTS=1000 \
-    GUNICORN_MAX_REQUESTS_JITTER=100 \
     PYTHONMALLOC=malloc \
     MALLOC_ARENA_MAX=2
 
-# Health check
+# Health check using PORT variable
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -s http://localhost:${PORT:-8000}/api/v2/health | grep -q "status" || exit 1
+    CMD curl -s http://localhost:${PORT:-8000}/api/v2/health || exit 1
 
 USER linkx
-EXPOSE 8000
+EXPOSE ${PORT:-8000}
 
-# Simple startup command optimized for Railway
-CMD gunicorn \
-    --bind 0.0.0.0:${PORT:-8000} \
-    --workers ${GUNICORN_WORKERS:-2} \
-    --worker-class ${GUNICORN_WORKER_CLASS:-sync} \
-    --timeout ${GUNICORN_TIMEOUT:-120} \
-    --keep-alive 2 \
-    --max-requests ${GUNICORN_MAX_REQUESTS:-1000} \
-    --max-requests-jitter ${GUNICORN_MAX_REQUESTS_JITTER:-100} \
-    --preload \
-    --worker-tmp-dir /app/tmp \
-    --access-logfile - \
-    --error-logfile - \
-    --log-level info \
-    --chdir /app/src \
-    "app:create_app()" 
+# Direct Gunicorn command with Railway PORT support
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 2 --worker-class sync --timeout 120 --keep-alive 2 --max-requests 1000 --max-requests-jitter 100 --preload --access-logfile - --error-logfile - --log-level info --chdir /app/src 'app:create_app()'"] 
