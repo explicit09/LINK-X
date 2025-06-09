@@ -1,4 +1,4 @@
-# Railway-specific Dockerfile without cache mounts
+# Simple Railway Dockerfile - Fallback without complex startup script
 ARG PYTHON_VERSION=3.11
 
 # Build stage
@@ -22,15 +22,11 @@ RUN pip install --prefix=/usr/local -r requirements.txt
 # Runtime stage
 FROM python:${PYTHON_VERSION}-slim
 
-# Install runtime dependencies including psycopg2 and bc for the startup script
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
-    bc \
     && rm -rf /var/lib/apt/lists/*
-
-# Install psycopg2-binary for database connectivity testing
-RUN pip install psycopg2-binary
 
 # Create non-root user with home directory
 RUN groupadd -r linkx && useradd -r -g linkx -d /home/linkx -m linkx
@@ -42,29 +38,44 @@ COPY --from=builder /usr/local /usr/local
 
 # Copy application code with proper ownership
 COPY --chown=linkx:linkx docker-image/src/ ./src/
-COPY --chown=linkx:linkx docker-image/docker/ ./docker/
 
 # Set permissions and create necessary directories
-RUN chmod +x /app/docker/*.sh && \
-    mkdir -p /app/logs /app/data /tmp/gunicorn && \
+RUN mkdir -p /app/logs /app/data /app/tmp && \
     chown -R linkx:linkx /app
 
-# Environment setup
+# Environment setup with Railway optimizations
 ENV PATH=/usr/local/bin:$PATH \
     PYTHONPATH=/app/src:$PYTHONPATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    GUNICORN_WORKERS=2 \
     GUNICORN_WORKER_CLASS=sync \
+    GUNICORN_TIMEOUT=120 \
     GUNICORN_MAX_REQUESTS=1000 \
     GUNICORN_MAX_REQUESTS_JITTER=100 \
-    GUNICORN_PRELOAD_APP=true
+    PYTHONMALLOC=malloc \
+    MALLOC_ARENA_MAX=2
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -s http://localhost:8000/api/v2/health | grep -q "status" || exit 1
+    CMD curl -s http://localhost:${PORT:-8000}/api/v2/health | grep -q "status" || exit 1
 
 USER linkx
 EXPOSE 8000
 
-# Use the Railway startup script for optimized deployment
-CMD ["/app/docker/railway-startup.sh"]
+# Simple startup command optimized for Railway
+CMD gunicorn \
+    --bind 0.0.0.0:${PORT:-8000} \
+    --workers ${GUNICORN_WORKERS:-2} \
+    --worker-class ${GUNICORN_WORKER_CLASS:-sync} \
+    --timeout ${GUNICORN_TIMEOUT:-120} \
+    --keep-alive 2 \
+    --max-requests ${GUNICORN_MAX_REQUESTS:-1000} \
+    --max-requests-jitter ${GUNICORN_MAX_REQUESTS_JITTER:-100} \
+    --preload \
+    --worker-tmp-dir /app/tmp \
+    --access-logfile - \
+    --error-logfile - \
+    --log-level info \
+    --chdir /app/src \
+    "app:create_app()" 
