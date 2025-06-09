@@ -271,6 +271,7 @@ export const useCourseModules = (courseId: string) => {
         if (!backendModules || backendModules.length === 0) {
           setModules([]);
           console.log(`[useCourseModules] No modules found for course ${courseId}`);
+          setLoading(false);
           return;
         }
         
@@ -299,7 +300,7 @@ export const useCourseModules = (courseId: string) => {
     };
 
     loadModules();
-  }, [courseId, transformModulesData, hasProcessingFiles, startPolling]);
+  }, [courseId]); // Only depend on courseId to avoid infinite loops
 
   // Effect to manage polling lifecycle based on module changes
   useEffect(() => {
