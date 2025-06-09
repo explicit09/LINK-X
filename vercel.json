@@ -1,6 +1,6 @@
 {
-  "buildCommand": "npm run build --legacy-peer-deps",
-  "installCommand": "npm install --legacy-peer-deps",
+  "buildCommand": "cd frontend && npm run build --legacy-peer-deps",
+  "installCommand": "cd frontend && npm install --legacy-peer-deps",
   "outputDirectory": "/.next",
   "framework": "nextjs",
   "regions": ["iad1"],
