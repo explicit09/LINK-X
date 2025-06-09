@@ -1,0 +1,18 @@
+LINK-X Railway Deployment Summary
+=================================
+Project ID: null
+Date: Mon Jun  9 03:12:21 CDT 2025
+
+Services Deployed:
+- Redis (via Railway dashboard)
+- Backend (learnx-backend)
+- PGMQ Worker (learnx-pgmq-worker) - 3 replicas
+- Celery Worker (learnx-celery-worker) - 2 replicas
+- Celery Beat (learnx-celery-beat) - 1 replica
+- Supabase Bridge (learnx-supabase-bridge) - 1 replica
+
+Environment Variables Required:
+- See .env.railway.example
+
+Start Commands:
+
