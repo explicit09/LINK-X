@@ -1,0 +1,29 @@
+{
+  "name": "learnx-pgmq-worker",
+  "source": {
+    "repo": "https://github.com/explicit09/LINK-X.git",
+    "branch": "main"
+  },
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
+  },
+  "deploy": {
+    "startCommand": "python /app/src/startup/embedding_worker_init.py",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 5,
+    "numReplicas": 3
+  },
+  "envVars": {
+    "FLASK_ENV": "production",
+    "SERVICE_NAME": "pgmq-worker",
+    "WORKER_ID": "pgmq-worker-${RAILWAY_REPLICA_ID}",
+    "BATCH_SIZE": "100",
+    "MAX_RETRIES": "3",
+    "EMBEDDING_WORKERS": "3"
+  },
+  "healthcheck": {
+    "type": "command",
+    "command": "python -c \"import psycopg2; conn = psycopg2.connect(os.environ['DATABASE_URL']); conn.close()\""
+  }
+}

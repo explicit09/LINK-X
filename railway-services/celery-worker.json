@@ -1,0 +1,30 @@
+{
+  "name": "learnx-celery-worker",
+  "source": {
+    "repo": "https://github.com/explicit09/LINK-X.git",
+    "branch": "main"
+  },
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
+  },
+  "deploy": {
+    "startCommand": "/app/docker/celery-entrypoint.sh worker",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3,
+    "numReplicas": 2
+  },
+  "envVars": {
+    "FLASK_ENV": "production",
+    "SERVICE_NAME": "celery-worker",
+    "WORKER_ID": "celery-worker-${RAILWAY_REPLICA_ID}",
+    "C_FORCE_ROOT": "1"
+  },
+  "healthcheck": {
+    "type": "command",
+    "command": "celery -A celery_app inspect ping",
+    "interval": 30,
+    "timeout": 10,
+    "retries": 3
+  }
+}

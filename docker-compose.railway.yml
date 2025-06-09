@@ -1,0 +1,34 @@
+# Simplified Docker Compose for Railway-like deployment
+# This is for local testing of production configuration
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: learnx:production
+    restart: always
+    env_file:
+      - ./docker-image/.env
+    environment:
+      - FLASK_ENV=production
+      - PORT=8000
+      - USE_SUPABASE_STORAGE=true
+      # Disable local services for production
+      - DISABLE_REDIS=0
+      - DISABLE_CELERY=0
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+# For Railway deployment, use the main Dockerfile directly
+# Railway will handle:
+# - Port assignment (via $PORT env var)
+# - Health checks
+# - Restart policies
+# - Scaling
