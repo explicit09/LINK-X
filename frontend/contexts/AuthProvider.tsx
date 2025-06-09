@@ -23,6 +23,10 @@ import { DEFAULT_ROLE } from '@/lib/auth/types'
 import authService from '@/lib/auth/authService'
 import { debugLog, errorLog } from '@/lib/auth/config'
 
+// Cache configuration
+const SESSION_CACHE_KEY = 'link-x-auth-cache'
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
+
 // Create the auth context
 const AuthContext = createContext<AuthContextState | null>(null)
 
@@ -55,10 +59,34 @@ export function AuthProvider({ children, config }: AuthProviderProps) {
   const initializeAuth = async () => {
     try {
       debugLog('Initializing auth state')
-      setLoading(true)
       setError(null)
 
-      // Get current session
+      // Check cache first for immediate auth state
+      const cachedData = sessionStorage.getItem(SESSION_CACHE_KEY)
+      if (cachedData) {
+        try {
+          const { user: cachedUser, session: cachedSession, profile: cachedProfile, timestamp } = JSON.parse(cachedData)
+          const age = Date.now() - timestamp
+          
+          // Use cache if it's fresh
+          if (age < CACHE_DURATION) {
+            debugLog('Using cached auth state', { userId: cachedUser?.id })
+            setUser(cachedUser)
+            setSession(cachedSession)
+            setProfile(cachedProfile)
+            setLoading(false)
+            
+            // Still verify in background
+            verifySessionInBackground()
+            return
+          }
+        } catch (e) {
+          debugLog('Failed to parse cached auth data', e)
+          sessionStorage.removeItem(SESSION_CACHE_KEY)
+        }
+      }
+
+      // No valid cache, fetch fresh data
       const currentSession = await authService.getCurrentSession()
       
       if (currentSession?.user) {
@@ -70,6 +98,9 @@ export function AuthProvider({ children, config }: AuthProviderProps) {
           setSession(currentSession)
           setProfile(currentUser.profile || null)
           debugLog('Auth state initialized with user', { userId: currentUser.id })
+          
+          // Cache the auth state
+          updateAuthCache(currentUser, currentSession, currentUser.profile)
         }
       } else {
         debugLog('No active session found')
@@ -80,6 +111,48 @@ export function AuthProvider({ children, config }: AuthProviderProps) {
       errorLog('Auth initialization failed', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  /**
+   * Update auth cache
+   */
+  const updateAuthCache = (user: AuthUser | null, session: Session | null, profile: UserProfile | null) => {
+    try {
+      sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify({
+        user,
+        session,
+        profile,
+        timestamp: Date.now()
+      }))
+    } catch (e) {
+      debugLog('Failed to update auth cache', e)
+    }
+  }
+
+  /**
+   * Verify session in background (non-blocking)
+   */
+  const verifySessionInBackground = async () => {
+    try {
+      const currentSession = await authService.getCurrentSession()
+      if (currentSession?.user) {
+        const currentUser = await authService.getCurrentUser()
+        if (currentUser) {
+          setUser(currentUser)
+          setSession(currentSession)
+          setProfile(currentUser.profile || null)
+          updateAuthCache(currentUser, currentSession, currentUser.profile)
+        }
+      } else {
+        // Session expired, clear everything
+        setUser(null)
+        setSession(null)
+        setProfile(null)
+        sessionStorage.removeItem(SESSION_CACHE_KEY)
+      }
+    } catch (err) {
+      debugLog('Background session verification failed', err)
     }
   }
 
@@ -102,13 +175,17 @@ export function AuthProvider({ children, config }: AuthProviderProps) {
           setSession(newSession)
           setProfile(enrichedUser.profile || null)
           setError(null)
+          
+          // Update cache
+          updateAuthCache(enrichedUser, newSession, enrichedUser.profile || null)
         }
       } else {
-        // User signed out - clear state
+        // User signed out - clear state and cache
         setUser(null)
         setSession(null)
         setProfile(null)
         setError(null)
+        sessionStorage.removeItem(SESSION_CACHE_KEY)
       }
     } catch (err) {
       const authError = transformError(err)

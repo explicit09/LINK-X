@@ -155,7 +155,8 @@ class VersioningMiddleware:
         app.after_request(self.after_request)
         
         # Add version checking to error handlers
-        app.errorhandler(404)(self.handle_404)
+        # TEMPORARILY DISABLED: Custom 404 handler interfering with blueprint routing
+        # app.errorhandler(404)(self.handle_404)
     
     def before_request(self):
         """Process request before routing"""
@@ -188,7 +189,7 @@ class VersioningMiddleware:
         
         response_data = {
             'error': 'Not Found',
-            'message': f'The requested endpoint does not exist in API {version}',
+            'message': f'DEBUG: API VERSIONING 404 HANDLER STILL ACTIVE - {version}',
             'path': request.path,
             'version': version
         }

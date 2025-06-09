@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useAuth } from '@/hooks/useAuth';
 import { apiClient } from '@/lib/api/client';
 import { toast } from 'sonner';
 
@@ -49,7 +49,7 @@ export function useStreamingPersonalization(
     retryDelay = 1000
   } = options;
 
-  const { user } = useAuthUser();
+  const { user } = useAuth();
   const [sections, setSections] = useState<Map<string, string>>(new Map());
   const [outline, setOutline] = useState<OutlineSection[]>([]);
   const [currentSection, setCurrentSection] = useState<string | null>(null);
@@ -114,7 +114,9 @@ export function useStreamingPersonalization(
         file_id: fileId
       });
 
-      const generatedOutline = response.outline.map((section: any) => ({
+      // The base client auto-unwraps v2 API responses, so we get the outline directly
+      const outline = (response as any)?.outline || response || [];
+      const generatedOutline = outline.map((section: any) => ({
         anchor: section.anchor,
         title: section.title,
         isComplete: false,

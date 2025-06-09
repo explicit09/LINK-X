@@ -45,8 +45,11 @@ export const useEnhancedPersonalization = (fileId: string) => {
   // Generate outline
   const generateOutline = useCallback(async () => {
     try {
-      const response = await apiClient.get(`/api/personalization/v2/outline/${fileId}`);
-      const outline = response?.data?.outline || response?.outline || [];
+      const response = await apiClient.post('/api/v2/personalization/outline', {
+        file_id: fileId
+      });
+      // The base client auto-unwraps v2 API responses, so we get the outline directly
+      const outline = (response as any)?.outline || response || [];
       
       setState(prev => ({
         ...prev,
@@ -164,7 +167,10 @@ export const useEnhancedPersonalization = (fileId: string) => {
 
     const connectWithRetry = async () => {
       try {
-        // Get Supabase token for SSE
+        // First, try to get a Flask JWT token by creating a session
+        const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        
+        // Get Supabase token
         const { supabase } = await import('@/lib/supabase');
         const { data: { session } } = await supabase.auth.getSession();
         
@@ -178,19 +184,68 @@ export const useEnhancedPersonalization = (fileId: string) => {
           return;
         }
         
-        const token = session.access_token;
-        console.log('🔐 Enhanced Personalization: Got Supabase token:', token ? `${token.substring(0, 20)}...` : 'null');
+        // Exchange Supabase token for Flask JWT token via session endpoint
+        try {
+          const sessionResponse = await fetch(`${baseURL}/api/v2/auth/session`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              access_token: session.access_token
+            })
+          });
+          
+          if (sessionResponse.ok) {
+            const sessionData = await sessionResponse.json();
+            if (sessionData.data?.session?.access_token) {
+              // Use the Flask JWT token from session response
+              const flaskToken = sessionData.data.session.access_token;
+              console.log('🔐 Got Flask JWT token for SSE');
+              
+              const url = new URL(`/api/v2/personalization/stream`, baseURL);
+              url.searchParams.append('file_id', fileId);
+              url.searchParams.append('token', flaskToken);
+              
+              console.log('🔗 Connecting to SSE with Flask token');
+              
+              const eventSource = new EventSource(url.toString());
+              eventSourceRef.current = eventSource;
+            } else {
+              // Fallback to Supabase token if no Flask token returned
+              console.log('⚠️ No Flask token in session response, using Supabase token');
+              const url = new URL(`/api/v2/personalization/stream`, baseURL);
+              url.searchParams.append('file_id', fileId);
+              url.searchParams.append('token', session.access_token);
+              
+              const eventSource = new EventSource(url.toString());
+              eventSourceRef.current = eventSource;
+            }
+          } else {
+            // If session creation fails, try with Supabase token directly
+            console.log('⚠️ Session creation failed, using Supabase token');
+            const url = new URL(`/api/v2/personalization/stream`, baseURL);
+            url.searchParams.append('file_id', fileId);
+            url.searchParams.append('token', session.access_token);
+            
+            const eventSource = new EventSource(url.toString());
+            eventSourceRef.current = eventSource;
+          }
+        } catch (sessionError) {
+          console.error('Session exchange error:', sessionError);
+          // Fallback to Supabase token
+          const url = new URL(`/api/v2/personalization/stream`, baseURL);
+          url.searchParams.append('file_id', fileId);
+          url.searchParams.append('token', session.access_token);
+          
+          const eventSource = new EventSource(url.toString());
+          eventSourceRef.current = eventSource;
+        }
         
-        // For EventSource, we need to pass token as URL parameter since headers aren't universally supported
-        const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        const url = new URL(`/api/v2/personalization/stream`, baseURL);
-        url.searchParams.append('file_id', fileId);
-        url.searchParams.append('token', token);
-        
-        console.log('🔗 Connecting to SSE:', url.toString());
-        
-        const eventSource = new EventSource(url.toString());
-        eventSourceRef.current = eventSource;
+        const eventSource = eventSourceRef.current;
+        if (!eventSource) {
+          throw new Error('Failed to create EventSource');
+        }
 
         let heartbeatTimeout: NodeJS.Timeout;
         const resetHeartbeat = () => {
@@ -339,6 +394,7 @@ export const useEnhancedPersonalization = (fileId: string) => {
 
   return {
     ...state,
+    outline: state.outline || [],
     generateOutline,
     startStreaming,
     stopStreaming,

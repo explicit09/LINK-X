@@ -8,7 +8,7 @@ import logging
 from flask import Blueprint, Response, request, jsonify, stream_with_context, g
 from typing import Dict, Any
 
-from core.dependencies import container
+# from core.dependencies import container  # Disabled - dependency_injector not available
 from core.decorators_unified import auth_required
 from services.streaming_personalization_v2 import OptimizedStreamingPersonalizationService
 
@@ -23,7 +23,7 @@ def get_streaming_service():
     try:
         # Import here to avoid circular imports
         from services.ai_service import AIService
-        from services.file_service_supabase import FileService
+        from services.file_service_supabase import SupabaseFileService as FileService
         from repositories.user_repository import UserRepository
         from repositories.file_repository import FileRepository
         import redis
@@ -253,7 +253,10 @@ def save_personalized_content():
     
     try:
         # Save to cache for quick access
-        cache = container.redis_client()
+        import redis
+        import os
+        redis_url = os.environ.get('REDIS_URL') or 'redis://redis:6379/0'
+        cache = redis.from_url(redis_url)
         cache_key = f"saved_personalization:{file_id}:{str(g.current_user.id)}"
         
         # Store with 7-day expiry
@@ -296,7 +299,10 @@ def get_personalization_status(file_id: str):
     }
     """
     try:
-        cache = container.redis_client()
+        import redis
+        import os
+        redis_url = os.environ.get('REDIS_URL') or 'redis://redis:6379/0'
+        cache = redis.from_url(redis_url)
         cache_key = f"saved_personalization:{file_id}:{str(g.current_user.id)}"
         
         saved_data_raw = cache.get(cache_key)

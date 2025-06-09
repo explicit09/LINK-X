@@ -202,16 +202,17 @@ def upload_file_v2():
                 file_record.storage_path = storage_path
                 file_record.storage_bucket = bucket_name
                 file_record.storage_type = 'supabase'
-                    # Get actual file size - seek to end and get position
-                    try:
-                        file.seek(0, 2)  # Seek to end
-                        actual_file_size = file.tell()
-                        file.seek(0)  # Reset to beginning
-                        file_record.file_size = int(actual_file_size if actual_file_size > 0 else (file.content_length or 0))
-                    except ValueError:
-                        # File might be closed, use content_length
-                        file_record.file_size = int(file.content_length or 0)
-                    logger.info(f"Successfully uploaded to S3: bucket={file_record.s3_bucket}, key={file_record.s3_key}, size={file_record.file_size}")
+                
+                # Get actual file size - seek to end and get position
+                try:
+                    file.seek(0, 2)  # Seek to end
+                    actual_file_size = file.tell()
+                    file.seek(0)  # Reset to beginning
+                    file_record.file_size = int(actual_file_size if actual_file_size > 0 else (file.content_length or 0))
+                except ValueError:
+                    # File might be closed, use content_length
+                    file_record.file_size = int(file.content_length or 0)
+                logger.info(f"Successfully uploaded to Supabase: bucket={file_record.storage_bucket}, path={file_record.storage_path}, size={file_record.file_size}")
                 
                 # Process file - try async first, then sync
                 processed = False

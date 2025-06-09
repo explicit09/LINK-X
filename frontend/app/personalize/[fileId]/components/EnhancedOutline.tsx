@@ -97,8 +97,8 @@ export function EnhancedOutline({
   const [hoveredSection, setHoveredSection] = useState<string | null>(null);
   const [streakCount, setStreakCount] = useState(0);
   
-  const completedSections = outline.filter(s => s.isComplete).length;
-  const totalSections = outline.length;
+  const completedSections = outline?.filter(s => s.isComplete).length || 0;
+  const totalSections = outline?.length || 0;
   const isComplete = progress === 100;
   const xp = calculateXP(completedSections);
   const level = calculateLevel(xp);
