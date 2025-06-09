@@ -1,0 +1,25 @@
+{
+  "name": "learnx-backend",
+  "source": {
+    "repo": "https://github.com/explicit09/LINK-X.git",
+    "branch": "main"
+  },
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
+  },
+  "deploy": {
+    "startCommand": "gunicorn --bind 0.0.0.0:$PORT --workers 4 --timeout 300 --chdir /app/src app:create_app()",
+    "healthcheckPath": "/api/v2/health",
+    "healthcheckTimeout": 10,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3,
+    "numReplicas": 1
+  },
+  "envVars": {
+    "FLASK_ENV": "production",
+    "SERVICE_NAME": "backend",
+    "DISABLE_REDIS": "0",
+    "DISABLE_CELERY": "0"
+  }
+}

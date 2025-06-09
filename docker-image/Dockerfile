@@ -6,8 +6,8 @@ ARG PYTHON_VERSION=3.11
 FROM python:${PYTHON_VERSION}-slim as builder
 
 # Install build dependencies with cache mount
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+RUN --mount=type=cache,id=apt-cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,id=apt-lib,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
@@ -19,15 +19,15 @@ WORKDIR /build
 COPY docker-image/src/requirements.txt .
 
 # Install Python dependencies with pip cache mount to a shared location
-RUN --mount=type=cache,target=/root/.cache/pip \
+RUN --mount=type=cache,id=pip-cache,target=/root/.cache/pip \
     pip install --prefix=/usr/local -r requirements.txt
 
 # Runtime stage
 FROM python:${PYTHON_VERSION}-slim
 
 # Install runtime dependencies with cache mount
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+RUN --mount=type=cache,id=apt-cache-runtime,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,id=apt-lib-runtime,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \

@@ -1,0 +1,28 @@
+{
+  "name": "learnx-supabase-bridge",
+  "source": {
+    "repo": "https://github.com/explicit09/LINK-X.git",
+    "branch": "main"
+  },
+  "build": {
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
+  },
+  "deploy": {
+    "startCommand": "python -m services.supabase_bridge",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 5,
+    "numReplicas": 1
+  },
+  "envVars": {
+    "FLASK_ENV": "production",
+    "SERVICE_NAME": "supabase-bridge",
+    "WORKER_ID": "supabase-bridge-1",
+    "BRIDGE_POLL_INTERVAL": "10",
+    "BRIDGE_MAX_JOBS": "3"
+  },
+  "healthcheck": {
+    "type": "command",
+    "command": "python -c \"import psycopg2; conn = psycopg2.connect(os.environ['DATABASE_URL']); conn.close()\""
+  }
+}
