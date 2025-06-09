@@ -77,7 +77,7 @@ class Settings(BaseSettings):
     database_echo: bool = Field(default=False)
     
     # Redis
-    redis_url: RedisDsn = Field(default="redis://localhost:6379/0", env="REDIS_URL")
+    redis_url: Optional[RedisDsn] = Field(default="redis://localhost:6379/0", env="REDIS_URL")
     redis_max_connections: int = Field(default=10)
     redis_decode_responses: bool = Field(default=True)
     
@@ -143,6 +143,14 @@ class Settings(BaseSettings):
             raise ValueError("Database URL must be PostgreSQL")
         # Convert postgres:// to postgresql:// for SQLAlchemy compatibility
         return str(v).replace("postgres://", "postgresql://")
+    
+    @field_validator("redis_url", mode="before")
+    @classmethod
+    def validate_redis_url(cls, v):
+        """Handle empty string for Redis URL"""
+        if v == "" or v is None:
+            return "redis://localhost:6379/0"
+        return v
     
     @field_validator("cors_origins", mode="before")
     @classmethod
