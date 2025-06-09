@@ -3,12 +3,27 @@ Celery configuration for background task processing.
 Handles file indexing, embedding generation, and other async tasks.
 """
 import os
+import sys
+import logging
 from celery import Celery
 from kombu import Exchange, Queue
 from datetime import timedelta
 
-# Redis configuration - use the docker-compose network name
-REDIS_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Redis configuration with better error handling
+REDIS_URL = os.getenv('REDIS_URL')
+
+if not REDIS_URL:
+    logger.error("REDIS_URL environment variable is not set!")
+    logger.error("Please set REDIS_URL to your Redis connection string")
+    logger.error("Example: redis://your-redis-host:6379/0")
+    # Don't exit here, let Celery show its own error for debugging
+    REDIS_URL = 'redis://localhost:6379/0'  # Fallback for local development
+
+logger.info(f"Celery connecting to Redis: {REDIS_URL.replace('redis://', 'redis://***@')}")
 
 # Create Celery app
 app = Celery('learnx')
@@ -40,6 +55,15 @@ app.conf.update(
     # Timezone
     timezone='UTC',
     enable_utc=True,
+    
+    # Connection settings for Railway/cloud deployment
+    broker_connection_retry_on_startup=True,
+    broker_connection_retry=True,
+    broker_transport_options={
+        'visibility_timeout': 3600,
+        'fanout_prefix': True,
+        'fanout_patterns': True
+    },
     
     # Rate limiting
     task_annotations={
@@ -114,5 +138,7 @@ app.conf.update(
 # Import tasks to register them
 try:
     import tasks
-except ImportError:
+    logger.info("Successfully imported tasks module")
+except ImportError as e:
+    logger.warning(f"Could not import tasks: {e}")
     app.autodiscover_tasks(['tasks'])
