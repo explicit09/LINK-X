@@ -5,6 +5,7 @@ Combines v1 and v2 decorator functionality with version awareness
 
 import functools
 import logging
+import os
 from typing import List, Optional, Callable
 import time
 import json
@@ -131,7 +132,11 @@ def auth_required(roles: Optional[List[str]] = None,
                 # Check if authentication is required
                 if not optional and not authenticated:
                     logger.warning(f"Authentication failed for {request.path}. No valid auth found.")
-                    return jsonify({'error': 'Authentication required', 'debug': 'No authentication token found'}), 401
+                    error_response = {'error': 'Authentication required'}
+                    # Only include debug info in development
+                    if os.getenv('FLASK_ENV') == 'development':
+                        error_response['debug'] = 'No authentication token found'
+                    return jsonify(error_response), 401
                     
                 # Check roles if specified
                 if authenticated and roles and g.current_user:

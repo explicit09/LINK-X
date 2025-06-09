@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { FileText, Video, Mic, AlertCircle, X, Loader2 } from 'lucide-react';
-import PDFViewer from '@/components/PDFViewer';
+import { PDFViewer } from '@/components/ui/lazy-imports';
 import { toast as sonnerToast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 

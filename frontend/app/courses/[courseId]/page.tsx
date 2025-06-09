@@ -61,7 +61,7 @@ export default function CoursePage() {
   const { user, profile } = useAuth();
   const currentUser = toComponentUser(profile, user);
   const { course, loading: courseLoading, error: courseError, refetch: refetchCourse } = useCourseData(courseId);
-  const { modules, loading: modulesLoading, error: modulesError, refetch: refetchModules } = useCourseModules(courseId);
+  const { modules, loading: modulesLoading, error: modulesError, refetch: refetchModules, isPolling, hasProcessingFiles } = useCourseModules(courseId);
   const { progress: courseProgress, loading: progressLoading, refetch: refetchProgress } = useCourseProgress(courseId);
   
   // Determine user role for tabs
@@ -347,7 +347,15 @@ export default function CoursePage() {
   const renderModulesContent = () => (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-gray-900">Course Modules</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-semibold text-gray-900">Course Modules</h2>
+          {hasProcessingFiles === true && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              {isPolling ? 'Processing files...' : 'Files processing'}
+            </div>
+          )}
+        </div>
         {isOwner && (
           <Button
             size="sm"

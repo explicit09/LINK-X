@@ -16,7 +16,7 @@ import { InlineDocumentSkeleton } from './document-skeleton';
 import useSWR from 'swr';
 import { Editor } from './editor';
 import { DocumentToolCall, DocumentToolResult } from './document';
-import { CodeEditor } from './code-editor';
+import { CodeEditor } from './ui/lazy-imports';
 import { useBlock } from '@/hooks/use-block';
 import equal from 'fast-deep-equal';
 

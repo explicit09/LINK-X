@@ -5,7 +5,7 @@
 import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { Editor } from '@/components/editor';
-import { CodeEditor } from '@/components/code-editor';
+import { CodeEditor } from '@/components/ui/lazy-imports';
 import { Console } from '@/components/console';
 import { DiffView } from '@/components/diffview';
 import { DocumentSkeleton } from '@/components/document-skeleton';

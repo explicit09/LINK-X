@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { moduleOperations } from '@/lib/db/operations';
 
 export interface Material {
@@ -38,6 +38,11 @@ export const useCourseModules = (courseId: string) => {
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
+  
+  // Refs to manage polling lifecycle
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialLoadRef = useRef(true);
 
   const calculateModuleProgress = (materials: any[]): number => {
     if (!materials || materials.length === 0) return 0;
@@ -135,6 +140,115 @@ export const useCourseModules = (courseId: string) => {
     return 'assignment';
   };
 
+  // Helper function to check if any files are currently being processed
+  const hasProcessingFiles = useCallback((modules: Module[]): boolean => {
+    return modules.some(module => 
+      module.materials_list.some(material => 
+        material.processing_status === 'pending' || material.processing_status === 'processing'
+      )
+    );
+  }, []);
+
+  // Helper function to start polling
+  const startPolling = useCallback(() => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    setIsPolling(true);
+    
+    // Implement exponential backoff for polling
+    const POLL_INTERVALS = [10000, 20000, 30000, 60000, 120000]; // 10s, 20s, 30s, 1m, 2m
+    let pollCount = 0;
+    
+    const schedulePoll = () => {
+      const interval = POLL_INTERVALS[Math.min(pollCount++, POLL_INTERVALS.length - 1)];
+      
+      pollingIntervalRef.current = setTimeout(async () => {
+        try {
+          // Refetch data without showing loading state
+          const backendModules = await moduleOperations.getCourseModules(courseId);
+          
+          if (backendModules && backendModules.length > 0) {
+            const transformedModules = transformModulesData(backendModules);
+            setModules(transformedModules);
+            
+            // Stop polling if no files are processing
+            if (!hasProcessingFiles(transformedModules)) {
+              stopPolling();
+              return;
+            }
+          }
+          
+          // Schedule next poll
+          schedulePoll();
+        } catch (error) {
+          console.error('Polling error:', error);
+          // Continue polling but with backoff
+          schedulePoll();
+        }
+      }, interval);
+    };
+    
+    // Start polling
+    schedulePoll();
+  }, [courseId, hasProcessingFiles]);
+
+  // Helper function to stop polling
+  const stopPolling = useCallback(() => {
+    if (pollingIntervalRef.current) {
+      clearTimeout(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    setIsPolling(false);
+  }, []);
+
+  // Extract module transformation logic into a separate function
+  const transformModulesData = useCallback((backendModules: any[]): Module[] => {
+    return backendModules
+      .sort((a, b) => a.ordering - b.ordering)
+      .map((module, index) => {
+        const materials = module.files || [];
+        const progress = calculateModuleProgress(materials);
+        const confidenceLevel = calculateConfidenceLevel(materials, progress);
+        const status = determineModuleStatus(progress, index, backendModules.length);
+        
+        // Transform materials
+        const materialsWithMetrics: Material[] = materials.map((material: any) => ({
+          id: material.id,
+          title: material.title,
+          type: mapFileTypeToMaterialType(material.file_type),
+          completed: material.processing_status === 'completed', // Use processing status instead of view count
+          urgent: status === 'urgent' && material.processing_status !== 'completed',
+          filename: material.filename,
+          file_type: material.file_type,
+          file_size: material.file_size,
+          view_count: material.view_count_raw || 0,
+          chat_count: material.chat_count || 0,
+          timeSpent: (material.view_count_raw || 0) > 0 ? '45min' : undefined,
+          estimatedTime: material.file_type === 'video' ? '60min' : '30min',
+          processing_status: material.processing_status || 'pending' // Add processing status field
+        }));
+
+        return {
+          id: module.id,
+          title: module.title,
+          description: module.description,
+          progress: Math.round(progress),
+          materials: materials.length,
+          completed: materialsWithMetrics.filter(m => m.completed).length,
+          timeSpent: estimateTimeSpent(materials),
+          estimatedTime: estimateRemainingTime(materials, progress),
+          status,
+          weaknessScore: Math.max(0, 100 - confidenceLevel),
+          confidenceLevel,
+          materials_list: materialsWithMetrics,
+          ordering: module.ordering,
+          lastAccessed: status === 'in-progress' && progress > 0 ? '2 hours ago' : undefined
+        };
+      });
+  }, [calculateModuleProgress, calculateConfidenceLevel, determineModuleStatus, estimateTimeSpent, estimateRemainingTime, mapFileTypeToMaterialType]);
+
   useEffect(() => {
     const loadModules = async () => {
       if (!courseId) return;
@@ -143,60 +257,36 @@ export const useCourseModules = (courseId: string) => {
         setLoading(true);
         setError(null);
 
+        // ✅ ADD: Performance logging
+        const startTime = performance.now();
+        console.log(`[useCourseModules] Starting to fetch modules for course ${courseId}`);
+
         // Fetch module data directly from Supabase
         const backendModules = await moduleOperations.getCourseModules(courseId);
+        
+        const fetchTime = performance.now();
+        console.log(`[useCourseModules] Fetch completed in ${(fetchTime - startTime).toFixed(2)}ms`);
         
         // Handle empty modules gracefully
         if (!backendModules || backendModules.length === 0) {
           setModules([]);
+          console.log(`[useCourseModules] No modules found for course ${courseId}`);
           return;
         }
         
-        // Transform backend data to match our interface
-        const transformedModules: Module[] = backendModules
-          .sort((a, b) => a.ordering - b.ordering)
-          .map((module, index) => {
-            const materials = module.files || [];
-            const progress = calculateModuleProgress(materials);
-            const confidenceLevel = calculateConfidenceLevel(materials, progress);
-            const status = determineModuleStatus(progress, index, backendModules.length);
-            
-            // Transform materials
-            const materialsWithMetrics: Material[] = materials.map((material: any) => ({
-              id: material.id,
-              title: material.title,
-              type: mapFileTypeToMaterialType(material.file_type),
-              completed: material.processing_status === 'completed', // Use processing status instead of view count
-              urgent: status === 'urgent' && material.processing_status !== 'completed',
-              filename: material.filename,
-              file_type: material.file_type,
-              file_size: material.file_size,
-              view_count: material.view_count_raw || 0,
-              chat_count: material.chat_count || 0,
-              timeSpent: (material.view_count_raw || 0) > 0 ? '45min' : undefined,
-              estimatedTime: material.file_type === 'video' ? '60min' : '30min',
-              processing_status: material.processing_status || 'pending' // Add processing status field
-            }));
-
-            return {
-              id: module.id,
-              title: module.title,
-              description: module.description,
-              progress: Math.round(progress),
-              materials: materials.length,
-              completed: materialsWithMetrics.filter(m => m.completed).length,
-              timeSpent: estimateTimeSpent(materials),
-              estimatedTime: estimateRemainingTime(materials, progress),
-              status,
-              weaknessScore: Math.max(0, 100 - confidenceLevel),
-              confidenceLevel,
-              materials_list: materialsWithMetrics,
-              ordering: module.ordering,
-              lastAccessed: status === 'in-progress' && progress > 0 ? '2 hours ago' : undefined
-            };
-          });
-
+        // Transform backend data using the extracted function
+        const transformedModules = transformModulesData(backendModules);
         setModules(transformedModules);
+
+        const transformTime = performance.now();
+        console.log(`[useCourseModules] Transform completed in ${(transformTime - fetchTime).toFixed(2)}ms`);
+        console.log(`[useCourseModules] Total time: ${(transformTime - startTime).toFixed(2)}ms`);
+        console.log(`[useCourseModules] Loaded ${transformedModules.length} modules with ${transformedModules.reduce((sum, m) => sum + m.materials_list.length, 0)} total files`);
+
+        // Start polling if there are files being processed (but not on first load immediately)
+        if (!isInitialLoadRef.current && hasProcessingFiles(transformedModules)) {
+          startPolling();
+        }
 
       } catch (error) {
         console.error('Failed to load course modules:', error);
@@ -204,11 +294,32 @@ export const useCourseModules = (courseId: string) => {
         setModules([]);
       } finally {
         setLoading(false);
+        isInitialLoadRef.current = false;
       }
     };
 
     loadModules();
-  }, [courseId]);
+  }, [courseId, transformModulesData, hasProcessingFiles, startPolling]);
+
+  // Effect to manage polling lifecycle based on module changes
+  useEffect(() => {
+    if (!isInitialLoadRef.current && modules.length > 0) {
+      const shouldPoll = hasProcessingFiles(modules);
+      
+      if (shouldPoll && !isPolling) {
+        startPolling();
+      } else if (!shouldPoll && isPolling) {
+        stopPolling();
+      }
+    }
+  }, [modules, hasProcessingFiles, isPolling, startPolling, stopPolling]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      stopPolling();
+    };
+  }, [stopPolling]);
 
   const refetch = async () => {
     if (!courseId) return;
@@ -227,51 +338,14 @@ export const useCourseModules = (courseId: string) => {
         return;
       }
       
-      // Transform backend data to match our interface
-      const transformedModules: Module[] = backendModules
-        .sort((a, b) => a.ordering - b.ordering)
-        .map((module, index) => {
-          const materials = module.files || [];
-          const progress = calculateModuleProgress(materials);
-          const confidenceLevel = calculateConfidenceLevel(materials, progress);
-          const status = determineModuleStatus(progress, index, backendModules.length);
-          
-          // Transform materials
-          const materialsWithMetrics: Material[] = materials.map((material: any) => ({
-            id: material.id,
-            title: material.title,
-            type: mapFileTypeToMaterialType(material.file_type),
-            completed: material.processing_status === 'completed', // Use processing status instead of view count
-            urgent: status === 'urgent' && material.processing_status !== 'completed',
-            filename: material.filename,
-            file_type: material.file_type,
-            file_size: material.file_size,
-            view_count: material.view_count_raw || 0,
-            chat_count: material.chat_count || 0,
-            timeSpent: (material.view_count_raw || 0) > 0 ? '45min' : undefined,
-            estimatedTime: material.file_type === 'video' ? '60min' : '30min',
-            processing_status: material.processing_status || 'pending' // Add processing status field
-          }));
-
-          return {
-            id: module.id,
-            title: module.title,
-            description: module.description,
-            progress: Math.round(progress),
-            materials: materials.length,
-            completed: materialsWithMetrics.filter(m => m.completed).length,
-            timeSpent: estimateTimeSpent(materials),
-            estimatedTime: estimateRemainingTime(materials, progress),
-            status,
-            weaknessScore: Math.max(0, 100 - confidenceLevel),
-            confidenceLevel,
-            materials_list: materialsWithMetrics,
-            ordering: module.ordering,
-            lastAccessed: status === 'in-progress' && progress > 0 ? '2 hours ago' : undefined
-          };
-        });
-
+      // Transform backend data using the extracted function
+      const transformedModules = transformModulesData(backendModules);
       setModules(transformedModules);
+
+      // Start polling if there are files being processed
+      if (hasProcessingFiles(transformedModules)) {
+        startPolling();
+      }
 
     } catch (error) {
       console.error('Failed to load course modules:', error);
@@ -286,6 +360,8 @@ export const useCourseModules = (courseId: string) => {
     modules,
     loading,
     error,
-    refetch
+    refetch,
+    isPolling,
+    hasProcessingFiles: modules.length > 0 ? hasProcessingFiles(modules) : false
   };
 };

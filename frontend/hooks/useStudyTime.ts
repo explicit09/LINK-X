@@ -61,7 +61,33 @@ export function useStudyTime(period: 'week' | 'month' | 'all' = 'week'): UseStud
         .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: false });
       
-      if (sessionsError) throw sessionsError;
+      // Handle missing table gracefully
+      if (sessionsError) {
+        console.warn('[useStudyTime] study_sessions table not available:', sessionsError.message);
+        // Return empty data instead of throwing
+        const emptyData: StudyTimeAnalytics = {
+          period: period === 'week' ? 'This Week' : period === 'month' ? 'This Month' : 'All Time',
+          summary: {
+            total_sessions: 0,
+            total_hours: 0,
+            total_minutes: 0,
+            avg_session_hours: 0,
+            avg_session_minutes: 0,
+            study_streak_days: 0
+          },
+          quality_metrics: {
+            avg_focus_score: null,
+            avg_effectiveness: null,
+            total_ratings: 0
+          },
+          course_breakdown: {},
+          daily_breakdown: [],
+          recent_sessions: []
+        };
+        setStudyTime(emptyData);
+        setIsLoading(false);
+        return;
+      }
       
       // Calculate summary metrics
       const totalSessions = sessions?.length || 0;
@@ -188,20 +214,26 @@ export function useStudyTime(period: 'week' | 'month' | 'all' = 'week'): UseStud
     try {
       console.log('[useStudyTime] Starting study session in Supabase...');
       
-      // Check if there's already an active session
-      const { data: existingSession } = await supabase
+      // Check if there's already an active session (gracefully handle missing table)
+      const { data: existingSession, error: checkError } = await supabase
         .from('study_sessions')
         .select('*')
         .eq('user_id', user.id)
         .is('end_time', null)
         .single();
       
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.warn('[useStudyTime] study_sessions table not available for session check');
+        toast.error('Study session tracking not available');
+        return false;
+      }
+      
       if (existingSession) {
         toast.error('You already have an active study session');
         return false;
       }
       
-      // Create new session
+      // Create new session (gracefully handle missing table)
       const { data: newSession, error } = await supabase
         .from('study_sessions')
         .insert({
@@ -216,7 +248,11 @@ export function useStudyTime(period: 'week' | 'month' | 'all' = 'week'): UseStud
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.warn('[useStudyTime] study_sessions table not available for session creation');
+        toast.error('Study session tracking not available');
+        return false;
+      }
       
       const sessionResponse: StudySessionResponse = {
         session_id: newSession.id,

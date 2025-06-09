@@ -50,9 +50,26 @@ export function useUserJourneyStage(): UserJourneyData & { refresh: () => void }
     nextStageRequirements: [],
     personalizationLevel: 0
   });
+  
+  // Add caching to reduce database calls
+  const [lastFetched, setLastFetched] = useState<number>(0);
+  const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
 
-  const analyzeUserJourney = async () => {
+  const analyzeUserJourney = async (forceRefresh: boolean = false) => {
       try {
+        // Check cache first (unless forced refresh or first load)
+        const now = Date.now();
+        if (!forceRefresh && lastFetched > 0 && now - lastFetched < CACHE_DURATION) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[useUserJourneyStage] Using cached data');
+          }
+          return;
+        }
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[useUserJourneyStage] Fetching fresh data...');
+        }
+        
         // Get current user
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
@@ -93,11 +110,8 @@ export function useUserJourneyStage(): UserJourneyData & { refresh: () => void }
             .eq('user_id', user.id)
             .eq('completed', true),
           
-          // 5. Calculate total study hours
-          supabase
-            .from('study_sessions')
-            .select('actual_duration')
-            .eq('user_id', user.id),
+          // 5. Calculate total study hours (skip for now - table doesn't exist)
+          Promise.resolve({ data: [], error: null }),
           
           // 6. Get last activity from user_activities
           supabase
@@ -115,9 +129,11 @@ export function useUserJourneyStage(): UserJourneyData & { refresh: () => void }
         const userStats = userStatsData.data;
         const completedTasksCount = completedTasksData.count || 0;
         
-        // Calculate total study hours
-        const totalStudyMinutes = studyTimeData.data?.reduce((sum, session) => 
-          sum + (session.actual_duration || 0), 0) || 0;
+        // Calculate total study hours (skip calculation if no study sessions data)
+        const totalStudyMinutes = studyTimeData.data?.length > 0 
+          ? studyTimeData.data.reduce((sum: number, session: any) => 
+              sum + (session.actual_duration || 0), 0) 
+          : 0;
         const studyHours = Math.round(totalStudyMinutes / 60);
         
         // Calculate days since signup
@@ -152,30 +168,34 @@ export function useUserJourneyStage(): UserJourneyData & { refresh: () => void }
           setupMissionsCompleted: completedMissions.length
         };
         
-        console.log('📊 User Journey Metrics:', {
-          coursesCount: metrics.coursesCount,
-          totalXP: metrics.totalXP,
-          tasksCompleted: metrics.tasksCompleted,
-          studyHours: metrics.studyHours,
-          daysSinceSignup: metrics.daysSinceSignup,
-          lastActivityDays: metrics.lastActivityDays,
-          streakDays: metrics.streakDays,
-          completedOnboarding: metrics.completedOnboarding,
-          setupMissionsCompleted: metrics.setupMissionsCompleted
-        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('📊 User Journey Metrics:', {
+            coursesCount: metrics.coursesCount,
+            totalXP: metrics.totalXP,
+            tasksCompleted: metrics.tasksCompleted,
+            studyHours: metrics.studyHours,
+            daysSinceSignup: metrics.daysSinceSignup,
+            lastActivityDays: metrics.lastActivityDays,
+            streakDays: metrics.streakDays,
+            completedOnboarding: metrics.completedOnboarding,
+            setupMissionsCompleted: metrics.setupMissionsCompleted
+          });
+        }
 
         // Determine user stage
         const stage = determineUserStage(metrics);
         
-        // Debug logging
-        console.log('🔍 User Journey Debug:', {
-          coursesCount: metrics.coursesCount,
-          totalXP: metrics.totalXP,
-          tasksCompleted: metrics.tasksCompleted,
-          completedOnboarding: metrics.completedOnboarding,
-          setupMissionsCompleted: metrics.setupMissionsCompleted,
-          determinedStage: stage
-        });
+        // Debug logging (development only)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 User Journey Debug:', {
+            coursesCount: metrics.coursesCount,
+            totalXP: metrics.totalXP,
+            tasksCompleted: metrics.tasksCompleted,
+            completedOnboarding: metrics.completedOnboarding,
+            setupMissionsCompleted: metrics.setupMissionsCompleted,
+            determinedStage: stage
+          });
+        }
         
         // Calculate progress to next stage
         const { progress, requirements } = calculateProgressToNextStage(stage, metrics);
@@ -191,6 +211,9 @@ export function useUserJourneyStage(): UserJourneyData & { refresh: () => void }
           nextStageRequirements: requirements,
           personalizationLevel
         });
+        
+        // Update cache timestamp
+        setLastFetched(Date.now());
 
       } catch (error) {
         console.error('Error analyzing user journey:', error);
@@ -202,10 +225,13 @@ export function useUserJourneyStage(): UserJourneyData & { refresh: () => void }
     analyzeUserJourney();
   }, []);
 
-  // Add refresh function
+  // Add refresh function with force refresh
   const refresh = () => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[useUserJourneyStage] Manual refresh triggered');
+    }
     setJourneyData(prev => ({ ...prev, isLoading: true }));
-    analyzeUserJourney();
+    analyzeUserJourney(true); // Force refresh
   };
 
   return { ...journeyData, refresh };

@@ -83,7 +83,9 @@ function DashboardContent() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && !modeLoading) {
-        console.log('[Dashboard] Page became visible, refreshing dashboard mode');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Dashboard] Page became visible, refreshing dashboard mode');
+        }
         refreshDashboardMode?.();
       }
     };
@@ -93,7 +95,9 @@ function DashboardContent() {
     // Also refresh on focus
     const handleFocus = () => {
       if (!modeLoading) {
-        console.log('[Dashboard] Window focused, refreshing dashboard mode');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Dashboard] Window focused, refreshing dashboard mode');
+        }
         refreshDashboardMode?.();
       }
     };
@@ -110,39 +114,49 @@ function DashboardContent() {
   useEffect(() => {
     if (authLoading) return; // Wait for auth to load
     
-    console.log('[Dashboard] Auth status:', {
-      isAuthenticated,
-      needsOnboarding,
-      user: currentUser?.email,
-      profile: profile?.full_name
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Dashboard] Auth status:', {
+        isAuthenticated,
+        needsOnboarding,
+        user: currentUser?.email,
+        profile: profile?.full_name
+      });
+    }
 
     // If not authenticated, redirect to login
     if (!isAuthenticated) {
-      console.log('[Dashboard] Not authenticated, redirecting to login');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Dashboard] Not authenticated, redirecting to login');
+      }
       router.replace('/login');
       return;
     }
 
     // If needs onboarding, redirect to onboarding
     if (needsOnboarding) {
-      console.log('[Dashboard] User needs onboarding, redirecting');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Dashboard] User needs onboarding, redirecting');
+      }
       router.replace('/onboarding');
       return;
     }
 
     // All checks passed - user is authenticated and onboarded
-    console.log('[Dashboard] All auth checks passed, allowing access');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Dashboard] All auth checks passed, allowing access');
+    }
   }, [authLoading, isAuthenticated, needsOnboarding, router, currentUser, profile]);
 
-  // Debug loading states
+  // Debug loading states (development only)
   useEffect(() => {
-    console.log('[Dashboard] Loading states:', {
-      authLoading,
-      journeyLoading,
-      modeLoading,
-      loadingTimeout
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Dashboard] Loading states:', {
+        authLoading,
+        journeyLoading,
+        modeLoading,
+        loadingTimeout
+      });
+    }
   }, [authLoading, journeyLoading, modeLoading, loadingTimeout]);
 
   // Unified handler functions for narrative flow
@@ -191,25 +205,25 @@ function DashboardContent() {
              modeLoading ? 'Personalizing your dashboard...' : 
              'Loading your dashboard...'}
           </p>
-          <p className="text-xs text-gray-400 mt-2">
-            Debug: auth={authLoading.toString()}, journey={journeyLoading.toString()}, mode={modeLoading.toString()}
-          </p>
+
         </div>
       </div>
     );
   }
 
   // Force render if timeout reached
-  if (loadingTimeout) {
+  if (loadingTimeout && process.env.NODE_ENV === 'development') {
     console.warn('[Dashboard] Forcing render due to timeout');
   }
 
-  // Debug user data (with profile)
-  console.log('🔍 User Data Debug:', {
-    currentUser,
-    profile,
-    displayName
-  });
+  // Debug user data (development only)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 User Data Debug:', {
+      currentUser,
+      profile,
+      displayName
+    });
+  }
 
   // Create a properly shaped user object for components using the helper
   const componentUser = toComponentUser(profile, currentUser);
@@ -339,8 +353,8 @@ export default function Dashboard() {
   return <DashboardContent />;
 }
 
-// Monitor all navigation events
-if (typeof window !== 'undefined') {
+// Monitor all navigation events (development only)
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   const originalPushState = history.pushState;
   const originalReplaceState = history.replaceState;
 

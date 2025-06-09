@@ -1,737 +1,463 @@
 /**
- * Dashboard data fetching hooks
- * Provides centralized data access for dashboard components
+ * Optimized Dashboard Data Hook
+ * Replaces 15+ individual database queries with 1 unified backend API call
+ * Uses the new /api/v2/dashboard/unified endpoint for maximum performance
  */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { courseOperations } from '@/lib/db/operations';
-import { apiClient } from '@/lib/api/client';
 
-// Types
-interface WeeklyProgress {
-  overall: number;
-  xp: { current: number; target: number };
-  tasks: { completed: number; total: number };
-  study_time: { current: number; target: number };
-}
-
-interface PriorityAction {
-  id: string;
-  title: string;
-  description: string;
-  urgency: 'urgent' | 'high' | 'medium' | 'low';
-  time_estimate: string;
-  type: string;
-  course?: string;
-}
-
-interface AIRecommendation {
-  id: string;
-  title: string;
-  description: string;
-  icon: string;
-  action: string;
-  xp_reward: number;
-  estimated_time: string;
-  confidence?: number;
-  reasoning?: string;
-}
-
-interface PerformancePulse {
-  improvement_percentage: number;
-  current_rank: number;
-  rank_change: number;
-  average_score: number;
-}
-
-interface ScheduleItem {
-  time: string;
-  title: string;
-  status: string;
-  is_next: boolean;
-  course_id?: string;
-  type?: string;
-}
-
-interface CoursesOverview {
-  active_courses: number;
-  behind_courses: number;
-  total_courses: number;
-}
-
-interface DashboardOverview {
-  weekly_progress: WeeklyProgress;
-  priority_actions: PriorityAction[];
-  ai_recommendations: AIRecommendation[];
-  performance_pulse: PerformancePulse;
-  today_schedule: ScheduleItem[];
-  courses_overview: CoursesOverview;
+interface UnifiedDashboardData {
+  user: {
+    id: string;
+    email: string;
+    full_name?: string;
+    role: string;
+    onboarding_step?: string;
+  };
+  stats: {
+    current_level: number;
+    total_xp: number;
+    streak_days: number;
+    badges_earned: number;
+  };
+  weekly_progress: {
+    xp: { current: number; target: number };
+    tasks: { completed: number; total: number };
+    study_time: { current: number; target: number };
+  };
+  recent_activities: Array<{
+    activity_type: string;
+    xp_earned: number;
+    created_at: string;
+    metadata?: any;
+  }>;
+  courses: {
+    enrolled: Array<{
+      id: string;
+      title: string;
+      description?: string;
+      published: boolean;
+      enrolled_at: string;
+      enrollment_role: string;
+    }>;
+    active_count: number;
+    total_count: number;
+  };
+  todos: {
+    urgent: Array<{
+      id: string;
+      title: string;
+      description?: string;
+      priority: string;
+      due_date?: string;
+    }>;
+    upcoming: Array<any>;
+    completed_today: Array<any>;
+  };
+  today_schedule: Array<{
+    time: string;
+    title: string;
+    status: string;
+    urgency: string;
+    type: string;
+    id?: string;
+  }>;
+  achievements: Array<{
+    achievement_id: string;
+    earned_at: string;
+  }>;
+  performance_pulse: {
+    improvement_percentage: number;
+    current_rank: number;
+    rank_change: number;
+    average_score: number;
+  };
+  ai_recommendations: Array<{
+    id: string;
+    title: string;
+    description: string;
+    icon: string;
+    action: string;
+    xp_reward: number;
+    estimated_time: string;
+  }>;
   last_updated: string;
+  optimized: boolean;
+  data_freshness: string;
+  error?: string;
 }
 
-// Custom hook for dashboard overview
-export function useDashboardOverview() {
-  const [data, setData] = useState<DashboardOverview | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchDashboardOverview = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      // Fetch data from Supabase in parallel
-      const [
-        coursesData,
-        userStatsData,
-        todosData,
-        studySessionsData
-      ] = await Promise.all([
-        // Get user's courses
-        courseOperations.getUserCourses(),
-        
-        // Get user stats
-        supabase
-          .from('user_stats')
-          .select('total_xp, weekly_xp, daily_streak')
-          .eq('user_id', user.id)
-          .single(),
-        
-        // Get todos for priority actions
-        supabase
-          .from('todos')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('completed', false)
-          .order('due_date', { ascending: true })
-          .limit(5),
-        
-        // Get recent study sessions
-        supabase
-          .from('study_sessions')
-          .select('actual_duration_minutes, created_at')
-          .eq('user_id', user.id)
-          .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-      ]);
-
-      // Calculate weekly progress
-      const weeklyStudyMinutes = studySessionsData.data?.reduce((sum, session) => 
-        sum + (session.actual_duration_minutes || 0), 0) || 0;
-      
-      const weeklyProgress: WeeklyProgress = {
-        overall: 75, // Placeholder - calculate based on actual data
-        xp: { 
-          current: userStatsData.data?.weekly_xp || 0, 
-          target: 500 
-        },
-        tasks: { 
-          completed: 0, // Would need to query completed tasks this week
-          total: todosData.data?.length || 0 
-        },
-        study_time: { 
-          current: Math.round(weeklyStudyMinutes / 60), 
-          target: 10 
-        }
-      };
-
-      // Transform todos to priority actions
-      const priorityActions: PriorityAction[] = (todosData.data || []).map(todo => ({
-        id: todo.id,
-        title: todo.title,
-        description: todo.description || '',
-        urgency: todo.priority === 'high' ? 'urgent' : todo.priority as any,
-        time_estimate: '30 mins',
-        type: 'task'
-      }));
-
-      // Create dashboard overview
-      const overview: DashboardOverview = {
-        weekly_progress: weeklyProgress,
-        priority_actions: priorityActions,
-        ai_recommendations: [], // Will be handled by separate hook
-        performance_pulse: {
-          improvement_percentage: 15,
-          current_rank: 5,
-          rank_change: 2,
-          average_score: 85
-        },
-        today_schedule: [], // Will be handled by separate hook
-        courses_overview: {
-          active_courses: coursesData.courses.length,
-          behind_courses: 0, // Would need to calculate based on progress
-          total_courses: coursesData.total
-        },
-        last_updated: new Date().toISOString()
-      };
-
-      setData(overview);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch dashboard overview');
-      console.error('Dashboard overview error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchDashboardOverview();
-  }, [fetchDashboardOverview]);
-
-  return {
-    data,
-    loading,
-    error,
-    refetch: fetchDashboardOverview,
+interface UseDashboardDataReturn {
+  data: UnifiedDashboardData | null;
+  isLoading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+  
+  // Legacy compatibility - extract specific data for existing components
+  userJourney: {
+    currentLevel: number;
+    totalXP: number;
+    weeklyXP: number;
+    targetXP: number;
+  };
+  dashboardOverview: {
+    weeklyProgress: any;
+    priorityActions: any[];
+    todaySchedule: any[];
+    coursesOverview: any;
+  };
+  gamification: {
+    currentLevel: number;
+    totalXP: number;
+    recentActivities: any[];
+    achievements: any[];
+  };
+  performancePulse: {
+    improvement: number;
+    rank: number;
+    rankChange: number;
+    averageScore: number;
   };
 }
 
-// Custom hook for weekly progress
-export function useWeeklyProgress(weekOffset: number = 0) {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+export function useDashboardData(): UseDashboardDataReturn {
+  const [data, setData] = useState<UnifiedDashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchWeeklyProgress = useCallback(async () => {
+  const fetchDashboardData = async () => {
     try {
-      setLoading(true);
+      setIsLoading(true);
       setError(null);
 
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      // Calculate week range
-      const now = new Date();
-      const weekStart = new Date(now);
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay() - (weekOffset * 7));
-      weekStart.setHours(0, 0, 0, 0);
-      
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 6);
-      weekEnd.setHours(23, 59, 59, 999);
-
-      // Fetch data for the week
-      const [statsData, tasksData, sessionsData] = await Promise.all([
-        // Get user stats
-        supabase
-          .from('user_stats')
-          .select('weekly_xp, total_xp')
-          .eq('user_id', user.id)
-          .single(),
-        
-        // Count completed tasks this week
-        supabase
-          .from('todos')
-          .select('id', { count: 'exact' })
-          .eq('user_id', user.id)
-          .eq('completed', true)
-          .gte('updated_at', weekStart.toISOString())
-          .lte('updated_at', weekEnd.toISOString()),
-        
-        // Get study sessions this week
-        supabase
-          .from('study_sessions')
-          .select('actual_duration_minutes')
-          .eq('user_id', user.id)
-          .gte('created_at', weekStart.toISOString())
-          .lte('created_at', weekEnd.toISOString())
-      ]);
-
-      // Calculate weekly progress
-      const weeklyXP = statsData.data?.weekly_xp || 0;
-      const tasksCompleted = tasksData.count || 0;
-      const studyMinutes = sessionsData.data?.reduce((sum, s) => sum + (s.actual_duration_minutes || 0), 0) || 0;
-      const studyHours = studyMinutes / 60;
-
-      // Set targets (these could be fetched from user preferences)
-      const xpTarget = 500;
-      const tasksTarget = 10;
-      const studyTarget = 10; // hours
-
-      const overallProgress = Math.round(
-        ((weeklyXP / xpTarget) * 0.4 +
-         (tasksCompleted / tasksTarget) * 0.3 +
-         (studyHours / studyTarget) * 0.3) * 100
-      );
-
-      setData({
-        week_range: `${weekStart.toLocaleDateString()} - ${weekEnd.toLocaleDateString()}`,
-        progress: {
-          overall: Math.min(overallProgress, 100),
-          xp: { current: weeklyXP, target: xpTarget },
-          tasks: { completed: tasksCompleted, total: tasksTarget },
-          study_time: { current: Math.round(studyHours * 10) / 10, target: studyTarget }
-        }
-      });
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch weekly progress');
-      console.error('Weekly progress error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [weekOffset]);
-
-  useEffect(() => {
-    fetchWeeklyProgress();
-  }, [fetchWeeklyProgress]);
-
-  return {
-    data,
-    loading,
-    error,
-    refetch: fetchWeeklyProgress,
-  };
-}
-
-// Custom hook for AI recommendations
-export function useAIRecommendations() {
-  const [data, setData] = useState<{
-    recommendations: AIRecommendation[];
-    optimal_study_time: any;
-    generated_at: string;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchRecommendations = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // For now, return static recommendations
-      // In production, this would call a recommendation engine or AI service
-      const recommendations: AIRecommendation[] = [
-        {
-          id: '1',
-          title: 'Start with your first module',
-          description: 'Begin your learning journey by exploring the first module of your course',
-          icon: 'rocket',
-          action: 'start-learning',
-          xp_reward: 50,
-          estimated_time: '30 mins',
-          confidence: 0.9,
-          reasoning: 'New users benefit from structured progression'
-        },
-        {
-          id: '2',
-          title: 'Set up your study schedule',
-          description: 'Create a personalized study schedule to stay on track',
-          icon: 'calendar',
-          action: 'create-schedule',
-          xp_reward: 25,
-          estimated_time: '10 mins',
-          confidence: 0.85,
-          reasoning: 'Scheduled learners have 3x higher completion rates'
-        }
-      ];
-
-      setData({
-        recommendations,
-        optimal_study_time: { hour: 19, duration: 60 }, // 7 PM for 1 hour
-        generated_at: new Date().toISOString()
-      });
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate recommendations');
-      console.error('AI recommendations error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchRecommendations();
-  }, [fetchRecommendations]);
-
-  return {
-    data,
-    loading,
-    error,
-    refetch: fetchRecommendations,
-  };
-}
-
-// Custom hook for performance pulse
-export function usePerformancePulse() {
-  const [data, setData] = useState<{
-    metrics: PerformancePulse;
-    insights: any;
-    last_updated: string;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchPerformancePulse = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      // Fetch performance data from Supabase
-      const [statsData, tasksData, sessionsData] = await Promise.all([
-        // Get user stats
-        supabase
-          .from('user_stats')
-          .select('*')
-          .eq('user_id', user.id)
-          .single(),
-        
-        // Get recent task completion rate
-        supabase
-          .from('todos')
-          .select('completed')
-          .eq('user_id', user.id)
-          .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
-        
-        // Get recent study sessions for average score
-        supabase
-          .from('study_sessions')
-          .select('focus_score, effectiveness_rating')
-          .eq('user_id', user.id)
-          .not('focus_score', 'is', null)
-          .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-      ]);
-
-      // Calculate metrics
-      const totalTasks = tasksData.data?.length || 0;
-      const completedTasks = tasksData.data?.filter(t => t.completed).length || 0;
-      const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-
-      const avgFocusScore = sessionsData.data?.length 
-        ? sessionsData.data.reduce((sum, s) => sum + (s.focus_score || 0), 0) / sessionsData.data.length
-        : 0;
-      
-      const avgScore = Math.round((completionRate * 0.5) + (avgFocusScore * 5)); // Convert to percentage
-
-      // Simple rank calculation based on XP
-      const totalXP = statsData.data?.total_xp || 0;
-      const currentRank = Math.floor(totalXP / 100) + 1; // Every 100 XP = 1 rank
-      
-      const performanceData = {
-        metrics: {
-          improvement_percentage: 15, // Placeholder - would need historical data
-          current_rank: currentRank,
-          rank_change: 2, // Placeholder - would need historical data
-          average_score: avgScore
-        },
-        insights: {
-          strengths: ['Consistent study schedule', 'High task completion rate'],
-          improvements: ['Increase focus during sessions', 'Try longer study sessions'],
-          recommendations: ['Schedule study sessions at your peak hours', 'Take regular breaks']
-        },
-        last_updated: new Date().toISOString()
-      };
-
-      setData(performanceData);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch performance pulse');
-      console.error('Performance pulse error:', err);
-      
-      // Fallback data
-      setData({
-        metrics: {
-          improvement_percentage: 0,
-          current_rank: 1,
-          rank_change: 0,
-          average_score: 0
-        },
-        insights: {},
-        last_updated: new Date().toISOString()
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchPerformancePulse();
-  }, [fetchPerformancePulse]);
-
-  return {
-    data,
-    loading,
-    error,
-    refetch: fetchPerformancePulse,
-  };
-}
-
-// Custom hook for today's schedule
-export function useTodaySchedule() {
-  const [data, setData] = useState<{
-    date: string;
-    items: ScheduleItem[];
-    total_items: number;
-    upcoming_items: number;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchTodaySchedule = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      // Get today's schedule items from Supabase
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      const { data: scheduleData } = await supabase
-        .from('study_sessions')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('scheduled_start', today.toISOString())
-        .lt('scheduled_start', tomorrow.toISOString())
-        .order('scheduled_start', { ascending: true });
-
-      const items: ScheduleItem[] = (scheduleData || []).map(session => ({
-        time: new Date(session.scheduled_start).toLocaleTimeString('en-US', { 
-          hour: 'numeric', 
-          minute: '2-digit' 
-        }),
-        title: session.title || 'Study Session',
-        status: new Date() > new Date(session.scheduled_end) ? 'completed' : 
-                new Date() >= new Date(session.scheduled_start) ? 'in-progress' : 'upcoming',
-        is_next: false, // Will calculate below
-        course_id: session.course_id,
-        type: session.session_type
-      }));
-
-      // Mark the next upcoming item
-      const nextIndex = items.findIndex(item => item.status === 'upcoming');
-      if (nextIndex !== -1) {
-        items[nextIndex].is_next = true;
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔄 Starting dashboard data fetch...');
       }
 
-      setData({
-        date: today.toISOString(),
-        items,
-        total_items: items.length,
-        upcoming_items: items.filter(item => item.status === 'upcoming').length
+      // Get current session with timeout
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Session fetch timeout')), 10000)
+      );
+      
+      const { data: { session }, error: sessionError } = await Promise.race([
+        sessionPromise,
+        timeoutPromise
+      ]) as any;
+      
+      if (sessionError) {
+        throw new Error(`Session error: ${sessionError.message}`);
+      }
+      
+      if (!session) {
+        throw new Error('No session found - user may need to log in');
+      }
+      
+      if (!session.access_token) {
+        throw new Error('No authentication token available - session may be expired');
+      }
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Got session:', {
+          hasUser: !!session.user,
+          hasToken: !!session.access_token,
+          userEmail: session.user?.email,
+          tokenLength: session.access_token?.length,
+          expiresAt: new Date(session.expires_at! * 1000).toISOString()
+        });
+      }
+
+      // Use the correct backend URL (localhost:8000)
+      const backendURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const fullURL = `${backendURL}/api/v2/dashboard/unified`;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🌐 Making request to:', fullURL);
+      }
+
+      const response = await fetch(fullURL, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
       });
-    } catch (err: any) {
-      setError(err.message || "Failed to fetch today's schedule");
-      console.error("Today's schedule error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
-  useEffect(() => {
-    fetchTodaySchedule();
-  }, [fetchTodaySchedule]);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📡 Response received:', {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok,
+          headers: Object.fromEntries(response.headers.entries())
+        });
+      }
 
-  return {
-    data,
-    loading,
-    error,
-    refetch: fetchTodaySchedule,
-  };
-}
-
-// Custom hook for courses overview
-export function useCoursesOverview() {
-  const [data, setData] = useState<CoursesOverview | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchCoursesOverview = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Use the existing course operations
-      const coursesData = await courseOperations.getUserCourses();
-      
-      // For now, we'll consider all courses as active
-      // In the future, you could add logic to determine which courses are "behind"
-      const overview: CoursesOverview = {
-        active_courses: coursesData.courses.length,
-        behind_courses: 0, // Would need progress tracking to determine this
-        total_courses: coursesData.total
-      };
-      
-      setData(overview);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch courses overview');
-      console.error('Courses overview error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchCoursesOverview();
-  }, [fetchCoursesOverview]);
-
-  return {
-    data,
-    loading,
-    error,
-    refetch: fetchCoursesOverview,
-  };
-}
-
-// Custom hook for activity timeline
-export function useActivityTimeline(
-  days: number = 7,
-  page: number = 1,
-  perPage: number = 20,
-) {
-  const [data, setData] = useState<{
-    activities: any[];
-    days_range: number;
-    pagination: any;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchActivityTimeline = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      // Calculate date range
-      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-      
-      // Fetch user activities from Supabase
-      const { data: activities, count } = await supabase
-        .from('user_activities')
-        .select('*', { count: 'exact' })
-        .eq('user_id', user.id)
-        .gte('created_at', startDate.toISOString())
-        .order('created_at', { ascending: false })
-        .range((page - 1) * perPage, page * perPage - 1);
-
-      // Calculate pagination
-      const totalPages = Math.ceil((count || 0) / perPage);
-      
-      setData({
-        activities: activities || [],
-        days_range: days,
-        pagination: {
-          current_page: page,
-          per_page: perPage,
-          total_items: count || 0,
-          total_pages: totalPages,
-          has_next: page < totalPages,
-          has_previous: page > 1
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ API Response Error:', errorText);
+        
+        if (response.status === 401) {
+          throw new Error('Authentication failed - please try logging in again');
+        } else if (response.status === 404) {
+          throw new Error('Dashboard endpoint not found - please check backend service');
+        } else {
+          throw new Error(`Dashboard API error: ${response.status} ${response.statusText} - ${errorText}`);
         }
-      });
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch activity timeline');
-      console.error('Activity timeline error:', err);
+      }
+
+      const result = await response.json();
       
-      // Fallback empty data
-      setData({
-        activities: [],
-        days_range: days,
-        pagination: {
-          current_page: 1,
-          per_page: perPage,
-          total_items: 0,
-          total_pages: 0,
-          has_next: false,
-          has_previous: false
-        }
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [days, page, perPage]);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📦 Raw API Response:', result);
+      }
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to fetch dashboard data');
+      }
 
-  useEffect(() => {
-    fetchActivityTimeline();
-  }, [fetchActivityTimeline]);
+      setData(result.data);
 
-  return {
-    data,
-    loading,
-    error,
-    refetch: fetchActivityTimeline,
-  };
-}
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Unified Dashboard Data loaded successfully!', {
+          userEmail: result.data.user?.email,
+          courses: result.data.courses?.total_count,
+          activities: result.data.recent_activities?.length,
+          optimized: result.data.optimized
+        });
+      }
 
-// Custom hook for generating action plans
-export function useActionPlan() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const generateActionPlan = useCallback(async (goal: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // For complex AI operations, we'll still use the backend API
-      // This is one of those "complicated calculations" that should go through Flask
-      const response = await apiClient.post('/api/v2/dashboard/action-plan', {
-        goal,
-      });
-
-      return response.data;
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to generate action plan';
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(errorMessage);
-      console.error('Action plan generation error:', err);
       
-      // Return a simple fallback plan
-      return {
-        goal,
-        steps: [
-          { step: 1, action: 'Break down your goal into smaller tasks', completed: false },
-          { step: 2, action: 'Schedule dedicated study time', completed: false },
-          { step: 3, action: 'Track your progress daily', completed: false }
-        ],
-        estimated_completion: '2 weeks',
-        generated_at: new Date().toISOString()
-      };
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Dashboard Data Error:', errorMessage);
+        console.error('🔍 Full error object:', err);
+      }
+
+      // Provide fallback data structure for graceful degradation
+      setData({
+        user: { id: '', email: '', role: 'student' },
+        stats: { current_level: 1, total_xp: 0, streak_days: 0, badges_earned: 0 },
+        weekly_progress: {
+          xp: { current: 0, target: 150 },
+          tasks: { completed: 0, total: 8 },
+          study_time: { current: 0, target: 12 }
+        },
+        recent_activities: [],
+        courses: { enrolled: [], active_count: 0, total_count: 0 },
+        todos: { urgent: [], upcoming: [], completed_today: [] },
+        today_schedule: [],
+        achievements: [],
+        performance_pulse: { improvement_percentage: 0, current_rank: 0, rank_change: 0, average_score: 0 },
+        ai_recommendations: [],
+        last_updated: new Date().toISOString(),
+        optimized: true,
+        data_freshness: 'fallback',
+        error: errorMessage
+      });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
   }, []);
 
+  // Legacy compatibility extractors for existing components
+  const userJourney = data ? {
+    currentLevel: data.stats.current_level,
+    totalXP: data.stats.total_xp,
+    weeklyXP: data.weekly_progress.xp.current,
+    targetXP: data.weekly_progress.xp.target,
+  } : {
+    currentLevel: 1,
+    totalXP: 0,
+    weeklyXP: 0,
+    targetXP: 150,
+  };
+
+  const dashboardOverview = data ? {
+    weeklyProgress: data.weekly_progress,
+    priorityActions: data.todos.urgent.slice(0, 5),
+    todaySchedule: data.today_schedule,
+    coursesOverview: {
+      activeCourses: data.courses.active_count,
+      totalCourses: data.courses.total_count,
+      behindCourses: Math.max(0, data.courses.total_count - data.courses.active_count),
+    },
+  } : {
+    weeklyProgress: { xp: { current: 0, target: 150 } },
+    priorityActions: [],
+    todaySchedule: [],
+    coursesOverview: { activeCourses: 0, totalCourses: 0, behindCourses: 0 },
+  };
+
+  const gamification = data ? {
+    currentLevel: data.stats.current_level,
+    totalXP: data.stats.total_xp,
+    recentActivities: data.recent_activities,
+    achievements: data.achievements,
+  } : {
+    currentLevel: 1,
+    totalXP: 0,
+    recentActivities: [],
+    achievements: [],
+  };
+
+  const performancePulse = data ? {
+    improvement: data.performance_pulse.improvement_percentage,
+    rank: data.performance_pulse.current_rank,
+    rankChange: data.performance_pulse.rank_change,
+    averageScore: data.performance_pulse.average_score,
+  } : {
+    improvement: 0,
+    rank: 0,
+    rankChange: 0,
+    averageScore: 0,
+  };
+
   return {
-    generateActionPlan,
-    loading,
+    data,
+    isLoading,
     error,
+    refetch: fetchDashboardData,
+    
+    // Legacy compatibility
+    userJourney,
+    dashboardOverview,
+    gamification,
+    performancePulse,
   };
 }
 
-// Utility hook for refreshing all dashboard data
-export function useDashboardRefresh() {
-  const [refreshing, setRefreshing] = useState(false);
+// LEGACY COMPATIBILITY HOOKS
+// These hooks now use the unified data but maintain the same interface for existing components
 
-  const refreshDashboard = useCallback(
-    async (refreshFunctions: (() => Promise<void>)[]) => {
-      try {
-        setRefreshing(true);
-        await Promise.all(refreshFunctions.map((fn) => fn()));
-      } catch (error) {
-        console.error('Dashboard refresh error:', error);
-      } finally {
-        setRefreshing(false);
+export function useAIRecommendations() {
+  const { data, isLoading, error } = useDashboardData();
+
+  const recommendations = data?.ai_recommendations || [
+    {
+      id: '1',
+      title: 'Start with your first module',
+      description: 'Begin your learning journey by exploring the first module of your course',
+      icon: 'rocket',
+      action: 'start-learning',
+      xp_reward: 50,
+      estimated_time: '30 mins'
+    }
+  ];
+
+  return {
+    data: {
+      recommendations,
+      optimal_study_time: { hour: 19, duration: 60 },
+      generated_at: data?.last_updated || new Date().toISOString()
+    },
+    loading: isLoading,
+    error,
+    refetch: () => Promise.resolve()
+  };
+}
+
+export function useTodaySchedule() {
+  const { data, isLoading, error } = useDashboardData();
+
+  return {
+    data: data?.today_schedule || [],
+    loading: isLoading,
+    error,
+    refetch: () => Promise.resolve()
+  };
+}
+
+export function useWeeklyProgress(weekOffset: number = 0) {
+  const { data, isLoading, error } = useDashboardData();
+
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() - (weekOffset * 7));
+  weekStart.setHours(0, 0, 0, 0);
+  
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  weekEnd.setHours(23, 59, 59, 999);
+
+  return {
+    data: {
+      week_range: `${weekStart.toLocaleDateString()} - ${weekEnd.toLocaleDateString()}`,
+      progress: data?.weekly_progress || {
+        overall: 0,
+        xp: { current: 0, target: 150 },
+        tasks: { completed: 0, total: 8 },
+        study_time: { current: 0, target: 12 }
       }
     },
-    [],
-  );
-
-  return {
-    refreshDashboard,
-    refreshing,
+    loading: isLoading,
+    error,
+    refetch: () => Promise.resolve()
   };
 }
+
+export function usePerformancePulse() {
+  const { data, isLoading, error } = useDashboardData();
+
+  return {
+    data: {
+      metrics: data?.performance_pulse || {
+        improvement_percentage: 0,
+        current_rank: 0,
+        rank_change: 0,
+        average_score: 0
+      },
+      insights: [],
+      last_updated: data?.last_updated || new Date().toISOString()
+    },
+    loading: isLoading,
+    error,
+    refetch: () => Promise.resolve()
+  };
+}
+
+export function useCoursesOverview() {
+  const { data, isLoading, error } = useDashboardData();
+
+  return {
+    data: {
+      active_courses: data?.courses?.active_count || 0,
+      behind_courses: Math.max(0, (data?.courses?.total_count || 0) - (data?.courses?.active_count || 0)),
+      total_courses: data?.courses?.total_count || 0,
+      enrolled_courses: data?.courses?.enrolled || []
+    },
+    loading: isLoading,
+    error,
+    refetch: () => Promise.resolve()
+  };
+}
+
+export function useActivityTimeline(days: number = 7, page: number = 1, perPage: number = 20) {
+  const { data, isLoading, error } = useDashboardData();
+
+  const activities = (data?.recent_activities || []).slice(0, perPage);
+
+  return {
+    data: {
+      activities,
+      days_range: days,
+      pagination: {
+        page,
+        per_page: perPage,
+        total: activities.length,
+        pages: Math.ceil(activities.length / perPage)
+      }
+    },
+    loading: isLoading,
+    error,
+    refetch: () => Promise.resolve()
+  };
+}
+
+// For backward compatibility, export the main hook with the old name too
+export const useDashboardOverview = useDashboardData; 

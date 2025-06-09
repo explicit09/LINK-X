@@ -99,18 +99,13 @@ export const courseOperations = {
 
   // Create new course
   async createCourse(courseData: CreateCourseData): Promise<Course> {
-    console.log('[courseOperations.createCourse] Starting course creation with data:', courseData);
-    
     const userResponse = await supabase.auth.getUser()
-    console.log('[courseOperations.createCourse] Auth response:', userResponse);
     
     if (!userResponse.data.user) {
-      console.error('[courseOperations.createCourse] No authenticated user found');
       throw new Error('User not authenticated')
     }
     
     const userId = userResponse.data.user.id;
-    console.log('[courseOperations.createCourse] User ID:', userId);
 
     // Start with basic course data
     const insertData: any = {
@@ -124,23 +119,13 @@ export const courseOperations = {
       instructor_id: null
     };
     
-    console.log('[courseOperations.createCourse] Insert data:', insertData);
-
     const { data, error } = await supabase
       .from('courses')
       .insert(insertData)
       .select()
       .single()
-    
-    console.log('[courseOperations.createCourse] Supabase response:', { data, error });
 
     if (error) {
-      console.error('[courseOperations.createCourse] Supabase error details:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code
-      });
       
       // Check for RLS infinite recursion error
       if (error.message?.includes('infinite recursion')) {
@@ -155,8 +140,6 @@ export const courseOperations = {
       throw error
     }
     
-    console.log('[courseOperations.createCourse] Course created successfully:', data);
-    
     // Award XP for creating a course (this will trigger all metric updates)
     try {
       await supabase.from('user_activities').insert({
@@ -168,9 +151,7 @@ export const courseOperations = {
           course_title: data.title
         }
       });
-      console.log('[courseOperations.createCourse] XP awarded for course creation');
     } catch (xpError) {
-      console.warn('[courseOperations.createCourse] Failed to award XP:', xpError);
       // Don't fail the course creation if XP awarding fails
     }
     
@@ -412,11 +393,7 @@ export const fileOperations = {
         })
 
       if (error) throw error
-      
-      // File processing will be picked up by background workers
-      console.log(`✅ Queued AI processing for file ${fileId}`)
     } catch (err) {
-      console.error(`❌ Failed to queue AI processing for file ${fileId}:`, err)
       // Don't throw - file upload succeeded, processing can be retried later
     }
   },

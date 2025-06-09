@@ -13,8 +13,9 @@ from dotenv import load_dotenv
 load_dotenv('../.env')
 
 # Configure logging
+log_level = logging.DEBUG if os.getenv('FLASK_ENV') == 'development' else logging.INFO
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=log_level,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
