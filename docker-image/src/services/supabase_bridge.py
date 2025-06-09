@@ -1,15 +1,28 @@
 """
 Supabase Bridge Service
-Connects the new Supabase-first architecture with existing Docker backend AI processing.
-Polls the Supabase processing_queue and executes jobs using existing infrastructure.
+Production-ready bridge between Supabase processing queue and backend AI workers.
+Automatically handles database connections and runs as a standalone service.
 """
 import asyncio
 import logging
 from typing import Dict, Any, Optional
 import json
 import os
+import sys
+import uuid
 from datetime import datetime, timedelta
 
+class UUIDEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles UUID objects"""
+    def default(self, obj):
+        if isinstance(obj, uuid.UUID):
+            return str(obj)
+        return super().default(obj)
+
+# Add the src directory to Python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+# Import database manager for standalone use
 from core.database_supabase import db_manager
 from services.embedding_service import EmbeddingService
 from tasks.enhanced_file_processing import process_file_with_semantic_chunking
@@ -17,164 +30,199 @@ from content_orchestrator import ContentOrchestrator
 from services.file_service_supabase import SupabaseFileService
 from utils.textUtils import extract_text
 
+# Import database manager for standalone use
+from core.database_supabase import db_manager
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 
 class SupabaseBridge:
-    """Bridge between Supabase processing queue and backend AI workers"""
+    """Production-ready bridge between Supabase processing queue and backend AI workers"""
     
     def __init__(self):
         self.running = False
-        self.poll_interval = int(os.getenv('BRIDGE_POLL_INTERVAL', '5'))  # seconds
+        self.poll_interval = int(os.getenv('BRIDGE_POLL_INTERVAL', '10'))  # seconds
         self.worker_id = os.getenv('WORKER_ID', f'bridge-{os.getpid()}')
-        self.content_orchestrator = ContentOrchestrator()
-        self.file_service = SupabaseFileService()
+        self.max_jobs_per_batch = int(os.getenv('BRIDGE_MAX_JOBS', '3'))
+        self.error_count = 0
+        self.max_errors = 10
+        
+        # Initialize database for standalone use
+        self._initialize_database()
+        
+    def _initialize_database(self):
+        """Initialize standalone database connection"""
+        try:
+            logger.info("🔧 Initializing standalone database connection for Supabase Bridge...")
+            
+            # Initialize database manager for standalone use
+            db_manager.init_standalone(worker_id=self.worker_id)
+            
+            # Test database connection
+            with db_manager.get_session() as session:
+                result = session.execute("SELECT 1").fetchone()
+                logger.info("✅ Database connection verified")
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize database connection: {e}")
+            raise
         
     async def start(self):
-        """Start the bridge service"""
-        logger.info(f"🌉 Starting Supabase Bridge {self.worker_id}")
+        """Start the bridge service with proper error handling"""
+        logger.info(f"🌉 Starting Production Supabase Bridge {self.worker_id}")
+        logger.info(f"📊 Configuration: poll_interval={self.poll_interval}s, max_jobs={self.max_jobs_per_batch}")
+        
         self.running = True
+        consecutive_errors = 0
         
         while self.running:
             try:
-                await self._process_queue_batch()
-                await asyncio.sleep(self.poll_interval)
+                processed_count = await self._process_queue_batch()
+                
+                if processed_count > 0:
+                    logger.info(f"✅ Processed {processed_count} jobs successfully")
+                    consecutive_errors = 0  # Reset error counter on success
+                    self.error_count = 0
+                
+                # Dynamic polling - faster when jobs are available
+                if processed_count >= self.max_jobs_per_batch:
+                    await asyncio.sleep(2)  # Quick turnaround for high volume
+                else:
+                    await asyncio.sleep(self.poll_interval)
+                    
             except Exception as e:
-                logger.error(f"❌ Bridge error: {e}", exc_info=True)
-                await asyncio.sleep(self.poll_interval * 2)  # Back off on error
+                consecutive_errors += 1
+                self.error_count += 1
+                
+                logger.error(f"❌ Bridge error ({consecutive_errors}/{self.max_errors}): {e}")
+                
+                # Exponential backoff on errors
+                backoff_time = min(60, self.poll_interval * (2 ** consecutive_errors))
+                logger.info(f"⏳ Backing off for {backoff_time}s before retry")
+                await asyncio.sleep(backoff_time)
+                
+                # Stop if too many consecutive errors
+                if consecutive_errors >= self.max_errors:
+                    logger.error(f"🛑 Too many consecutive errors. Stopping bridge service.")
+                    break
     
     async def stop(self):
-        """Stop the bridge service"""
+        """Stop the bridge service and clean up"""
         logger.info("🛑 Stopping Supabase Bridge")
         self.running = False
+        
+        # Clean up database connections
+        db_manager.close_all_connections()
     
     async def _process_queue_batch(self) -> int:
         """Process a batch of jobs from the Supabase queue"""
-        with db_manager.get_session() as session:
-            # Get pending jobs, prioritizing by created time and priority
-            jobs = session.execute("""
-                SELECT id, job_type, payload, created_at
-                FROM processing_queue 
-                WHERE status = 'pending'
-                ORDER BY 
-                    COALESCE((payload->>'priority')::int, 5) ASC,
-                    created_at ASC
-                LIMIT 5
-            """).fetchall()
-            
-            if not jobs:
-                return 0
-            
-            logger.info(f"📋 Processing {len(jobs)} jobs from Supabase queue")
-            
-            # Process each job
-            processed_count = 0
-            for job in jobs:
-                try:
-                    await self._process_single_job(session, job)
-                    processed_count += 1
-                except Exception as e:
-                    logger.error(f"❌ Failed to process job {job.id}: {e}")
-                    await self._mark_job_failed(session, job.id, str(e))
-            
-            return processed_count
+        try:
+            with db_manager.get_session() as session:
+                # First, reconcile file statuses (detect files with chunks but wrong status)
+                await self._reconcile_file_statuses(session)
+                
+                # Get pending jobs from NEW processing_queue structure
+                jobs = session.execute("""
+                    SELECT id, file_id, processing_type, priority, created_at, metadata
+                    FROM processing_queue 
+                    WHERE status = 'pending'
+                    ORDER BY 
+                        CASE priority
+                            WHEN 'urgent' THEN 1
+                            WHEN 'high' THEN 2
+                            WHEN 'normal' THEN 3
+                            WHEN 'low' THEN 4
+                        END,
+                        created_at ASC
+                    LIMIT :limit
+                """, {'limit': self.max_jobs_per_batch}).fetchall()
+                
+                if not jobs:
+                    return 0
+                
+                logger.info(f"📋 Processing {len(jobs)} file processing jobs from Supabase queue")
+                
+                # Process each job
+                processed_count = 0
+                for job in jobs:
+                    try:
+                        await self._process_file_processing_job(session, job)
+                        processed_count += 1
+                    except Exception as e:
+                        logger.error(f"❌ Failed to process job {job.id}: {e}")
+                        await self._mark_job_failed(session, job.id, str(e))
+                
+                return processed_count
+                
+        except Exception as e:
+            logger.error(f"❌ Database error in _process_queue_batch: {e}")
+            raise
     
-    async def _process_single_job(self, session, job):
-        """Process a single job based on its type"""
+    async def _process_file_processing_job(self, session, job):
+        """Process a file processing job with the enhanced file processing system"""
         job_id = job.id
-        job_type = job.job_type
-        payload = job.payload
+        file_id = job.file_id
+        processing_type = job.processing_type
+        metadata = job.metadata or {}
         
-        logger.info(f"🔄 Processing {job_type} job {job_id}")
+        logger.info(f"📄 Processing file {file_id} (job {job_id}, type: {processing_type})")
         
         # Mark job as processing
         await self._mark_job_processing(session, job_id)
         
-        if job_type == 'file_processing':
-            await self._process_file_job(session, job_id, payload)
-        elif job_type == 'content_generation':
-            await self._process_content_generation_job(session, job_id, payload)
-        elif job_type == 'embedding_generation':
-            await self._process_embedding_job(session, job_id, payload)
-        else:
-            raise ValueError(f"Unknown job type: {job_type}")
-    
-    async def _process_file_job(self, session, job_id: str, payload: Dict[str, Any]):
-        """Process file upload and chunking job"""
-        file_id = payload['file_id']
-        course_id = payload['course_id']
-        processing_steps = payload.get('processing_steps', ['content_extraction', 'semantic_chunking', 'embedding_generation'])
-        
-        logger.info(f"📄 Processing file {file_id} with steps: {processing_steps}")
-        
-        # Get file info
-        file_info = session.execute(
-            "SELECT * FROM files WHERE id = :file_id",
-            {'file_id': file_id}
-        ).fetchone()
-        
-        if not file_info:
-            raise ValueError(f"File {file_id} not found")
-        
-        # Update file status
-        session.execute(
-            "UPDATE files SET processing_status = 'processing' WHERE id = :file_id",
-            {'file_id': file_id}
-        )
-        session.commit()
-        
         try:
-            # Step 1: Content Extraction
-            if 'content_extraction' in processing_steps:
-                logger.info(f"📑 Extracting content from file {file_id}")
-                content = await self._extract_file_content(file_info)
-                
-                # Store extracted content if not already present
-                if not file_info.transcription and content:
-                    session.execute(
-                        "UPDATE files SET transcription = :content WHERE id = :file_id",
-                        {'content': content, 'file_id': file_id}
-                    )
-                    session.commit()
+            # Get file info
+            file_result = session.execute(
+                "SELECT id, filename, file_type, storage_path FROM files WHERE id = :file_id",
+                {'file_id': file_id}
+            ).fetchone()
             
-            # Step 2: Semantic Chunking
-            if 'semantic_chunking' in processing_steps:
-                logger.info(f"🧩 Creating semantic chunks for file {file_id}")
-                
-                # Use existing enhanced file processing
-                result = await asyncio.get_event_loop().run_in_executor(
-                    None, 
-                    lambda: process_file_with_semantic_chunking.apply(
-                        args=[file_id], 
-                        kwargs={'force': True}
-                    ).get()
-                )
-                
-                if result['status'] != 'success':
-                    raise ValueError(f"Chunking failed: {result.get('message', 'Unknown error')}")
+            if not file_result:
+                raise ValueError(f"File {file_id} not found")
             
-            # Step 3: Embedding Generation (handled by existing PGMQ workers)
-            if 'embedding_generation' in processing_steps:
-                logger.info(f"🔢 Embeddings will be generated by PGMQ workers")
-                # The embedding jobs were created by the chunking process
-                # PGMQ workers will pick them up automatically
+            logger.info(f"📁 Processing file: {file_result.filename} ({file_result.file_type})")
             
-            # Mark file as processed
+            # Update file status to processing
             session.execute(
-                "UPDATE files SET processing_status = 'completed' WHERE id = :file_id",
+                "UPDATE files SET processing_status = 'processing' WHERE id = :file_id",
                 {'file_id': file_id}
             )
             session.commit()
             
-            # Mark job as completed
-            await self._mark_job_completed(session, job_id, {
-                'file_id': file_id,
-                'steps_completed': processing_steps,
-                'chunks_created': result.get('chunks_created', 0) if 'semantic_chunking' in processing_steps else 0
-            })
+            # Use the enhanced file processing system (this handles chunking and creates embedding jobs)
+            result = process_file_with_semantic_chunking.apply(
+                args=[str(file_id)], 
+                kwargs={'force': True}
+            ).get()
             
-            logger.info(f"✅ File processing completed for {file_id}")
-            
+            if result.get('status') == 'success':
+                # Update file as completed
+                session.execute(
+                    "UPDATE files SET processing_status = 'completed', processed = true WHERE id = :file_id",
+                    {'file_id': file_id}
+                )
+                session.commit()
+                
+                # Mark job as completed with results
+                await self._mark_job_completed(session, job_id, {
+                    'file_id': file_id,
+                    'filename': file_result.filename,
+                    'chunks_created': result.get('chunks_created', 0),
+                    'embedding_jobs_created': result.get('embedding_jobs_created', 0),
+                    'processing_time': result.get('processing_time', 0)
+                })
+                
+                logger.info(f"✅ File processing completed for {file_result.filename}: {result.get('chunks_created', 0)} chunks created")
+                
+            else:
+                error_msg = result.get('message', 'Unknown processing error')
+                raise ValueError(f"File processing failed: {error_msg}")
+                
         except Exception as e:
             # Mark file as failed
             session.execute(
@@ -184,148 +232,107 @@ class SupabaseBridge:
             session.commit()
             raise
     
-    async def _process_content_generation_job(self, session, job_id: str, payload: Dict[str, Any]):
-        """Process AI content generation job"""
-        course_id = payload['course_id']
-        persona = payload['persona']
-        content_type = payload.get('content_type', 'study_guide')
-        course_content = payload['course_content']
-        
-        logger.info(f"🤖 Generating {content_type} content for course {course_id}")
-        
-        # Generate content using existing orchestrator
-        user_profile = {
-            'learning_style': 'visual',
-            'expertise_level': 'intermediate',
-            'interests': 'technology'
-        }
-        
-        result = await self.content_orchestrator.generate_comprehensive_content(
-            course_content=course_content,
-            persona=persona,
-            course_name=f"Course {course_id}",
-            user_profile=user_profile
-        )
-        
-        # Store result
-        await self._mark_job_completed(session, job_id, {
-            'generated_content': result,
-            'content_type': content_type,
-            'course_id': course_id,
-            'persona': persona
-        })
-        
-        logger.info(f"✅ Content generation completed for course {course_id}")
-    
-    async def _process_embedding_job(self, session, job_id: str, payload: Dict[str, Any]):
-        """Process embedding generation job"""
-        chunk_ids = payload['chunk_ids']
-        
-        logger.info(f"🔢 Generating embeddings for {len(chunk_ids)} chunks")
-        
-        # This should delegate to the existing PGMQ embedding workers
-        # For now, we'll create embedding jobs that the workers will pick up
-        for chunk_id in chunk_ids:
-            session.execute("""
-                INSERT INTO embedding_jobs (chunk_id, status, priority, created_at)
-                VALUES (:chunk_id, 'pending', 5, NOW())
-                ON CONFLICT (chunk_id) DO NOTHING
-            """, {'chunk_id': chunk_id})
-        
-        session.commit()
-        
-        await self._mark_job_completed(session, job_id, {
-            'chunk_ids': chunk_ids,
-            'embedding_jobs_created': len(chunk_ids)
-        })
-        
-        logger.info(f"✅ Embedding jobs queued for {len(chunk_ids)} chunks")
-    
-    async def _extract_file_content(self, file_info) -> Optional[str]:
-        """Extract content from file based on type"""
-        try:
-            # If transcription already exists, use it
-            if file_info.transcription:
-                return file_info.transcription
-            
-            # Download file from Supabase Storage
-            if file_info.storage_bucket and file_info.storage_path:
-                file_data = self.file_service.download_file(
-                    file_info.storage_bucket, 
-                    file_info.storage_path
-                )
-                
-                # Extract text based on file type
-                file_type = file_info.file_type.lower()
-                
-                if file_type == 'pdf':
-                    from utils.textUtils import extract_text_from_pdf
-                    return extract_text_from_pdf(file_data)
-                elif file_type in ['txt', 'md']:
-                    return file_data.decode('utf-8')
-                elif file_type in ['mp3', 'wav', 'm4a']:
-                    # Audio files need transcription - placeholder for now
-                    logger.warning(f"Audio file {file_info.id} needs transcription service")
-                    return None
-                else:
-                    logger.warning(f"Unsupported file type: {file_type}")
-                    return None
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"Failed to extract content from file {file_info.id}: {e}")
-            return None
-    
     async def _mark_job_processing(self, session, job_id: str):
-        """Mark job as processing"""
+        """Mark job as currently being processed"""
         session.execute(
-            "UPDATE processing_queue SET status = 'processing', processed_at = NOW() WHERE id = :job_id",
+            "UPDATE processing_queue SET status = 'processing', started_at = NOW() WHERE id = :job_id",
             {'job_id': job_id}
         )
         session.commit()
     
     async def _mark_job_completed(self, session, job_id: str, result: Dict[str, Any]):
-        """Mark job as completed with result"""
+        """Mark job as completed with results"""
         session.execute("""
             UPDATE processing_queue 
             SET status = 'completed', 
-                processed_at = NOW(),
-                payload = payload || :result::jsonb
+                completed_at = NOW(),
+                metadata = COALESCE(metadata, '{}'::jsonb) || :result::jsonb
             WHERE id = :job_id
-        """, {'job_id': job_id, 'result': json.dumps(result)})
+        """, {
+            'job_id': job_id, 
+            'result': json.dumps(result, cls=UUIDEncoder)
+        })
         session.commit()
     
     async def _mark_job_failed(self, session, job_id: str, error_message: str):
-        """Mark job as failed with error"""
+        """Mark job as failed with error message"""
         session.execute("""
             UPDATE processing_queue 
             SET status = 'failed', 
-                processed_at = NOW(),
+                completed_at = NOW(),
                 error_message = :error_message,
-                attempts = COALESCE(attempts, 0) + 1
+                attempts = attempts + 1
             WHERE id = :job_id
-        """, {'job_id': job_id, 'error_message': error_message})
+        """, {
+            'job_id': job_id, 
+            'error_message': error_message
+        })
         session.commit()
+
+    async def _reconcile_file_statuses(self, session):
+        """
+        Reconcile file processing statuses - fix files that have chunks but are still marked as pending.
+        This handles cases where processing completed but status wasn't updated due to errors.
+        """
+        try:
+            # Find files that have chunks but are marked as pending/processing
+            files_to_fix = session.execute("""
+                SELECT DISTINCT f.id, f.filename
+                FROM files f
+                INNER JOIN file_chunks fc ON f.id = fc.file_id
+                WHERE f.processing_status IN ('pending', 'processing')
+                AND f.id IN (
+                    SELECT file_id 
+                    FROM file_chunks 
+                    GROUP BY file_id 
+                    HAVING COUNT(*) > 0
+                )
+            """).fetchall()
+            
+            if files_to_fix:
+                logger.info(f"🔧 Found {len(files_to_fix)} files with chunks but incorrect status - fixing...")
+                
+                for file_row in files_to_fix:
+                    file_id = file_row.id
+                    filename = file_row.filename
+                    
+                    # Update file status to completed
+                    session.execute("""
+                        UPDATE files 
+                        SET processing_status = 'completed', processed = true 
+                        WHERE id = :file_id
+                    """, {'file_id': file_id})
+                    
+                    logger.info(f"✅ Fixed status for {filename} -> completed")
+                
+                session.commit()
+                logger.info(f"🎉 Fixed {len(files_to_fix)} file statuses")
+            
+        except Exception as e:
+            logger.error(f"❌ Error in status reconciliation: {e}")
+            session.rollback()
 
 
 async def main():
-    """Main entry point for the bridge service"""
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+    """Main entry point for the Supabase Bridge service"""
+    logger.info("🚀 Starting Production Supabase Bridge Service")
     
-    bridge = SupabaseBridge()
-    
+    # Handle graceful shutdown
+    bridge = None
     try:
+        bridge = SupabaseBridge()
         await bridge.start()
     except KeyboardInterrupt:
-        logger.info("🛑 Received interrupt signal")
+        logger.info("🔌 Received shutdown signal")
+    except Exception as e:
+        logger.error(f"💥 Bridge service crashed: {e}", exc_info=True)
     finally:
-        await bridge.stop()
+        if bridge:
+            await bridge.stop()
+        logger.info("👋 Supabase Bridge service stopped")
 
 
 if __name__ == "__main__":
+    # Run the bridge service
     asyncio.run(main()) 
  

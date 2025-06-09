@@ -1,0 +1,78 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Production Development Standards
+
+## Core Principles
+
+### No Temporary Fixes
+- **NEVER** implement temporary solutions or "quick fixes" 
+- All code changes must be production-ready and maintainable
+- If a problem requires immediate attention, implement a proper solution that can stay long-term
+- Use TODO comments only for planned features, never for production code that needs fixing
+
+### Code Quality Standards
+- All code must pass type checking with TypeScript strict mode
+- Follow consistent code formatting using [biome.jsonc](mdc:frontend/biome.jsonc)
+- Implement proper error handling with meaningful error messages
+- Write self-documenting code with clear variable and function names
+
+### Architecture Requirements
+- Follow established patterns in [frontend/app](mdc:frontend/app) directory structure
+- Use proper separation of concerns: components, hooks, services, types
+- Implement proper data fetching patterns with SWR as shown in [package.json](mdc:frontend/package.json)
+- Follow React 19 and Next.js 15 best practices
+
+### Database & API Standards
+- All database changes must go through proper migrations in [supabase/](mdc:supabase)
+- Implement Row Level Security (RLS) policies for all data access
+- Use proper TypeScript types for all API responses and database schemas
+- Handle loading states, error states, and edge cases in all data operations
+
+### Security & Performance
+- Implement proper authentication flows using Supabase Auth
+- Use server-side rendering where appropriate
+- Optimize bundle size and avoid unnecessary dependencies
+- Implement proper caching strategies
+- Validate all user inputs with Zod schemas
+
+### Testing & Validation
+- Write comprehensive tests for critical functionality
+- Test edge cases and error scenarios
+- Validate all forms and user inputs
+- Ensure accessibility compliance
+
+### Documentation Requirements
+- Keep [README.md](mdc:README.md) files updated with current setup instructions
+- Document any breaking changes or migration requirements
+- Maintain clear API documentation for all endpoints
+- Update type definitions when making schema changes
+
+## Enforcement Rules
+
+1. **Code Review Standards**: All changes must be reviewed for production readiness
+2. **No Hotfixes**: Emergency fixes must follow the same quality standards
+3. **Rollback Ready**: All deployments must be easily reversible
+4. **Monitoring**: Implement proper logging and error tracking
+5. **Version Control**: Use semantic versioning and clear commit messages
+
+## File-Specific Guidelines
+
+### Frontend ([frontend/](mdc:frontend))
+- Follow component composition patterns with Radix UI components
+- Use proper state management with React hooks and context
+- Implement responsive design with Tailwind CSS
+- Follow Next.js app router conventions
+
+### Configuration Files
+- Keep [.env.example](mdc:frontend/.env.example) updated with all required variables
+- Maintain [docker-compose.yml](mdc:docker-compose.yml) for consistent development environments
+- Update [package.json](mdc:frontend/package.json) dependencies regularly and securely
+
+### Database & Migrations
+- All schema changes through proper SQL migrations
+- Test migrations in development before production
+- Maintain data integrity during all operations
+- Document any manual data operations required

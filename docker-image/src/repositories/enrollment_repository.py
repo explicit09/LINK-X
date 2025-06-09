@@ -19,6 +19,10 @@ class EnrollmentRepository(BaseRepository[Enrollment]):
         """Get enrollment by student and course"""
         return self.find_by(user_id=student_id, course_id=course_id)
     
+    def get_user_enrollment(self, user_id: str, course_id: str) -> Optional[Enrollment]:
+        """Get enrollment by user and course (alias for get_by_student_course)"""
+        return self.get_by_student_course(user_id, course_id)
+    
     def get_by_student(self, student_id: str) -> List[Enrollment]:
         """Get all enrollments for a student"""
         return self.find_all_by(user_id=student_id)

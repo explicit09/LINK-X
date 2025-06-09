@@ -1,0 +1,100 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Code Review Checklist
+
+## Pre-Review Requirements
+
+### Code Quality
+- [ ] TypeScript compilation passes without errors or warnings
+- [ ] All code follows [biome.jsonc](mdc:frontend/biome.jsonc) formatting standards
+- [ ] ESLint passes with no violations
+- [ ] No console.log statements in production code
+- [ ] All functions have proper type definitions
+
+### Architecture & Patterns
+- [ ] Follows established patterns in [frontend/app](mdc:frontend/app) structure
+- [ ] Components are properly composed and reusable
+- [ ] Business logic is separated from UI components
+- [ ] Uses appropriate React patterns (hooks, context, etc.)
+- [ ] API calls use proper error handling and loading states
+
+### Security & Data Handling
+- [ ] All user inputs are validated with Zod schemas
+- [ ] Database queries use proper RLS policies
+- [ ] No sensitive data exposed in client-side code
+- [ ] Authentication flows are secure and tested
+- [ ] File uploads properly validated and secured
+
+### Performance & Optimization
+- [ ] No unnecessary re-renders or expensive computations
+- [ ] Images optimized and properly sized
+- [ ] Bundle impact analyzed for new dependencies
+- [ ] Server-side rendering used where appropriate
+- [ ] Database queries are optimized
+
+### Testing & Validation
+- [ ] Critical paths have test coverage
+- [ ] Edge cases and error scenarios handled
+- [ ] Loading and error states implemented
+- [ ] Accessibility requirements met
+- [ ] Cross-browser compatibility verified
+
+### Documentation & Maintenance
+- [ ] Code is self-documenting with clear naming
+- [ ] Complex logic has explanatory comments
+- [ ] API changes documented
+- [ ] Migration scripts provided if needed
+- [ ] Environment variables updated in [.env.example](mdc:frontend/.env.example)
+
+## Database & Migration Checklist
+- [ ] Migration scripts are reversible
+- [ ] Data integrity maintained during schema changes
+- [ ] RLS policies updated for new tables/columns
+- [ ] Performance impact of changes assessed
+- [ ] Backup strategy considered
+
+## Deployment Readiness
+- [ ] Changes work with current [docker-compose.yml](mdc:docker-compose.yml) setup
+- [ ] Environment-specific configurations handled
+- [ ] No breaking changes without migration path
+- [ ] Rollback plan available
+- [ ] Monitoring/logging implemented for new features
+
+## Anti-Patterns to Reject
+- ❌ Temporary fixes or TODO comments for production issues
+- ❌ Hard-coded values that should be configurable
+- ❌ Copy-pasted code without proper abstraction
+- ❌ Missing error handling or user feedback
+- ❌ Database queries without proper indexing
+- ❌ Unused imports or dependencies
+- ❌ Overly complex components that should be split
+- ❌ Missing TypeScript types or any type usage
+
+## Review Focus Areas
+
+### For Components
+- Proper props validation and TypeScript interfaces
+- Accessibility attributes and keyboard navigation
+- Responsive design implementation
+- Error boundary coverage
+
+### For API Routes
+- Input validation and sanitization
+- Proper HTTP status codes
+- Error responses with meaningful messages
+- Rate limiting and security headers
+
+### For Database Changes
+- Migration safety and reversibility
+- Index creation for performance
+- RLS policy completeness
+- Data validation constraints
+
+### For Configuration
+- Environment variable management
+- Security of sensitive configurations
+- Documentation of new settings
+- Backward compatibility

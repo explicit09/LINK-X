@@ -26,6 +26,7 @@ interface Material {
   completed?: boolean;
   due_date?: string;
   points?: number;
+  processing_status?: 'pending' | 'processing' | 'completed' | 'failed';
 }
 
 type ViewMode = 'list' | 'grid' | 'icon';
@@ -95,6 +96,39 @@ export function CanvasModuleList({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  // Get processing status badge
+  const getProcessingStatusBadge = (material: Material) => {
+    const status = material.processing_status || 'pending';
+    
+    switch (status) {
+      case 'completed':
+        return (
+          <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+            ✅ Ready for AI
+          </span>
+        );
+      case 'processing':
+        return (
+          <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+            ⚡ Processing...
+          </span>
+        );
+      case 'failed':
+        return (
+          <span className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+            ❌ Failed
+          </span>
+        );
+      case 'pending':
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+            ⏳ Processing...
+          </span>
+        );
+    }
+  };
+
   // Render files in list view (detailed)
   const renderListView = (materials: Material[], moduleId: string) => (
     <div className="divide-y divide-gray-100">
@@ -122,15 +156,7 @@ export function CanvasModuleList({
 
           {/* Status */}
           <div className="flex items-center gap-2">
-            {material.completed ? (
-              <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                ✅ Complete
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                ⏳ Pending
-              </span>
-            )}
+            {getProcessingStatusBadge(material)}
           </div>
 
           {/* Actions */}
@@ -162,11 +188,7 @@ export function CanvasModuleList({
               <h4 className="font-medium text-gray-900 text-sm truncate mb-1">{material.title}</h4>
               <p className="text-xs text-gray-500 mb-2">{formatFileSize(material.file_size)}</p>
               <div className="flex items-center justify-between">
-                {material.completed ? (
-                  <span className="text-xs text-green-600">✅ Complete</span>
-                ) : (
-                  <span className="text-xs text-gray-500">⏳ Pending</span>
-                )}
+                {getProcessingStatusBadge(material)}
                 <div className="flex gap-1">
                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-xs">👁️</Button>
                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-xs">✨</Button>
@@ -194,11 +216,9 @@ export function CanvasModuleList({
             </div>
             <h4 className="font-medium text-gray-900 text-sm truncate mb-1">{material.title}</h4>
             <p className="text-xs text-gray-500 mb-2">{formatFileSize(material.file_size)}</p>
-            {material.completed ? (
-              <span className="text-xs text-green-600">✅</span>
-            ) : (
-              <span className="text-xs text-gray-500">⏳</span>
-            )}
+            <div className="text-center">
+              {getProcessingStatusBadge(material)}
+            </div>
           </div>
         </div>
       ))}

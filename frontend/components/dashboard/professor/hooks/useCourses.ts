@@ -41,7 +41,7 @@ export function useCourses() {
     deleteCourse: deleteCourseFromHook,
     refetch
   } = useSupabaseCourses();
-
+      
   // Transform Supabase courses to match professor interface
   const courses: Course[] = supabaseCourses.map(course => ({
     id: course.id,

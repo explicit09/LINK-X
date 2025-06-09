@@ -1,0 +1,242 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Security and Performance Standards
+
+## Security Requirements
+
+### Authentication and Authorization
+- Implement proper authentication flows using Supabase Auth as configured in [supabaseconfig.ts](mdc:frontend/supabaseconfig.ts)
+- Use Row Level Security (RLS) policies for all database access
+- Validate user permissions on both client and server sides
+- Implement proper session management and token refresh
+- Never store sensitive data in localStorage or sessionStorage
+
+### Input Validation and Sanitization
+- Validate all user inputs using Zod schemas before processing
+- Sanitize data to prevent XSS and injection attacks
+- Implement proper CSRF protection for state-changing operations
+- Use parameterized queries for all database operations
+- Validate file uploads for type, size, and content
+
+### Data Protection
+- Never expose database credentials or API keys in client-side code
+- Use environment variables for all sensitive configuration as shown in [.env.example](mdc:frontend/.env.example)
+- Implement proper data encryption for sensitive information
+- Follow GDPR and privacy regulations for user data handling
+- Implement secure file upload and storage practices
+
+### API Security
+- Implement rate limiting on all public endpoints
+- Use proper HTTP security headers (CSP, HSTS, etc.)
+- Validate request origins and implement CORS properly
+- Log security events for monitoring and analysis
+- Implement proper error handling that doesn't leak sensitive information
+
+## Performance Requirements
+
+### Frontend Performance
+- Optimize bundle size and implement code splitting
+- Use lazy loading for components and routes
+- Implement proper image optimization with Next.js Image component
+- Minimize render cycles and unnecessary re-renders
+- Use React.memo, useMemo, and useCallback appropriately
+
+### API Performance
+- Implement proper caching strategies for API responses
+- Use database indexing for frequently queried fields
+- Optimize database queries to avoid N+1 problems
+- Implement pagination for large data sets
+- Use connection pooling for database operations
+
+### Loading and User Experience
+- Show loading states for all async operations
+- Implement skeleton screens for better perceived performance
+- Use optimistic updates where appropriate
+- Provide feedback for long-running operations
+- Implement proper error boundaries to prevent crashes
+
+### Monitoring and Optimization
+- Monitor Core Web Vitals and performance metrics
+- Use performance profiling tools to identify bottlenecks
+- Implement proper logging for performance analysis
+- Monitor database query performance
+- Track bundle size and load times
+
+## Implementation Guidelines
+
+### Frontend Security Patterns
+```typescript
+// ✅ Proper input validation with Zod
+const userSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1).max(100),
+  age: z.number().int().min(13).max(120)
+});
+
+const handleUserSubmit = async (data: unknown) => {
+  try {
+    const validatedData = userSchema.parse(data);
+    await submitUser(validatedData);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      // Handle validation errors
+      setErrors(error.errors);
+    }
+  }
+};
+```
+
+### Secure API Routes
+```typescript
+// ✅ Secure API implementation
+export async function POST(request: Request) {
+  try {
+    // Verify authentication
+    const token = request.headers.get('authorization');
+    const user = await verifyToken(token);
+    
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    // Validate input
+    const body = await request.json();
+    const validatedData = schema.parse(body);
+    
+    // Check permissions
+    if (!await hasPermission(user.id, validatedData.resourceId)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    
+    // Process securely
+    const result = await processData(validatedData, user.id);
+    
+    return NextResponse.json({ data: result });
+  } catch (error) {
+    console.error('API error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+### Database Security
+- Use RLS policies for all tables
+- Implement proper user roles and permissions
+- Validate data integrity with constraints
+- Use transactions for multi-step operations
+- Monitor and log database access patterns
+
+### File Upload Security
+```typescript
+// ✅ Secure file upload validation
+const validateFile = (file: File): string | null => {
+  const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  
+  if (!allowedTypes.includes(file.type)) {
+    return 'File type not allowed';
+  }
+  
+  if (file.size > maxSize) {
+    return 'File too large';
+  }
+  
+  return null;
+};
+```
+
+## Performance Optimization Strategies
+
+### React Performance
+- Use React.memo for components that receive stable props
+- Implement useMemo for expensive calculations
+- Use useCallback for functions passed to child components
+- Avoid creating objects/arrays in render methods
+- Use React DevTools Profiler to identify performance issues
+
+### Next.js Optimization
+- Use Next.js Image component for automatic optimization
+- Implement proper metadata for SEO and performance
+- Use server-side rendering for critical content
+- Implement proper caching headers
+- Use static generation where appropriate
+
+### Database Performance
+- Create indexes for frequently queried columns
+- Use database query analysis tools
+- Implement proper pagination and filtering
+- Use database connection pooling
+- Monitor slow query logs
+
+### Caching Strategies
+- Implement HTTP caching with proper headers
+- Use SWR for client-side data caching as shown in [package.json](mdc:frontend/package.json)
+- Cache expensive computations
+- Use CDN for static assets
+- Implement database query caching where appropriate
+
+## Security Monitoring
+
+### Logging and Auditing
+- Log all authentication events
+- Monitor failed login attempts
+- Track API usage patterns
+- Log data access and modifications
+- Implement proper log retention policies
+
+### Security Headers
+```typescript
+// ✅ Security headers implementation
+const securityHeaders = {
+  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'",
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+};
+```
+
+## Performance Monitoring
+
+### Metrics to Track
+- Page load times and Core Web Vitals
+- API response times and error rates
+- Database query performance
+- Bundle size and code splitting effectiveness
+- User interaction responsiveness
+
+### Tools and Implementation
+- Use Vercel Analytics for performance monitoring
+- Implement custom performance tracking
+- Monitor error rates and user impact
+- Track conversion funnel performance
+- Use lighthouse for regular audits
+
+## Security and Performance Anti-Patterns
+
+### Security Anti-Patterns to Avoid
+- ❌ Storing sensitive data in client-side storage
+- ❌ Exposing API keys or secrets in client code
+- ❌ Not validating user inputs on the server side
+- ❌ Using weak authentication mechanisms
+- ❌ Not implementing proper authorization checks
+- ❌ Trusting client-side data without validation
+- ❌ Not implementing rate limiting
+- ❌ Using outdated dependencies with known vulnerabilities
+
+### Performance Anti-Patterns to Avoid
+- ❌ Loading unnecessary data or large payloads
+- ❌ Not implementing proper caching strategies
+- ❌ Creating unnecessary re-renders in React
+- ❌ Not optimizing images and media assets
+- ❌ Blocking the main thread with expensive operations
+- ❌ Not implementing proper error boundaries
+- ❌ Using inefficient database queries
+- ❌ Not monitoring and profiling application performance

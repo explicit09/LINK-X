@@ -152,12 +152,18 @@ class File(Base):
                        ForeignKey('modules.id', ondelete='CASCADE'),
                        nullable=False)
     title = Column(String(128), nullable=False)
+    description = Column(Text, nullable=True)  # ✅ ADD: File description field
     filename = Column(String, nullable=False)
     file_type = Column(String, nullable=False)
     file_size = Column(Integer, nullable=False)
     file_data = Column(BYTEA, nullable=True)  # Now nullable for S3 storage
     s3_key = Column(String(512), nullable=True)
     s3_bucket = Column(String(255), nullable=True)
+    storage_path = Column(String(512), nullable=True)  # ✅ ADD: Supabase storage path
+    storage_bucket = Column(String(255), nullable=True)  # ✅ ADD: Supabase storage bucket  
+    storage_metadata = Column(JSONB, nullable=True)  # ✅ ADD: Storage metadata
+    uploaded_by = Column(UUID(as_uuid=True), nullable=True)  # ✅ ADD: Creator tracking
+    created_by = Column(UUID(as_uuid=True), nullable=True)  # ✅ ADD: Creator tracking
     storage_type = Column(String(20), nullable=False, default='database')
     transcription = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -165,6 +171,8 @@ class File(Base):
     view_count_raw = Column(Integer, nullable=False, default=0)
     view_count_personalized = Column(Integer, nullable=False, default=0)
     chat_count = Column(Integer, nullable=False, default=0)
+    processing_status = Column(String(20), nullable=False, default='pending')  # ✅ ADD: Processing status
+    processed = Column(Boolean, nullable=False, default=False)  # ✅ ADD: Processed flag
 
     module = relationship('Module', back_populates='files')
     chats = relationship('Chat', back_populates='file')
@@ -180,6 +188,11 @@ class File(Base):
             'file_size': self.file_size,
             's3_key': self.s3_key,
             's3_bucket': self.s3_bucket,
+            'storage_path': self.storage_path,  # ✅ ADD
+            'storage_bucket': self.storage_bucket,  # ✅ ADD
+            'storage_metadata': self.storage_metadata,  # ✅ ADD
+            'uploaded_by': str(self.uploaded_by) if self.uploaded_by else None,  # ✅ ADD
+            'created_by': str(self.created_by) if self.created_by else None,  # ✅ ADD
             'storage_type': self.storage_type,
             'transcription': self.transcription,
             'created_at': self.created_at.isoformat() if self.created_at else None,
@@ -990,7 +1003,7 @@ class ProcessingQueue(Base):
     started_at = Column(DateTime)
     completed_at = Column(DateTime)
     error_message = Column(Text)
-    metadata = Column(JSONB)
+    metadata_json = Column(JSONB, name='metadata')
     
     # Relationships
     file = relationship('File')

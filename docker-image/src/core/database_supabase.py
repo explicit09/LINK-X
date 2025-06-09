@@ -50,28 +50,36 @@ class DatabaseManager:
             app.config['SQLALCHEMY_DATABASE_URI'] = database_url
             app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
             
-            # Supabase-optimized settings
+            # Supabase-optimized settings for better connection management
             if app.config.get('FLASK_ENV') == 'production':
-                # Production settings with connection pooling
+                # Production settings with conservative connection pooling
                 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-                    'pool_size': 20,  # Supabase handles pooling
-                    'max_overflow': 40,
-                    'pool_timeout': 30,
-                    'pool_recycle': 1800,  # 30 minutes
+                    'pool_size': 10,  # Reduce pool size for Supabase
+                    'max_overflow': 20,
+                    'pool_timeout': 60,  # Increase timeout
+                    'pool_recycle': 3600,  # 1 hour - longer recycle
                     'pool_pre_ping': True,
+                    'pool_reset_on_return': 'rollback',
                     'connect_args': {
-                        'connect_timeout': 10,
-                        'application_name': 'learn-x-backend'
+                        'connect_timeout': 30,
+                        'application_name': 'learn-x-backend',
+                        'sslmode': 'require'
                     }
                 }
             else:
-                # Development settings
+                # Development settings with minimal connections
                 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-                    'pool_size': 5,
-                    'max_overflow': 10,
-                    'pool_timeout': 30,
-                    'pool_recycle': 1800,
-                    'pool_pre_ping': True
+                    'pool_size': 2,  # Very small pool for dev
+                    'max_overflow': 5,
+                    'pool_timeout': 60,
+                    'pool_recycle': 3600,  # 1 hour
+                    'pool_pre_ping': True,
+                    'pool_reset_on_return': 'rollback',
+                    'connect_args': {
+                        'connect_timeout': 30,
+                        'application_name': 'learn-x-backend',
+                        'sslmode': 'require'
+                    }
                 }
             
             # Initialize Flask-SQLAlchemy only if not already initialized
@@ -189,6 +197,53 @@ class DatabaseManager:
             if result.returns_rows:
                 return result.fetchall()
             return result.rowcount
+
+    def init_standalone(self, database_url: str = None, worker_id: str = "worker"):
+        """Initialize database for standalone workers (without Flask app)"""
+        try:
+            # Get database URL from parameter or environment
+            if not database_url:
+                database_url = get_database_url()
+            
+            if not database_url:
+                raise RuntimeError("No database URL configured")
+            
+            # Worker-optimized settings for minimal resource usage
+            engine_options = {
+                'pool_size': 2,  # Small pool for workers
+                'max_overflow': 3,
+                'pool_timeout': 60,
+                'pool_recycle': 3600,  # 1 hour
+                'pool_pre_ping': True,
+                'pool_reset_on_return': 'rollback',
+                'connect_args': {
+                    'connect_timeout': 30,
+                    'application_name': f'learn-x-{worker_id}',
+                    'sslmode': 'require'
+                }
+            }
+            
+            # Create engine
+            self.engine = create_engine(database_url, **engine_options)
+            
+            # Test the connection
+            with self.engine.connect() as conn:
+                result = conn.execute(text("SELECT 1"))
+                result.fetchone()
+            logger.info(f"Database connection test successful for {worker_id}")
+            
+            # Create session factory
+            self.session_factory = sessionmaker(bind=self.engine)
+            self.Session = scoped_session(self.session_factory)
+            
+            # Add event listeners
+            self._setup_listeners()
+            
+            logger.info(f"Database manager initialized for standalone worker: {worker_id}")
+            
+        except Exception as e:
+            logger.error(f"Standalone database initialization failed: {e}")
+            raise
 
 
 # Global instance

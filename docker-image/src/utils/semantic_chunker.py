@@ -70,12 +70,19 @@ class SemanticChunker:
         ]
     }
     
-    # Academic section markers
+    # Universal academic section markers
     SECTION_MARKERS = [
         (r'^#{1,3}\s+(.+)$', 'markdown'),
         (r'^\d+\.\d*\s+(.+)$', 'numbered'),
         (r'^(?:Chapter|Section|Part)\s+\d+[:\.\s]+(.+)$', 'formal'),
-        (r'^[A-Z][^.!?]*:$', 'heading')
+        (r'^[A-Z][^.!?]*:$', 'heading'),
+        # Universal academic patterns
+        (r'^(?:Introduction|Overview|Summary|Abstract)(?:\s+[A-Z].*)?$', 'academic'),
+        (r'^(?:Conclusion|Discussion|Results?|Findings?)(?:\s+[A-Z].*)?$', 'academic'),
+        (r'^(?:Method|Methodology|Approach|Procedure)s?(?:\s+[A-Z].*)?$', 'academic'),
+        (r'^(?:Analysis|Evaluation|Assessment|Review)(?:\s+[A-Z].*)?$', 'academic'),
+        (r'^(?:Background|Context|Literature\s+Review)(?:\s+[A-Z].*)?$', 'academic'),
+        (r'^(?:Problem|Question|Hypothesis|Objective)s?(?:\s+[A-Z].*)?$', 'academic')
     ]
     
     def __init__(self, 
@@ -96,6 +103,10 @@ class SemanticChunker:
         
         # Extract document structure
         sections = self._extract_sections(text)
+        
+        # If no sections found (common with financial docs), create logical sections
+        if len(sections) == 1 and sections[0]['title'] in [None, 'Introduction']:
+            sections = self._create_logical_sections(text)
         
         # Process each section
         chunks = []
@@ -151,6 +162,55 @@ class SemanticChunker:
             sections.append(current_section)
         
         return sections if sections else [{'title': None, 'level': 0, 'content': text}]
+    
+    def _create_logical_sections(self, text: str) -> List[Dict]:
+        """Create logical sections based on content analysis when no clear sections are found"""
+        sections = []
+        paragraphs = text.split('\n\n')
+        
+        current_section = {'title': 'Introduction', 'level': 0, 'content': []}
+        section_keywords = {
+            'Introduction': ['introduction', 'overview', 'abstract', 'summary', 'background', 'context', 'purpose'],
+            'Literature Review': ['literature', 'review', 'research', 'studies', 'previous', 'related', 'work'],
+            'Methodology': ['method', 'methodology', 'approach', 'design', 'procedure', 'experiment', 'analysis'],
+            'Results': ['results', 'findings', 'outcome', 'data', 'observation', 'evidence', 'discovery'],
+            'Discussion': ['discussion', 'interpretation', 'explanation', 'analysis', 'meaning', 'significance'],
+            'Applications': ['application', 'example', 'use', 'practice', 'implementation', 'case', 'study'],
+            'Conclusion': ['conclusion', 'summary', 'final', 'closing', 'recommendation', 'future', 'work']
+        }
+        
+        for para in paragraphs:
+            if not para.strip():
+                continue
+                
+            # Determine which section this paragraph belongs to
+            best_section = None
+            best_score = 0
+            
+            para_lower = para.lower()
+            for section_name, keywords in section_keywords.items():
+                score = sum(1 for keyword in keywords if keyword in para_lower)
+                if score > best_score:
+                    best_score = score
+                    best_section = section_name
+            
+            # If we're switching to a new section type, save current and start new
+            if best_section and best_section != current_section['title'] and best_score >= 2:
+                if current_section['content']:
+                    current_section['content'] = '\n\n'.join(current_section['content'])
+                    sections.append(current_section)
+                
+                level = 0 if best_section == 'Introduction' else 1
+                current_section = {'title': best_section, 'level': level, 'content': [para]}
+            else:
+                current_section['content'].append(para)
+        
+        # Don't forget the last section
+        if current_section['content']:
+            current_section['content'] = '\n\n'.join(current_section['content'])
+            sections.append(current_section)
+        
+        return sections if sections else [{'title': 'Document Content', 'level': 0, 'content': text}]
     
     def _chunk_section(self, content: str, title: Optional[str], level: int) -> List[SemanticChunk]:
         """
@@ -290,30 +350,65 @@ class SemanticChunker:
         elif marker_type == 'formal':
             # Chapter = 0, Section = 1
             return 0 if 'Chapter' in line else 1
+        elif marker_type == 'academic':
+            # Universal academic document hierarchy
+            line_lower = line.lower()
+            if any(word in line_lower for word in ['abstract', 'introduction', 'overview', 'summary']):
+                return 0  # Top level
+            elif any(word in line_lower for word in ['method', 'analysis', 'results', 'discussion']):
+                return 1  # Main sections
+            elif any(word in line_lower for word in ['background', 'procedure', 'findings', 'evaluation']):
+                return 2  # Subsections
+            else:
+                return 1  # Default for academic sections
         else:
             return 2  # Default for other headings
     
     def _extract_concepts(self, text: str) -> List[str]:
-        """Extract key concepts from text (enhanced version)"""
+        """Extract key concepts from text (domain-agnostic educational content)"""
         concepts = []
         
-        # Academic terms pattern
-        academic_pattern = r'\b(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+(?:theory|model|principle|law|effect|phenomenon|algorithm|method|approach|framework|paradigm)))\b'
+        # Universal academic terms pattern
+        academic_pattern = r'\b(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+(?:theory|model|principle|law|effect|phenomenon|algorithm|method|approach|framework|paradigm|concept|process|system|structure|function)))\b'
         concepts.extend(re.findall(academic_pattern, text))
         
-        # Quoted important terms
+        # Technical and scientific terms
+        technical_pattern = r'\b(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+(?:analysis|equation|formula|theorem|hypothesis|experiment|study|research|evaluation|assessment|calculation|measurement|observation|data|result)))\b'
+        concepts.extend(re.findall(technical_pattern, text))
+        
+        # Proper nouns and important entities (names, places, organizations)
+        entity_pattern = r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?=\s+(?:university|college|institute|organization|company|society|association|department|school|laboratory|center|group))\b'
+        concepts.extend(re.findall(entity_pattern, text, re.IGNORECASE))
+        
+        # Mathematical and scientific notation/concepts
+        math_science_pattern = r'\b(?:equation|formula|theorem|lemma|proof|hypothesis|variable|function|derivative|integral|matrix|vector|probability|statistics|correlation|regression|DNA|RNA|protein|molecule|atom|element|reaction|energy|force|velocity|acceleration)\b'
+        concepts.extend(re.findall(math_science_pattern, text, re.IGNORECASE))
+        
+        # Quoted important terms (definitions, key phrases)
         quoted_pattern = r'["\']([^"\'\']+)["\']'
         quoted_terms = re.findall(quoted_pattern, text)
-        concepts.extend([t for t in quoted_terms if 3 < len(t) < 30])
+        concepts.extend([t for t in quoted_terms if 3 < len(t) < 40])
         
-        # Terms after "called" or "known as"
-        terminology_pattern = r'(?:called|known\s+as|termed)\s+["\']?([^\"\'.]+?)["\'\.,]'
+        # Terms after "called", "known as", "defined as", "refers to"
+        terminology_pattern = r'(?:called|known\s+as|termed|defined\s+as|refers\s+to)\s+["\']?([^\"\'.!?]+?)["\'\.,!?]'
         concepts.extend(re.findall(terminology_pattern, text, re.IGNORECASE))
         
-        # Remove duplicates and clean
-        concepts = list(set(c.strip() for c in concepts if c.strip()))
+        # Important capitalized phrases (likely key concepts)
+        key_phrase_pattern = r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b'
+        potential_concepts = re.findall(key_phrase_pattern, text)
+        # Filter out common words and keep likely concepts
+        filtered_concepts = [
+            concept for concept in potential_concepts 
+            if not any(common in concept.lower() for common in [
+                'the ', 'this ', 'that ', 'these ', 'those ', 'and ', 'but ', 'for ', 'with ', 'from '
+            ]) and len(concept) > 3
+        ]
+        concepts.extend(filtered_concepts[:10])  # Limit to avoid noise
         
-        return concepts[:10]  # Limit to top 10
+        # Remove duplicates and clean
+        concepts = list(set(c.strip() for c in concepts if c.strip() and len(c) > 2))
+        
+        return concepts[:12]  # Limit to top 12 most relevant
     
     def _get_overlap_text(self, text: str) -> str:
         """Get overlap text from end of previous chunk"""

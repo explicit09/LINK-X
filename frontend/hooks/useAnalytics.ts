@@ -185,7 +185,7 @@ export function useAnalytics(): {
         );
         
         const avgDuration = sessions.length > 0 
-          ? sessions.reduce((sum, s) => sum + (s.actual_duration || 0), 0) / sessions.length
+          ? sessions.reduce((sum, s) => sum + (s.actual_duration_minutes || 0), 0) / sessions.length
           : 0;
         
         const analyticsData: AnalyticsData = {

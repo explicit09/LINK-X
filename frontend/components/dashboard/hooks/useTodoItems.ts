@@ -78,10 +78,10 @@ export const useTodoItems = (userRole: string) => {
           .from('user_todos')
           .insert({
             user_id: user.id,
-            title: newTodoTitle,
-            course: newTodoCourse || 'General',
-            type: newTodoType,
-            priority: newTodoPriority,
+          title: newTodoTitle,
+          course: newTodoCourse || 'General',
+          type: newTodoType,
+          priority: newTodoPriority,
             created_at: new Date().toISOString(),
           })
           .select()

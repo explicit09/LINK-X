@@ -169,6 +169,42 @@ class SupabaseFileService:
             logger.error(f"Error deleting file: {str(e)}")
             raise FileProcessingError(f"Failed to delete file: {str(e)}")
     
+    def get_file_with_access_check(self, file_id: str, user_id: str) -> Dict:
+        """Get file with access verification"""
+        file_record = self.file_repo.get_by_id(file_id)
+        if not file_record:
+            raise NotFoundError("File not found")
+        
+        # Check access through module and course
+        module = self.module_repo.get_by_id(file_record.module_id)
+        if not module:
+            raise NotFoundError("Module not found")
+            
+        course = self.course_repo.get_by_id(module.course_id)
+        if not course:
+            raise NotFoundError("Course not found")
+        
+        # Check if user has access to the course
+        # User has access if they are the instructor, creator, or enrolled as a student
+        is_instructor = str(course.instructor_id) == str(user_id)
+        is_creator = str(course.creator_id) == str(user_id)
+        
+        if not is_instructor and not is_creator:
+            # Check if user is enrolled as a student
+            from repositories.enrollment_repository import EnrollmentRepository
+            enrollment_repo = EnrollmentRepository()
+            enrollment = enrollment_repo.get_user_enrollment(user_id, course.id)
+            
+            if not enrollment:
+                raise UnauthorizedError("You do not have access to this file")
+            
+            # Additional check: if the user uploaded the file, they should have access
+            is_uploader = str(file_record.uploaded_by) == str(user_id) if file_record.uploaded_by else False
+            if not is_uploader and enrollment.role != 'student':
+                raise UnauthorizedError("You do not have access to this file")
+        
+        return self._format_file_response(file_record)
+    
     def list_module_files(self, module_id: str, user_id: str) -> list[Dict]:
         """List all files in a module"""
         # Verify module exists and user has access

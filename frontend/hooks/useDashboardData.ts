@@ -113,14 +113,14 @@ export function useDashboardOverview() {
         // Get recent study sessions
         supabase
           .from('study_sessions')
-          .select('actual_duration, created_at')
+          .select('actual_duration_minutes, created_at')
           .eq('user_id', user.id)
           .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
       ]);
 
       // Calculate weekly progress
       const weeklyStudyMinutes = studySessionsData.data?.reduce((sum, session) => 
-        sum + (session.actual_duration || 0), 0) || 0;
+        sum + (session.actual_duration_minutes || 0), 0) || 0;
       
       const weeklyProgress: WeeklyProgress = {
         overall: 75, // Placeholder - calculate based on actual data
@@ -235,7 +235,7 @@ export function useWeeklyProgress(weekOffset: number = 0) {
         // Get study sessions this week
         supabase
           .from('study_sessions')
-          .select('actual_duration')
+          .select('actual_duration_minutes')
           .eq('user_id', user.id)
           .gte('created_at', weekStart.toISOString())
           .lte('created_at', weekEnd.toISOString())
@@ -244,7 +244,7 @@ export function useWeeklyProgress(weekOffset: number = 0) {
       // Calculate weekly progress
       const weeklyXP = statsData.data?.weekly_xp || 0;
       const tasksCompleted = tasksData.count || 0;
-      const studyMinutes = sessionsData.data?.reduce((sum, s) => sum + (s.actual_duration || 0), 0) || 0;
+      const studyMinutes = sessionsData.data?.reduce((sum, s) => sum + (s.actual_duration_minutes || 0), 0) || 0;
       const studyHours = studyMinutes / 60;
 
       // Set targets (these could be fetched from user preferences)
@@ -488,21 +488,21 @@ export function useTodaySchedule() {
       tomorrow.setDate(tomorrow.getDate() + 1);
 
       const { data: scheduleData } = await supabase
-        .from('schedule_sessions')
+        .from('study_sessions')
         .select('*')
         .eq('user_id', user.id)
-        .gte('start_time', today.toISOString())
-        .lt('start_time', tomorrow.toISOString())
-        .order('start_time', { ascending: true });
+        .gte('scheduled_start', today.toISOString())
+        .lt('scheduled_start', tomorrow.toISOString())
+        .order('scheduled_start', { ascending: true });
 
       const items: ScheduleItem[] = (scheduleData || []).map(session => ({
-        time: new Date(session.start_time).toLocaleTimeString('en-US', { 
+        time: new Date(session.scheduled_start).toLocaleTimeString('en-US', { 
           hour: 'numeric', 
           minute: '2-digit' 
         }),
         title: session.title || 'Study Session',
-        status: new Date() > new Date(session.end_time) ? 'completed' : 
-                new Date() >= new Date(session.start_time) ? 'in-progress' : 'upcoming',
+        status: new Date() > new Date(session.scheduled_end) ? 'completed' : 
+                new Date() >= new Date(session.scheduled_start) ? 'in-progress' : 'upcoming',
         is_next: false, // Will calculate below
         course_id: session.course_id,
         type: session.session_type

@@ -221,3 +221,83 @@ def reindex_content():
     return jsonify({
         'message': 'Reindexing started'
     }), 202
+
+@bp.route('/maintenance/reconcile-file-status', methods=['POST'])
+def reconcile_file_status():
+    """Reconcile file processing statuses - fix files with chunks but wrong status"""
+    admin_service = AdminService()
+    
+    try:
+        result = admin_service.reconcile_file_statuses()
+        return jsonify({
+            'message': 'File status reconciliation completed',
+            'files_fixed': result['files_fixed'],
+            'details': result['details']
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/maintenance/migrate-files-schema', methods=['POST'])
+def migrate_files_schema():
+    """Add missing columns to files table"""
+    from core.database_supabase import db_manager
+    
+    try:
+        with db_manager.get_session() as session:
+            # Check if columns already exist
+            result = session.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'files' 
+                AND column_name IN ('description', 'processing_status', 'processed')
+            """).fetchall()
+            
+            existing_columns = [row.column_name for row in result]
+            
+            migrations = []
+            
+            # Add description column if missing
+            if 'description' not in existing_columns:
+                session.execute("ALTER TABLE files ADD COLUMN description TEXT")
+                migrations.append("Added 'description' column")
+            
+            # Add processing_status column if missing
+            if 'processing_status' not in existing_columns:
+                session.execute("ALTER TABLE files ADD COLUMN processing_status VARCHAR(20) DEFAULT 'pending' NOT NULL")
+                migrations.append("Added 'processing_status' column")
+            
+            # Add processed column if missing
+            if 'processed' not in existing_columns:
+                session.execute("ALTER TABLE files ADD COLUMN processed BOOLEAN DEFAULT FALSE NOT NULL")
+                migrations.append("Added 'processed' column")
+            
+            # Update existing files that have chunks to completed status
+            if migrations:
+                updated_files = session.execute("""
+                    UPDATE files 
+                    SET processing_status = 'completed', processed = true
+                    WHERE id IN (
+                        SELECT DISTINCT file_id 
+                        FROM file_chunks 
+                        GROUP BY file_id 
+                        HAVING COUNT(*) > 0
+                    )
+                    AND processing_status != 'completed'
+                    RETURNING id, filename
+                """).fetchall()
+                
+                if updated_files:
+                    migrations.append(f"Updated {len(updated_files)} files with chunks to 'completed' status")
+            
+            session.commit()
+            
+            return jsonify({
+                'message': 'Schema migration completed successfully',
+                'migrations_applied': migrations
+            }), 200
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Debug endpoint removed for production
+

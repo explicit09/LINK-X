@@ -227,6 +227,55 @@ class AdminService:
         from ..tasks import reindex_all_content
         reindex_all_content.delay()
     
+    def reconcile_file_statuses(self) -> Dict:
+        """Reconcile file processing statuses - fix files with chunks but wrong status"""
+        from core.database_supabase import db_manager
+        
+        try:
+            with db_manager.get_session() as session:
+                # Find files that have chunks but are marked as pending/processing/failed
+                result = session.execute("""
+                    SELECT DISTINCT f.id, f.filename, f.processing_status, 
+                           COUNT(fc.id) as chunk_count
+                    FROM files f
+                    INNER JOIN file_chunks fc ON f.id = fc.file_id
+                    WHERE f.processing_status IN ('pending', 'processing', 'failed')
+                    GROUP BY f.id, f.filename, f.processing_status
+                    HAVING COUNT(fc.id) > 0
+                """).fetchall()
+                
+                files_fixed = []
+                for file_row in result:
+                    file_id = file_row.id
+                    filename = file_row.filename
+                    chunk_count = file_row.chunk_count
+                    
+                    # Update file status to completed
+                    session.execute("""
+                        UPDATE files 
+                        SET processing_status = 'completed', processed = true 
+                        WHERE id = :file_id
+                    """, {'file_id': file_id})
+                    
+                    files_fixed.append({
+                        'id': str(file_id),
+                        'filename': filename,
+                        'chunks': chunk_count,
+                        'old_status': file_row.processing_status,
+                        'new_status': 'completed'
+                    })
+                
+                session.commit()
+                
+                return {
+                    'files_fixed': len(files_fixed),
+                    'details': files_fixed
+                }
+                
+        except Exception as e:
+            session.rollback()
+            raise e
+    
     def _generate_usage_report(self, start_date: str, end_date: str) -> Dict:
         """Generate usage report"""
         # Parse dates

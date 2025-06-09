@@ -28,6 +28,7 @@ from .enhanced_rag import bp as enhanced_rag_bp
 from .learning_analytics import analytics_bp
 from .collaboration import bp as collaboration_bp
 from .embeddings import bp as embeddings_bp
+from ..admin import bp as admin_bp
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ api_v2.register_blueprint(enhanced_rag_bp, url_prefix='/rag')
 api_v2.register_blueprint(analytics_bp, url_prefix='/analytics')
 api_v2.register_blueprint(collaboration_bp, url_prefix='/collaboration')
 api_v2.register_blueprint(embeddings_bp, url_prefix='/embeddings')
+api_v2.register_blueprint(admin_bp, url_prefix='/admin')
 
 
 # ===== HEALTH CHECK =====

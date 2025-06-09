@@ -5,6 +5,13 @@ Centralized configuration for all Supabase services
 import os
 from typing import Optional
 from functools import lru_cache
+
+# Apply compatibility patch
+try:
+    from core.supabase_patch import patch_httpx_client
+    patch_httpx_client()
+except Exception:
+    pass
 try:
     from supabase import create_client, Client
     SUPABASE_AVAILABLE = True
@@ -82,6 +89,8 @@ def get_supabase_admin_client() -> Optional[Client]:
         return client
     except Exception as e:
         logger.error(f"Failed to create Supabase admin client: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         return None
 
 

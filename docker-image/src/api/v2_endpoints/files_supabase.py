@@ -91,6 +91,35 @@ def upload_file_v2():
         return error_response("An error occurred uploading the file", status_code=500)
 
 
+@files_bp.route('/<file_id>/content', methods=['GET'])
+@auth_required()
+def get_file_content_v2(file_id):
+    """Get file content URL for viewing"""
+    try:
+        user = g.current_user
+        
+        # Verify file exists and user has access
+        file_record = get_file_service().get_file_with_access_check(file_id, str(user.id))
+        
+        # Get signed URL for viewing (longer expiration for viewing)
+        signed_url = get_file_service().get_file_url(file_id, expires_in=7200)  # 2 hours
+        
+        return success_response({
+            'url': signed_url,
+            'file_type': file_record.get('file_type'),
+            'filename': file_record.get('filename'),
+            'title': file_record.get('title')
+        })
+        
+    except NotFoundError:
+        return error_response("File not found", status_code=404)
+    except UnauthorizedError:
+        return error_response("Access denied", status_code=403)
+    except Exception as e:
+        logger.error(f"Get file content error: {str(e)}")
+        return error_response("An error occurred getting file content", status_code=500)
+
+
 @files_bp.route('/<file_id>/url', methods=['GET'])
 @auth_required()
 def get_file_url_v2(file_id):
@@ -188,12 +217,13 @@ def list_module_files_v2(module_id):
 def reprocess_file_v2(file_id):
     """Reprocess a file (re-extract text and create chunks)"""
     try:
-        from tasks.file_processing_simple import reprocess_file
+        from tasks.enhanced_file_processing import process_file_with_semantic_chunking
         
-        # Reprocess file
-        success = reprocess_file(file_id)
+        # Force reprocess by calling with force=True
+        task = process_file_with_semantic_chunking
+        result = task.apply_async(args=[str(file_id), True])
         
-        if success:
+        if result:
             return success_response(message="File reprocessing started")
         else:
             return error_response("Failed to reprocess file", status_code=500)
@@ -203,3 +233,123 @@ def reprocess_file_v2(file_id):
     except Exception as e:
         logger.error(f"File reprocess error: {str(e)}")
         return error_response("An error occurred reprocessing the file", status_code=500)
+
+
+@files_bp.route('/<file_id>/process', methods=['POST'])
+@auth_required()
+def process_file_v2(file_id):
+    """
+    Queue file for processing (text extraction, chunking, embeddings).
+    This endpoint is called by the frontend after successful file upload.
+    """
+    try:
+        user = g.current_user
+        data = request.get_json() or {}
+        
+        # Verify file exists and user has access
+        file_record = get_file_service().get_file_with_access_check(file_id, str(user.id))
+        
+        # Determine priority based on user role or request
+        priority = data.get('priority', 'normal')
+        processing_type = data.get('processing_type', 'full')
+        
+        # Add to processing queue
+        try:
+            from core.supabase_config import get_supabase_client
+            import uuid
+            from datetime import datetime
+            
+            supabase = get_supabase_client()
+            
+            # Create processing queue entry
+            queue_entry = {
+                'id': str(uuid.uuid4()),
+                'file_id': file_id,
+                'status': 'pending',
+                'priority': priority,
+                'processing_type': processing_type,
+                'created_at': datetime.utcnow().isoformat(),
+                'metadata': {
+                    'user_id': str(user.id),
+                    'requested_by': 'upload_service',
+                    'file_type': file_record.get('file_type'),
+                    'file_size': file_record.get('file_size')
+                }
+            }
+            
+            result = supabase.table('processing_queue').insert(queue_entry).execute()
+            
+            if result.data:
+                logger.info(f"File {file_id} queued for processing with priority {priority}")
+                
+                # Try to trigger immediate processing if workers are available
+                try:
+                    from tasks.enhanced_file_processing import process_file_async
+                    
+                    # Queue the task with appropriate priority
+                    if priority == 'high':
+                        task_result = process_file_async.apply_async(
+                            args=[str(file_id)],
+                            priority=9  # High priority
+                        )
+                    else:
+                        task_result = process_file_async.apply_async(
+                            args=[str(file_id)],
+                            priority=5  # Normal priority
+                        )
+                    
+                    logger.info(f"Async processing triggered for file {file_id}")
+                    
+                    return success_response({
+                        'queue_id': queue_entry['id'],
+                        'task_id': task_result.id if hasattr(task_result, 'id') else None,
+                        'status': 'queued',
+                        'priority': priority,
+                        'message': 'File queued for processing'
+                    })
+                    
+                except Exception as async_error:
+                    logger.warning(f"Could not trigger async processing: {str(async_error)}")
+                    # Still return success - workers will pick it up from queue
+                    return success_response({
+                        'queue_id': queue_entry['id'],
+                        'status': 'queued',
+                        'priority': priority,
+                        'message': 'File queued for processing (workers will process when available)'
+                    })
+            else:
+                raise Exception("Failed to insert into processing queue")
+            
+        except Exception as queue_error:
+            logger.error(f"Failed to queue file for processing: {str(queue_error)}")
+            
+            # Try direct processing as fallback
+            try:
+                # Import the main processing task
+                from tasks.enhanced_file_processing import process_file_with_semantic_chunking
+                
+                # Get the Celery task instance
+                task = process_file_with_semantic_chunking
+                
+                # Try to run it directly (synchronously) as fallback
+                result = task.run(file_id)
+                
+                if result and result.get('status') != 'error':
+                    return success_response({
+                        'status': 'processing',
+                        'message': 'File processing started (fallback mode)'
+                    })
+                else:
+                    return error_response("Failed to process file", status_code=500)
+                    
+            except Exception as fallback_error:
+                logger.error(f"Fallback processing also failed: {str(fallback_error)}")
+                return error_response("Failed to process file - workers may be offline", status_code=500)
+        
+    except NotFoundError:
+        return error_response("File not found", status_code=404)
+    except UnauthorizedError:
+        return error_response("Access denied", status_code=403)
+    except Exception as e:
+        logger.error(f"Process file error: {str(e)}", exc_info=True)
+        return error_response("An error occurred processing the file", status_code=500)

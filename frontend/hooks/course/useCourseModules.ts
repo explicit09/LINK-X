@@ -14,6 +14,7 @@ export interface Material {
   file_size?: number;
   view_count?: number;
   chat_count?: number;
+  processing_status?: 'pending' | 'processing' | 'completed' | 'failed';
 }
 
 export interface Module {
@@ -165,15 +166,16 @@ export const useCourseModules = (courseId: string) => {
               id: material.id,
               title: material.title,
               type: mapFileTypeToMaterialType(material.file_type),
-              completed: (material.view_count_raw || 0) > 0,
-              urgent: status === 'urgent' && (material.view_count_raw || 0) === 0,
+              completed: material.processing_status === 'completed', // Use processing status instead of view count
+              urgent: status === 'urgent' && material.processing_status !== 'completed',
               filename: material.filename,
               file_type: material.file_type,
               file_size: material.file_size,
               view_count: material.view_count_raw || 0,
               chat_count: material.chat_count || 0,
               timeSpent: (material.view_count_raw || 0) > 0 ? '45min' : undefined,
-              estimatedTime: material.file_type === 'video' ? '60min' : '30min'
+              estimatedTime: material.file_type === 'video' ? '60min' : '30min',
+              processing_status: material.processing_status || 'pending' // Add processing status field
             }));
 
             return {
@@ -239,15 +241,16 @@ export const useCourseModules = (courseId: string) => {
             id: material.id,
             title: material.title,
             type: mapFileTypeToMaterialType(material.file_type),
-            completed: (material.view_count_raw || 0) > 0,
-            urgent: status === 'urgent' && (material.view_count_raw || 0) === 0,
+            completed: material.processing_status === 'completed', // Use processing status instead of view count
+            urgent: status === 'urgent' && material.processing_status !== 'completed',
             filename: material.filename,
             file_type: material.file_type,
             file_size: material.file_size,
             view_count: material.view_count_raw || 0,
             chat_count: material.chat_count || 0,
             timeSpent: (material.view_count_raw || 0) > 0 ? '45min' : undefined,
-            estimatedTime: material.file_type === 'video' ? '60min' : '30min'
+            estimatedTime: material.file_type === 'video' ? '60min' : '30min',
+            processing_status: material.processing_status || 'pending' // Add processing status field
           }));
 
           return {

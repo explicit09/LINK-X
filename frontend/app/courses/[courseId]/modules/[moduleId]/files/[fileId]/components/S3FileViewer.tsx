@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuthUser } from '@/hooks/useAuthUser';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { FileText, Video, Music, Image, File, AlertCircle, ExternalLink, RefreshCw } from 'lucide-react';
 import { toast as sonnerToast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 interface FileData {
   id: string;
@@ -25,9 +26,8 @@ interface S3FileViewerProps {
 }
 
 export function S3FileViewer({ file, courseId, moduleId, onError }: S3FileViewerProps) {
-  // Note: Despite the name, this component now works with both S3 and Supabase Storage
-  // The backend handles the storage abstraction
-  const { user: currentUser } = useAuthUser();
+  // Note: This component now works with Supabase Storage directly
+  const { user: currentUser } = useAuth();
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +64,7 @@ export function S3FileViewer({ file, courseId, moduleId, onError }: S3FileViewer
     );
   };
 
-  // Fetch file content URL
+  // ✅ NEW: Direct Supabase Storage access instead of backend API
   const fetchFileUrl = async () => {
     try {
       setLoading(true);
@@ -74,32 +74,24 @@ export function S3FileViewer({ file, courseId, moduleId, onError }: S3FileViewer
         throw new Error('User not authenticated');
       }
 
-      // Get presigned URL from backend
-      // The API client will handle authentication automatically
-      const response = await fetch(`/api/v2/files/${file.id}/content`, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include cookies for auth
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to get file URL: ${response.status}`);
+      if (!file.s3_key) {
+        throw new Error('File storage path not available');
       }
 
-      const data = await response.json();
-      
-      // Check if response contains a presigned URL or direct content
-      if (data.data?.url) {
-        setFileUrl(data.data.url);
-      } else if (data.data?.content) {
-        // Handle direct content response
-        const blob = new Blob([data.data.content], { type: file.file_type });
-        const url = URL.createObjectURL(blob);
-        setFileUrl(url);
-      } else {
-        throw new Error('No file URL or content received');
+      // Get signed URL directly from Supabase Storage
+      const { data, error: storageError } = await supabase.storage
+        .from(file.s3_bucket || 'course-files')
+        .createSignedUrl(file.s3_key, 3600); // 1 hour expiry
+
+      if (storageError) {
+        throw new Error(`Failed to get file URL: ${storageError.message}`);
       }
+
+      if (!data?.signedUrl) {
+        throw new Error('No file URL received from storage');
+      }
+
+      setFileUrl(data.signedUrl);
 
     } catch (err) {
       console.error('Error fetching file URL:', err);
@@ -124,7 +116,7 @@ export function S3FileViewer({ file, courseId, moduleId, onError }: S3FileViewer
     }
   }, [file, currentUser, retryCount]);
 
-  // Cleanup blob URLs
+  // Cleanup blob URLs (not needed for signed URLs, but keeping for safety)
   useEffect(() => {
     return () => {
       if (fileUrl && fileUrl.startsWith('blob:')) {

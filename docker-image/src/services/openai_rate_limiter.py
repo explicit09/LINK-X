@@ -138,7 +138,7 @@ class AdaptiveRateLimiter:
         # Rough estimate: 1 token ≈ 4 characters for English
         return sum(len(text) for text in texts) // 4
     
-    def calculate_optimal_batch_size(self, available_key: APIKey, estimated_tokens: int) -> int:
+    def calculate_optimal_batch_size(self, available_key: APIKey, estimated_tokens: int, num_texts: int = 1) -> int:
         """Calculate optimal batch size based on current limits"""
         if not available_key:
             return 1
@@ -151,7 +151,10 @@ class AdaptiveRateLimiter:
         
         # Ensure we don't exceed either limit
         max_by_requests = min(remaining_requests, config.max_batch_size)
-        max_by_tokens = min(remaining_tokens // (estimated_tokens // len(texts)) if texts else 1, 
+        
+        # Calculate tokens per text for batch sizing
+        tokens_per_text = estimated_tokens // num_texts if num_texts > 0 else estimated_tokens
+        max_by_tokens = min(remaining_tokens // tokens_per_text if tokens_per_text > 0 else 1, 
                            config.max_batch_size)
         
         optimal_size = min(max_by_requests, max_by_tokens, self.adaptive_batch_size)
@@ -200,7 +203,7 @@ class AdaptiveRateLimiter:
                 return None
         
         # Calculate optimal batch size
-        batch_size = self.calculate_optimal_batch_size(key, estimated_tokens)
+        batch_size = self.calculate_optimal_batch_size(key, estimated_tokens, len(texts))
         
         # Process in batches if needed
         all_embeddings = []
@@ -254,9 +257,12 @@ class AdaptiveRateLimiter:
         response_time = time.time() - start_time
         self.adjust_batch_size(True, response_time)
         
+        # Calculate number of batches
+        num_batches = (len(texts) + batch_size - 1) // batch_size
+        
         logger.info(
             f"Generated {len(all_embeddings)} embeddings in {response_time:.2f}s "
-            f"using {len(set(texts[i:i+batch_size] for i in range(0, len(texts), batch_size)))} batches"
+            f"using {num_batches} batches"
         )
         
         return all_embeddings

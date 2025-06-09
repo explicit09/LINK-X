@@ -141,7 +141,7 @@ def insert_file_chunks(conn: Connection, file_id: Any, chunks: List[Dict[str, An
         
         # Prepare batch insert
         insert_query = """
-            INSERT INTO file_chunks (file_id, chunk_index, content, embedding, metadata)
+            INSERT INTO file_chunks (file_id, chunk_index, content, embedding, chunk_metadata)
             VALUES (%s, %s, %s, %s, %s)
         """
         
@@ -153,7 +153,7 @@ def insert_file_chunks(conn: Connection, file_id: Any, chunks: List[Dict[str, An
                 chunk.get('chunk_index', i),
                 chunk.get('content', ''),
                 chunk.get('embedding'),
-                chunk.get('metadata')
+                chunk.get('metadata')  # This will be stored in chunk_metadata field
             ))
         
         cursor.executemany(insert_query, chunk_data)

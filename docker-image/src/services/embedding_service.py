@@ -37,32 +37,45 @@ class EmbeddingService:
         
         try:
             for chunk_data in chunks_data:
-                # Use poison detection function for safer chunk creation
-                result = session.execute(
+                # Create chunk using raw SQL to avoid ORM issues
+                import uuid
+                
+                # Step 1: Get the course_id from the file (required field)
+                file_result = session.execute(
+                    "SELECT m.course_id FROM files f JOIN modules m ON f.module_id = m.id WHERE f.id = :file_id",
+                    {'file_id': file_id}
+                ).fetchone()
+                course_id = file_result[0] if file_result else None
+                
+                # Step 2: Create the chunk using raw SQL
+                chunk_id = uuid.uuid4()
+                session.execute(
                     """
-                    SELECT create_chunk_with_poison_detection(
-                        :file_id::uuid,
-                        :chunk_index,
-                        :content,
-                        :metadata::jsonb,
-                        :priority
-                    )
+                    INSERT INTO file_chunks (id, file_id, course_id, chunk_index, content, chunk_metadata, created_at)
+                    VALUES (:chunk_id, :file_id, :course_id, :chunk_index, :content, :chunk_metadata, NOW())
                     """,
                     {
+                        'chunk_id': chunk_id,
                         'file_id': file_id,
+                        'course_id': course_id,
                         'chunk_index': chunk_data['chunk_index'],
                         'content': chunk_data['content'],
-                        'metadata': json.dumps(chunk_data.get('metadata', {})),
-                        'priority': priority
+                        'chunk_metadata': json.dumps(chunk_data.get('metadata', {}))
                     }
                 )
-                result_json = result.fetchone()[0]
                 
-                if result_json.get('status') == 'success':
-                    chunk_ids.append(str(result_json['chunk_id']))
-                elif result_json.get('status') == 'poison_detected':
-                    logger.warning(f"Poison detected for chunk {chunk_data['chunk_index']}: {result_json.get('reason')}")
-                    # Continue processing other chunks
+                # Step 3: Create embedding job using direct function call
+                message_json = json.dumps({
+                    'chunk_id': str(chunk_id),
+                    'priority': priority,
+                    'action': 'generate_embedding'
+                })
+                session.execute(
+                    f"SELECT pgmq.send('embeddings', '{message_json}'::jsonb)"
+                )
+                session.commit()  # Commit both operations
+                
+                chunk_ids.append(str(chunk_id))
             
             logger.info(f"Created {len(chunk_ids)} chunks with embedding jobs for file {file_id}")
             return chunk_ids

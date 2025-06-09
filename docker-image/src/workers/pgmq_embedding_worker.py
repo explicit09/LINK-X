@@ -70,11 +70,12 @@ class EmbeddingWorker:
         """Start the worker"""
         logger.info(f"Starting worker {self.config.worker_id}")
         
-        # Create connection pool
+        # Create connection pool with statement cache disabled for Supabase PgBouncer
         self.pool = await asyncpg.create_pool(
             self.config.database_url,
             min_size=2,
-            max_size=10
+            max_size=10,
+            statement_cache_size=0  # Disable prepared statements for PgBouncer compatibility
         )
         
         self.running = True
@@ -177,7 +178,7 @@ class EmbeddingWorker:
                         poison_jobs.append((job['job_id'], chunk_id, poison_result))
                     else:
                         texts.append(content)
-                        job_chunk_pairs.append((job['job_id'], job['chunk_id']))
+                        job_chunk_pairs.append((str(job['job_id']), str(job['chunk_id'])))
             
             # Handle poison messages
             for job_id, chunk_id, poison_result in poison_jobs:
@@ -364,7 +365,12 @@ class EmbeddingWorker:
                         'processed': self.metrics['processed'],
                         'errors': self.metrics['errors'],
                         'api_calls': self.metrics['api_calls'],
-                        'queue_stats': dict(stats)
+                        'queue_stats': {
+                            'pending': stats['pending'],
+                            'processing': stats['processing'],
+                            'completed': stats['completed'],
+                            'errors': stats['errors']
+                        }
                     })
                 )
     

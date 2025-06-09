@@ -8,7 +8,7 @@ from typing import Optional, Dict, List
 import json
 
 from core.database_supabase import db_manager
-from db.schema import File, FileChunk, Module
+from db.schema import File, FileChunk, Module, Course
 from repositories.file_repository import FileRepository
 from services.embedding_service import EmbeddingService
 from services.ai.ai_service import AIService
@@ -29,7 +29,7 @@ def process_file_with_semantic_chunking(self, file_id: str, force: bool = False)
         
         with db_manager.get_session() as session:
             file_repo = FileRepository()
-            file_obj = file_repo.get_by_id(session, file_id)
+            file_obj = file_repo.get_by_id(file_id)
             
             if not file_obj:
                 logger.error(f"File {file_id} not found")
@@ -48,7 +48,39 @@ def process_file_with_semantic_chunking(self, file_id: str, force: bool = False)
                 content = file_obj.transcription
                 logger.info("Using existing transcription")
             
-            # Download from S3 if needed
+            # Download from Supabase Storage if needed
+            elif file_obj.storage_type == 'supabase' and file_obj.storage_path:
+                logger.info(f"Downloading from Supabase Storage: {file_obj.storage_bucket}/{file_obj.storage_path}")
+                
+                try:
+                    from core.supabase_config import get_supabase_client
+                    supabase = get_supabase_client()
+                    
+                    # Download file from Supabase Storage
+                    file_data = supabase.storage.from_(file_obj.storage_bucket or 'course-files').download(file_obj.storage_path)
+                    
+                    if file_obj.file_type == 'pdf':
+                        from utils.textUtils import extract_text
+                        content = extract_text(file_data, file_obj.filename)
+                    elif file_obj.file_type in ['txt', 'md']:
+                        content = file_data.decode('utf-8')
+                    elif file_obj.file_type in ['mp3', 'wav', 'm4a']:
+                        # For audio, check if transcription exists
+                        if not file_obj.transcription:
+                            logger.info("Audio file needs transcription first")
+                            # Queue transcription task
+                            from tasks.file_processing import process_file_async
+                            process_file_async.delay(file_id)
+                            return {"status": "queued", "message": "Queued for transcription"}
+                    else:
+                        logger.error(f"Unsupported file type: {file_obj.file_type}")
+                        return {"status": "error", "message": f"Unsupported type: {file_obj.file_type}"}
+                        
+                except Exception as e:
+                    logger.error(f"Error downloading/processing file from Supabase: {e}")
+                    return {"status": "error", "message": str(e)}
+                    
+            # Download from S3 if needed (legacy support)
             elif file_obj.storage_type == 's3' and file_obj.s3_key:
                 logger.info(f"Downloading from S3: {file_obj.s3_bucket}/{file_obj.s3_key}")
                 s3_service = S3Storage()
@@ -57,8 +89,8 @@ def process_file_with_semantic_chunking(self, file_id: str, force: bool = False)
                     file_data = s3_service.download_file(file_obj.s3_bucket, file_obj.s3_key)
                     
                     if file_obj.file_type == 'pdf':
-                        from utils.textUtils import extract_text_from_pdf
-                        content = extract_text_from_pdf(file_data)
+                        from utils.textUtils import extract_text
+                        content = extract_text(file_data, file_obj.filename)
                     elif file_obj.file_type in ['txt', 'md']:
                         content = file_data.decode('utf-8')
                     elif file_obj.file_type in ['mp3', 'wav', 'm4a']:
@@ -91,7 +123,7 @@ def process_file_with_semantic_chunking(self, file_id: str, force: bool = False)
             
             # Create semantic chunks
             logger.info("Creating semantic chunks...")
-            chunks_data = create_enhanced_chunks(file_id, content, file_obj.file_type)
+            chunks_data = create_enhanced_chunks(content, file_obj.file_type)
             logger.info(f"Created {len(chunks_data)} semantic chunks")
             
             # Delete existing chunks and jobs
@@ -109,11 +141,9 @@ def process_file_with_semantic_chunking(self, file_id: str, force: bool = False)
                 priority=5
             )
             
-            # Mark as processed
-            if hasattr(file_obj, 'metadata'):
-                if not file_obj.metadata:
-                    file_obj.metadata = {}
-                file_obj.metadata['semantic_processed'] = True
+            # Mark as processed - Update the processing status
+            file_obj.processing_status = 'completed'
+            file_obj.processed = True
             
             session.commit()
             
@@ -121,7 +151,9 @@ def process_file_with_semantic_chunking(self, file_id: str, force: bool = False)
             logger.info(f"Embedding jobs automatically queued via transactional outbox")
             
             # Extract style if it's a professor's material
-            if module.creator_id:  # Professor's course
+            # Get course to check if it has a creator (professor's course)
+            course = session.query(Course).filter_by(id=course_id).first()
+            if course and hasattr(course, 'creator_id') and course.creator_id:
                 extract_teaching_style.delay(course_id)
             
             return {

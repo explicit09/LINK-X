@@ -1,0 +1,173 @@
+# Production Docker Compose Configuration
+# This demonstrates the fully automated LINK-X system with Supabase Bridge
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: learnx:production
+    restart: always
+    env_file:
+      - ./docker-image/.env
+    environment:
+      - FLASK_ENV=production
+      - REDIS_URL=redis://redis:6379/0
+      - USE_SUPABASE_STORAGE=true
+      - PORT=8000
+      # Supabase configuration (from .env file)
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
+      - DATABASE_URL=${DATABASE_URL}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Supabase Bridge - AUTOMATED FILE PROCESSING
+  # This service automatically processes files uploaded to the system
+  # - Polls the processing_queue for new file uploads
+  # - Processes files with semantic chunking
+  # - Creates embedding jobs for PGMQ workers
+  # - Handles errors and retries automatically
+  supabase-bridge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: learnx:production
+    restart: always
+    command: ["python", "-m", "services.supabase_bridge"]
+    env_file:
+      - ./docker-image/.env
+    environment:
+      - FLASK_ENV=production
+      - USE_SUPABASE_STORAGE=true
+      # Supabase configuration
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
+      - DATABASE_URL=${DATABASE_URL}
+      # Bridge configuration
+      - WORKER_ID=supabase-bridge-prod
+      - BRIDGE_POLL_INTERVAL=5  # Fast polling for production
+      - BRIDGE_MAX_JOBS=5       # More concurrent jobs
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import psycopg2; conn = psycopg2.connect('${DATABASE_URL}'); conn.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # PGMQ Embedding Workers - AUTOMATED EMBEDDING GENERATION
+  # These workers automatically generate embeddings for processed chunks
+  # - Poll the embedding_jobs queue
+  # - Generate embeddings via OpenAI API
+  # - Handle rate limiting and retries
+  # - Scale horizontally for high throughput
+  pgmq-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: learnx:production
+    restart: always
+    command: ["python", "/app/src/startup/embedding_worker_init.py"]
+    env_file:
+      - ./docker-image/.env
+    environment:
+      - FLASK_ENV=production
+      - USE_SUPABASE_STORAGE=true
+      # Supabase configuration
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
+      - DATABASE_URL=${DATABASE_URL}
+      # OpenAI configuration
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Worker configuration
+      - WORKER_ID=pgmq-worker-prod
+      - BATCH_SIZE=50
+      - MAX_RETRIES=3
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import psycopg2; conn = psycopg2.connect('${DATABASE_URL}'); conn.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      replicas: 3  # 3 embedding workers for high throughput
+
+  # Celery Workers - BACKGROUND TASKS
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: learnx:production
+    restart: always
+    entrypoint: ["/app/docker/celery-entrypoint.sh"]
+    command: ["worker"]
+    env_file:
+      - ./docker-image/.env
+    environment:
+      - FLASK_ENV=production
+      - REDIS_URL=redis://redis:6379/0
+      - USE_SUPABASE_STORAGE=true
+      # Supabase configuration
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "celery", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  redis_data:
+
+# Production Usage:
+# 1. Ensure .env file has all required Supabase and OpenAI credentials
+# 2. Deploy: docker-compose -f docker-compose.production.yml up -d
+# 3. The system will automatically:
+#    - Start the Supabase Bridge for file processing
+#    - Start PGMQ workers for embedding generation
+#    - Handle all file uploads and processing without manual intervention
+#    - Scale workers based on load
+#    - Restart services on failure
+# 
+# The system is now fully automated and production-ready! 

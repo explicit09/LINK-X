@@ -52,7 +52,7 @@ export default function FilePreviewPage() {
         console.log('Fetching file data for fileId:', fileId);
         
         const { data: fileData, error: fetchError } = await supabase
-          .from('educational_materials')
+          .from('files')
           .select('*')
           .eq('id', fileId)
           .single();
@@ -74,10 +74,10 @@ export default function FilePreviewPage() {
           filename: fileData.filename,
           file_type: fileData.file_type,
           file_size: fileData.file_size,
-          processed: fileData.processed || false,
+          processed: fileData.processing_status === 'completed' || false,
           uploaded_at: fileData.created_at,
-          s3_key: fileData.s3_key,
-          s3_bucket: fileData.s3_bucket
+          s3_key: fileData.storage_path,
+          s3_bucket: fileData.storage_bucket || 'course-files'
         };
         
         setFile(transformedFile);
@@ -94,6 +94,75 @@ export default function FilePreviewPage() {
       fetchFile();
     }
   }, [fileId]);
+
+  // ✅ NEW: Real-time subscription to file changes
+  useEffect(() => {
+    if (!fileId) return;
+
+    const subscription = supabase
+      .channel(`file:${fileId}`)
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'files', filter: `id=eq.${fileId}` },
+        (payload) => {
+          console.log('File updated:', payload.new);
+          const updatedData = payload.new as any;
+          
+          setFile(prev => prev ? {
+            ...prev,
+            processed: updatedData.processing_status === 'completed' || false,
+            // Update other fields that might have changed
+            title: updatedData.title || updatedData.filename,
+            filename: updatedData.filename,
+            file_type: updatedData.file_type,
+            file_size: updatedData.file_size,
+          } : null);
+          
+          // Show toast notification when processing completes
+          if (updatedData.processing_status === 'completed' && file && !file.processed) {
+            sonnerToast.success('File processing completed! AI features are now available.');
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [fileId, file?.processed]);
+
+  // ✅ NEW: Manual refresh function for debugging
+  const handleRefresh = async () => {
+    setLoading(true);
+    try {
+      const { data: fileData, error } = await supabase
+        .from('files')
+        .select('*')
+        .eq('id', fileId)
+        .single();
+      
+      if (error) throw error;
+      
+      const transformedFile: FileData = {
+        id: fileData.id,
+        title: fileData.title || fileData.filename,
+        filename: fileData.filename,
+        file_type: fileData.file_type,
+        file_size: fileData.file_size,
+        processed: fileData.processing_status === 'completed' || false,
+        uploaded_at: fileData.created_at,
+        s3_key: fileData.storage_path,
+        s3_bucket: fileData.storage_bucket || 'course-files'
+      };
+      
+      setFile(transformedFile);
+      sonnerToast.success('File status refreshed');
+    } catch (err) {
+      console.error('Error refreshing:', err);
+      sonnerToast.error('Failed to refresh file status');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Format file size
   const formatFileSize = (bytes: number) => {
@@ -124,7 +193,7 @@ export default function FilePreviewPage() {
       // Get signed URL for download from Supabase Storage
       const { data, error } = await supabase
         .storage
-        .from('educational-materials')
+        .from(file.s3_bucket || 'course-files')
         .createSignedUrl(file.s3_key, 300); // 5 minute expiry
       
       if (error) {
@@ -228,6 +297,17 @@ export default function FilePreviewPage() {
               >
                 <Download className="w-4 h-4 mr-2" />
                 Download
+              </Button>
+              
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleRefresh}
+                className="text-gray-700"
+                disabled={loading}
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Refresh
               </Button>
               
               <Button

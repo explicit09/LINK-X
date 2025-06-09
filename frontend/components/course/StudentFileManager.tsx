@@ -10,7 +10,8 @@ import {
   Folder,
   MoreVertical,
   Edit2,
-  X
+  X,
+  Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,6 +38,7 @@ import { StudentCourseUpload } from './StudentCourseUpload';
 import { useModules } from '@/lib/hooks/useDatabase';
 import { moduleOperations, fileOperations } from '@/lib/db/operations';
 import type { ModuleWithFiles, File } from '@/lib/db/types';
+import { useRouter } from 'next/navigation';
 
 interface StudentFileManagerProps {
   courseId: string;
@@ -46,6 +48,7 @@ interface StudentFileManagerProps {
 export function StudentFileManager({ courseId, className }: StudentFileManagerProps) {
   // ✅ NEW: Use direct Supabase operations
   const { modules, loading: isLoading, refetch: loadModules } = useModules(courseId);
+  const router = useRouter();
   
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
   const [showCreateModule, setShowCreateModule] = useState(false);
@@ -145,6 +148,12 @@ export function StudentFileManager({ courseId, className }: StudentFileManagerPr
       console.error('Failed to delete module:', error);
       sonnerToast.error('Failed to delete module. Make sure all files are deleted first.');
     }
+  };
+
+  // View file
+  const handleViewFile = (file: File, module: ModuleWithFiles) => {
+    // Navigate to the file viewer page
+    router.push(`/courses/${courseId}/modules/${module.id}/files/${file.id}`);
   };
 
   // Download file
@@ -304,7 +313,16 @@ export function StudentFileManager({ courseId, className }: StudentFileManagerPr
                               <Button
                                 variant="ghost"
                                 size="sm"
+                                onClick={() => handleViewFile(file, module)}
+                                title="View file"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => handleDownloadFile(file)}
+                                title="Download file"
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
@@ -312,6 +330,7 @@ export function StudentFileManager({ courseId, className }: StudentFileManagerPr
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setDeletingFile(file)}
+                                title="Delete file"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

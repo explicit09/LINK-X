@@ -364,6 +364,10 @@ export const fileOperations = {
 
     if (uploadError) throw uploadError
 
+    // Get current user for ownership tracking
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
     // Create file record in database with AI processing trigger
     const { data: fileRecord, error: dbError } = await supabase
       .from('files')
@@ -376,6 +380,8 @@ export const fileOperations = {
         storage_path: storagePath,
         storage_bucket: 'course-files',
         processing_status: 'pending', // Mark for AI processing
+        uploaded_by: user.id, // ✅ ADD: Track who uploaded the file
+        created_by: user.id,  // ✅ ADD: Track file creator
       })
       .select()
       .single()

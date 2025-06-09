@@ -129,8 +129,7 @@ services:
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
       - DATABASE_URL=${DATABASE_URL}
-      # OpenAI configuration (if not stored in database)
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # OpenAI configuration loaded from .env file
       # Worker specific settings
       - WORKER_ID=pgmq-worker-1
       - BATCH_SIZE=100
@@ -149,6 +148,42 @@ services:
     # No profiles - always runs automatically
     deploy:
       replicas: ${EMBEDDING_WORKERS:-3}  # Configurable worker count
+
+  # Supabase Bridge - Processes the processing_queue for file uploads and processing
+  supabase-bridge:
+    build:
+      <<: *default-build
+    image: learnx:optimized
+    restart: always
+    command: ["python", "-m", "services.supabase_bridge"]
+    env_file:
+      - ./docker-image/.env
+    environment:
+      - FLASK_ENV=${FLASK_ENV:-development}
+      - USE_SUPABASE_STORAGE=true
+      # Supabase configuration (from .env file)
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
+      - DATABASE_URL=${DATABASE_URL}
+      # OpenAI configuration loaded from .env file
+      # Bridge specific settings
+      - WORKER_ID=supabase-bridge-1
+      - BRIDGE_POLL_INTERVAL=${BRIDGE_POLL_INTERVAL:-10}
+      - BRIDGE_MAX_JOBS=${BRIDGE_MAX_JOBS:-3}
+    volumes:
+      - ./docker-image/src:/app/src:cached
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import psycopg2; conn = psycopg2.connect('${DATABASE_URL}'); conn.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # No profiles - always runs automatically for production deployment
 
   flower:
     build:
