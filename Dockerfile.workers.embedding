@@ -1,0 +1,68 @@
+# Railway Dockerfile for PGMQ Embedding Worker
+ARG PYTHON_VERSION=3.11
+
+# Build stage
+FROM python:${PYTHON_VERSION}-slim as builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+# Copy main app requirements (shared dependencies)
+COPY docker-image/src/requirements.txt ./main-requirements.txt
+
+# Copy worker-specific requirements
+COPY docker-image/src/workers/requirements.txt ./worker-requirements.txt
+
+# Install all dependencies
+RUN pip install --prefix=/usr/local -r main-requirements.txt -r worker-requirements.txt
+
+# Runtime stage
+FROM python:${PYTHON_VERSION}-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r worker && useradd -r -g worker worker
+
+WORKDIR /app
+
+# Copy Python dependencies from builder
+COPY --from=builder /usr/local /usr/local
+
+# Copy application core (needed for imports)
+COPY --chown=worker:worker docker-image/src/core/ ./core/
+COPY --chown=worker:worker docker-image/src/services/ ./services/
+COPY --chown=worker:worker docker-image/src/repositories/ ./repositories/
+COPY --chown=worker:worker docker-image/src/utils/ ./utils/
+COPY --chown=worker:worker docker-image/src/__init__.py ./
+
+# Copy worker-specific code
+COPY --chown=worker:worker docker-image/src/workers/pgmq_embedding_worker.py ./
+
+# Set environment variables for Railway optimization
+ENV PYTHONPATH=/app \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONMALLOC=malloc \
+    MALLOC_ARENA_MAX=2 \
+    WORKER_TYPE=embedding \
+    WORKER_ID=railway-embedding-worker
+
+# Health check
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
+    CMD python -c "import asyncio; import asyncpg; asyncio.run(asyncpg.connect('${DATABASE_URL}').execute('SELECT 1'))" || exit 1
+
+USER worker
+
+# Start the embedding worker
+CMD ["python", "pgmq_embedding_worker.py"] 
