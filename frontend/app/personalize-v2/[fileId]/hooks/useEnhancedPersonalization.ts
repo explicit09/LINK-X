@@ -45,20 +45,31 @@ export const useEnhancedPersonalization = (fileId: string) => {
   // Generate outline
   const generateOutline = useCallback(async () => {
     try {
-      const response = await apiClient.post('/api/v2/personalization/outline', {
+      // Use structured outline endpoint
+      const response = await apiClient.post('/api/v2/personalization/structured/structured-outline', {
         file_id: fileId
       });
-      // The base client auto-unwraps v2 API responses, so we get the outline directly
-      const outline = (response as any)?.outline || response || [];
+      // The response includes both outline and topics
+      const structuredOutline = response?.outline || [];
+      const topics = response?.topics || [];
+      
+      // Transform structured outline to match expected format
+      const formattedOutline = structuredOutline.map((topic: any) => ({
+        anchor: topic.id,
+        title: topic.title,
+        description: topic.description,
+        sections: topic.sections,
+        isComplete: false
+      }));
       
       setState(prev => ({
         ...prev,
-        outline,
+        outline: formattedOutline,
         sections: new Map(),
         error: null,
       }));
       
-      return outline;
+      return formattedOutline;
     } catch (error: any) {
       console.error('Error generating outline:', error);
       const errorMessage = error?.message || 'Failed to generate outline';
@@ -73,11 +84,50 @@ export const useEnhancedPersonalization = (fileId: string) => {
   // Handle stream events
   const handleStreamEvent = useCallback((event: StreamEvent) => {
     switch (event.type) {
+      case 'structured_outline':
+        // Handle structured outline from backend
+        const structuredOutline = event.data || [];
+        const formattedOutline = structuredOutline.map((topic: any) => ({
+          anchor: topic.id,
+          title: topic.title,
+          description: topic.description,
+          sections: topic.sections,
+          isComplete: false
+        }));
+        setState(prev => ({
+          ...prev,
+          outline: formattedOutline,
+        }));
+        break;
+        
       case 'outline':
         setState(prev => ({
           ...prev,
           outline: event.data,
         }));
+        break;
+        
+      case 'topic_start':
+        // Handle topic start event
+        setState(prev => ({
+          ...prev,
+          currentSection: event.topic_id || null,
+        }));
+        break;
+        
+      case 'topic_complete':
+        // Mark topic as complete
+        setState(prev => {
+          const newOutline = prev.outline.map(section => 
+            section.anchor === event.topic_id
+              ? { ...section, isComplete: true }
+              : section
+          );
+          return {
+            ...prev,
+            outline: newOutline,
+          };
+        });
         break;
 
       case 'section_start':
@@ -186,8 +236,8 @@ export const useEnhancedPersonalization = (fileId: string) => {
         const token = session.access_token;
         console.log('🔐 Enhanced Personalization: Got Supabase token:', token ? `${token.substring(0, 20)}...` : 'null');
         
-        // For EventSource, we need to pass token as URL parameter since headers aren't universally supported
-        const url = new URL(`/api/v2/personalization/stream`, baseURL);
+        // For EventSource, use structured streaming endpoint
+        const url = new URL(`/api/v2/personalization/structured/stream-structured`, baseURL);
         url.searchParams.append('file_id', fileId);
         url.searchParams.append('token', token);
         
@@ -312,7 +362,10 @@ export const useEnhancedPersonalization = (fileId: string) => {
         quality_score: 0.9, // This would come from actual quality assessment
       };
       
-      await apiClient.post(`/api/personalization/v2/save/${fileId}`, content);
+      await apiClient.post(`/api/v2/personalization/structured/save`, {
+        file_id: fileId,
+        ...content
+      });
       return true;
     } catch (error) {
       console.error('Error saving content:', error);

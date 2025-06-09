@@ -6,10 +6,10 @@ Implements caching for personalized content to improve performance
 import json
 import hashlib
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 
-from ..core.cache import redis_client
+from core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class PersonalizationCache:
     """
     
     def __init__(self, ttl_hours: int = 24):
-        self.redis = redis_client
+        self.cache = cache
         self.ttl = ttl_hours * 3600  # Convert to seconds
         self.namespace = "personalization"
         
@@ -62,12 +62,12 @@ class PersonalizationCache:
         try:
             cache_key = self._generate_cache_key(file_id, student_profile, section_id)
             
-            # Get from Redis
-            cached_data = self.redis.get(cache_key)
+            # Get from cache
+            cached_data = self.cache.get(cache_key)
             
             if cached_data:
                 logger.info(f"Cache hit for key: {cache_key}")
-                return json.loads(cached_data)
+                return cached_data
             else:
                 logger.info(f"Cache miss for key: {cache_key}")
                 return None
@@ -96,11 +96,11 @@ class PersonalizationCache:
                 '_cache_version': '1.0'
             }
             
-            # Store in Redis with TTL
-            self.redis.setex(
+            # Store in cache with TTL
+            self.cache.set(
                 cache_key,
-                self.ttl,
-                json.dumps(content_with_metadata)
+                content_with_metadata,
+                timeout=self.ttl
             )
             
             logger.info(f"Cached content for key: {cache_key}")
@@ -126,21 +126,10 @@ class PersonalizationCache:
                 # Invalidate all caches for the file
                 pattern = f"{self.namespace}:{file_id}:*"
             
-            # Find and delete matching keys
-            keys = []
-            cursor = 0
-            while True:
-                cursor, batch_keys = self.redis.scan(cursor, match=pattern, count=100)
-                keys.extend(batch_keys)
-                if cursor == 0:
-                    break
-            
-            if keys:
-                deleted = self.redis.delete(*keys)
-                logger.info(f"Invalidated {deleted} cache entries for pattern: {pattern}")
-                return deleted
-            else:
-                return 0
+            # Clear matching keys using cache manager
+            deleted = self.cache.clear_pattern(pattern)
+            logger.info(f"Invalidated {deleted} cache entries for pattern: {pattern}")
+            return deleted
                 
         except Exception as e:
             logger.error(f"Cache invalidation error: {e}")
@@ -151,25 +140,11 @@ class PersonalizationCache:
         Get cache statistics
         """
         try:
-            # Count total cached items
-            pattern = f"{self.namespace}:*"
-            total_keys = 0
-            cursor = 0
-            
-            while True:
-                cursor, keys = self.redis.scan(cursor, match=pattern, count=100)
-                total_keys += len(keys)
-                if cursor == 0:
-                    break
-            
-            # Get memory usage (approximate)
-            info = self.redis.info()
-            
+            # Basic stats available from cache manager
             return {
-                'total_cached_items': total_keys,
-                'memory_used_mb': info.get('used_memory', 0) / (1024 * 1024),
-                'hit_rate': self._calculate_hit_rate(),
-                'ttl_hours': self.ttl / 3600
+                'ttl_hours': self.ttl / 3600,
+                'cache_enabled': self.cache._ensure_redis(),
+                'namespace': self.namespace
             }
             
         except Exception as e:
@@ -178,18 +153,12 @@ class PersonalizationCache:
     
     def _calculate_hit_rate(self) -> float:
         """
-        Calculate cache hit rate from Redis stats
+        Calculate cache hit rate (simplified version)
         """
         try:
-            info = self.redis.info()
-            hits = info.get('keyspace_hits', 0)
-            misses = info.get('keyspace_misses', 0)
-            
-            total = hits + misses
-            if total > 0:
-                return (hits / total) * 100
-            else:
-                return 0.0
+            # This would require tracking hits/misses separately
+            # For now, return a placeholder
+            return 0.0
                 
         except:
             return 0.0
@@ -214,3 +183,7 @@ class PersonalizationCacheWarmer:
         # This would be called by a background task
         # Implementation depends on your specific needs
         pass
+
+
+# Alias for backward compatibility
+PersonalizationCacheService = PersonalizationCache

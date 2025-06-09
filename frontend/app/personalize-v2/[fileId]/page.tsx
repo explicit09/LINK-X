@@ -28,21 +28,73 @@ export default function PersonalizePageV2() {
   const [contextPanelOpen, setContextPanelOpen] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
-  const [progress, setProgress] = useState(18); // Example progress
   const [streamSpeed, setStreamSpeed] = useState(1.2);
   
   const {
     outline,
     sections,
     currentSection,
+    progress: actualProgress,
     isStreaming,
     error,
     generateOutline,
     startStreaming,
   } = useEnhancedPersonalization(fileId);
   
-  // Mock data for hierarchical structure
-  const topics = [
+  // State for automatic generation
+  const [hasStartedGeneration, setHasStartedGeneration] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  
+  // Auto-start the personalization flow
+  useEffect(() => {
+    const startAutomaticFlow = async () => {
+      if (!user || !fileId || hasStartedGeneration || isGenerating) return;
+      
+      try {
+        setHasStartedGeneration(true);
+        setIsGenerating(true);
+        
+        console.log('🚀 Starting automatic personalization flow for file:', fileId);
+        
+        // Generate outline
+        await generateOutline();
+        
+        // Small delay to show outline before streaming
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Start streaming automatically
+        await startStreaming();
+        
+        setIsGenerating(false);
+        
+      } catch (err: any) {
+        console.error('❌ Automatic flow failed:', err);
+        setIsGenerating(false);
+      }
+    };
+
+    // Start after a small delay to ensure everything is loaded
+    const timer = setTimeout(startAutomaticFlow, 100);
+    return () => clearTimeout(timer);
+  }, [user, fileId, hasStartedGeneration, isGenerating, generateOutline, startStreaming]);
+  
+  // Generate dynamic topics from outline
+  const topics = outline.map((section, index) => ({
+    id: section.anchor,
+    title: section.title,
+    completed: section.isComplete || false,
+    active: currentSection === section.anchor,
+    sections: [
+      { id: `${section.anchor}-intro`, title: 'Introduction', completed: false },
+      { id: `${section.anchor}-concepts`, title: 'Core Concepts', completed: false },
+      { id: `${section.anchor}-examples`, title: 'Examples', completed: false },
+      { id: `${section.anchor}-practice`, title: 'Practice', completed: false },
+      { id: `${section.anchor}-summary`, title: 'Summary', completed: false },
+    ]
+  }));
+  
+  // Mock data for hierarchical structure (fallback if no outline yet)
+  const fallbackTopics = [
     { id: '1', title: 'Introduction to Machine Learning', completed: true },
     { id: '2', title: 'Supervised Learning', completed: true },
     {
@@ -122,11 +174,11 @@ export default function PersonalizePageV2() {
           <div className="h-4 w-px bg-gray-300" />
           
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Progress {progress}%</span>
+            <span className="text-sm text-gray-600">Progress {actualProgress}%</span>
             <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-blue-500 transition-all duration-500"
-                style={{ width: `${progress}%` }}
+                style={{ width: `${actualProgress}%` }}
               />
             </div>
           </div>
@@ -158,7 +210,7 @@ export default function PersonalizePageV2() {
         {/* Outline Panel */}
         <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto">
           <HierarchicalOutline
-            topics={topics}
+            topics={topics.length > 0 ? topics : fallbackTopics}
             selectedTopic={selectedTopic}
             selectedSection={selectedSection}
             onTopicSelect={setSelectedTopic}
