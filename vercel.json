@@ -1,12 +1,11 @@
 {
-  "root": "frontend",
   "buildCommand": "npm run build --legacy-peer-deps",
-  "installCommand": "npm install --legacy-peer-deps",
-  "outputDirectory": ".next",
+  "installCommand": "npm install --legacy-peer-deps && cd frontend && npm install --legacy-peer-deps",
+  "outputDirectory": "frontend/.next",
   "framework": "nextjs",
   "regions": ["iad1"],
   "functions": {
-    "app/api/**/*": {
+    "frontend/app/api/**/*": {
       "maxDuration": 30
     }
   },
