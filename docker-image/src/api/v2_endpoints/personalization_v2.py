@@ -148,24 +148,17 @@ def stream_personalized_content():
             }
         ), 401
     
-    # Verify token and get user
+    # Verify token and get user using Supabase auth (same as auth_required decorator)
     user = None
     try:
-        # Use backend JWT token
-        from flask_jwt_extended import decode_token
-        payload = decode_token(token)
-        user_id = payload.get('sub') or payload.get('identity')
+        from core.decorators_unified import verify_supabase_token
+        auth_user = verify_supabase_token(token)
         
-        if user_id:
-            from db.schema import User
-            from core.database_supabase import db
-            user = db.session.query(User).filter_by(id=user_id).first()
-            if user:
-                g.current_user = user
-            else:
-                raise Exception(f"User not found for ID: {user_id}")
+        if auth_user:
+            g.current_user = auth_user
+            user = auth_user
         else:
-            raise Exception("No user ID in token")
+            raise Exception("Token verification failed")
             
     except Exception as e:
         logger.error(f"Token verification failed: {e}")

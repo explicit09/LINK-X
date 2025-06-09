@@ -173,7 +173,7 @@ export function UnifiedStudyMode({ className, courseId, courseTitle }: UnifiedSt
       // Active session exists - show timer and resume button
       return (
         <div className={cn(
-          "fixed bottom-6 right-6 z-50",
+          "fixed bottom-20 right-6 z-50",
           className
         )}>
           <div className="bg-white rounded-lg shadow-lg p-3 flex items-center gap-3">
@@ -205,7 +205,7 @@ export function UnifiedStudyMode({ className, courseId, courseTitle }: UnifiedSt
       <Button
         onClick={handleStartSession}
         className={cn(
-          "fixed bottom-6 right-6 z-50 shadow-lg hover:shadow-xl transition-all",
+          "fixed bottom-20 right-6 z-50 shadow-lg hover:shadow-xl transition-all",
           "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700",
           className
         )}

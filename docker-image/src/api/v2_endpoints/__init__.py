@@ -5,6 +5,7 @@ This module combines all v2 API endpoints into a single blueprint
 from flask import Blueprint, jsonify
 from datetime import datetime, timezone
 import logging
+from sqlalchemy import text
 
 # Import all sub-blueprints
 from .auth_unified import auth_unified_bp
@@ -65,7 +66,7 @@ def health_check_v2():
         # Check database
         db_status = "healthy"
         try:
-            db.session.execute('SELECT 1')
+            db.session.execute(text('SELECT 1'))
         except:
             db_status = "unhealthy"
         
