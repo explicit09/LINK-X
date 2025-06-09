@@ -6,7 +6,7 @@
   },
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "Dockerfile"
+    "dockerfilePath": "Dockerfile.railway"
   },
   "deploy": {
     "startCommand": "python -m services.supabase_bridge",

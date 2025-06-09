@@ -6,7 +6,7 @@
   },
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "Dockerfile"
+    "dockerfilePath": "Dockerfile.railway"
   },
   "deploy": {
     "startCommand": "gunicorn --bind 0.0.0.0:$PORT --workers 4 --timeout 300 --chdir /app/src app:create_app()",

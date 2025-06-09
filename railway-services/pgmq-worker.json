@@ -6,7 +6,7 @@
   },
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "Dockerfile"
+    "dockerfilePath": "Dockerfile.railway"
   },
   "deploy": {
     "startCommand": "python /app/src/startup/embedding_worker_init.py",
