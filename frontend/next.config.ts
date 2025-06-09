@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import path from 'path';
 
 /**
  * Next.js configuration - SIMPLIFIED to ensure stability
@@ -64,8 +65,16 @@ const nextConfig: NextConfig = {
     fallback: [],
   }),
   
-  // Webpack configuration for development stability
+  // Webpack configuration for development stability and path resolution
   webpack: (config, { isServer }) => {
+    // Add path aliases to help with module resolution
+    if (config.resolve) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        '@': path.resolve(__dirname),
+      };
+    }
+    
     if (!isServer && config.resolve) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
