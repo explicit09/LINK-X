@@ -14,7 +14,6 @@
     "NEXT_PUBLIC_API_URL": "@railway_api_url",
     "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key",
-    "NEXT_PUBLIC_SITE_URL": "@vercel_site_url",
     "NEXT_PUBLIC_API_VERSION": "v2",
     "NEXT_PUBLIC_ENABLE_GAMIFICATION": "true",
     "NEXT_PUBLIC_ENABLE_AI_FEATURES": "true",
