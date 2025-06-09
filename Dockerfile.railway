@@ -22,11 +22,15 @@ RUN pip install --prefix=/usr/local -r requirements.txt
 # Runtime stage
 FROM python:${PYTHON_VERSION}-slim
 
-# Install runtime dependencies
+# Install runtime dependencies including psycopg2 and bc for the startup script
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     curl \
+    bc \
     && rm -rf /var/lib/apt/lists/*
+
+# Install psycopg2-binary for database connectivity testing
+RUN pip install psycopg2-binary
 
 # Create non-root user with home directory
 RUN groupadd -r linkx && useradd -r -g linkx -d /home/linkx -m linkx
@@ -42,14 +46,18 @@ COPY --chown=linkx:linkx docker-image/docker/ ./docker/
 
 # Set permissions and create necessary directories
 RUN chmod +x /app/docker/*.sh && \
-    mkdir -p /app/logs /app/data && \
+    mkdir -p /app/logs /app/data /tmp/gunicorn && \
     chown -R linkx:linkx /app
 
 # Environment setup
 ENV PATH=/usr/local/bin:$PATH \
     PYTHONPATH=/app/src:$PYTHONPATH \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    GUNICORN_WORKER_CLASS=sync \
+    GUNICORN_MAX_REQUESTS=1000 \
+    GUNICORN_MAX_REQUESTS_JITTER=100 \
+    GUNICORN_PRELOAD_APP=true
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
@@ -58,5 +66,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 USER linkx
 EXPOSE 8000
 
-# Use shell form to expand PORT environment variable
-CMD gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 4 --timeout 300 --chdir /app/src "app:create_app()"
+# Use the Railway startup script for optimized deployment
+CMD ["/app/docker/railway-startup.sh"]

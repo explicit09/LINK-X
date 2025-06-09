@@ -32,6 +32,7 @@ class DatabaseManager:
         self.engine = None
         self.session_factory = None
         self.Session = None
+        self._database_url = None
         
         if app:
             self.init_app(app)
@@ -41,28 +42,32 @@ class DatabaseManager:
         try:
             # Get database URL from Supabase config
             database_url = get_database_url()
+            self._database_url = database_url
             
             if not database_url:
-                logger.warning("No database URL configured - running without database")
+                logger.error("No database URL configured - creating dummy session factory for compatibility")
+                # Create a dummy session factory to prevent NoneType errors
+                self.session_factory = sessionmaker()
+                self.Session = scoped_session(self.session_factory)
                 return
             
             # Configure SQLAlchemy
             app.config['SQLALCHEMY_DATABASE_URI'] = database_url
             app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
             
-            # Supabase-optimized settings for better connection management
-            if app.config.get('FLASK_ENV') == 'production':
-                # Production settings with conservative connection pooling
+            # Railway-optimized settings for memory-constrained environment
+            if os.getenv('RAILWAY_ENVIRONMENT') or app.config.get('FLASK_ENV') == 'production':
+                # Railway production settings with aggressive connection pooling
                 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-                    'pool_size': 10,  # Reduce pool size for Supabase
-                    'max_overflow': 20,
-                    'pool_timeout': 60,  # Increase timeout
-                    'pool_recycle': 3600,  # 1 hour - longer recycle
+                    'pool_size': 3,  # Very small pool for Railway
+                    'max_overflow': 7,  # Small overflow
+                    'pool_timeout': 30,  # Reduced timeout
+                    'pool_recycle': 1800,  # 30 minutes
                     'pool_pre_ping': True,
                     'pool_reset_on_return': 'rollback',
                     'connect_args': {
-                        'connect_timeout': 30,
-                        'application_name': 'learn-x-backend',
+                        'connect_timeout': 20,
+                        'application_name': f'learn-x-railway-{os.getpid()}',
                         'sslmode': 'require'
                     }
                 }
@@ -70,13 +75,13 @@ class DatabaseManager:
                 # Development settings with minimal connections
                 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
                     'pool_size': 2,  # Very small pool for dev
-                    'max_overflow': 5,
-                    'pool_timeout': 60,
-                    'pool_recycle': 3600,  # 1 hour
+                    'max_overflow': 3,
+                    'pool_timeout': 30,
+                    'pool_recycle': 1800,  # 30 minutes
                     'pool_pre_ping': True,
                     'pool_reset_on_return': 'rollback',
                     'connect_args': {
-                        'connect_timeout': 30,
+                        'connect_timeout': 15,
                         'application_name': 'learn-x-backend',
                         'sslmode': 'require'
                     }
@@ -92,7 +97,11 @@ class DatabaseManager:
                 **app.config.get('SQLALCHEMY_ENGINE_OPTIONS', {})
             )
             
-            # Test the connection during startup
+            # Create session factory BEFORE testing connection
+            self.session_factory = sessionmaker(bind=self.engine)
+            self.Session = scoped_session(self.session_factory)
+            
+            # Test the connection during startup (non-blocking)
             try:
                 with self.engine.connect() as conn:
                     result = conn.execute(text("SELECT 1"))
@@ -100,31 +109,52 @@ class DatabaseManager:
                 logger.info("Database connection test successful")
             except Exception as e:
                 logger.error(f"Database connection test failed: {e}")
-                logger.warning("Continuing without database - authentication will work but data operations will fail")
+                logger.warning("Session factory created but database connection failed - retrying later")
                 # Don't raise - allow app to start for authentication testing
             
-            # Create session factory
-            self.session_factory = sessionmaker(bind=self.engine)
-            self.Session = scoped_session(self.session_factory)
-            
-            # Add event listeners
-            self._setup_listeners()
+            # Add event listeners if engine exists
+            if self.engine:
+                self._setup_listeners()
             
             logger.info("Database manager initialized with Supabase")
             
         except Exception as e:
             logger.error(f"Database initialization failed: {e}")
-            logger.warning("Continuing without database - authentication will work but data operations will fail")
-            # Don't raise - allow app to start for authentication testing
+            logger.warning("Creating fallback session factory for compatibility")
+            # Create a minimal session factory to prevent NoneType errors
+            try:
+                if self._database_url:
+                    self.engine = create_engine(
+                        self._database_url,
+                        pool_size=1,
+                        max_overflow=0,
+                        pool_timeout=10,
+                        pool_pre_ping=True
+                    )
+                    self.session_factory = sessionmaker(bind=self.engine)
+                else:
+                    self.session_factory = sessionmaker()
+                self.Session = scoped_session(self.session_factory)
+            except Exception as inner_e:
+                logger.error(f"Failed to create fallback session factory: {inner_e}")
+                # Last resort: create an unbound session factory
+                self.session_factory = sessionmaker()
+                self.Session = scoped_session(self.session_factory)
     
     def _setup_listeners(self):
         """Set up SQLAlchemy event listeners"""
+        if not self.engine:
+            return
+            
         @event.listens_for(self.engine, "connect")
-        def set_sqlite_pragma(dbapi_connection, connection_record):
+        def set_postgresql_settings(dbapi_connection, connection_record):
             # Set PostgreSQL specific settings
-            cursor = dbapi_connection.cursor()
-            cursor.execute("SET TIME ZONE 'UTC'")
-            cursor.close()
+            try:
+                cursor = dbapi_connection.cursor()
+                cursor.execute("SET TIME ZONE 'UTC'")
+                cursor.close()
+            except Exception as e:
+                logger.warning(f"Failed to set PostgreSQL settings: {e}")
     
     @contextmanager
     def session_scope(self):
@@ -135,6 +165,9 @@ class DatabaseManager:
             with db_manager.session_scope() as session:
                 user = session.query(User).first()
         """
+        if not self.Session:
+            raise RuntimeError("Database session factory not initialized")
+            
         session = self.Session()
         try:
             yield session
@@ -148,6 +181,10 @@ class DatabaseManager:
     
     def health_check(self) -> bool:
         """Check database connectivity"""
+        if not self.engine:
+            logger.warning("No database engine available for health check")
+            return False
+            
         try:
             with self.engine.connect() as conn:
                 result = conn.execute(text("SELECT 1"))
@@ -159,6 +196,9 @@ class DatabaseManager:
     
     def get_pool_status(self) -> dict:
         """Get connection pool statistics"""
+        if not self.engine or not hasattr(self.engine, 'pool'):
+            return {'status': 'No pool available'}
+            
         pool = self.engine.pool
         return {
             'size': pool.size() if hasattr(pool, 'size') else 'N/A',
@@ -206,18 +246,22 @@ class DatabaseManager:
                 database_url = get_database_url()
             
             if not database_url:
-                raise RuntimeError("No database URL configured")
+                logger.warning("No database URL configured for standalone worker")
+                # Create fallback session factory
+                self.session_factory = sessionmaker()
+                self.Session = scoped_session(self.session_factory)
+                return
             
             # Worker-optimized settings for minimal resource usage
             engine_options = {
-                'pool_size': 2,  # Small pool for workers
-                'max_overflow': 3,
-                'pool_timeout': 60,
-                'pool_recycle': 3600,  # 1 hour
+                'pool_size': 1,  # Minimal pool for workers
+                'max_overflow': 2,
+                'pool_timeout': 30,
+                'pool_recycle': 1800,  # 30 minutes
                 'pool_pre_ping': True,
                 'pool_reset_on_return': 'rollback',
                 'connect_args': {
-                    'connect_timeout': 30,
+                    'connect_timeout': 15,
                     'application_name': f'learn-x-{worker_id}',
                     'sslmode': 'require'
                 }
@@ -226,15 +270,19 @@ class DatabaseManager:
             # Create engine
             self.engine = create_engine(database_url, **engine_options)
             
-            # Test the connection
-            with self.engine.connect() as conn:
-                result = conn.execute(text("SELECT 1"))
-                result.fetchone()
-            logger.info(f"Database connection test successful for {worker_id}")
-            
-            # Create session factory
+            # Create session factory first
             self.session_factory = sessionmaker(bind=self.engine)
             self.Session = scoped_session(self.session_factory)
+            
+            # Test the connection
+            try:
+                with self.engine.connect() as conn:
+                    result = conn.execute(text("SELECT 1"))
+                    result.fetchone()
+                logger.info(f"Database connection test successful for {worker_id}")
+            except Exception as e:
+                logger.error(f"Database connection test failed for {worker_id}: {e}")
+                # Keep session factory even if connection fails
             
             # Add event listeners
             self._setup_listeners()
@@ -243,7 +291,9 @@ class DatabaseManager:
             
         except Exception as e:
             logger.error(f"Standalone database initialization failed: {e}")
-            raise
+            # Create fallback session factory
+            self.session_factory = sessionmaker()
+            self.Session = scoped_session(self.session_factory)
 
 
 # Global instance
@@ -253,6 +303,8 @@ db_manager = DatabaseManager()
 # Helper functions for backward compatibility
 def get_db():
     """Get database session for use in repositories"""
+    if not db_manager.Session:
+        raise RuntimeError("Database session factory not initialized")
     session = db_manager.Session()
     try:
         yield session
