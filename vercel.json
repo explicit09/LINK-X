@@ -11,9 +11,9 @@
     }
   },
   "env": {
-    "NEXT_PUBLIC_API_URL": "$RAILWAY_API_URL",
-    "NEXT_PUBLIC_SUPABASE_URL": "$SUPABASE_URL",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "$SUPABASE_ANON_KEY",
+    "NEXT_PUBLIC_API_URL": "$NEXT_PUBLIC_API_URL",
+    "NEXT_PUBLIC_SUPABASE_URL": "$NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "$NEXT_PUBLIC_SUPABASE_ANON_KEY",
     "NEXT_PUBLIC_API_VERSION": "v2",
     "NEXT_PUBLIC_ENABLE_GAMIFICATION": "true",
     "NEXT_PUBLIC_ENABLE_AI_FEATURES": "true",
@@ -41,15 +41,15 @@
   "rewrites": [
     {
       "source": "/api/v2/:path*",
-      "destination": "$RAILWAY_API_URL/api/v2/:path*"
+      "destination": "$NEXT_PUBLIC_API_URL/api/v2/:path*"
     },
     {
       "source": "/api/v1/:path*",
-      "destination": "$RAILWAY_API_URL/api/v1/:path*"
+      "destination": "$NEXT_PUBLIC_API_URL/api/v1/:path*"
     },
     {
       "source": "/api/:path*",
-      "destination": "$RAILWAY_API_URL/api/:path*"
+      "destination": "$NEXT_PUBLIC_API_URL/api/:path*"
     }
   ]
 }
