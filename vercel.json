@@ -4,7 +4,6 @@
   "installCommand": "cd frontend && npm ci",
   "framework": "nextjs",
   "regions": ["iad1"],
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./frontend/",
   "functions": {
     "frontend/app/api/**/*": {
       "maxDuration": 30
